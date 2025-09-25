@@ -1,4 +1,4 @@
-![图标](./icon.svg)
+<img src="./icon.svg" alt="图标" width="30" height="30" />
 
 [Template] shortcuts
 
