@@ -1,4 +1,4 @@
-<img src="./icon.svg" alt="图标" width="40" height="40" />
+<img src="./template_icon.svg" alt="图标" width="40" height="40" />
 
 # [Template] shortcuts.js
 
