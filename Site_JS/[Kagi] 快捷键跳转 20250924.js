@@ -1,0 +1,348 @@
+// ==UserScript==
+// @name         [Kagi] 快捷键跳转 20250924
+// @namespace    0_V userscripts/[Kagi] shortcut
+// @version      6.2.0
+// @description  为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025
+// @match        https://*.kagi.com/*
+// @grant        GM_registerMenuCommand
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_xmlhttpRequest
+// @connect      *
+// @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Site_Icon/Kagi_keycap.svg
+// @require      https://github.com/0-V-linuxdo/-/raw/e17b029d255053ccec15e648156adbcec93924e5/%5BTemplate%5D%20%E5%BF%AB%E6%8D%B7%E9%94%AE%E8%B7%B3%E8%BD%AC%2020250924.js
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    if (!window.ShortcutTemplate || typeof window.ShortcutTemplate.createShortcutEngine !== 'function') {
+        console.error('[Kagi Shortcut] Template module not found.');
+        return;
+    }
+
+    const defaultIconURL = "https://kagi.com/favicon-32x32.png";
+
+    const defaultIcons = [
+        { name: "Kagi Search", url: "https://kagi.com/favicon-32x32.png" },
+        { name: "Kagi Assistant", url: "https://kagi.com/favicon-assistant-32x32.png" },
+        { name: "Kagi Translate", url: "https://translate.kagi.com/icons/favicon.ico" },
+        { name: "Google", url: "https://www.google.com/favicon.ico" },
+        { name: "Bing", url: "https://www.bing.com/favicon.ico" },
+        { name: "DuckDuckGo", url: "https://duckduckgo.com/favicon.ico" },
+        { name: "Baidu", url: "https://www.baidu.com/favicon.ico" },
+        { name: "Wikipedia", url: "https://www.wikipedia.org/static/favicon/wikipedia.ico" },
+        { name: "Reddit", url: "https://www.reddit.com/favicon.ico" },
+        { name: "Stack Overflow", url: "https://cdn.sstatic.net/Sites/stackoverflow/Img/favicon.ico" },
+        { name: "GitHub", url: "https://github.githubassets.com/favicons/favicon.svg" },
+        { name: "Twitter / X", url: "https://abs.twimg.com/favicons/twitter.3.ico" },
+        { name: "Bilibili", url: "https://www.bilibili.com/favicon.ico" },
+        { name: "YouTube", url: "https://www.youtube.com/favicon.ico" }
+    ];
+
+    const protectedIconUrls = [
+        "https://kagi.com/favicon-32x32.png",
+        "https://kagi.com/favicon-assistant-32x32.png",
+        "https://translate.kagi.com/icons/favicon.ico"
+    ];
+
+    const defaultShortcuts = [
+        {
+            name: "All Search",
+            actionType: "url",
+            url: "https://kagi.com/search?q=%s",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+K",
+            icon: "https://kagi.com/favicon-32x32.png"
+        },
+        {
+            name: "Images Search",
+            actionType: "url",
+            url: "https://kagi.com/images?q=%s",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+I",
+            icon: "https://kagi.com/favicon-32x32.png"
+        },
+        {
+            name: "Videos Search",
+            actionType: "url",
+            url: "https://kagi.com/videos?q=%s",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+SHIFT+V",
+            icon: "https://kagi.com/favicon-32x32.png"
+        },
+        {
+            name: "News Search",
+            actionType: "url",
+            url: "https://kagi.com/news?q=%s",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+SHIFT+N",
+            icon: "https://kagi.com/favicon-32x32.png"
+        },
+        {
+            name: "Podcasts Search",
+            actionType: "url",
+            url: "https://kagi.com/podcasts?q=%s",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+P",
+            icon: "https://kagi.com/favicon-32x32.png"
+        },
+        {
+            name: "Maps Search",
+            actionType: "url",
+            url: "https://kagi.com/maps?q=%s",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+SHIFT+M",
+            icon: "https://kagi.com/favicon-32x32.png"
+        },
+        {
+            name: "Toggle Sidebar",
+            actionType: "selector",
+            selector: 'label[for="thread-sidebar-visible"]',
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: "CTRL+B",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "New Thread",
+            actionType: "selector",
+            selector: 'a[href="/assistant"]',
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: "CTRL+N",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Toggle Web Access",
+            actionType: "selector",
+            selector: 'input[type="checkbox"][aria-label="Web Access"]',
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: "CTRL+W",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Upload Files",
+            actionType: "selector",
+            selector: 'label[for="fileInput"]',
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: "CTRL+F",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Voice Input",
+            actionType: "selector",
+            selector: 'button[aria-label="Voice input"]',
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: "CTRL+SHIFT+V",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Model Chooser",
+            actionType: "selector",
+            selector: 'button[id="profile-select"]',
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: "CTRL+M",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Lens Select",
+            actionType: "selector",
+            selector: 'button[id="lens-select"]',
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: "CTRL+L",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Go to Search",
+            actionType: "url",
+            url: "https://kagi.com/",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+1",
+            icon: "https://kagi.com/favicon-32x32.png"
+        },
+        {
+            name: "Go to Assistant",
+            actionType: "url",
+            url: "https://kagi.com/assistant",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+2",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Go to Summarizer",
+            actionType: "url",
+            url: "https://kagi.com/summarizer",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+3",
+            icon: "https://kagi.com/favicon-32x32.png"
+        },
+        {
+            name: "Go to FastGPT",
+            actionType: "url",
+            url: "https://kagi.com/fastgpt",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+4",
+            icon: "https://kagi.com/favicon-32x32.png"
+        },
+        {
+            name: "Go to Translate",
+            actionType: "url",
+            url: "https://translate.kagi.com",
+            urlMethod: "current",
+            urlAdvanced: "replace",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+5",
+            icon: "https://translate.kagi.com/icons/favicon.ico"
+        },
+        {
+            name: "billing",
+            actionType: "url",
+            url: "https://kagi.com/settings/billing",
+            urlMethod: "current",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+SHIFT+B",
+            icon: "data:image/svg+xml,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http://www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M3%2010H21M7%2015H7.01M11%2015H13M3%208A3%203%200%20016%205H18A3%203%200%200121%208V16A3%203%200%200118%2019H6A3%203%200%20013%2016V8Z%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E"
+        },
+        {
+            name: "Ki -Flag",
+            actionType: "url",
+            url: "https://kagi.com/flag/ki_lime_pie",
+            urlMethod: "current",
+            selector: "",
+            simulateKeys: "",
+            hotkey: "CTRL+SHIFT+K",
+            icon: ""
+        }
+    ];
+
+    const engine = window.ShortcutTemplate.createShortcutEngine({
+        menuCommandLabel: "Kagi - 设置快捷键",
+        panelTitle: "Kagi - 自定义快捷键",
+        storageKeys: {
+            shortcuts: "kagi_shortcuts_v1",
+            iconCachePrefix: "kagi_icon_cache_v1::",
+            userIcons: "kagi_user_icons_v1"
+        },
+        ui: {
+            idPrefix: "kagi",
+            cssPrefix: "kagi",
+            compactBreakpoint: 800
+        },
+        defaultIconURL,
+        iconLibrary: defaultIcons,
+        protectedIconUrls,
+        defaultShortcuts,
+        consoleTag: "[Kagi Shortcut Script]",
+        colors: {
+            primary: "#0066cc"
+        },
+        shouldBypassIconCache: (url) => {
+            return url && (url.startsWith('https://kagi.com/') || url.startsWith('https://translate.kagi.com/'));
+        },
+        getCurrentSearchTerm: () => {
+            const urlParams = new URL(location.href).searchParams;
+            return urlParams.get("q");
+        },
+        resolveUrlTemplate: (targetUrl, { getCurrentSearchTerm, placeholderToken }) => {
+            const placeholder = placeholderToken || '%s';
+            if (!targetUrl.includes(placeholder)) return targetUrl;
+            let currentKeyword = null;
+            try {
+                currentKeyword = typeof getCurrentSearchTerm === 'function'
+                    ? getCurrentSearchTerm()
+                    : (new URL(location.href).searchParams.get("q"));
+            } catch (err) {
+                console.warn("[Kagi Shortcut Script] resolveUrlTemplate error", err);
+            }
+            if (currentKeyword !== null && currentKeyword !== undefined) {
+                return targetUrl.replaceAll(placeholder, encodeURIComponent(currentKeyword));
+            }
+            if (placeholder === '%s' && targetUrl.includes('?')) {
+                return targetUrl.substring(0, targetUrl.indexOf('?'));
+            }
+            return targetUrl.replaceAll(placeholder, '');
+        },
+        text: {
+            stats: {
+                total: "总计",
+                url: "URL跳转",
+                selector: "元素点击",
+                simulate: "按键模拟"
+            },
+            buttons: {
+                addShortcut: "添加新快捷键",
+                saveAndClose: "保存并关闭",
+                confirm: "确定",
+                cancel: "取消",
+                delete: "删除",
+                edit: "编辑",
+                clear: "清除"
+            },
+            dialogs: {
+                alert: "提示",
+                confirm: "确认",
+                prompt: "输入"
+            },
+            hints: {
+                hotkey: "点击此处，然后按下快捷键组合",
+                simulate: "点击此处，然后按下要模拟的按键组合",
+                hotkeyHelp: "💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合",
+                simulateHelp: "⚡ 将模拟这个按键组合发送到网页"
+            }
+        }
+    });
+
+    engine.init();
+})();
