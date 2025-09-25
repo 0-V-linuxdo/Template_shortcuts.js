@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [DeepSeek] 快捷键跳转 20250925
+// @name         [DeepSeek] 快捷键跳转 20250925 Fixed
 // @namespace    0_V userscripts/[DeepSeek] shortcut
 // @version      2.0.1
 // @description  为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025
@@ -138,57 +138,6 @@
         },
         shouldBypassIconCache: (url) => {
             return url && url.startsWith('https://chat.deepseek.com/');
-        },
-        getCurrentSearchTerm: () => {
-            // DeepSeek doesn't typically use URL search params for chat content
-            // but we can check for any potential search-related functionality
-            try {
-                const urlParams = new URL(location.href).searchParams;
-                return urlParams.get("q") || urlParams.get("search") || null;
-            } catch {
-                return null;
-            }
-        },
-        resolveUrlTemplate: (targetUrl, { getCurrentSearchTerm, placeholderToken }) => {
-            const placeholder = placeholderToken || '%s';
-            if (!targetUrl.includes(placeholder)) return targetUrl;
-
-            let currentKeyword = null;
-            try {
-                // Try to get search term from various sources
-                currentKeyword = typeof getCurrentSearchTerm === 'function'
-                    ? getCurrentSearchTerm()
-                    : null;
-
-                // If no search term found, try to get text from currently focused input
-                if (!currentKeyword) {
-                    const activeElement = document.activeElement;
-                    if (activeElement && (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT')) {
-                        const selectedText = activeElement.value.substring(
-                            activeElement.selectionStart,
-                            activeElement.selectionEnd
-                        );
-                        if (selectedText) {
-                            currentKeyword = selectedText;
-                        } else if (activeElement.value) {
-                            currentKeyword = activeElement.value;
-                        }
-                    }
-                }
-            } catch (err) {
-                console.warn("[DeepSeek Shortcut Script] resolveUrlTemplate error", err);
-            }
-
-            if (currentKeyword !== null && currentKeyword !== undefined) {
-                return targetUrl.replaceAll(placeholder, encodeURIComponent(currentKeyword));
-            }
-
-            // If no keyword found, remove the search part for search URLs
-            if (placeholder === '%s' && targetUrl.includes('?')) {
-                return targetUrl.substring(0, targetUrl.indexOf('?'));
-            }
-
-            return targetUrl.replaceAll(placeholder, '');
         },
         text: {
             stats: {
