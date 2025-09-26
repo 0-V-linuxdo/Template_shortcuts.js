@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 20250926
+// @name         [ChatGPT] 快捷键跳转 20250927
 // @namespace    0_V userscripts/[ChatGPT] 快捷键跳转
 // @version      4.0.0
 // @description  为 ChatGPT 添加自定义快捷键管理功能（依赖 Template 模块）。支持URL跳转、元素点击、按键模拟，提供可视化设置面板、图标库、按类型筛选、暗黑模式适配等功能。
@@ -119,6 +119,17 @@
             hotkey: "CTRL+F",
             icon: "https://chatgpt.com/favicon.ico"
         },
+        {
+            name: "Temporary Chat",
+            actionType: "selector",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "button[aria-label*='temporary chat']",
+            simulateKeys: "",
+            hotkey: "CTRL+I",
+            icon: "https://chatgpt.com/favicon.ico"
+        },
         // --- 新的URL跳转 ---
         {
             name: "Model: o3",
@@ -129,28 +140,6 @@
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+3",
-            icon: "https://chatgpt.com/favicon.ico"
-        },
-        {
-            name: "Model: GPT-4o",
-            actionType: "url",
-            url: "https://chatgpt.com/?model=gpt-4o",
-            urlMethod: "spa",
-            urlAdvanced: "pushState",
-            selector: "",
-            simulateKeys: "",
-            hotkey: "CTRL+4",
-            icon: "https://chatgpt.com/favicon.ico"
-        },
-        {
-            name: "ChatGPT Home",
-            actionType: "url",
-            url: "https://chatgpt.com/",
-            urlMethod: "current",
-            urlAdvanced: "href",
-            selector: "",
-            simulateKeys: "",
-            hotkey: "CTRL+H",
             icon: "https://chatgpt.com/favicon.ico"
         }
     ];
