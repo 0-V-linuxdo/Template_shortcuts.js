@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [Kagi] 快捷键跳转 20250924
+// @name         [Kagi] 快捷键跳转 20251008
 // @namespace    0_V userscripts/[Kagi] shortcut
 // @version      6.2.0
 // @description  为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025
@@ -138,7 +138,7 @@
         {
             name: "Toggle Web Access",
             actionType: "selector",
-            selector: 'input[type="checkbox"][aria-label="Web Access"]',
+            selector: 'input[type="checkbox"][aria-label="Web access"]',
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
