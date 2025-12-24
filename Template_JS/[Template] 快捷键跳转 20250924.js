@@ -38,6 +38,7 @@
         iconLibrary: [],
         protectedIconUrls: [],
         defaultShortcuts: [],
+        customActions: {},
         colors: {
             primary: '#0066cc'
         },
@@ -51,7 +52,8 @@
                 total: '总计',
                 url: 'URL跳转',
                 selector: '元素点击',
-                simulate: '按键模拟'
+                simulate: '按键模拟',
+                custom: '自定义动作'
             },
             buttons: {
                 addShortcut: '添加新快捷键',
@@ -184,6 +186,7 @@
             ? GM_xmlhttpRequest
             : (typeof GM !== 'undefined' && GM.xmlHttpRequest ? GM.xmlHttpRequest : null);
 
+        let engineApi = null;
         let shortcuts = loadShortcuts();
 
         /* ------------------ 通用工具函数 ------------------ */
@@ -213,12 +216,13 @@
             const list = Array.isArray(stored) ? stored : [];
             return list.map(s => ({
                 name: s.name || "",
-                actionType: s.actionType || (s.url ? 'url' : (s.selector ? 'selector' : (s.simulateKeys ? 'simulate' : ''))),
+                actionType: s.actionType || (s.url ? 'url' : (s.selector ? 'selector' : (s.simulateKeys ? 'simulate' : (s.customAction ? 'custom' : '')))),
                 url: s.url || "",
                 urlMethod: s.urlMethod || "current",
                 urlAdvanced: s.urlAdvanced || "href",
                 selector: s.selector || "",
                 simulateKeys: s.simulateKeys || "",
+                customAction: s.customAction || "",
                 hotkey: s.hotkey || "",
                 icon: s.icon || ""
             }));
@@ -427,12 +431,14 @@
                 total: shortcuts.length,
                 url: 0,
                 selector: 0,
-                simulate: 0
+                simulate: 0,
+                custom: 0
             };
             shortcuts.forEach(shortcut => {
                 if (shortcut.actionType === 'url') stats.url++;
                 else if (shortcut.actionType === 'selector') stats.selector++;
                 else if (shortcut.actionType === 'simulate') stats.simulate++;
+                else if (shortcut.actionType === 'custom') stats.custom++;
             });
             return stats;
         }
@@ -1330,7 +1336,8 @@
                 { type: 'all', label: options.text.stats.total || "总计", count: stats.total, color: "#0066cc" },
                 { type: 'url', label: options.text.stats.url || "URL跳转", count: stats.url, color: "#4CAF50" },
                 { type: 'selector', label: options.text.stats.selector || "元素点击", count: stats.selector, color: "#FF9800" },
-                { type: 'simulate', label: options.text.stats.simulate || "按键模拟", count: stats.simulate, color: "#9C27B0" }
+                { type: 'simulate', label: options.text.stats.simulate || "按键模拟", count: stats.simulate, color: "#9C27B0" },
+                { type: 'custom', label: options.text.stats.custom || "自定义动作", count: stats.custom, color: "#607D8B" }
             ];
             filterButtons.forEach(buttonData => {
                 if (buttonData.type !== 'all' && buttonData.count === 0) return;
@@ -1425,7 +1432,8 @@
                 'all': "#0066cc",
                 'url': "#4CAF50",
                 'selector': "#FF9800",
-                'simulate': "#9C27B0"
+                'simulate': "#9C27B0",
+                'custom': "#607D8B"
             };
             return colorMap[filterType] || "#0066cc";
         }
@@ -1461,6 +1469,28 @@
         /* ------------------------------------------------------------------
          * 键盘事件
          * ------------------------------------------------------------------ */
+
+        function executeCustomAction(item, event) {
+            const key = (item && item.customAction) ? String(item.customAction) : "";
+            if (!key) {
+                console.warn(`${options.consoleTag} Shortcut "${item?.name || ''}" is type 'custom' but has no customAction defined.`);
+                return;
+            }
+            const actions = options.customActions && typeof options.customActions === 'object' ? options.customActions : null;
+            const fn = actions ? actions[key] : null;
+            if (typeof fn !== 'function') {
+                console.warn(`${options.consoleTag} Custom action "${key}" not found or not a function.`);
+                return;
+            }
+            try {
+                const res = fn({ shortcut: item, event, engine: engineApi });
+                if (res && typeof res.then === 'function') {
+                    res.catch(err => console.warn(`${options.consoleTag} Custom action "${key}" rejected:`, err));
+                }
+            } catch (err) {
+                console.warn(`${options.consoleTag} Custom action "${key}" failed:`, err);
+            }
+        }
 
         function onKeydown(e) {
             if (state.isSettingsPanelOpen) {
@@ -1542,6 +1572,9 @@
                             } else {
                                 console.warn(`${options.consoleTag} Shortcut "${item.name}" is type 'simulate' but has no simulateKeys defined.`);
                             }
+                            break;
+                        case 'custom':
+                            executeCustomAction(item, e);
                             break;
                         default:
                             console.warn(`${options.consoleTag} Shortcut "${item.name}" has unknown actionType: ${item.actionType}`);
@@ -1764,13 +1797,14 @@
                     case 'url': typeText = "URL跳转"; break;
                     case 'selector': typeText = "元素点击"; break;
                     case 'simulate': typeText = "按键模拟"; break;
+                    case 'custom': typeText = "自定义动作"; break;
                 }
                 tdType.textContent = typeText;
                 Object.assign(tdType.style, { fontSize: "0.9em", opacity: "0.8" });
                 styleTableCell(tdType, isDark);
 
                 const tdTarget = document.createElement("td");
-                const targetText = item.url || item.selector || item.simulateKeys || "-";
+                const targetText = item.url || item.selector || item.simulateKeys || item.customAction || "-";
                 tdTarget.textContent = targetText;
                 if (item.actionType === 'url' && item.url) {
                     const methodText = getUrlMethodDisplayText(item.urlMethod);
@@ -1852,6 +1886,7 @@
                     case 'url': typeText = "URL"; break;
                     case 'selector': typeText = "点击"; break;
                     case 'simulate': typeText = "按键"; break;
+                    case 'custom': typeText = "自定义"; break;
                 }
                 Object.assign(typeContainer.style, {
                     backgroundColor: getPrimaryColor(),
@@ -1905,7 +1940,7 @@
                     boxSizing: "border-box"
                 });
 
-                const targetText = item.url || item.selector || item.simulateKeys || "（无目标配置）";
+                const targetText = item.url || item.selector || item.simulateKeys || item.customAction || "（无目标配置）";
                 secondRow.textContent = targetText;
                 if (item.actionType === 'url' && item.url) {
                     const methodText = getUrlMethodDisplayText(item.urlMethod);
@@ -2084,12 +2119,14 @@
                     urlAdvanced: "href",
                     selector: "",
                     simulateKeys: "",
+                    customAction: "",
                     hotkey: "",
                     icon: ""
                 };
                 if (item && !item.actionType) {
-                    temp.actionType = item.url ? 'url' : (item.selector ? 'selector' : (item.simulateKeys ? 'simulate' : 'url'));
+                    temp.actionType = item.url ? 'url' : (item.selector ? 'selector' : (item.simulateKeys ? 'simulate' : (item.customAction ? 'custom' : 'url')));
                 }
+                if (!temp.customAction) temp.customAction = "";
                 if (!temp.urlMethod) temp.urlMethod = "current";
                 if (!temp.urlAdvanced) temp.urlAdvanced = "href";
 
@@ -2130,7 +2167,8 @@
                 const actionTypes = [
                     { value: 'url', text: 'URL 跳转' },
                     { value: 'selector', text: '元素点击' },
-                    { value: 'simulate', text: '按键模拟' }
+                    { value: 'simulate', text: '按键模拟' },
+                    { value: 'custom', text: '自定义动作' }
                 ];
                 const radioGroup = document.createElement("div");
                 Object.assign(radioGroup.style, { display: 'flex', gap: '15px', flexWrap: 'wrap' });
@@ -2150,6 +2188,7 @@
                             urlContainer.style.display = (at.value === 'url') ? 'block' : 'none';
                             selectorContainer.style.display = (at.value === 'selector') ? 'block' : 'none';
                             simulateContainer.style.display = (at.value === 'simulate') ? 'block' : 'none';
+                            customContainer.style.display = (at.value === 'custom') ? 'block' : 'none';
                         }
                     });
                     radioLabel.appendChild(radio);
@@ -2184,6 +2223,27 @@
                 simulateContainer.appendChild(simulateInputContainer);
                 formDiv.appendChild(simulateContainer);
 
+                const customContainer = document.createElement('div');
+                const customActionField = createInputField("自定义动作 (customAction):", temp.customAction, "text", "从脚本提供的 customActions 中选择/输入 key");
+                customContainer.appendChild(customActionField.label);
+                formDiv.appendChild(customContainer);
+                actionInputs.customAction = customActionField.input;
+
+                try {
+                    const keys = Object.keys(options.customActions || {}).filter(Boolean).sort();
+                    if (keys.length) {
+                        const datalist = document.createElement("datalist");
+                        datalist.id = `${idPrefix}-custom-actions-list`;
+                        keys.forEach(k => {
+                            const opt = document.createElement("option");
+                            opt.value = k;
+                            datalist.appendChild(opt);
+                        });
+                        customActionField.input.setAttribute("list", datalist.id);
+                        customActionField.label.appendChild(datalist);
+                    }
+                } catch {}
+
                 const { label: iconLabel, input: iconTextarea, preview: iconPreview } = createIconField("图标URL:", temp.icon);
                 formDiv.appendChild(iconLabel);
 
@@ -2210,6 +2270,7 @@
                 urlContainer.style.display = (temp.actionType === 'url') ? 'block' : 'none';
                 selectorContainer.style.display = (temp.actionType === 'selector') ? 'block' : 'none';
                 simulateContainer.style.display = (temp.actionType === 'simulate') ? 'block' : 'none';
+                customContainer.style.display = (temp.actionType === 'custom') ? 'block' : 'none';
 
                 const btnRow = document.createElement("div");
                 Object.assign(btnRow.style, {
@@ -2224,6 +2285,7 @@
                     temp.url = actionInputs.url.value.trim();
                     temp.selector = actionInputs.selector.value.trim();
                     temp.simulateKeys = getSimulateKeys().replace(/\s+/g, "");
+                    temp.customAction = (actionInputs.customAction?.value || "").trim();
                     temp.icon = iconTextarea.value.trim();
                     const finalHotkey = getHotkey();
                     const urlMethodConfig = urlMethodContainer.getConfig();
@@ -2234,6 +2296,7 @@
                     if (temp.actionType === 'url' && !temp.url) { showAlert("请填写目标网址!"); return; }
                     if (temp.actionType === 'selector' && !temp.selector) { showAlert("请填写目标选择器!"); return; }
                     if (temp.actionType === 'simulate' && !temp.simulateKeys) { showAlert("请设置模拟按键!"); return; }
+                    if (temp.actionType === 'custom' && !temp.customAction) { showAlert("请设置自定义动作 key!"); return; }
                     if (!finalHotkey) { showAlert("请设置快捷键!"); return; }
                     if (finalHotkey.endsWith('+')) { showAlert("快捷键设置不完整 (缺少主键)!"); return; }
 
@@ -2251,6 +2314,7 @@
                     }
                     if (temp.actionType !== 'selector') temp.selector = "";
                     if (temp.actionType !== 'simulate') temp.simulateKeys = "";
+                    if (temp.actionType !== 'custom') temp.customAction = "";
 
                     if (isNew) {
                         shortcuts.push(temp);
@@ -2280,6 +2344,7 @@
                     styleInputField(nameInput.input, isDark);
                     styleInputField(actionInputs.url, isDark);
                     styleInputField(actionInputs.selector, isDark);
+                    if (actionInputs.customAction) styleInputField(actionInputs.customAction, isDark);
                     styleInputField(iconTextarea, isDark);
                     actionTypeDiv.querySelectorAll('input[type="radio"]').forEach(rb => rb.style.accentColor = getPrimaryColor());
                     urlMethodContainer.updateTheme(isDark);
@@ -3100,19 +3165,20 @@
             if (!Array.isArray(newShortcuts)) return;
             shortcuts = newShortcuts.map(s => ({
                 name: s.name || "",
-                actionType: s.actionType || (s.url ? 'url' : (s.selector ? 'selector' : (s.simulateKeys ? 'simulate' : ''))),
+                actionType: s.actionType || (s.url ? 'url' : (s.selector ? 'selector' : (s.simulateKeys ? 'simulate' : (s.customAction ? 'custom' : '')))),
                 url: s.url || "",
                 urlMethod: s.urlMethod || "current",
                 urlAdvanced: s.urlAdvanced || "href",
                 selector: s.selector || "",
                 simulateKeys: s.simulateKeys || "",
+                customAction: s.customAction || "",
                 hotkey: s.hotkey || "",
                 icon: s.icon || ""
             }));
             saveShortcuts();
         }
 
-        return {
+        engineApi = {
             init,
             destroy,
             openSettingsPanel,
@@ -3120,6 +3186,7 @@
             setShortcuts,
             URL_METHODS
         };
+        return engineApi;
     }
 
     global.ShortcutTemplate = Object.freeze({
