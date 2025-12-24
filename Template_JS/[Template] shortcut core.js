@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 20250924
+// @name         [Template] 快捷键跳转 20251224
 // @namespace    0_V userscripts/[Template] shortcut
 // @version      1.0.1
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)。
