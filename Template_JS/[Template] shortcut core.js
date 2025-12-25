@@ -2845,14 +2845,39 @@
 		                const container = document.createElement("div");
 		                container.id = ids.stats;
 		                Object.assign(container.style, {
-		                    display: "block",
+		                    position: "relative",
 		                    flex: "0 1 auto",
-		                    minWidth: "0",
-		                    padding: "2px 0",
+		                    minWidth: "0"
+		                });
+
+		                const SCROLLBAR_HEIGHT_PX = 18;
+		                const scrollbar = document.createElement("div");
+		                Object.assign(scrollbar.style, {
+		                    position: "absolute",
+		                    left: "0",
+		                    right: "0",
+		                    top: `-${SCROLLBAR_HEIGHT_PX}px`,
+		                    height: `${SCROLLBAR_HEIGHT_PX}px`,
 		                    overflowX: "auto",
 		                    overflowY: "hidden",
 		                    WebkitOverflowScrolling: "touch",
-		                    transform: "scaleY(-1)"
+		                    display: "none"
+		                });
+
+		                const scrollbarSpacer = document.createElement("div");
+		                Object.assign(scrollbarSpacer.style, {
+		                    width: "0px",
+		                    height: "1px"
+		                });
+		                scrollbar.appendChild(scrollbarSpacer);
+
+		                const viewport = document.createElement("div");
+		                Object.assign(viewport.style, {
+		                    width: "100%",
+		                    boxSizing: "border-box",
+		                    padding: "2px 0",
+		                    overflowX: "hidden",
+		                    overflowY: "hidden"
 		                });
 
 		                const row = document.createElement("div");
@@ -2861,7 +2886,7 @@
 		                    alignItems: "center",
 		                    gap: "8px",
 		                    flexWrap: "nowrap",
-		                    transform: "scaleY(-1)"
+		                    willChange: "transform"
 		                });
 
 		                const filterButtons = [
@@ -2876,7 +2901,66 @@
 		                    const button = createFilterButton(buttonData.label, buttonData.count, buttonData.color, buttonData.type);
 		                    row.appendChild(button);
 		                });
-		                container.appendChild(row);
+
+		                const sync = () => {
+		                    if (!container.isConnected) return;
+		                    const viewportWidth = viewport.clientWidth || 0;
+		                    const contentWidth = row.scrollWidth || 0;
+		                    const hasOverflow = contentWidth > viewportWidth + 1;
+		                    scrollbar.style.display = hasOverflow ? "block" : "none";
+		                    if (!hasOverflow) {
+		                        scrollbar.scrollLeft = 0;
+		                        scrollbarSpacer.style.width = "0px";
+		                        row.style.transform = "";
+		                        return;
+		                    }
+		                    scrollbarSpacer.style.width = `${contentWidth}px`;
+		                    const maxScroll = Math.max(0, contentWidth - viewportWidth);
+		                    if (scrollbar.scrollLeft > maxScroll) scrollbar.scrollLeft = maxScroll;
+		                    row.style.transform = `translateX(${-scrollbar.scrollLeft}px)`;
+		                };
+
+		                const scheduleSync = debounce(() => {
+		                    requestAnimationFrame(() => {
+		                        try { sync(); } catch {}
+		                    });
+		                }, 60);
+
+		                scrollbar.addEventListener("scroll", () => {
+		                    requestAnimationFrame(() => {
+		                        row.style.transform = `translateX(${-scrollbar.scrollLeft}px)`;
+		                    });
+		                });
+
+		                viewport.addEventListener(
+		                    "wheel",
+		                    (e) => {
+		                        if (scrollbar.style.display === "none") return;
+		                        const deltaX = Number(e.deltaX || 0);
+		                        const deltaY = Number(e.deltaY || 0);
+		                        const delta = Math.abs(deltaX) > 0 ? deltaX : (e.shiftKey ? deltaY : 0);
+		                        if (!delta) return;
+		                        e.preventDefault();
+		                        scrollbar.scrollLeft += delta;
+		                    },
+		                    { passive: false }
+		                );
+
+		                if (window.ResizeObserver) {
+		                    const ro = new ResizeObserver(() => scheduleSync());
+		                    ro.observe(container);
+		                    ro.observe(row);
+		                } else {
+		                    window.addEventListener("resize", scheduleSync);
+		                }
+
+		                viewport.appendChild(row);
+		                container.appendChild(scrollbar);
+		                container.appendChild(viewport);
+
+		                requestAnimationFrame(() => {
+		                    try { sync(); } catch {}
+		                });
 		                return container;
 		            }
 
