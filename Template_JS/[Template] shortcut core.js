@@ -3669,19 +3669,24 @@
 	                    if (!headerContainer.isConnected) return;
 	                    const statsContainerEl = document.getElementById(ids.stats);
 	                    if (!statsContainerEl) return;
-	
-		                    const headerWidth = headerContainer.clientWidth;
-		                    const actionsWidth = actionsContainer.offsetWidth;
-		                    const searchWidth = searchWidget.offsetWidth;
-		                    const firstPill = statsContainerEl.querySelector("button");
-		                    const minStatsContainerWidth = firstPill ? firstPill.offsetWidth : 120;
-		                    const reservedStatsContainerWidth = Math.min(
-		                        statsContainerEl.scrollWidth,
-		                        Math.max(minStatsContainerWidth, 0)
-		                    );
-		                    const requiredStatsRowWidth = searchWidth + statsRowGapPx + reservedStatsContainerWidth;
-		                    const maxTitleWidth = headerWidth - actionsWidth - headerGapPx * 2 - requiredStatsRowWidth;
-	
+
+	                    const headerWidth = headerContainer.clientWidth;
+	                    const actionsWidth = actionsContainer.offsetWidth;
+	                    const searchWidth = searchWidget.offsetWidth;
+	                    const statsStyle = window.getComputedStyle(statsContainerEl);
+	                    const statsGapPx = Number.parseFloat(statsStyle.columnGap || statsStyle.gap || "0") || 0;
+	                    const statsPaddingLeftPx = Number.parseFloat(statsStyle.paddingLeft || "0") || 0;
+	                    const statsPaddingRightPx = Number.parseFloat(statsStyle.paddingRight || "0") || 0;
+
+	                    const statButtons = Array.from(statsContainerEl.children).filter((el) => el && el.nodeType === 1);
+	                    const buttonsWidth = statButtons.reduce((sum, el) => sum + (el.offsetWidth || 0), 0);
+	                    const buttonsGapWidth = Math.max(0, statButtons.length - 1) * statsGapPx;
+	                    const requiredStatsContainerWidth =
+	                        buttonsWidth + buttonsGapWidth + statsPaddingLeftPx + statsPaddingRightPx;
+
+	                    const requiredStatsRowWidth = searchWidth + statsRowGapPx + requiredStatsContainerWidth;
+	                    const maxTitleWidth = headerWidth - actionsWidth - headerGapPx * 2 - requiredStatsRowWidth;
+
 	                    if (maxTitleWidth <= minTitleVisiblePx) {
 	                        title.style.display = "none";
 	                        title.style.maxWidth = "";
