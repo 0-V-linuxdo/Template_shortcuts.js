@@ -2781,17 +2781,18 @@
             }
 
             function createFilterButton(label, count, color, filterType) {
-                const button = document.createElement("button");
-                button.className = classes.filterButton;
-                button.dataset.filterType = filterType;
-                button.type = "button";
-                const isActive = state.currentFilter === filterType;
-                Object.assign(button.style, {
-                    display: "inline-flex",
-                    alignItems: "center",
-                    padding: "6px 12px",
-                    borderRadius: "12px",
-                    fontSize: "12px",
+	                const button = document.createElement("button");
+	                button.className = classes.filterButton;
+	                button.dataset.filterType = filterType;
+	                button.type = "button";
+	                const isActive = state.currentFilter === filterType;
+	                Object.assign(button.style, {
+	                    flex: "0 0 auto",
+	                    display: "inline-flex",
+	                    alignItems: "center",
+	                    padding: "6px 12px",
+	                    borderRadius: "12px",
+	                    fontSize: "12px",
                     fontWeight: "bold",
                     color: isActive ? "white" : color,
                     backgroundColor: isActive ? color : "transparent",
@@ -2839,16 +2840,22 @@
                 return button;
             }
 
-            function createStatsDisplay() {
-                const stats = getShortcutStats();
-                const container = document.createElement("div");
-                container.id = ids.stats;
-                Object.assign(container.style, {
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    flexWrap: "wrap"
-                });
+	            function createStatsDisplay() {
+	                const stats = getShortcutStats();
+	                const container = document.createElement("div");
+	                container.id = ids.stats;
+	                Object.assign(container.style, {
+	                    display: "flex",
+	                    alignItems: "center",
+	                    gap: "8px",
+	                    flex: "1 1 auto",
+	                    minWidth: "0",
+	                    padding: "2px 0",
+	                    flexWrap: "nowrap",
+	                    overflowX: "auto",
+	                    overflowY: "hidden",
+	                    WebkitOverflowScrolling: "touch"
+	                });
 
                 const filterButtons = [
                     { type: 'all', label: options.text.stats.total || "总计", count: stats.total, color: "#0066cc" },
@@ -2931,34 +2938,40 @@
             });
             panel.onclick = (e) => e.stopPropagation();
 
-            const headerContainer = document.createElement("div");
-            Object.assign(headerContainer.style, {
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "15px",
-                paddingBottom: "10px",
-                flexWrap: "wrap",
-                gap: "10px"
-            });
-
-            const title = document.createElement("h2");
-            title.textContent = options.panelTitle || '自定义快捷键';
-            Object.assign(title.style, {
-                margin: "0",
-                fontSize: "1.1em",
-                flexShrink: "0"
-            });
-            headerContainer.appendChild(title);
-
-	            const actionsContainer = document.createElement("div");
-	            Object.assign(actionsContainer.style, {
+	            const headerContainer = document.createElement("div");
+	            Object.assign(headerContainer.style, {
 	                display: "flex",
+	                justifyContent: "flex-start",
 	                alignItems: "center",
-	                justifyContent: "flex-end",
-	                gap: "6px",
-	                flex: "0 0 auto"
+	                marginBottom: "15px",
+	                paddingBottom: "10px",
+	                flexWrap: "nowrap",
+	                gap: "10px",
+	                minWidth: "0"
 	            });
+
+	            const title = document.createElement("h2");
+	            title.textContent = options.panelTitle || '自定义快捷键';
+	            Object.assign(title.style, {
+	                margin: "0",
+	                fontSize: "1.1em",
+	                flex: "0 1 auto",
+	                minWidth: "0",
+	                overflow: "hidden",
+	                textOverflow: "ellipsis",
+	                whiteSpace: "nowrap"
+	            });
+	            headerContainer.appendChild(title);
+
+		            const actionsContainer = document.createElement("div");
+		            Object.assign(actionsContainer.style, {
+		                display: "flex",
+		                alignItems: "center",
+		                justifyContent: "flex-end",
+		                gap: "6px",
+		                flex: "0 0 auto",
+		                marginLeft: "auto"
+		            });
 
 	            const settingsBtn = document.createElement("button");
 	            settingsBtn.type = "button";
@@ -3130,14 +3143,15 @@
 	            updateClearSearchVisibility();
 	            setSearchExpanded(isSearchExpanded);
 
-	            const statsRow = document.createElement("div");
-	            Object.assign(statsRow.style, {
-	                display: "flex",
-	                alignItems: "center",
-	                gap: "8px",
-	                flex: "1 1 auto",
-	                minWidth: "0"
-	            });
+		            const statsRow = document.createElement("div");
+		            Object.assign(statsRow.style, {
+		                display: "flex",
+		                alignItems: "center",
+		                gap: "8px",
+		                flex: "1 1 auto",
+		                minWidth: "0",
+		                flexWrap: "nowrap"
+		            });
 
 	            const statsContainer = createStatsDisplay();
 
