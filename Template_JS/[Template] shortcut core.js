@@ -2951,11 +2951,8 @@
             });
             headerContainer.appendChild(title);
 
-	            const statsContainer = createStatsDisplay();
-	            headerContainer.appendChild(statsContainer);
-
-	            const searchContainer = document.createElement("div");
-	            Object.assign(searchContainer.style, {
+	            const actionsContainer = document.createElement("div");
+	            Object.assign(actionsContainer.style, {
 	                display: "flex",
 	                alignItems: "center",
 	                justifyContent: "flex-end",
@@ -3133,12 +3130,26 @@
 	            updateClearSearchVisibility();
 	            setSearchExpanded(isSearchExpanded);
 
+	            const statsRow = document.createElement("div");
+	            Object.assign(statsRow.style, {
+	                display: "flex",
+	                alignItems: "center",
+	                gap: "8px",
+	                flex: "1 1 auto",
+	                minWidth: "0"
+	            });
+
+	            const statsContainer = createStatsDisplay();
+
 	            searchWidget.appendChild(searchIconBtn);
 	            searchWidget.appendChild(searchInput);
 	            searchWidget.appendChild(clearSearchBtn);
-	            searchContainer.appendChild(settingsBtn);
-	            searchContainer.appendChild(searchWidget);
-	            headerContainer.appendChild(searchContainer);
+	            statsRow.appendChild(searchWidget);
+	            statsRow.appendChild(statsContainer);
+	            headerContainer.appendChild(statsRow);
+
+	            actionsContainer.appendChild(settingsBtn);
+	            headerContainer.appendChild(actionsContainer);
 
 	            panel.appendChild(headerContainer);
 
