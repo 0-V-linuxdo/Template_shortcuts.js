@@ -689,25 +689,31 @@
                 fallbackToFirst = false,
                 waitForItem = false
             } = {}) {
-                const roots = getOpenMenuRoots(ctx, { includeRoot: true, includeSubmenus: true });
                 const selectorList = resolveSelectorListFromSpec(ctx, selector);
-                if (selectorList.length === 0 || roots.length === 0) return false;
+                if (selectorList.length === 0) return false;
 
-                for (const rootEl of roots) {
-                    for (const sel of selectorList) {
-                        const target = waitForItem
-                            ? await waitForMatch(rootEl, sel, {
-                                textMatch,
-                                normalize,
-                                fallbackToFirst,
-                                timeoutMs: timing.waitTimeoutMs,
-                                intervalMs: timing.pollIntervalMs
-                            })
-                            : findFirst(rootEl, sel, { textMatch, normalize, fallbackToFirst });
-                        if (target && simulateClick(target)) return true;
+                const tryClickOnce = () => {
+                    const roots = getOpenMenuRoots(ctx, { includeRoot: true, includeSubmenus: true }).filter(Boolean);
+                    if (roots.length === 0) return false;
+                    for (const rootEl of roots) {
+                        for (const sel of selectorList) {
+                            const target = findFirst(rootEl, sel, { textMatch, normalize, fallbackToFirst });
+                            if (target && simulateClick(target)) return true;
+                        }
                     }
+                    return false;
+                };
+
+                if (!waitForItem) return tryClickOnce();
+
+                const timeoutMs = timing.waitTimeoutMs ?? DEFAULT_TIMING.waitTimeoutMs;
+                const intervalMs = timing.pollIntervalMs ?? DEFAULT_TIMING.pollIntervalMs;
+                const start = Date.now();
+                while (Date.now() - start < timeoutMs) {
+                    if (tryClickOnce()) return true;
+                    await sleep(intervalMs);
                 }
-                return false;
+                return tryClickOnce();
             }
 
             async function oneStepClick(ctx, {
@@ -720,14 +726,19 @@
             } = {}) {
                 if (!selector) return false;
                 if (await clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem: false })) return true;
-                if (await ensureOpen(ctx)) {
-                    if (await clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem })) return true;
-                }
-                for (const key of (Array.isArray(openSubmenus) ? openSubmenus : [])) {
+
+                if (!await ensureOpen(ctx)) return false;
+
+                if (await clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem: false })) return true;
+
+                const submenuKeys = Array.isArray(openSubmenus) ? openSubmenus.filter(Boolean) : [];
+                for (const key of submenuKeys) {
                     await ensureSubmenuOpen(ctx, key);
-                    if (await clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem })) return true;
+                    if (await clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem: false })) return true;
                 }
-                return false;
+
+                if (!waitForItem) return false;
+                return await clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem: true });
             }
 
             function createControllerApi() {
