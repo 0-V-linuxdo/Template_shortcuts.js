@@ -2950,28 +2950,27 @@
 	                minWidth: "0"
 	            });
 
-	            const title = document.createElement("h2");
-	            title.textContent = options.panelTitle || '自定义快捷键';
-	            Object.assign(title.style, {
-	                margin: "0",
-	                fontSize: "1.1em",
-	                flex: "0 1 auto",
-	                minWidth: "0",
-	                overflow: "hidden",
-	                textOverflow: "ellipsis",
-	                whiteSpace: "nowrap"
-	            });
+		            const title = document.createElement("h2");
+		            title.textContent = options.panelTitle || '自定义快捷键';
+		            Object.assign(title.style, {
+		                margin: "0",
+		                fontSize: "1.1em",
+		                flex: "0 999 auto",
+		                minWidth: "0",
+		                overflow: "hidden",
+		                textOverflow: "ellipsis",
+		                whiteSpace: "nowrap"
+		            });
 	            headerContainer.appendChild(title);
 
 		            const actionsContainer = document.createElement("div");
-		            Object.assign(actionsContainer.style, {
-		                display: "flex",
-		                alignItems: "center",
-		                justifyContent: "flex-end",
-		                gap: "6px",
-		                flex: "0 0 auto",
-		                marginLeft: "auto"
-		            });
+			            Object.assign(actionsContainer.style, {
+			                display: "flex",
+			                alignItems: "center",
+			                justifyContent: "flex-end",
+			                gap: "6px",
+			                flex: "0 0 auto"
+			            });
 
 	            const settingsBtn = document.createElement("button");
 	            settingsBtn.type = "button";
@@ -3144,14 +3143,14 @@
 	            setSearchExpanded(isSearchExpanded);
 
 		            const statsRow = document.createElement("div");
-		            Object.assign(statsRow.style, {
-		                display: "flex",
-		                alignItems: "center",
-		                gap: "8px",
-		                flex: "1 1 auto",
-		                minWidth: "0",
-		                flexWrap: "nowrap"
-		            });
+			            Object.assign(statsRow.style, {
+			                display: "flex",
+			                alignItems: "center",
+			                gap: "8px",
+			                flex: "1 1 0%",
+			                minWidth: "0",
+			                flexWrap: "nowrap"
+			            });
 
 	            const statsContainer = createStatsDisplay();
 
