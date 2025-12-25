@@ -3032,10 +3032,10 @@
 	                display: "none"
 	            });
 
-	            const clearSearchBtn = document.createElement("button");
-	            clearSearchBtn.type = "button";
-	            clearSearchBtn.title = options.text.buttons.clear || "清除";
-	            clearSearchBtn.textContent = "×";
+		            const clearSearchBtn = document.createElement("button");
+		            clearSearchBtn.type = "button";
+		            clearSearchBtn.title = options.text.buttons.clear || "清除";
+		            clearSearchBtn.textContent = "×";
 	            Object.assign(clearSearchBtn.style, {
 	                width: "32px",
 	                height: "32px",
@@ -3050,12 +3050,13 @@
 	                flex: "0 0 32px"
 	            });
 
-	            let isSearchExpanded = !!String(state.searchQuery || "").trim();
+		            let isSearchExpanded = !!String(state.searchQuery || "").trim();
+		            let scheduleHeaderTitlePriorityLayout = () => {};
 
-	            const refreshSearchWidgetStyle = (isDark = state.isDarkMode) => {
-	                const hasValue = !!String(searchInput.value || "").trim();
-	                const active = isSearchExpanded || hasValue;
-	                searchWidget.style.borderColor = active ? getPrimaryColor() : getBorderColor(isDark);
+		            const refreshSearchWidgetStyle = (isDark = state.isDarkMode) => {
+		                const hasValue = !!String(searchInput.value || "").trim();
+		                const active = isSearchExpanded || hasValue;
+		                searchWidget.style.borderColor = active ? getPrimaryColor() : getBorderColor(isDark);
 	                searchIconBtn.style.color = active ? getPrimaryColor() : getTextColor(isDark);
 	            };
 
@@ -3064,17 +3065,18 @@
 	                clearSearchBtn.style.display = isSearchExpanded && hasValue ? "flex" : "none";
 	            };
 
-	            const setSearchExpanded = (expanded, { focus = false } = {}) => {
-	                isSearchExpanded = !!expanded;
-	                searchWidget.style.width = isSearchExpanded ? "220px" : "32px";
-	                searchInput.style.display = isSearchExpanded ? "block" : "none";
-	                updateClearSearchVisibility();
-	                refreshSearchWidgetStyle();
-	                if (isSearchExpanded) {
-	                    if (focus) {
-	                        searchInput.focus();
-	                        searchInput.select();
-	                    }
+		            const setSearchExpanded = (expanded, { focus = false } = {}) => {
+		                isSearchExpanded = !!expanded;
+		                searchWidget.style.width = isSearchExpanded ? "220px" : "32px";
+		                searchInput.style.display = isSearchExpanded ? "block" : "none";
+		                updateClearSearchVisibility();
+		                refreshSearchWidgetStyle();
+		                scheduleHeaderTitlePriorityLayout();
+		                if (isSearchExpanded) {
+		                    if (focus) {
+		                        searchInput.focus();
+		                        searchInput.select();
+		                    }
 	                    return;
 	                }
 	                if (focus || document.activeElement === searchInput) {
@@ -3082,11 +3084,12 @@
 	                }
 	            };
 
-	            const applySearchImmediate = () => {
-	                state.searchQuery = searchInput.value.trim();
-	                renderShortcutsList(state.isDarkMode);
-	                updateStatsDisplay();
-	            };
+		            const applySearchImmediate = () => {
+		                state.searchQuery = searchInput.value.trim();
+		                renderShortcutsList(state.isDarkMode);
+		                updateStatsDisplay();
+		                scheduleHeaderTitlePriorityLayout();
+		            };
 
 	            const applySearchDebounced = debounce(applySearchImmediate, 120);
 
@@ -3639,11 +3642,95 @@
 
             panel.appendChild(bottomBar);
             overlay.appendChild(panel);
-            document.body.appendChild(overlay);
-            state.currentPanelOverlay = overlay;
-            state.currentPanelCloser = closePanel;
+	            document.body.appendChild(overlay);
+	            state.currentPanelOverlay = overlay;
+	            state.currentPanelCloser = closePanel;
+	
+	            const destroyHeaderTitlePriorityLayout = (() => {
+	                const headerGapPx = Number.parseFloat(headerContainer.style.gap || "0") || 0;
+	                const statsRowGapPx = Number.parseFloat(statsRow.style.gap || "0") || 0;
+	                const minTitleVisiblePx = 28;
+	                let titleNaturalWidth = null;
+	
+	                const getTitleNaturalWidth = () => {
+	                    if (titleNaturalWidth !== null) return titleNaturalWidth;
+	                    const prevDisplay = title.style.display;
+	                    const prevMaxWidth = title.style.maxWidth;
+	                    title.style.display = "";
+	                    title.style.maxWidth = "";
+	                    titleNaturalWidth = title.scrollWidth || title.offsetWidth || 0;
+	                    title.style.display = prevDisplay;
+	                    title.style.maxWidth = prevMaxWidth;
+	                    return titleNaturalWidth;
+	                };
+	
+	                const apply = () => {
+	                    if (!state.isSettingsPanelOpen) return;
+	                    if (!headerContainer.isConnected) return;
+	                    const statsContainerEl = document.getElementById(ids.stats);
+	                    if (!statsContainerEl) return;
+	
+	                    const headerWidth = headerContainer.clientWidth;
+	                    const actionsWidth = actionsContainer.offsetWidth;
+	                    const searchWidth = searchWidget.offsetWidth;
+	                    const requiredStatsRowWidth = searchWidth + statsRowGapPx + statsContainerEl.scrollWidth;
+	                    const maxTitleWidth = headerWidth - actionsWidth - headerGapPx * 2 - requiredStatsRowWidth;
+	
+	                    if (maxTitleWidth <= minTitleVisiblePx) {
+	                        title.style.display = "none";
+	                        title.style.maxWidth = "";
+	                        return;
+	                    }
+	
+	                    title.style.display = "";
+	                    const naturalWidth = getTitleNaturalWidth();
+	                    title.style.maxWidth = `${Math.min(naturalWidth, maxTitleWidth)}px`;
+	                };
+	
+	                const schedule = debounce(() => {
+	                    requestAnimationFrame(() => {
+	                        try { apply(); } catch {}
+	                    });
+	                }, 60);
+	
+	                scheduleHeaderTitlePriorityLayout = schedule;
+	
+	                const onSearchTransitionEnd = (e) => {
+	                    if (e && e.propertyName === "width") schedule();
+	                };
+	                searchWidget.addEventListener("transitionend", onSearchTransitionEnd);
+	
+	                let resizeCleanup = () => {};
+	                if (window.ResizeObserver) {
+	                    const ro = new ResizeObserver(() => schedule());
+	                    ro.observe(headerContainer);
+	                    resizeCleanup = () => ro.disconnect();
+	                } else {
+	                    window.addEventListener("resize", schedule);
+	                    resizeCleanup = () => window.removeEventListener("resize", schedule);
+	                }
+	
+	                let mutationObserver = null;
+	                if (window.MutationObserver) {
+	                    mutationObserver = new MutationObserver(() => schedule());
+	                    mutationObserver.observe(statsRow, { childList: true, subtree: true });
+	                }
+	
+	                schedule();
+	
+	                return () => {
+	                    scheduleHeaderTitlePriorityLayout = () => {};
+	                    try { searchWidget.removeEventListener("transitionend", onSearchTransitionEnd); } catch {}
+	                    try { resizeCleanup(); } catch {}
+	                    try { mutationObserver && mutationObserver.disconnect(); } catch {}
+	                };
+	            })();
 
-            state.isCompactMode = shouldUseCompactMode(panel);
+	            state.destroyResponsiveListener = () => {
+	                try { destroyHeaderTitlePriorityLayout && destroyHeaderTitlePriorityLayout(); } catch {}
+	            };
+	
+	            state.isCompactMode = shouldUseCompactMode(panel);
 
             panel.addEventListener(state.filterChangedEventName, () => {
                 renderShortcutsList(state.isDarkMode);
@@ -3728,15 +3815,20 @@
             addThemeChangeListener(updatePanelTheme);
             updatePanelTheme(state.isDarkMode);
 
-            requestAnimationFrame(() => {
-                panel.style.opacity = "1";
-                panel.style.transform = "translateY(0)";
-                setTimeout(() => {
-                    state.destroyResponsiveListener = createResponsiveListener(panel, (compactMode) => {
-                        renderShortcutsList(state.isDarkMode, compactMode);
-                    });
-                }, 100);
-            });
+	            requestAnimationFrame(() => {
+	                panel.style.opacity = "1";
+	                panel.style.transform = "translateY(0)";
+	                setTimeout(() => {
+	                    if (!state.isSettingsPanelOpen) return;
+	                    const destroyResponsiveListener = createResponsiveListener(panel, (compactMode) => {
+	                        renderShortcutsList(state.isDarkMode, compactMode);
+	                    });
+	                    state.destroyResponsiveListener = () => {
+	                        try { destroyResponsiveListener && destroyResponsiveListener(); } catch {}
+	                        try { destroyHeaderTitlePriorityLayout && destroyHeaderTitlePriorityLayout(); } catch {}
+	                    };
+	                }, 100);
+	            });
 
 	            function renderShortcutsList(isDark = state.isDarkMode, forceCompactMode = null) {
 	                const useCompactMode = forceCompactMode !== null ? forceCompactMode : shouldUseCompactMode(panel);
