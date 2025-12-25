@@ -2963,11 +2963,11 @@
 	                flex: "0 0 auto"
 	            });
 
-	            const searchToggleBtn = document.createElement("button");
-	            searchToggleBtn.type = "button";
-	            searchToggleBtn.title = options.text.hints.searchPlaceholder || "搜索";
-	            searchToggleBtn.textContent = "🔍";
-	            Object.assign(searchToggleBtn.style, {
+	            const settingsBtn = document.createElement("button");
+	            settingsBtn.type = "button";
+	            settingsBtn.title = options.text.buttons.settings || "设置";
+	            settingsBtn.textContent = "⚙️";
+	            Object.assign(settingsBtn.style, {
 	                width: "32px",
 	                height: "32px",
 	                display: "flex",
@@ -2977,56 +2977,90 @@
 	                lineHeight: "1"
 	            });
 
-	            const searchFieldWrap = document.createElement("div");
-	            Object.assign(searchFieldWrap.style, {
-	                position: "relative",
-	                width: "220px",
+	            const searchWidget = document.createElement("div");
+	            Object.assign(searchWidget.style, {
+	                display: "flex",
+	                alignItems: "center",
+	                width: "32px",
+	                height: "32px",
 	                maxWidth: "100%",
-	                overflow: "hidden"
+	                overflow: "hidden",
+	                boxSizing: "border-box",
+	                transition: "width 0.2s ease"
+	            });
+
+	            const searchIconBtn = document.createElement("button");
+	            searchIconBtn.type = "button";
+	            searchIconBtn.title = options.text.hints.searchPlaceholder || "搜索";
+	            searchIconBtn.textContent = "🔍";
+	            Object.assign(searchIconBtn.style, {
+	                width: "32px",
+	                height: "32px",
+	                display: "flex",
+	                alignItems: "center",
+	                justifyContent: "center",
+	                fontSize: "16px",
+	                lineHeight: "1",
+	                border: "none",
+	                backgroundColor: "transparent",
+	                padding: "0",
+	                flex: "0 0 32px"
 	            });
 
 	            const searchInput = document.createElement("input");
 	            searchInput.type = "text";
 	            searchInput.placeholder = options.text.hints.searchPlaceholder || "搜索名称/目标";
 	            searchInput.value = String(state.searchQuery || "");
+	            Object.assign(searchInput.style, {
+	                flex: "1 1 auto",
+	                minWidth: "0",
+	                height: "32px",
+	                border: "none",
+	                outline: "none",
+	                backgroundColor: "transparent",
+	                padding: "0 4px",
+	                fontSize: "14px",
+	                display: "none"
+	            });
 
 	            const clearSearchBtn = document.createElement("button");
 	            clearSearchBtn.type = "button";
 	            clearSearchBtn.title = options.text.buttons.clear || "清除";
 	            clearSearchBtn.textContent = "×";
 	            Object.assign(clearSearchBtn.style, {
-	                position: "absolute",
-	                right: "8px",
-	                top: "50%",
-	                transform: "translateY(-50%)",
-	                width: "22px",
-	                height: "22px",
+	                width: "32px",
+	                height: "32px",
 	                display: "none",
 	                alignItems: "center",
 	                justifyContent: "center",
-	                fontSize: "16px",
+	                fontSize: "18px",
 	                lineHeight: "1",
-	                padding: "0"
+	                border: "none",
+	                backgroundColor: "transparent",
+	                padding: "0",
+	                flex: "0 0 32px"
 	            });
 
 	            let isSearchExpanded = !!String(state.searchQuery || "").trim();
 
-	            const refreshSearchToggleBtnStyle = (isDark = state.isDarkMode) => {
+	            const refreshSearchWidgetStyle = (isDark = state.isDarkMode) => {
 	                const hasValue = !!String(searchInput.value || "").trim();
 	                const active = isSearchExpanded || hasValue;
-	                searchToggleBtn.style.borderColor = active ? getPrimaryColor() : getBorderColor(isDark);
-	                searchToggleBtn.style.color = active ? getPrimaryColor() : getTextColor(isDark);
+	                searchWidget.style.borderColor = active ? getPrimaryColor() : getBorderColor(isDark);
+	                searchIconBtn.style.color = active ? getPrimaryColor() : getTextColor(isDark);
 	            };
 
 	            const updateClearSearchVisibility = () => {
 	                const hasValue = !!String(searchInput.value || "").trim();
-	                clearSearchBtn.style.display = hasValue ? "flex" : "none";
+	                clearSearchBtn.style.display = isSearchExpanded && hasValue ? "flex" : "none";
 	            };
 
 	            const setSearchExpanded = (expanded, { focus = false } = {}) => {
 	                isSearchExpanded = !!expanded;
-	                searchFieldWrap.style.display = isSearchExpanded ? "block" : "none";
-	                refreshSearchToggleBtnStyle();
+	                searchWidget.style.width = isSearchExpanded ? "220px" : "32px";
+	                searchInput.style.display = isSearchExpanded ? "block" : "none";
+	                updateClearSearchVisibility();
+	                refreshSearchWidgetStyle();
 	                if (isSearchExpanded) {
 	                    if (focus) {
 	                        searchInput.focus();
@@ -3035,7 +3069,7 @@
 	                    return;
 	                }
 	                if (focus || document.activeElement === searchInput) {
-	                    searchToggleBtn.focus();
+	                    searchIconBtn.focus();
 	                }
 	            };
 
@@ -3049,7 +3083,7 @@
 
 	            searchInput.addEventListener("input", () => {
 	                updateClearSearchVisibility();
-	                refreshSearchToggleBtnStyle();
+	                refreshSearchWidgetStyle();
 	                applySearchDebounced();
 	            });
 	            searchInput.addEventListener("keydown", (e) => {
@@ -3067,21 +3101,43 @@
 	            clearSearchBtn.addEventListener("click", () => {
 	                searchInput.value = "";
 	                updateClearSearchVisibility();
-	                refreshSearchToggleBtnStyle();
+	                refreshSearchWidgetStyle();
 	                applySearchImmediate();
 	                searchInput.focus();
 	            });
-	            searchToggleBtn.addEventListener("click", () => {
-	                setSearchExpanded(!isSearchExpanded, { focus: true });
+	            searchIconBtn.addEventListener("click", () => {
+	                if (!isSearchExpanded) {
+	                    setSearchExpanded(true, { focus: true });
+	                    return;
+	                }
+	                if (!String(searchInput.value || "").trim()) {
+	                    setSearchExpanded(false, { focus: true });
+	                    return;
+	                }
+	                searchInput.focus();
+	                searchInput.select();
+	            });
+	            searchInput.addEventListener("focus", () => {
+	                if (!isSearchExpanded) {
+	                    setSearchExpanded(true, { focus: true });
+	                    return;
+	                }
+	                searchWidget.style.borderColor = getPrimaryColor();
+	                searchWidget.style.boxShadow = `0 0 0 1px ${getPrimaryColor()}`;
+	            });
+	            searchInput.addEventListener("blur", () => {
+	                searchWidget.style.boxShadow = "none";
+	                refreshSearchWidgetStyle();
 	            });
 
 	            updateClearSearchVisibility();
 	            setSearchExpanded(isSearchExpanded);
 
-	            searchFieldWrap.appendChild(searchInput);
-	            searchFieldWrap.appendChild(clearSearchBtn);
-	            searchContainer.appendChild(searchToggleBtn);
-	            searchContainer.appendChild(searchFieldWrap);
+	            searchWidget.appendChild(searchIconBtn);
+	            searchWidget.appendChild(searchInput);
+	            searchWidget.appendChild(clearSearchBtn);
+	            searchContainer.appendChild(settingsBtn);
+	            searchContainer.appendChild(searchWidget);
 	            headerContainer.appendChild(searchContainer);
 
 	            panel.appendChild(headerContainer);
@@ -3397,20 +3453,12 @@
 	            addBtn.onclick = () => { editShortcut(); };
 	            leftBar.appendChild(addBtn);
 
-	            const settingsBtn = document.createElement("button");
-	            settingsBtn.textContent = options.text.buttons.settings || "设置";
-	            leftBar.appendChild(settingsBtn);
-
 	            let settingsMenuOverlay = null;
-	            let settingsMenuResizeHandler = null;
 	            let settingsMenuKeydownHandler = null;
 	            let settingsMenuThemeHandler = null;
 
-	            function closeSettingsMenu() {
+	            function closeSettingsMenu({ restoreFocus = true } = {}) {
 	                if (!settingsMenuOverlay) return;
-	                if (typeof settingsMenuResizeHandler === "function") {
-	                    window.removeEventListener("resize", settingsMenuResizeHandler);
-	                }
 	                if (typeof settingsMenuKeydownHandler === "function") {
 	                    document.removeEventListener("keydown", settingsMenuKeydownHandler, true);
 	                }
@@ -3419,9 +3467,11 @@
 	                }
 	                try { settingsMenuOverlay.remove(); } catch {}
 	                settingsMenuOverlay = null;
-	                settingsMenuResizeHandler = null;
 	                settingsMenuKeydownHandler = null;
 	                settingsMenuThemeHandler = null;
+	                if (restoreFocus) {
+	                    try { settingsBtn.focus(); } catch {}
+	                }
 	            }
 
 	            function openSettingsMenu() {
@@ -3430,81 +3480,104 @@
 	                    return;
 	                }
 
-	                const menuOverlay = document.createElement("div");
-	                settingsMenuOverlay = menuOverlay;
-	                Object.assign(menuOverlay.style, {
+	                const modal = document.createElement("div");
+	                settingsMenuOverlay = modal;
+	                Object.assign(modal.style, {
 	                    position: "fixed",
 	                    top: 0,
 	                    left: 0,
 	                    width: "100vw",
 	                    height: "100vh",
-	                    zIndex: "99999",
-	                    background: "transparent"
+	                    zIndex: "999999",
+	                    display: "flex",
+	                    alignItems: "center",
+	                    justifyContent: "center",
+	                    padding: "20px",
+	                    boxSizing: "border-box"
 	                });
-	                menuOverlay.onclick = (e) => {
-	                    if (e.target === menuOverlay) closeSettingsMenu();
+	                modal.onclick = (e) => {
+	                    if (e.target === modal) closeSettingsMenu();
 	                };
 
-	                const menu = document.createElement("div");
-	                Object.assign(menu.style, {
-	                    position: "absolute",
-	                    minWidth: "180px",
-	                    padding: "10px",
-	                    borderRadius: "8px",
-	                    boxShadow: "0 6px 18px rgba(0,0,0,0.2)",
+	                const dialog = document.createElement("div");
+	                Object.assign(dialog.style, {
+	                    width: "100%",
+	                    maxWidth: "420px",
+	                    borderRadius: "10px",
+	                    padding: "18px",
+	                    boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
 	                    display: "flex",
 	                    flexDirection: "column",
-	                    gap: "8px"
+	                    gap: "12px"
+	                });
+	                dialog.onclick = (e) => e.stopPropagation();
+
+	                const head = document.createElement("div");
+	                Object.assign(head.style, {
+	                    display: "flex",
+	                    alignItems: "center",
+	                    justifyContent: "space-between",
+	                    gap: "10px"
+	                });
+
+	                const titleEl = document.createElement("h3");
+	                titleEl.textContent = options.text.buttons.settings || "设置";
+	                Object.assign(titleEl.style, {
+	                    margin: "0",
+	                    fontSize: "1.05em",
+	                    fontWeight: "bold"
+	                });
+	                head.appendChild(titleEl);
+
+	                const closeBtn = document.createElement("button");
+	                closeBtn.type = "button";
+	                closeBtn.title = options.text.buttons.close || "关闭";
+	                closeBtn.textContent = "×";
+	                Object.assign(closeBtn.style, {
+	                    fontSize: "20px",
+	                    lineHeight: "1"
+	                });
+	                closeBtn.onclick = () => closeSettingsMenu();
+	                head.appendChild(closeBtn);
+
+	                dialog.appendChild(head);
+
+	                const actions = document.createElement("div");
+	                Object.assign(actions.style, {
+	                    display: "flex",
+	                    flexDirection: "column",
+	                    gap: "10px"
 	                });
 
 	                const importActionBtn = document.createElement("button");
 	                importActionBtn.textContent = options.text.buttons.import || "导入";
 	                importActionBtn.onclick = () => {
-	                    closeSettingsMenu();
+	                    closeSettingsMenu({ restoreFocus: false });
 	                    openImportDialog();
 	                };
-	                menu.appendChild(importActionBtn);
+	                actions.appendChild(importActionBtn);
 
 	                const exportActionBtn = document.createElement("button");
 	                exportActionBtn.textContent = options.text.buttons.export || "导出";
 	                exportActionBtn.onclick = () => {
-	                    closeSettingsMenu();
+	                    closeSettingsMenu({ restoreFocus: false });
 	                    openExportDialog();
 	                };
-	                menu.appendChild(exportActionBtn);
+	                actions.appendChild(exportActionBtn);
 
 	                const resetActionBtn = document.createElement("button");
 	                resetActionBtn.textContent = options.text.buttons.reset || "重置默认";
 	                resetActionBtn.onclick = () => {
-	                    closeSettingsMenu();
+	                    closeSettingsMenu({ restoreFocus: false });
 	                    showConfirmDialog("确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)", () => {
 	                        resetToDefaults();
 	                    });
 	                };
-	                menu.appendChild(resetActionBtn);
+	                actions.appendChild(resetActionBtn);
 
-	                menuOverlay.appendChild(menu);
-	                document.body.appendChild(menuOverlay);
-
-	                const positionMenu = () => {
-	                    const rect = settingsBtn.getBoundingClientRect();
-	                    const menuRect = menu.getBoundingClientRect();
-	                    const padding = 10;
-	                    const left = Math.min(
-	                        Math.max(rect.left, padding),
-	                        Math.max(padding, window.innerWidth - menuRect.width - padding)
-	                    );
-	                    const top = Math.min(
-	                        Math.max(rect.bottom + 8, padding),
-	                        Math.max(padding, window.innerHeight - menuRect.height - padding)
-	                    );
-	                    menu.style.left = `${left}px`;
-	                    menu.style.top = `${top}px`;
-	                };
-
-	                settingsMenuResizeHandler = positionMenu;
-	                window.addEventListener("resize", settingsMenuResizeHandler);
-	                requestAnimationFrame(positionMenu);
+	                dialog.appendChild(actions);
+	                modal.appendChild(dialog);
+	                document.body.appendChild(modal);
 
 	                settingsMenuKeydownHandler = (e) => {
 	                    if (e.key === "Escape") {
@@ -3515,9 +3588,14 @@
 	                document.addEventListener("keydown", settingsMenuKeydownHandler, true);
 
 	                settingsMenuThemeHandler = (isDark) => {
-	                    menu.style.background = getPanelBackgroundColor(isDark);
-	                    menu.style.color = getTextColor(isDark);
-	                    menu.style.border = `1px solid ${getBorderColor(isDark)}`;
+	                    modal.style.backgroundColor = getOverlayBackgroundColor(isDark);
+	                    dialog.style.background = getPanelBackgroundColor(isDark);
+	                    dialog.style.color = getTextColor(isDark);
+	                    dialog.style.border = `1px solid ${getBorderColor(isDark)}`;
+	                    titleEl.style.color = getTextColor(isDark);
+	                    styleTransparentButton(closeBtn, getTextColor(isDark), getHoverColor(isDark), isDark);
+	                    closeBtn.style.padding = "6px 8px";
+	                    closeBtn.style.borderRadius = "6px";
 	                    styleButton(importActionBtn, "#2196F3", "#1e88e5");
 	                    styleButton(exportActionBtn, "#607D8B", "#546e7a");
 	                    styleButton(resetActionBtn, "#F44336", "#D32F2F");
@@ -3525,6 +3603,7 @@
 
 	                addThemeChangeListener(settingsMenuThemeHandler);
 	                settingsMenuThemeHandler(state.isDarkMode);
+	                closeBtn.focus();
 	            }
 
 	            settingsBtn.onclick = openSettingsMenu;
@@ -3553,35 +3632,62 @@
 	                headerContainer.style.borderBottom = `1px solid ${getBorderColor(isDark)}`;
 	                title.style.color = getTextColor(isDark);
 	                styleButton(addBtn, "#FF9800", "#F57C00");
-	                styleButton(settingsBtn, "#9E9E9E", "#757575");
 	                styleButton(saveBtn, "#4CAF50", "#45A049");
-	                Object.assign(searchToggleBtn.style, {
+	                Object.assign(settingsBtn.style, {
 	                    border: `1px solid ${getBorderColor(isDark)}`,
 	                    borderRadius: "6px",
 	                    backgroundColor: getInputBackgroundColor(isDark),
-	                    cursor: "pointer",
-	                    transition: "background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease"
-	                });
-	                refreshSearchToggleBtnStyle(isDark);
-	                searchToggleBtn.onmouseover = () => {
-	                    searchToggleBtn.style.backgroundColor = getHoverColor(isDark);
-	                    searchToggleBtn.style.borderColor = getPrimaryColor();
-	                };
-	                searchToggleBtn.onmouseout = () => {
-	                    searchToggleBtn.style.backgroundColor = getInputBackgroundColor(isDark);
-	                    refreshSearchToggleBtnStyle(isDark);
-	                };
-	                styleInputField(searchInput, isDark);
-	                searchFieldWrap.style.width = "220px";
-	                searchFieldWrap.style.maxWidth = "100%";
-	                searchInput.style.width = "100%";
-	                searchInput.style.paddingRight = "34px";
-	                Object.assign(clearSearchBtn.style, {
-	                    border: "none",
-	                    borderRadius: "999px",
-	                    backgroundColor: "transparent",
 	                    color: getTextColor(isDark),
 	                    cursor: "pointer",
+	                    transition: "background-color 0.2s ease, border-color 0.2s ease"
+	                });
+	                settingsBtn.onmouseover = () => {
+	                    settingsBtn.style.backgroundColor = getHoverColor(isDark);
+	                    settingsBtn.style.borderColor = getPrimaryColor();
+	                };
+	                settingsBtn.onmouseout = () => {
+	                    settingsBtn.style.backgroundColor = getInputBackgroundColor(isDark);
+	                    settingsBtn.style.borderColor = getBorderColor(isDark);
+	                };
+
+	                Object.assign(searchWidget.style, {
+	                    border: `1px solid ${getBorderColor(isDark)}`,
+	                    borderRadius: "6px",
+	                    backgroundColor: getInputBackgroundColor(isDark),
+	                    color: getTextColor(isDark),
+	                    transition: "width 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease"
+	                });
+	                searchWidget.onmouseover = () => {
+	                    if (document.activeElement === searchInput) return;
+	                    searchWidget.style.backgroundColor = getHoverColor(isDark);
+	                };
+	                searchWidget.onmouseout = () => {
+	                    if (document.activeElement === searchInput) return;
+	                    searchWidget.style.backgroundColor = getInputBackgroundColor(isDark);
+	                };
+
+	                Object.assign(searchIconBtn.style, {
+	                    color: getTextColor(isDark),
+	                    cursor: "pointer",
+	                    borderRadius: "6px",
+	                    transition: "background-color 0.2s ease, color 0.2s ease"
+	                });
+	                searchIconBtn.onmouseover = () => {
+	                    searchIconBtn.style.backgroundColor = getHoverColor(isDark);
+	                };
+	                searchIconBtn.onmouseout = () => {
+	                    searchIconBtn.style.backgroundColor = "transparent";
+	                };
+
+	                Object.assign(searchInput.style, {
+	                    color: getTextColor(isDark),
+	                    caretColor: getPrimaryColor()
+	                });
+
+	                Object.assign(clearSearchBtn.style, {
+	                    color: getTextColor(isDark),
+	                    cursor: "pointer",
+	                    borderRadius: "6px",
 	                    transition: "background-color 0.2s ease, color 0.2s ease"
 	                });
 	                clearSearchBtn.onmouseover = () => {
@@ -3590,6 +3696,8 @@
 	                clearSearchBtn.onmouseout = () => {
 	                    clearSearchBtn.style.backgroundColor = "transparent";
 	                };
+
+	                refreshSearchWidgetStyle(isDark);
 	                renderShortcutsList(isDark);
 	            };
 
@@ -4066,7 +4174,7 @@
 	            }
 
 	            function closePanel() {
-	                closeSettingsMenu();
+	                closeSettingsMenu({ restoreFocus: false });
 	                state.currentPanelCloser = null;
 	                if (typeof state.currentEditCloser === "function") {
 	                    try { state.currentEditCloser(); } catch {}
