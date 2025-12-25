@@ -2845,32 +2845,40 @@
 		                const container = document.createElement("div");
 		                container.id = ids.stats;
 		                Object.assign(container.style, {
-		                    display: "flex",
-		                    alignItems: "center",
-		                    gap: "8px",
+		                    display: "block",
 		                    flex: "0 1 auto",
 		                    minWidth: "0",
 		                    padding: "2px 0",
-		                    flexWrap: "nowrap",
 		                    overflowX: "auto",
-	                    overflowY: "hidden",
-	                    WebkitOverflowScrolling: "touch"
-	                });
+		                    overflowY: "hidden",
+		                    WebkitOverflowScrolling: "touch",
+		                    transform: "scaleY(-1)"
+		                });
 
-                const filterButtons = [
-                    { type: 'all', label: options.text.stats.total || "总计", count: stats.total, color: "#0066cc" },
-                    { type: 'url', label: options.text.stats.url || "URL跳转", count: stats.url, color: "#4CAF50" },
-                    { type: 'selector', label: options.text.stats.selector || "元素点击", count: stats.selector, color: "#FF9800" },
-                    { type: 'simulate', label: options.text.stats.simulate || "按键模拟", count: stats.simulate, color: "#9C27B0" },
-                    { type: 'custom', label: options.text.stats.custom || "自定义动作", count: stats.custom, color: "#607D8B" }
-                ];
-                filterButtons.forEach(buttonData => {
-                    if (buttonData.type !== 'all' && buttonData.count === 0) return;
-                    const button = createFilterButton(buttonData.label, buttonData.count, buttonData.color, buttonData.type);
-                    container.appendChild(button);
-                });
-                return container;
-            }
+		                const row = document.createElement("div");
+		                Object.assign(row.style, {
+		                    display: "inline-flex",
+		                    alignItems: "center",
+		                    gap: "8px",
+		                    flexWrap: "nowrap",
+		                    transform: "scaleY(-1)"
+		                });
+
+		                const filterButtons = [
+		                    { type: 'all', label: options.text.stats.total || "总计", count: stats.total, color: "#0066cc" },
+		                    { type: 'url', label: options.text.stats.url || "URL跳转", count: stats.url, color: "#4CAF50" },
+		                    { type: 'selector', label: options.text.stats.selector || "元素点击", count: stats.selector, color: "#FF9800" },
+		                    { type: 'simulate', label: options.text.stats.simulate || "按键模拟", count: stats.simulate, color: "#9C27B0" },
+		                    { type: 'custom', label: options.text.stats.custom || "自定义动作", count: stats.custom, color: "#607D8B" }
+		                ];
+		                filterButtons.forEach(buttonData => {
+		                    if (buttonData.type !== 'all' && buttonData.count === 0) return;
+		                    const button = createFilterButton(buttonData.label, buttonData.count, buttonData.color, buttonData.type);
+		                    row.appendChild(button);
+		                });
+		                container.appendChild(row);
+		                return container;
+		            }
 
             function updateStatsDisplay() {
                 const existingStats = document.getElementById(ids.stats);
