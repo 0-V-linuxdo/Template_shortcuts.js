@@ -1,7 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 20251224
-// @namespace    0_V userscripts/[Template] shortcut
-// @version      1.0.1
+// @name         [Template] 快捷键跳转 [20251225] v1.0.0
+// @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
+// @version      [20251225] v1.0.0
+// @update-log   1.0.0: 新增 ShortcutTemplate.utils(menu/dom/events/oneStep) 以参数化菜单点击与 1step 编排，站点脚本仅需填写参数/defs
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)。
 // @author       You
 // @match        *://*/*
@@ -21,7 +22,7 @@
      * ------------------------------------------------------------------ */
 
     const DEFAULT_OPTIONS = {
-        version: '20250924',
+        version: '20251225',
         menuCommandLabel: '设置快捷键',
         panelTitle: '自定义快捷键',
         storageKeys: {
@@ -130,6 +131,690 @@
     }
 
     function noop() {}
+
+    /* ------------------------------------------------------------------
+     * Utils: DOM / Events / Menu / 1step
+     * ------------------------------------------------------------------ */
+
+    const Utils = (() => {
+        const DEFAULT_TIMING = Object.freeze({
+            pollIntervalMs: 120,
+            waitTimeoutMs: 3000,
+            openDelayMs: 250,
+            stepDelayMs: 250
+        });
+
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        function safeQuerySelector(root, selector) {
+            const base = root && typeof root.querySelector === "function" ? root : (global.document || null);
+            if (!base || !selector) return null;
+            try {
+                return base.querySelector(selector);
+            } catch {
+                return null;
+            }
+        }
+
+        function safeQuerySelectorAll(root, selector) {
+            const base = root && typeof root.querySelectorAll === "function" ? root : (global.document || null);
+            if (!base || !selector) return [];
+            try {
+                return Array.from(base.querySelectorAll(selector));
+            } catch {
+                return [];
+            }
+        }
+
+        function isVisible(element) {
+            if (!element) return false;
+            if (element.hidden) return false;
+            try {
+                return !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
+            } catch {
+                return false;
+            }
+        }
+
+        function escapeForAttributeSelector(value) {
+            return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        }
+
+        function normalizeText(text) {
+            return String(text || "").replace(/\s+/g, " ").trim().toLowerCase();
+        }
+
+        function matchText(rawText, matcher, { normalize = normalizeText, element = null } = {}) {
+            if (matcher == null) return true;
+            if (typeof matcher === "function") {
+                try {
+                    return !!matcher(rawText, element);
+                } catch {
+                    return false;
+                }
+            }
+            if (matcher instanceof RegExp) {
+                try {
+                    return matcher.test(String(rawText || ""));
+                } catch {
+                    return false;
+                }
+            }
+            if (Array.isArray(matcher)) {
+                return matcher.some(m => matchText(rawText, m, { normalize, element }));
+            }
+
+            const text = typeof normalize === "function" ? normalize(rawText) : String(rawText || "");
+            const target = typeof normalize === "function" ? normalize(matcher) : String(matcher || "");
+            return target ? text.includes(target) : true;
+        }
+
+        function getElementLabelText(element) {
+            if (!element) return "";
+            const aria = element.getAttribute && element.getAttribute("aria-label");
+            if (aria) return aria;
+            const title = element.getAttribute && element.getAttribute("title");
+            if (title) return title;
+            return element.textContent || "";
+        }
+
+        function findFirst(root, selector, { textMatch = null, normalize = normalizeText, fallbackToFirst = false } = {}) {
+            const list = safeQuerySelectorAll(root, selector);
+            if (list.length === 0) return null;
+            if (!textMatch) return list[0] || null;
+            for (const el of list) {
+                const text = getElementLabelText(el);
+                if (matchText(text, textMatch, { normalize, element: el })) return el;
+            }
+            if (fallbackToFirst) return list[0] || null;
+            return null;
+        }
+
+        async function waitFor(predicate, { timeoutMs = DEFAULT_TIMING.waitTimeoutMs, intervalMs = DEFAULT_TIMING.pollIntervalMs } = {}) {
+            const start = Date.now();
+            while (Date.now() - start < timeoutMs) {
+                try {
+                    if (predicate()) return true;
+                } catch {}
+                await sleep(intervalMs);
+            }
+            return false;
+        }
+
+        async function waitForElement(root, selector, { timeoutMs = DEFAULT_TIMING.waitTimeoutMs, intervalMs = DEFAULT_TIMING.pollIntervalMs } = {}) {
+            const start = Date.now();
+            while (Date.now() - start < timeoutMs) {
+                const el = safeQuerySelector(root, selector);
+                if (el) return el;
+                await sleep(intervalMs);
+            }
+            return null;
+        }
+
+        async function waitForMatch(root, selector, {
+            textMatch = null,
+            normalize = normalizeText,
+            fallbackToFirst = false,
+            timeoutMs = DEFAULT_TIMING.waitTimeoutMs,
+            intervalMs = DEFAULT_TIMING.pollIntervalMs
+        } = {}) {
+            const start = Date.now();
+            while (Date.now() - start < timeoutMs) {
+                const el = findFirst(root, selector, { textMatch, normalize, fallbackToFirst });
+                if (el) return el;
+                await sleep(intervalMs);
+            }
+            return null;
+        }
+
+        function resolveEventView(element) {
+            try {
+                if (element?.ownerDocument?.defaultView) return element.ownerDocument.defaultView;
+            } catch (e) {}
+            try {
+                if (typeof unsafeWindow !== "undefined") return unsafeWindow;
+            } catch (e) {}
+            return typeof global !== "undefined" ? global : null;
+        }
+
+        function dispatchSyntheticEvent(element, type, Ctor, optionsBuilder) {
+            if (!element || typeof Ctor !== "function") return false;
+            try {
+                const opts = typeof optionsBuilder === "function" ? optionsBuilder() : optionsBuilder;
+                const event = new Ctor(type, opts);
+                element.dispatchEvent(event);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        function createEventOptions(element) {
+            const view = resolveEventView(element);
+            const baseOptions = () => ({ bubbles: true, cancelable: true, composed: true, view: view || null });
+            const pointerOptions = () => ({ ...baseOptions(), pointerId: 1, pointerType: "mouse", isPrimary: true });
+            return { baseOptions, pointerOptions };
+        }
+
+        function dispatchEventPlans(element, plans) {
+            let dispatched = false;
+            for (const plan of plans) {
+                const ok = dispatchSyntheticEvent(element, plan.type, plan.ctor, plan.opts);
+                dispatched = dispatched || ok;
+            }
+            return dispatched;
+        }
+
+        function simulateClick(element, { nativeFallback = true } = {}) {
+            if (!element) return false;
+            const { baseOptions, pointerOptions } = createEventOptions(element);
+            const eventPlans = [
+                typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointerdown", opts: pointerOptions },
+                typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mousedown", opts: baseOptions },
+                typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointerup", opts: pointerOptions },
+                typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mouseup", opts: baseOptions },
+                typeof MouseEvent === "function" && { ctor: MouseEvent, type: "click", opts: baseOptions }
+            ].filter(Boolean);
+
+            let dispatched = dispatchEventPlans(element, eventPlans);
+            if (!dispatched && nativeFallback) {
+                try {
+                    element.click();
+                    dispatched = true;
+                } catch {}
+            }
+            return dispatched;
+        }
+
+        function simulateHover(element) {
+            if (!element) return false;
+            const { baseOptions, pointerOptions } = createEventOptions(element);
+            const eventPlans = [
+                typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointerover", opts: pointerOptions },
+                typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointerenter", opts: pointerOptions },
+                typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mouseover", opts: baseOptions },
+                typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mouseenter", opts: baseOptions },
+                typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointermove", opts: pointerOptions },
+                typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mousemove", opts: baseOptions }
+            ].filter(Boolean);
+
+            return dispatchEventPlans(element, eventPlans);
+        }
+
+        function getShortcuts(engine) {
+            if (!engine || typeof engine.getShortcuts !== "function") return [];
+            try {
+                const list = engine.getShortcuts();
+                return Array.isArray(list) ? list : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function findShortcutByName(engine, name) {
+            const list = getShortcuts(engine);
+            return list.find(s => s && s.name === name) || null;
+        }
+
+        function resolveShortcutField(engine, name, field, fallback = "") {
+            if (!name || !field) return fallback;
+            const shortcut = findShortcutByName(engine, name);
+            const value = shortcut && typeof shortcut[field] === "string" ? shortcut[field].trim() : "";
+            return value || fallback;
+        }
+
+        function createOneStepExecutor({ execAction, isOpenChecker = {}, timing = {} } = {}) {
+            const openCheckerMap = (isOpenChecker && typeof isOpenChecker === "object") ? isOpenChecker : {};
+            const defaultStepDelay = timing.stepDelayMs ?? timing.stepDelay ?? DEFAULT_TIMING.stepDelayMs;
+            const defaultOpenDelay = timing.openDelayMs ?? timing.menuOpenDelay ?? DEFAULT_TIMING.openDelayMs;
+
+            async function safeExecStep(step) {
+                if (!step) return false;
+                try {
+                    if (typeof step === "function") return !!(await step());
+                    if (typeof execAction !== "function") return false;
+                    return !!(await execAction(step));
+                } catch {
+                    return false;
+                }
+            }
+
+            function resolveOpenCheck(rule) {
+                if (typeof rule?.openCheck === "function") return rule.openCheck;
+                if (rule?.openCheckKey && typeof openCheckerMap[rule.openCheckKey] === "function") {
+                    return openCheckerMap[rule.openCheckKey];
+                }
+                return () => false;
+            }
+
+            function resolvePrimaryStep(rule) {
+                if (!rule) return null;
+                return (
+                    rule.primaryStep ||
+                    rule.primaryActionKey ||
+                    (Array.isArray(rule.stepsIfOpen) && rule.stepsIfOpen[0]) ||
+                    (Array.isArray(rule.stepsIfClosed) && rule.stepsIfClosed[rule.stepsIfClosed.length - 1]) ||
+                    null
+                );
+            }
+
+            async function runStepSequence(steps, { stepDelay = defaultStepDelay, firstDelay = 0 } = {}) {
+                if (!Array.isArray(steps) || steps.length === 0) return false;
+                let lastResult = false;
+                for (let i = 0; i < steps.length; i++) {
+                    lastResult = await safeExecStep(steps[i]);
+                    if (i === steps.length - 1) break;
+                    if (i === 0 && firstDelay > 0) {
+                        await sleep(firstDelay);
+                    } else {
+                        await sleep(stepDelay);
+                    }
+                }
+                return lastResult;
+            }
+
+            return async function execOneStepRule(rule) {
+                if (!rule) return false;
+
+                const openCheckFn = resolveOpenCheck(rule);
+                const stepDelay = rule.stepDelayMs ?? rule.stepDelay ?? defaultStepDelay;
+                const openDelay = rule.openDelayMs ?? rule.openDelay ?? defaultOpenDelay;
+                const fastPathEnabled = rule.fastPath !== false;
+
+                const primaryStep = resolvePrimaryStep(rule);
+                if (fastPathEnabled && primaryStep && await safeExecStep(primaryStep)) {
+                    return true;
+                }
+
+                const isOpen = typeof openCheckFn === "function" ? !!openCheckFn() : false;
+                const steps = isOpen ? (rule.stepsIfOpen || []) : (rule.stepsIfClosed || []);
+                const firstDelay = isOpen ? 0 : openDelay;
+
+                return !!(await runStepSequence(steps, { stepDelay, firstDelay }));
+            };
+        }
+
+        function resolveSelectorListFromSpec(ctx, spec) {
+            if (!spec) return [];
+            if (Array.isArray(spec)) {
+                return spec.flatMap(item => resolveSelectorListFromSpec(ctx, item));
+            }
+            if (typeof spec === "string") {
+                const trimmed = spec.trim();
+                return trimmed ? [trimmed] : [];
+            }
+            if (typeof spec === "object") {
+                if (Array.isArray(spec.selectors)) return resolveSelectorListFromSpec(ctx, spec.selectors);
+                const fromName = typeof spec.fromShortcutName === "string" ? spec.fromShortcutName : "";
+                const field = typeof spec.field === "string" ? spec.field : "selector";
+                const fallback = typeof spec.fallback === "string" ? spec.fallback : (typeof spec.selector === "string" ? spec.selector : "");
+                const selector = fromName ? resolveShortcutField(ctx?.engine, fromName, field, fallback) : fallback;
+                const trimmed = selector.trim();
+                return trimmed ? [trimmed] : [];
+            }
+            return [];
+        }
+
+        function pickElement(candidates, { pick = "first", preferSvgPathDIncludes = [] } = {}) {
+            if (!Array.isArray(candidates) || candidates.length === 0) return null;
+            if (candidates.length === 1) return candidates[0];
+
+            const pickLower = String(pick || "").toLowerCase();
+            const list = candidates.slice();
+
+            function bottomMostSort(a, b) {
+                const aRect = a.getBoundingClientRect();
+                const bRect = b.getBoundingClientRect();
+                return bRect.bottom - aRect.bottom;
+            }
+
+            if (pickLower === "last") return list[list.length - 1] || null;
+            if (pickLower === "bottommost") {
+                list.sort(bottomMostSort);
+                return list[0] || null;
+            }
+
+            if (pickLower === "prefersvgpath") {
+                const includes = Array.isArray(preferSvgPathDIncludes) ? preferSvgPathDIncludes.filter(Boolean) : [];
+                list.sort((a, b) => {
+                    const aScore = includes.length ? (hasSvgPathDIncludes(a, includes) ? 1 : 0) : 0;
+                    const bScore = includes.length ? (hasSvgPathDIncludes(b, includes) ? 1 : 0) : 0;
+                    if (aScore !== bScore) return bScore - aScore;
+                    return bottomMostSort(a, b);
+                });
+                return list[0] || null;
+            }
+
+            return list[0] || null;
+        }
+
+        function hasSvgPathDIncludes(element, includesAll = []) {
+            if (!element || !Array.isArray(includesAll) || includesAll.length === 0) return false;
+            let paths = [];
+            try {
+                paths = Array.from(element.querySelectorAll("svg path"));
+            } catch {
+                return false;
+            }
+            for (const path of paths) {
+                const d = path.getAttribute("d") || "";
+                if (includesAll.every(part => d.includes(part))) return true;
+            }
+            return false;
+        }
+
+        function createMenuController(menuConfig = {}, { parent = null } = {}) {
+            const timing = { ...DEFAULT_TIMING, ...(menuConfig.timing || {}) };
+            const triggerConfig = menuConfig.trigger || {};
+            const rootConfig = menuConfig.root || {};
+
+            const submenus = {};
+            if (menuConfig.submenus && typeof menuConfig.submenus === "object") {
+                for (const [key, cfg] of Object.entries(menuConfig.submenus)) {
+                    if (!cfg) continue;
+                    const submenuCfg = {
+                        ...cfg,
+                        trigger: { ...(cfg.trigger || {}) }
+                    };
+                    if (!submenuCfg.trigger.searchRoot) submenuCfg.trigger.searchRoot = "parentRoot";
+                    submenus[key] = createMenuController(submenuCfg, { parent: null });
+                }
+            }
+
+            function _setParent(p) {
+                parent = p || null;
+            }
+
+            function getTriggerSearchRoot(ctx) {
+                const mode = triggerConfig.searchRoot;
+                if (mode === "parentRoot" && parent && typeof parent.getRootElement === "function") {
+                    return parent.getRootElement(ctx);
+                }
+                return global.document || null;
+            }
+
+            function getTriggerCandidateSet(ctx) {
+                const root = getTriggerSearchRoot(ctx);
+                const fallbackPick = triggerConfig.pick;
+                const fallbackSvgIncludes = triggerConfig.preferSvgPathDIncludes;
+                if (!root) return { candidates: [], pick: fallbackPick, preferSvgPathDIncludes: fallbackSvgIncludes };
+
+                const specs = Array.isArray(triggerConfig.candidates) ? triggerConfig.candidates : [triggerConfig];
+                for (const rawSpec of specs) {
+                    if (!rawSpec) continue;
+                    const spec = typeof rawSpec === "string" ? { selector: rawSpec } : rawSpec;
+
+                    const selectors = resolveSelectorListFromSpec(ctx, spec.selectors || spec.selector || []);
+                    const textMatch = (spec.textMatch !== undefined) ? spec.textMatch : (triggerConfig.textMatch ?? null);
+                    const normalize = spec.normalize || triggerConfig.normalize || normalizeText;
+
+                    let candidates = [];
+                    for (const sel of selectors) {
+                        candidates.push(...safeQuerySelectorAll(root, sel));
+                    }
+                    candidates = candidates.filter(isVisible);
+                    if (textMatch) {
+                        candidates = candidates.filter(el => matchText(getElementLabelText(el), textMatch, { normalize, element: el }));
+                    }
+                    if (candidates.length > 0) {
+                        return {
+                            candidates,
+                            pick: spec.pick ?? fallbackPick,
+                            preferSvgPathDIncludes: spec.preferSvgPathDIncludes ?? fallbackSvgIncludes
+                        };
+                    }
+                }
+
+                return { candidates: [], pick: fallbackPick, preferSvgPathDIncludes: fallbackSvgIncludes };
+            }
+
+            function getTriggerElement(ctx) {
+                const set = getTriggerCandidateSet(ctx);
+                return pickElement(set.candidates, {
+                    pick: set.pick,
+                    preferSvgPathDIncludes: set.preferSvgPathDIncludes
+                });
+            }
+
+            function activateTrigger(ctx) {
+                const el = getTriggerElement(ctx);
+                if (!el) return false;
+                const action = String(triggerConfig.action || "click").toLowerCase();
+                if (action === "hover") return simulateHover(el);
+                return simulateClick(el);
+            }
+
+            function getRootElement(ctx) {
+                const doc = global.document || null;
+                if (!doc) return null;
+                const triggerEl = getTriggerElement(ctx);
+                if (!triggerEl) return null;
+
+                const type = String(rootConfig.type || "ariaControls").toLowerCase();
+                const requireVisible = rootConfig.requireVisible !== false;
+
+                if (type === "selector") {
+                    const selectors = resolveSelectorListFromSpec(ctx, rootConfig.selectors || rootConfig.selector || []);
+                    const all = selectors.flatMap(sel => safeQuerySelectorAll(doc, sel));
+                    const visible = requireVisible ? all.filter(isVisible) : all;
+                    const pick = String(rootConfig.pick || (requireVisible ? "last" : "last")).toLowerCase();
+                    if (pick === "first") return visible[0] || all[0] || null;
+                    return visible[visible.length - 1] || all[all.length - 1] || null;
+                }
+
+                if (type === "arialabelledby") {
+                    const baseSelector = rootConfig.selector || "";
+                    const id = triggerEl.getAttribute && triggerEl.getAttribute("id");
+                    if (id && baseSelector) {
+                        const selector = `${baseSelector}[aria-labelledby="${escapeForAttributeSelector(id)}"]`;
+                        const menu = safeQuerySelector(doc, selector);
+                        if (menu && (!requireVisible || isVisible(menu))) return menu;
+                    }
+                    if (!baseSelector) return null;
+                    const menus = safeQuerySelectorAll(doc, baseSelector);
+                    const visibleMenus = requireVisible ? menus.filter(isVisible) : menus;
+                    return visibleMenus[visibleMenus.length - 1] || menus[menus.length - 1] || null;
+                }
+
+                const controlsAttr = rootConfig.controlsAttr || "aria-controls";
+                const expandedAttr = rootConfig.expandedAttr || "aria-expanded";
+                const expandedValue = String(rootConfig.expandedValue || "true").toLowerCase();
+                const expanded = (triggerEl.getAttribute && triggerEl.getAttribute(expandedAttr) || "").toLowerCase();
+                if (expanded && expanded !== expandedValue) return null;
+
+                const id = triggerEl.getAttribute && triggerEl.getAttribute(controlsAttr);
+                if (!id) return null;
+                const menu = doc.getElementById(id);
+                if (!menu) return null;
+
+                const requireRole = rootConfig.requireRole;
+                if (requireRole) {
+                    const role = (menu.getAttribute && menu.getAttribute("role")) || "";
+                    if (role !== requireRole) return null;
+                }
+
+                const requireDataState = rootConfig.requireDataState;
+                if (requireDataState) {
+                    const state = (menu.getAttribute && menu.getAttribute("data-state") || "").toLowerCase();
+                    if (state && state !== String(requireDataState).toLowerCase()) return null;
+                }
+
+                if (requireVisible && !isVisible(menu)) return null;
+                return menu;
+            }
+
+            function isOpen(ctx) {
+                return !!getRootElement(ctx);
+            }
+
+            async function ensureOpen(ctx, opts = {}) {
+                const timeoutMs = opts.timeoutMs ?? timing.waitTimeoutMs;
+                const intervalMs = opts.intervalMs ?? timing.pollIntervalMs;
+                const openDelayMs = opts.openDelayMs ?? timing.openDelayMs;
+
+                if (isOpen(ctx)) return true;
+                if (!activateTrigger(ctx)) return false;
+                if (openDelayMs > 0) await sleep(openDelayMs);
+                await waitFor(() => isOpen(ctx), { timeoutMs, intervalMs });
+                return isOpen(ctx);
+            }
+
+            async function ensureSubmenuOpen(ctx, submenuKey, opts = {}) {
+                const sub = submenus[submenuKey];
+                if (!sub) return false;
+                if (!await ensureOpen(ctx, opts)) return false;
+                return await sub.ensureOpen(ctx, opts);
+            }
+
+            function getOpenMenuRoots(ctx, { includeRoot = true, includeSubmenus = true } = {}) {
+                const roots = [];
+                if (includeRoot) {
+                    const rootEl = getRootElement(ctx);
+                    if (rootEl) roots.push(rootEl);
+                }
+                if (includeSubmenus) {
+                    for (const sub of Object.values(submenus)) {
+                        if (!sub) continue;
+                        const subRoot = sub.getRootElement(ctx);
+                        if (subRoot) roots.push(subRoot);
+                    }
+                }
+                return roots;
+            }
+
+            async function clickInOpenMenus(ctx, {
+                selector,
+                textMatch = null,
+                normalize = normalizeText,
+                fallbackToFirst = false,
+                waitForItem = false
+            } = {}) {
+                const roots = getOpenMenuRoots(ctx, { includeRoot: true, includeSubmenus: true });
+                const selectorList = resolveSelectorListFromSpec(ctx, selector);
+                if (selectorList.length === 0 || roots.length === 0) return false;
+
+                for (const rootEl of roots) {
+                    for (const sel of selectorList) {
+                        const target = waitForItem
+                            ? await waitForMatch(rootEl, sel, {
+                                textMatch,
+                                normalize,
+                                fallbackToFirst,
+                                timeoutMs: timing.waitTimeoutMs,
+                                intervalMs: timing.pollIntervalMs
+                            })
+                            : findFirst(rootEl, sel, { textMatch, normalize, fallbackToFirst });
+                        if (target && simulateClick(target)) return true;
+                    }
+                }
+                return false;
+            }
+
+            async function oneStepClick(ctx, {
+                selector,
+                textMatch = null,
+                normalize = normalizeText,
+                fallbackToFirst = false,
+                openSubmenus = [],
+                waitForItem = true
+            } = {}) {
+                if (!selector) return false;
+                if (await clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem: false })) return true;
+                if (await ensureOpen(ctx)) {
+                    if (await clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem })) return true;
+                }
+                for (const key of (Array.isArray(openSubmenus) ? openSubmenus : [])) {
+                    await ensureSubmenuOpen(ctx, key);
+                    if (await clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem })) return true;
+                }
+                return false;
+            }
+
+            function createControllerApi() {
+                return {
+                    _setParent,
+                    timing,
+                    getTriggerElement,
+                    activateTrigger,
+                    getRootElement,
+                    isOpen,
+                    ensureOpen,
+                    ensureSubmenuOpen,
+                    getOpenMenuRoots,
+                    clickInOpenMenus,
+                    oneStepClick
+                };
+            }
+
+            const api = createControllerApi();
+            for (const sub of Object.values(submenus)) {
+                if (sub && typeof sub._setParent === "function") sub._setParent(api);
+            }
+            api.submenus = Object.freeze(submenus);
+            return api;
+        }
+
+        function buildMenuActions({ menu, defs = [], defaultItemSelector = "", openSubmenus = [] } = {}) {
+            const actions = {};
+            const list = Array.isArray(defs) ? defs : [];
+
+            for (const def of list) {
+                if (!def) continue;
+                const actionKey = def.actionKey || def.key;
+                const textMatch = def.textMatch;
+                const selector = def.selector || defaultItemSelector;
+                if (!selector) continue;
+
+                const clickKey = def.customActionKeys?.click;
+                const oneStepKey = def.customActionKeys?.oneStep;
+
+                if (actionKey) {
+                    actions[actionKey] = ({ engine }) => menu.clickInOpenMenus({ engine }, { selector, textMatch, fallbackToFirst: !!def.fallbackToFirst });
+                }
+                if (clickKey) {
+                    actions[clickKey] = ({ engine }) => menu.clickInOpenMenus({ engine }, { selector, textMatch, fallbackToFirst: !!def.fallbackToFirst });
+                }
+                if (oneStepKey) {
+                    actions[oneStepKey] = ({ engine }) => menu.oneStepClick({ engine }, { selector, textMatch, openSubmenus, fallbackToFirst: !!def.fallbackToFirst });
+                }
+            }
+            return actions;
+        }
+
+        return Object.freeze({
+            timing: DEFAULT_TIMING,
+            sleep,
+            dom: Object.freeze({
+                safeQuerySelector,
+                safeQuerySelectorAll,
+                isVisible,
+                escapeForAttributeSelector,
+                normalizeText,
+                matchText,
+                findFirst,
+                waitFor,
+                waitForElement,
+                waitForMatch
+            }),
+            events: Object.freeze({
+                resolveEventView,
+                simulateClick,
+                simulateHover
+            }),
+            shortcuts: Object.freeze({
+                getShortcuts,
+                findShortcutByName,
+                resolveShortcutField
+            }),
+            oneStep: Object.freeze({
+                createOneStepExecutor
+            }),
+            menu: Object.freeze({
+                createMenuController,
+                buildMenuActions
+            })
+        });
+    })();
 
     /* ------------------------------------------------------------------
      * 2. 核心创建函数
@@ -3190,9 +3875,10 @@
     }
 
     global.ShortcutTemplate = Object.freeze({
-        VERSION: '20250924',
+        VERSION: '20251225',
         URL_METHODS,
-        createShortcutEngine
+        createShortcutEngine,
+        utils: Utils
     });
 
 })(typeof window !== 'undefined' ? window : this);
