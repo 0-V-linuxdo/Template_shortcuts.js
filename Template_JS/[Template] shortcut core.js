@@ -3155,14 +3155,14 @@
 			                flexWrap: "nowrap"
 			            });
 
-	            const statsContainer = createStatsDisplay();
-
-	            searchWidget.appendChild(searchIconBtn);
-	            searchWidget.appendChild(searchInput);
-	            searchWidget.appendChild(clearSearchBtn);
-	            statsRow.appendChild(searchWidget);
-	            statsRow.appendChild(statsContainer);
-	            headerContainer.appendChild(statsRow);
+		            const statsContainer = createStatsDisplay();
+	
+			            searchWidget.appendChild(searchInput);
+			            searchWidget.appendChild(clearSearchBtn);
+			            searchWidget.appendChild(searchIconBtn);
+		            statsRow.appendChild(searchWidget);
+		            statsRow.appendChild(statsContainer);
+		            headerContainer.appendChild(statsRow);
 
 	            actionsContainer.appendChild(settingsBtn);
 	            headerContainer.appendChild(actionsContainer);
@@ -3670,11 +3670,17 @@
 	                    const statsContainerEl = document.getElementById(ids.stats);
 	                    if (!statsContainerEl) return;
 	
-	                    const headerWidth = headerContainer.clientWidth;
-	                    const actionsWidth = actionsContainer.offsetWidth;
-	                    const searchWidth = searchWidget.offsetWidth;
-	                    const requiredStatsRowWidth = searchWidth + statsRowGapPx + statsContainerEl.scrollWidth;
-	                    const maxTitleWidth = headerWidth - actionsWidth - headerGapPx * 2 - requiredStatsRowWidth;
+		                    const headerWidth = headerContainer.clientWidth;
+		                    const actionsWidth = actionsContainer.offsetWidth;
+		                    const searchWidth = searchWidget.offsetWidth;
+		                    const firstPill = statsContainerEl.querySelector("button");
+		                    const minStatsContainerWidth = firstPill ? firstPill.offsetWidth : 120;
+		                    const reservedStatsContainerWidth = Math.min(
+		                        statsContainerEl.scrollWidth,
+		                        Math.max(minStatsContainerWidth, 0)
+		                    );
+		                    const requiredStatsRowWidth = searchWidth + statsRowGapPx + reservedStatsContainerWidth;
+		                    const maxTitleWidth = headerWidth - actionsWidth - headerGapPx * 2 - requiredStatsRowWidth;
 	
 	                    if (maxTitleWidth <= minTitleVisiblePx) {
 	                        title.style.display = "none";
