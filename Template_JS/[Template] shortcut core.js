@@ -2840,19 +2840,19 @@
                 return button;
             }
 
-	            function createStatsDisplay() {
-	                const stats = getShortcutStats();
-	                const container = document.createElement("div");
-	                container.id = ids.stats;
-	                Object.assign(container.style, {
-	                    display: "flex",
-	                    alignItems: "center",
-	                    gap: "8px",
-	                    flex: "1 1 auto",
-	                    minWidth: "0",
-	                    padding: "2px 0",
-	                    flexWrap: "nowrap",
-	                    overflowX: "auto",
+		            function createStatsDisplay() {
+		                const stats = getShortcutStats();
+		                const container = document.createElement("div");
+		                container.id = ids.stats;
+		                Object.assign(container.style, {
+		                    display: "flex",
+		                    alignItems: "center",
+		                    gap: "8px",
+		                    flex: "0 1 auto",
+		                    minWidth: "0",
+		                    padding: "2px 0",
+		                    flexWrap: "nowrap",
+		                    overflowX: "auto",
 	                    overflowY: "hidden",
 	                    WebkitOverflowScrolling: "touch"
 	                });
@@ -2938,44 +2938,52 @@
             });
             panel.onclick = (e) => e.stopPropagation();
 
-	            const headerContainer = document.createElement("div");
-	            Object.assign(headerContainer.style, {
-	                display: "flex",
-	                justifyContent: "flex-start",
-	                alignItems: "center",
-	                marginBottom: "15px",
-	                paddingBottom: "10px",
-	                flexWrap: "nowrap",
-	                gap: "10px",
-	                minWidth: "0"
-	            });
-
-		            const title = document.createElement("h2");
-		            title.textContent = options.panelTitle || '自定义快捷键';
-		            Object.assign(title.style, {
-		                margin: "0",
-		                fontSize: "1.1em",
-		                flex: "0 999 auto",
-		                minWidth: "0",
-		                overflow: "hidden",
-		                textOverflow: "ellipsis",
-		                whiteSpace: "nowrap"
+		            const headerContainer = document.createElement("div");
+		            Object.assign(headerContainer.style, {
+		                display: "flex",
+		                justifyContent: "flex-start",
+		                alignItems: "center",
+		                marginBottom: "15px",
+		                paddingBottom: "10px",
+		                flexWrap: "nowrap",
+		                gap: "10px",
+		                minWidth: "0"
 		            });
-	            headerContainer.appendChild(title);
 
-		            const actionsContainer = document.createElement("div");
-			            Object.assign(actionsContainer.style, {
-			                display: "flex",
-			                alignItems: "center",
-			                justifyContent: "flex-end",
-			                gap: "6px",
-			                flex: "0 0 auto"
+		            const leftSlot = document.createElement("div");
+		            Object.assign(leftSlot.style, {
+		                display: "flex",
+		                alignItems: "center",
+		                gap: "10px",
+		                flex: "1 1 auto",
+		                minWidth: "0"
+		            });
+
+			            const actionsContainer = document.createElement("div");
+				            Object.assign(actionsContainer.style, {
+				                display: "flex",
+				                alignItems: "center",
+				                justifyContent: "flex-end",
+				                gap: "6px",
+				                flex: "0 0 auto"
+				            });
+
+			            const title = document.createElement("h2");
+			            title.textContent = options.panelTitle || '自定义快捷键';
+			            Object.assign(title.style, {
+			                margin: "0",
+			                fontSize: "1.1em",
+			                flex: "1 1 auto",
+			                minWidth: "0",
+			                overflow: "hidden",
+			                textOverflow: "ellipsis",
+			                whiteSpace: "nowrap"
 			            });
 
-	            const settingsBtn = document.createElement("button");
-	            settingsBtn.type = "button";
-	            settingsBtn.title = options.text.buttons.settings || "设置";
-	            settingsBtn.textContent = "⚙️";
+		            const settingsBtn = document.createElement("button");
+		            settingsBtn.type = "button";
+		            settingsBtn.title = options.text.buttons.settings || "设置";
+		            settingsBtn.textContent = "⚙️";
 	            Object.assign(settingsBtn.style, {
 	                width: "32px",
 	                height: "32px",
@@ -2986,16 +2994,17 @@
 	                lineHeight: "1"
 	            });
 
-	            const searchWidget = document.createElement("div");
-	            Object.assign(searchWidget.style, {
-	                display: "flex",
-	                alignItems: "center",
-	                width: "32px",
-	                height: "32px",
-	                maxWidth: "100%",
-	                overflow: "hidden",
-	                boxSizing: "border-box",
-	                transition: "width 0.2s ease"
+			            const searchWidget = document.createElement("div");
+			            Object.assign(searchWidget.style, {
+			                display: "flex",
+			                alignItems: "center",
+			                width: "32px",
+			                flex: "0 0 32px",
+			                height: "32px",
+			                maxWidth: "100%",
+			                overflow: "hidden",
+			                boxSizing: "border-box",
+			                transition: "width 0.2s ease"
 	            });
 
 	            const searchIconBtn = document.createElement("button");
@@ -3050,12 +3059,11 @@
 	                flex: "0 0 32px"
 	            });
 
-		            let isSearchExpanded = !!String(state.searchQuery || "").trim();
-		            let scheduleHeaderTitlePriorityLayout = () => {};
+			            let isSearchExpanded = !!String(state.searchQuery || "").trim();
 
-		            const refreshSearchWidgetStyle = (isDark = state.isDarkMode) => {
-		                const hasValue = !!String(searchInput.value || "").trim();
-		                const active = isSearchExpanded || hasValue;
+			            const refreshSearchWidgetStyle = (isDark = state.isDarkMode) => {
+			                const hasValue = !!String(searchInput.value || "").trim();
+			                const active = isSearchExpanded || hasValue;
 		                searchWidget.style.borderColor = active ? getPrimaryColor() : getBorderColor(isDark);
 	                searchIconBtn.style.color = active ? getPrimaryColor() : getTextColor(isDark);
 	            };
@@ -3065,17 +3073,18 @@
 	                clearSearchBtn.style.display = isSearchExpanded && hasValue ? "flex" : "none";
 	            };
 
-		            const setSearchExpanded = (expanded, { focus = false } = {}) => {
-		                isSearchExpanded = !!expanded;
-		                searchWidget.style.width = isSearchExpanded ? "220px" : "32px";
-		                searchInput.style.display = isSearchExpanded ? "block" : "none";
-		                updateClearSearchVisibility();
-		                refreshSearchWidgetStyle();
-		                scheduleHeaderTitlePriorityLayout();
-		                if (isSearchExpanded) {
-		                    if (focus) {
-		                        searchInput.focus();
-		                        searchInput.select();
+			            const setSearchExpanded = (expanded, { focus = false } = {}) => {
+			                isSearchExpanded = !!expanded;
+			                title.style.display = isSearchExpanded ? "none" : "";
+			                searchWidget.style.flex = isSearchExpanded ? "1 1 auto" : "0 0 32px";
+			                searchWidget.style.width = isSearchExpanded ? "100%" : "32px";
+			                searchInput.style.display = isSearchExpanded ? "block" : "none";
+			                updateClearSearchVisibility();
+			                refreshSearchWidgetStyle();
+			                if (isSearchExpanded) {
+			                    if (focus) {
+			                        searchInput.focus();
+			                        searchInput.select();
 		                    }
 	                    return;
 	                }
@@ -3084,12 +3093,11 @@
 	                }
 	            };
 
-		            const applySearchImmediate = () => {
-		                state.searchQuery = searchInput.value.trim();
-		                renderShortcutsList(state.isDarkMode);
-		                updateStatsDisplay();
-		                scheduleHeaderTitlePriorityLayout();
-		            };
+			            const applySearchImmediate = () => {
+			                state.searchQuery = searchInput.value.trim();
+			                renderShortcutsList(state.isDarkMode);
+			                updateStatsDisplay();
+			            };
 
 	            const applySearchDebounced = debounce(applySearchImmediate, 120);
 
@@ -3142,30 +3150,22 @@
 	                refreshSearchWidgetStyle();
 	            });
 
-	            updateClearSearchVisibility();
-	            setSearchExpanded(isSearchExpanded);
-
-		            const statsRow = document.createElement("div");
-			            Object.assign(statsRow.style, {
-			                display: "flex",
-			                alignItems: "center",
-			                gap: "8px",
-			                flex: "1 1 0%",
-			                minWidth: "0",
-			                flexWrap: "nowrap"
-			            });
+		            updateClearSearchVisibility();
+		            setSearchExpanded(isSearchExpanded);
 
 		            const statsContainer = createStatsDisplay();
-	
-			            searchWidget.appendChild(searchInput);
-			            searchWidget.appendChild(clearSearchBtn);
-			            searchWidget.appendChild(searchIconBtn);
-		            statsRow.appendChild(searchWidget);
-		            statsRow.appendChild(statsContainer);
-		            headerContainer.appendChild(statsRow);
+		
+		            searchWidget.appendChild(searchInput);
+		            searchWidget.appendChild(clearSearchBtn);
+		            searchWidget.appendChild(searchIconBtn);
 
-	            actionsContainer.appendChild(settingsBtn);
-	            headerContainer.appendChild(actionsContainer);
+		            leftSlot.appendChild(title);
+		            leftSlot.appendChild(searchWidget);
+		            headerContainer.appendChild(leftSlot);
+		            headerContainer.appendChild(statsContainer);
+
+		            actionsContainer.appendChild(settingsBtn);
+		            headerContainer.appendChild(actionsContainer);
 
 	            panel.appendChild(headerContainer);
 
@@ -3646,102 +3646,7 @@
 	            state.currentPanelOverlay = overlay;
 	            state.currentPanelCloser = closePanel;
 	
-	            const destroyHeaderTitlePriorityLayout = (() => {
-	                const headerGapPx = Number.parseFloat(headerContainer.style.gap || "0") || 0;
-	                const statsRowGapPx = Number.parseFloat(statsRow.style.gap || "0") || 0;
-	                const minTitleVisiblePx = 28;
-	                let titleNaturalWidth = null;
-	
-	                const getTitleNaturalWidth = () => {
-	                    if (titleNaturalWidth !== null) return titleNaturalWidth;
-	                    const prevDisplay = title.style.display;
-	                    const prevMaxWidth = title.style.maxWidth;
-	                    title.style.display = "";
-	                    title.style.maxWidth = "";
-	                    titleNaturalWidth = title.scrollWidth || title.offsetWidth || 0;
-	                    title.style.display = prevDisplay;
-	                    title.style.maxWidth = prevMaxWidth;
-	                    return titleNaturalWidth;
-	                };
-	
-	                const apply = () => {
-	                    if (!state.isSettingsPanelOpen) return;
-	                    if (!headerContainer.isConnected) return;
-	                    const statsContainerEl = document.getElementById(ids.stats);
-	                    if (!statsContainerEl) return;
-
-	                    const headerWidth = headerContainer.clientWidth;
-	                    const actionsWidth = actionsContainer.offsetWidth;
-	                    const searchWidth = searchWidget.offsetWidth;
-	                    const statsStyle = window.getComputedStyle(statsContainerEl);
-	                    const statsGapPx = Number.parseFloat(statsStyle.columnGap || statsStyle.gap || "0") || 0;
-	                    const statsPaddingLeftPx = Number.parseFloat(statsStyle.paddingLeft || "0") || 0;
-	                    const statsPaddingRightPx = Number.parseFloat(statsStyle.paddingRight || "0") || 0;
-
-	                    const statButtons = Array.from(statsContainerEl.children).filter((el) => el && el.nodeType === 1);
-	                    const buttonsWidth = statButtons.reduce((sum, el) => sum + (el.offsetWidth || 0), 0);
-	                    const buttonsGapWidth = Math.max(0, statButtons.length - 1) * statsGapPx;
-	                    const requiredStatsContainerWidth =
-	                        buttonsWidth + buttonsGapWidth + statsPaddingLeftPx + statsPaddingRightPx;
-
-	                    const requiredStatsRowWidth = searchWidth + statsRowGapPx + requiredStatsContainerWidth;
-	                    const maxTitleWidth = headerWidth - actionsWidth - headerGapPx * 2 - requiredStatsRowWidth;
-
-	                    if (maxTitleWidth <= minTitleVisiblePx) {
-	                        title.style.display = "none";
-	                        title.style.maxWidth = "";
-	                        return;
-	                    }
-	
-	                    title.style.display = "";
-	                    const naturalWidth = getTitleNaturalWidth();
-	                    title.style.maxWidth = `${Math.min(naturalWidth, maxTitleWidth)}px`;
-	                };
-	
-	                const schedule = debounce(() => {
-	                    requestAnimationFrame(() => {
-	                        try { apply(); } catch {}
-	                    });
-	                }, 60);
-	
-	                scheduleHeaderTitlePriorityLayout = schedule;
-	
-	                const onSearchTransitionEnd = (e) => {
-	                    if (e && e.propertyName === "width") schedule();
-	                };
-	                searchWidget.addEventListener("transitionend", onSearchTransitionEnd);
-	
-	                let resizeCleanup = () => {};
-	                if (window.ResizeObserver) {
-	                    const ro = new ResizeObserver(() => schedule());
-	                    ro.observe(headerContainer);
-	                    resizeCleanup = () => ro.disconnect();
-	                } else {
-	                    window.addEventListener("resize", schedule);
-	                    resizeCleanup = () => window.removeEventListener("resize", schedule);
-	                }
-	
-	                let mutationObserver = null;
-	                if (window.MutationObserver) {
-	                    mutationObserver = new MutationObserver(() => schedule());
-	                    mutationObserver.observe(statsRow, { childList: true, subtree: true });
-	                }
-	
-	                schedule();
-	
-	                return () => {
-	                    scheduleHeaderTitlePriorityLayout = () => {};
-	                    try { searchWidget.removeEventListener("transitionend", onSearchTransitionEnd); } catch {}
-	                    try { resizeCleanup(); } catch {}
-	                    try { mutationObserver && mutationObserver.disconnect(); } catch {}
-	                };
-	            })();
-
-	            state.destroyResponsiveListener = () => {
-	                try { destroyHeaderTitlePriorityLayout && destroyHeaderTitlePriorityLayout(); } catch {}
-	            };
-	
-	            state.isCompactMode = shouldUseCompactMode(panel);
+		            state.isCompactMode = shouldUseCompactMode(panel);
 
             panel.addEventListener(state.filterChangedEventName, () => {
                 renderShortcutsList(state.isDarkMode);
@@ -3834,12 +3739,11 @@
 	                    const destroyResponsiveListener = createResponsiveListener(panel, (compactMode) => {
 	                        renderShortcutsList(state.isDarkMode, compactMode);
 	                    });
-	                    state.destroyResponsiveListener = () => {
-	                        try { destroyResponsiveListener && destroyResponsiveListener(); } catch {}
-	                        try { destroyHeaderTitlePriorityLayout && destroyHeaderTitlePriorityLayout(); } catch {}
-	                    };
-	                }, 100);
-	            });
+		                    state.destroyResponsiveListener = () => {
+		                        try { destroyResponsiveListener && destroyResponsiveListener(); } catch {}
+		                    };
+		                }, 100);
+		            });
 
 	            function renderShortcutsList(isDark = state.isDarkMode, forceCompactMode = null) {
 	                const useCompactMode = forceCompactMode !== null ? forceCompactMode : shouldUseCompactMode(panel);
