@@ -29,12 +29,12 @@
  * ====================== IMPORTANT · NOTICE · END ======================
  */
 
+(function (global) {
+    'use strict';
+
 /* -------------------------------------------------------------------------- *
  * Module 01 · Wrapper & core constants (IIFE bootstrap, defaults, URL methods)
  * -------------------------------------------------------------------------- */
-
-(function (global) {
-    'use strict';
 
     /* ------------------------------------------------------------------
      * 1. 常量定义 & 工具函数
@@ -78,6 +78,11 @@
             buttons: {
                 addShortcut: '添加新快捷键',
                 saveAndClose: '保存并关闭',
+                import: '导入',
+                export: '导出',
+                reset: '重置默认',
+                copy: '复制',
+                close: '关闭',
                 confirm: '确定',
                 cancel: '取消',
                 delete: '删除',
@@ -93,7 +98,8 @@
                 hotkey: '点击此处，然后按下快捷键组合',
                 simulate: '点击此处，然后按下要模拟的按键组合',
                 hotkeyHelp: '💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合',
-                simulateHelp: '⚡ 将模拟这个按键组合发送到网页'
+                simulateHelp: '⚡ 将模拟这个按键组合发送到网页',
+                searchPlaceholder: '搜索名称/目标'
             },
             menuLabelFallback: '打开快捷键设置'
         }
@@ -453,9 +459,33 @@
             return list.find(s => s && s.name === name) || null;
         }
 
-        function resolveShortcutField(engine, name, field, fallback = "") {
-            if (!name || !field) return fallback;
-            const shortcut = findShortcutByName(engine, name);
+        function findShortcutByKey(engine, key) {
+            const target = typeof key === "string" ? key.trim() : "";
+            if (!target) return null;
+            const list = getShortcuts(engine);
+            return list.find(s => s && s.key === target) || null;
+        }
+
+        function findShortcutById(engine, id) {
+            const target = typeof id === "string" ? id.trim() : "";
+            if (!target) return null;
+            const list = getShortcuts(engine);
+            return list.find(s => s && s.id === target) || null;
+        }
+
+        function resolveShortcutField(engine, matcher, field, fallback = "") {
+            if (!matcher || !field) return fallback;
+            let shortcut = null;
+            if (typeof matcher === "string") {
+                shortcut = findShortcutByName(engine, matcher);
+            } else if (matcher && typeof matcher === "object") {
+                const id = typeof matcher.id === "string" ? matcher.id : "";
+                const key = typeof matcher.key === "string" ? matcher.key : "";
+                const name = typeof matcher.name === "string" ? matcher.name : "";
+                shortcut = (id ? findShortcutById(engine, id) : null) ||
+                    (key ? findShortcutByKey(engine, key) : null) ||
+                    (name ? findShortcutByName(engine, name) : null);
+            }
             const value = shortcut && typeof shortcut[field] === "string" ? shortcut[field].trim() : "";
             return value || fallback;
         }
@@ -542,10 +572,14 @@
             }
             if (typeof spec === "object") {
                 if (Array.isArray(spec.selectors)) return resolveSelectorListFromSpec(ctx, spec.selectors);
+                const fromId = typeof spec.fromShortcutId === "string" ? spec.fromShortcutId : "";
+                const fromKey = typeof spec.fromShortcutKey === "string" ? spec.fromShortcutKey : "";
                 const fromName = typeof spec.fromShortcutName === "string" ? spec.fromShortcutName : "";
                 const field = typeof spec.field === "string" ? spec.field : "selector";
                 const fallback = typeof spec.fallback === "string" ? spec.fallback : (typeof spec.selector === "string" ? spec.selector : "");
-                const selector = fromName ? resolveShortcutField(ctx?.engine, fromName, field, fallback) : fallback;
+                const selector = (fromId || fromKey || fromName)
+                    ? resolveShortcutField(ctx?.engine, { id: fromId, key: fromKey, name: fromName }, field, fallback)
+                    : fallback;
                 const trimmed = selector.trim();
                 return trimmed ? [trimmed] : [];
             }
@@ -913,6 +947,8 @@
             shortcuts: Object.freeze({
                 getShortcuts,
                 findShortcutByName,
+                findShortcutByKey,
+                findShortcutById,
                 resolveShortcutField
             }),
             oneStep: Object.freeze({
@@ -932,11 +968,11 @@
      * 2. 核心创建函数
      * ------------------------------------------------------------------ */
 
-    function createShortcutEngine(userOptions = {}) {
-        const options = deepMerge(deepMerge({}, DEFAULT_OPTIONS), userOptions || {});
-        options.colors = deepMerge(deepMerge({}, DEFAULT_OPTIONS.colors), userOptions.colors || {});
-        options.ui = deepMerge(deepMerge({}, DEFAULT_OPTIONS.ui), userOptions.ui || {});
-        options.text = deepMerge(deepMerge({}, DEFAULT_OPTIONS.text), userOptions.text || {});
+	    function createShortcutEngine(userOptions = {}) {
+	        const options = deepMerge(deepMerge({}, DEFAULT_OPTIONS), userOptions || {});
+	        options.colors = deepMerge(deepMerge({}, DEFAULT_OPTIONS.colors), userOptions.colors || {});
+	        options.ui = deepMerge(deepMerge({}, DEFAULT_OPTIONS.ui), userOptions.ui || {});
+	        options.text = deepMerge(deepMerge({}, DEFAULT_OPTIONS.text), userOptions.text || {});
         options.iconLibrary = Array.isArray(options.iconLibrary) ? options.iconLibrary.slice() : [];
         options.protectedIconUrls = Array.isArray(options.protectedIconUrls) ? options.protectedIconUrls.slice() : [];
         options.defaultShortcuts = Array.isArray(options.defaultShortcuts) ? clone(options.defaultShortcuts) : [];
@@ -959,11 +995,11 @@
             compactCard: `${cssPrefix}-compact-card`
         };
 
-        const state = {
-            isSettingsPanelOpen: false,
-            isCompactMode: false,
-            scrollLock: {
-                isLocked: false,
+	        const state = {
+	            isSettingsPanelOpen: false,
+	            isCompactMode: false,
+	            scrollLock: {
+	                isLocked: false,
                 originalBodyOverflow: '',
                 originalBodyPosition: '',
                 originalBodyTop: '',
@@ -972,19 +1008,72 @@
                 scrollTop: 0,
                 scrollLeft: 0
             },
-            isDarkMode: false,
-            currentFilter: 'all',
-            currentPanelOverlay: null,
-            destroyResponsiveListener: null,
-            filterChangedEventName: `${idPrefix}-filterChanged`
-        };
+	            isDarkMode: false,
+	            currentFilter: 'all',
+	            searchQuery: '',
+	            currentPanelOverlay: null,
+	            currentPanelCloser: null,
+	            currentEditCloser: null,
+	            destroyResponsiveListener: null,
+	            destroyDarkModeObserver: null,
+	            destroyDragCss: null,
+	            menuCommandRegistered: false,
+	            filterChangedEventName: `${idPrefix}-filterChanged`
+	        };
 
-        const GMX = (typeof GM_xmlhttpRequest === 'function')
-            ? GM_xmlhttpRequest
-            : (typeof GM !== 'undefined' && GM.xmlHttpRequest ? GM.xmlHttpRequest : null);
+	        const HOTKEY_MODIFIER_ORDER = Object.freeze(["CTRL", "SHIFT", "ALT", "CMD"]);
+	        const HOTKEY_MODIFIER_ALIASES = Object.freeze({
+	            CTRL: "CTRL",
+	            CONTROL: "CTRL",
+	            SHIFT: "SHIFT",
+	            ALT: "ALT",
+	            OPTION: "ALT",
+	            OPT: "ALT",
+	            CMD: "CMD",
+	            COMMAND: "CMD",
+	            META: "CMD",
+	            WIN: "CMD",
+	            WINDOWS: "CMD"
+	        });
+
+	        const HOTKEY_MODIFIER_DISPLAY = Object.freeze({
+	            CTRL: "Ctrl",
+	            SHIFT: "Shift",
+	            ALT: "Alt",
+	            CMD: "Cmd"
+	        });
+
+	        const SHIFTED_SYMBOL_TO_BASE_KEY = Object.freeze({
+	            "!": "1",
+	            "@": "2",
+	            "#": "3",
+	            "$": "4",
+	            "%": "5",
+	            "^": "6",
+	            "&": "7",
+	            "*": "8",
+	            "(": "9",
+	            ")": "0",
+	            "_": "-",
+	            "+": "=",
+	            "{": "[",
+	            "}": "]",
+	            "|": "\\",
+	            ":": ";",
+	            "\"": "'",
+	            "<": ",",
+	            ">": ".",
+	            "?": "/",
+	            "~": "`"
+	        });
+
+	        const GMX = (typeof GM_xmlhttpRequest === 'function')
+	            ? GM_xmlhttpRequest
+	            : (typeof GM !== 'undefined' && GM.xmlHttpRequest ? GM.xmlHttpRequest : null);
 
         let engineApi = null;
         let shortcuts = loadShortcuts();
+        ensureUniqueShortcutIds(shortcuts);
         const core = createCoreLayer();
         const uiShared = createUiSharedLayer();
 
@@ -1000,31 +1089,62 @@
             }
             return fallback;
         }
-        function safeGMSet(key, value) {
+	        function safeGMSet(key, value) {
+	            try {
+	                if (typeof GM_setValue === 'function') {
+	                    GM_setValue(key, value);
+	                }
+	            } catch (err) {
+	                console.warn(`${options.consoleTag} GM_setValue error`, err);
+	            }
+	        }
+
+        function generateShortcutId() {
             try {
-                if (typeof GM_setValue === 'function') {
-                    GM_setValue(key, value);
+                if (global.crypto && typeof global.crypto.randomUUID === "function") {
+                    return global.crypto.randomUUID();
                 }
-            } catch (err) {
-                console.warn(`${options.consoleTag} GM_setValue error`, err);
+            } catch {}
+            return `sc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+        }
+
+        function ensureUniqueShortcutIds(list) {
+            if (!Array.isArray(list) || list.length === 0) return;
+            const seen = new Set();
+            for (const shortcut of list) {
+                if (!shortcut || typeof shortcut !== "object") continue;
+                const idRaw = typeof shortcut.id === "string" ? shortcut.id.trim() : "";
+                let id = idRaw;
+                if (!id || seen.has(id)) {
+                    id = generateShortcutId();
+                    shortcut.id = id;
+                }
+                seen.add(id);
             }
         }
 
-        function normalizeShortcut(raw) {
-            const shortcut = raw && typeof raw === 'object' ? raw : {};
-            return {
-                name: shortcut.name || "",
-                actionType: shortcut.actionType || (shortcut.url ? 'url' : (shortcut.selector ? 'selector' : (shortcut.simulateKeys ? 'simulate' : (shortcut.customAction ? 'custom' : '')))),
-                url: shortcut.url || "",
-                urlMethod: shortcut.urlMethod || "current",
-                urlAdvanced: shortcut.urlAdvanced || "href",
-                selector: shortcut.selector || "",
-                simulateKeys: shortcut.simulateKeys || "",
-                customAction: shortcut.customAction || "",
-                hotkey: shortcut.hotkey || "",
-                icon: shortcut.icon || ""
-            };
-        }
+		        function normalizeShortcut(raw) {
+		            const shortcut = raw && typeof raw === 'object' ? raw : {};
+                const key = (typeof shortcut.key === "string") ? shortcut.key.trim() : "";
+                let id = (typeof shortcut.id === "string") ? shortcut.id.trim() : "";
+                if (!id) {
+                    id = key ? `key:${key}` : generateShortcutId();
+                }
+		            return {
+                    id,
+                    key,
+		                name: shortcut.name || "",
+		                actionType: shortcut.actionType || (shortcut.url ? 'url' : (shortcut.selector ? 'selector' : (shortcut.simulateKeys ? 'simulate' : (shortcut.customAction ? 'custom' : '')))),
+		                url: shortcut.url || "",
+		                urlMethod: shortcut.urlMethod || "current",
+		                urlAdvanced: shortcut.urlAdvanced || "href",
+		                selector: shortcut.selector || "",
+		                simulateKeys: normalizeHotkey(shortcut.simulateKeys || ""),
+		                customAction: shortcut.customAction || "",
+		                hotkey: normalizeHotkey(shortcut.hotkey || ""),
+		                icon: shortcut.icon || ""
+		            };
+		        }
 
         function loadShortcuts() {
             const stored = safeGMGet(options.storageKeys.shortcuts, options.defaultShortcuts);
@@ -1114,6 +1234,7 @@
             function setShortcutsList(newShortcuts, { persist = true } = {}) {
                 if (!Array.isArray(newShortcuts)) return;
                 shortcuts = newShortcuts.map(normalizeShortcut);
+                ensureUniqueShortcutIds(shortcuts);
                 rebuildHotkeyIndex();
                 if (persist) saveShortcuts();
             }
@@ -1121,6 +1242,7 @@
             function mutateShortcuts(mutator, { persist = false } = {}) {
                 if (typeof mutator !== 'function') return;
                 mutator(shortcuts);
+                ensureUniqueShortcutIds(shortcuts);
                 rebuildHotkeyIndex();
                 if (persist) saveShortcuts();
             }
@@ -1131,17 +1253,29 @@
 
             rebuildHotkeyIndex();
 
-            return Object.freeze({
-                setShortcuts: setShortcutsList,
-                mutateShortcuts,
-                getShortcuts: getShortcutsSnapshot,
-                rebuildHotkeyIndex,
-                getShortcutByHotkeyNorm,
-                executeShortcutAction,
-                normalizeHotkey,
-                normalizeShortcut
-            });
-        }
+	            return Object.freeze({
+	                setShortcuts: setShortcutsList,
+	                mutateShortcuts,
+	                persistShortcuts: saveShortcuts,
+	                getShortcuts: getShortcutsSnapshot,
+	                rebuildHotkeyIndex,
+	                getShortcutByHotkeyNorm,
+	                executeShortcutAction,
+	                hotkeys: Object.freeze({
+	                    normalize: normalizeHotkey,
+	                    modifierOrder: HOTKEY_MODIFIER_ORDER,
+	                    fromEvent: getHotkeyFromKeyboardEvent,
+	                    getMainKeyFromEvent: getStandardKeyFromKeyboardEvent,
+	                    isAllowedMainKey: isAllowedHotkeyMainKey,
+	                    isAllowedSimulateMainKey,
+	                    formatForDisplay: formatHotkeyForDisplay,
+	                    formatModifierToken: formatHotkeyModifierToken,
+	                    formatKeyToken: formatHotkeyMainKeyDisplayToken
+	                }),
+	                normalizeHotkey,
+	                normalizeShortcut
+	            });
+	        }
 
         function createUiSharedLayer() {
             return Object.freeze({
@@ -1434,19 +1568,19 @@
             });
         }
 
-        function detectInitialDarkMode() {
-            const htmlEl = document.documentElement;
-            const bodyEl = document.body;
-            let detectedDarkMode = false;
-            if (htmlEl.classList.contains('dark') || bodyEl.classList.contains('dark')) {
-                detectedDarkMode = true;
-            } else if (htmlEl.getAttribute('data-theme') === 'dark' || bodyEl.getAttribute('data-theme') === 'dark') {
-                detectedDarkMode = true;
-            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                if (!htmlEl.classList.contains('light') && !bodyEl.classList.contains('light')) {
-                    detectedDarkMode = true;
-                }
-            } else {
+	        function detectInitialDarkMode() {
+	            const htmlEl = document.documentElement;
+	            const bodyEl = document.body;
+	            let detectedDarkMode = false;
+	            if (htmlEl.classList.contains('dark') || bodyEl?.classList?.contains('dark')) {
+	                detectedDarkMode = true;
+	            } else if (htmlEl.getAttribute('data-theme') === 'dark' || bodyEl?.getAttribute?.('data-theme') === 'dark') {
+	                detectedDarkMode = true;
+	            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+	                if (!htmlEl.classList.contains('light') && !bodyEl?.classList?.contains('light')) {
+	                    detectedDarkMode = true;
+	                }
+	            } else {
                 try {
                     const bgColor = window.getComputedStyle(bodyEl || htmlEl).backgroundColor;
                     if (isColorDark(bgColor)) {
@@ -1498,38 +1632,57 @@
             }
         }
 
-        function setupDarkModeObserver() {
-            if (window.matchMedia) {
-                const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-                const listener = (e) => { detectInitialDarkMode(); };
-                if (darkModeMediaQuery.addEventListener) {
-                    darkModeMediaQuery.addEventListener('change', listener);
-                } else if (darkModeMediaQuery.addListener) {
-                    darkModeMediaQuery.addListener(listener);
-                }
-            }
-            const observerCallback = (mutations) => {
-                let themeMightHaveChanged = false;
-                for (const mutation of mutations) {
-                    if (mutation.type === 'attributes' && (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme')) {
-                        themeMightHaveChanged = true;
-                        break;
-                    }
-                }
-                if (themeMightHaveChanged) {
-                    detectInitialDarkMode();
-                }
-            };
-            const observer = new MutationObserver(observerCallback);
-            observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
-            if (document.body) {
-                observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-theme'] });
-            }
-            setInterval(() => { detectInitialDarkMode(); }, 5000);
-            detectInitialDarkMode();
-        }
+	        function setupDarkModeObserver() {
+	            let cleaned = false;
+	            let intervalId = null;
+	            let observer = null;
+	            let removeMediaListener = null;
 
-        const ENHANCED_KEY_MAP = {
+	            if (window.matchMedia) {
+	                const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+	                const listener = () => { detectInitialDarkMode(); };
+	                if (darkModeMediaQuery.addEventListener) {
+	                    darkModeMediaQuery.addEventListener('change', listener);
+	                    removeMediaListener = () => darkModeMediaQuery.removeEventListener('change', listener);
+	                } else if (darkModeMediaQuery.addListener) {
+	                    darkModeMediaQuery.addListener(listener);
+	                    removeMediaListener = () => darkModeMediaQuery.removeListener(listener);
+	                }
+	            }
+
+	            const observerCallback = (mutations) => {
+	                let themeMightHaveChanged = false;
+	                for (const mutation of mutations) {
+	                    if (mutation.type === 'attributes' && (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme')) {
+	                        themeMightHaveChanged = true;
+	                        break;
+	                    }
+	                }
+	                if (themeMightHaveChanged) {
+	                    detectInitialDarkMode();
+	                }
+	            };
+	            observer = new MutationObserver(observerCallback);
+	            try {
+	                observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+	                if (document.body) {
+	                    observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+	                }
+	            } catch {}
+
+	            intervalId = setInterval(() => { detectInitialDarkMode(); }, 5000);
+	            detectInitialDarkMode();
+
+	            return () => {
+	                if (cleaned) return;
+	                cleaned = true;
+	                try { if (removeMediaListener) removeMediaListener(); } catch {}
+	                try { if (observer) observer.disconnect(); } catch {}
+	                try { if (intervalId) clearInterval(intervalId); } catch {}
+	            };
+	        }
+
+	        const HOTKEY_CODE_MAP = {
             'KeyA': { display: 'A', standard: 'A' },
             'KeyB': { display: 'B', standard: 'B' },
             'KeyC': { display: 'C', standard: 'C' },
@@ -1622,6 +1775,15 @@
             'NumpadEnter': { display: 'Num Enter', standard: 'NUMPADENTER' },
         };
 
+	        const HOTKEY_STANDARD_DISPLAY_MAP = (() => {
+	            const map = Object.create(null);
+	            for (const info of Object.values(HOTKEY_CODE_MAP)) {
+	                if (!info || !info.standard || !info.display) continue;
+	                if (!map[info.standard]) map[info.standard] = info.display;
+	            }
+	            return Object.freeze(map);
+	        })();
+
 	        const KEY_EVENT_MAP = (() => {
 	            const map = Object.create(null);
 	            const add = (standard, key, code) => { map[standard] = { key, code }; };
@@ -1687,24 +1849,140 @@
 	            return Object.freeze(map);
 	        })();
 
+	        function normalizeMainKeyToken(rawKey, modifiers) {
+	            if (!rawKey) return "";
+	            const token = String(rawKey).toUpperCase();
+	            if (HOTKEY_MODIFIER_ALIASES[token]) return "";
+
+	            let mainKey = token;
+	            if (mainKey === "ESCAPE") mainKey = "ESC";
+	            if (mainKey === "SPACEBAR") mainKey = "SPACE";
+	            if (mainKey === "DEL") mainKey = "DELETE";
+
+	            const shiftedBase = SHIFTED_SYMBOL_TO_BASE_KEY[mainKey];
+	            if (shiftedBase) {
+	                if (modifiers && typeof modifiers.add === "function") modifiers.add("SHIFT");
+	                mainKey = shiftedBase;
+	            }
+
+	            return mainKey;
+	        }
+
 	        function normalizeHotkey(hotkeyStr) {
 	            if (!hotkeyStr || typeof hotkeyStr !== 'string') return "";
-	            const h = hotkeyStr.replace(/\s+/g, "").toUpperCase();
-            const parts = h.split("+").filter(p => p);
-            if (parts.length === 0) return "";
-            let mainKey = parts.pop() || "";
-            if (parts.length === 0) {
-                return mainKey;
-            } else {
-                const modKs = parts.sort();
-                return [...modKs, mainKey].join("+");
-            }
-        }
+	            const raw = hotkeyStr.replace(/\s+/g, "");
+	            if (!raw) return "";
 
-        function jumpToUrl(targetUrl, method = "current", advanced = "href") {
-            try {
-                let finalUrl = resolveTemplateUrl(targetUrl);
-                switch (method) {
+	            const parts = raw.split("+").filter(Boolean);
+	            if (parts.length === 0) return "";
+
+	            const modifiers = new Set();
+	            let mainKey = "";
+
+	            for (const part of parts) {
+	                const token = String(part || "").trim();
+	                if (!token) continue;
+	                const upper = token.toUpperCase();
+	                const mod = HOTKEY_MODIFIER_ALIASES[upper];
+	                if (mod) {
+	                    modifiers.add(mod);
+	                    continue;
+	                }
+	                mainKey = upper;
+	            }
+
+	            mainKey = normalizeMainKeyToken(mainKey, modifiers);
+	            if (!mainKey) return "";
+
+	            const orderedMods = [];
+	            for (const mod of HOTKEY_MODIFIER_ORDER) {
+	                if (modifiers.has(mod)) orderedMods.push(mod);
+	            }
+
+		            return orderedMods.length ? [...orderedMods, mainKey].join("+") : mainKey;
+		        }
+
+		        function getStandardKeyFromKeyboardEvent(e) {
+		            if (!e) return "";
+		            const code = String(e.code || "");
+		            const fromCode = code ? HOTKEY_CODE_MAP[code] : null;
+		            if (fromCode && fromCode.standard) return fromCode.standard;
+
+		            const keyRaw = String(e.key || "");
+		            if (!keyRaw) return "";
+		            if (keyRaw === " ") return "SPACE";
+
+		            let key = keyRaw.toUpperCase();
+		            if (key === "ESCAPE") key = "ESC";
+		            if (key === "SPACEBAR") key = "SPACE";
+		            if (key === "DEL") key = "DELETE";
+
+		            const shiftedBase = SHIFTED_SYMBOL_TO_BASE_KEY[key];
+		            if (shiftedBase) key = shiftedBase;
+		            return key;
+		        }
+
+		        function getHotkeyFromKeyboardEvent(e) {
+		            if (!e) return "";
+		            const modifiers = new Set();
+		            if (e.ctrlKey) modifiers.add("CTRL");
+		            if (e.shiftKey) modifiers.add("SHIFT");
+		            if (e.altKey) modifiers.add("ALT");
+		            if (e.metaKey) modifiers.add("CMD");
+
+		            const mainKey = normalizeMainKeyToken(getStandardKeyFromKeyboardEvent(e), modifiers);
+		            if (!mainKey) return "";
+
+		            const orderedMods = [];
+		            for (const mod of HOTKEY_MODIFIER_ORDER) {
+		                if (modifiers.has(mod)) orderedMods.push(mod);
+		            }
+
+		            return orderedMods.length ? [...orderedMods, mainKey].join("+") : mainKey;
+		        }
+
+		        function isAllowedHotkeyMainKey(mainKey) {
+		            const key = String(mainKey || "");
+		            if (!key) return false;
+		            if (key === "SPACE" || key === "ESC" || key === "BACKSPACE" || key === "DELETE") return true;
+		            if (/^F\d+$/.test(key)) return true;
+		            if (/^NUMPAD\d$/.test(key)) return true;
+		            if (["NUMPADADD", "NUMPADSUBTRACT", "NUMPADMULTIPLY", "NUMPADDIVIDE", "NUMPADDECIMAL"].includes(key)) return true;
+		            if (key.length !== 1) return false;
+		            return /^[A-Z0-9~!@#$%^&*()_=[\]{}|\\;:'",./<>?-]$/.test(key);
+		        }
+
+		        function isAllowedSimulateMainKey(mainKey) {
+		            const normalized = normalizeMainKeyToken(String(mainKey || "").toUpperCase(), null);
+		            if (!normalized) return false;
+		            return !!KEY_EVENT_MAP[normalized];
+		        }
+
+		        function formatHotkeyModifierToken(token) {
+		            const upper = String(token || "").toUpperCase();
+		            const canonical = HOTKEY_MODIFIER_ALIASES[upper] || upper;
+		            return HOTKEY_MODIFIER_DISPLAY[canonical] || canonical;
+		        }
+
+		        function formatHotkeyMainKeyDisplayToken(token) {
+		            const normalized = normalizeMainKeyToken(String(token || "").toUpperCase(), null);
+		            if (!normalized) return "";
+		            return HOTKEY_STANDARD_DISPLAY_MAP[normalized] || normalized;
+		        }
+
+		        function formatHotkeyForDisplay(hotkeyStr) {
+		            const norm = normalizeHotkey(hotkeyStr);
+		            if (!norm) return "";
+		            const parts = norm.split("+").filter(Boolean);
+		            return parts
+		                .map((part) => (HOTKEY_MODIFIER_ALIASES[part] ? formatHotkeyModifierToken(part) : formatHotkeyMainKeyDisplayToken(part)))
+		                .join(" + ");
+		        }
+
+	        function jumpToUrl(targetUrl, method = "current", advanced = "href") {
+	            try {
+	                let finalUrl = resolveTemplateUrl(targetUrl);
+	                switch (method) {
                     case 'current':
                         executeCurrentWindowJump(finalUrl, advanced);
                         break;
@@ -1923,12 +2201,12 @@
             });
             dialog.appendChild(titleEl);
 
-            const messageEl = document.createElement('p');
-            messageEl.textContent = message;
-            Object.assign(messageEl.style, {
-                margin: '0 0 20px 0', lineHeight: '1.4'
-            });
-            dialog.appendChild(messageEl);
+	            const messageEl = document.createElement('p');
+	            messageEl.textContent = message;
+	            Object.assign(messageEl.style, {
+	                margin: '0 0 20px 0', lineHeight: '1.4', whiteSpace: 'pre-wrap'
+	            });
+	            dialog.appendChild(messageEl);
 
             const buttonContainer = document.createElement('div');
             Object.assign(buttonContainer.style, {
@@ -1971,12 +2249,12 @@
             });
             dialog.appendChild(titleEl);
 
-            const messageEl = document.createElement('p');
-            messageEl.textContent = message;
-            Object.assign(messageEl.style, {
-                margin: '0 0 20px 0', lineHeight: '1.4'
-            });
-            dialog.appendChild(messageEl);
+	            const messageEl = document.createElement('p');
+	            messageEl.textContent = message;
+	            Object.assign(messageEl.style, {
+	                margin: '0 0 20px 0', lineHeight: '1.4', whiteSpace: 'pre-wrap'
+	            });
+	            dialog.appendChild(messageEl);
 
             const buttonContainer = document.createElement('div');
             Object.assign(buttonContainer.style, {
@@ -2029,12 +2307,12 @@
             });
             dialog.appendChild(titleEl);
 
-            const messageEl = document.createElement('p');
-            messageEl.textContent = message;
-            Object.assign(messageEl.style, {
-                margin: '0 0 15px 0', lineHeight: '1.4'
-            });
-            dialog.appendChild(messageEl);
+	            const messageEl = document.createElement('p');
+	            messageEl.textContent = message;
+	            Object.assign(messageEl.style, {
+	                margin: '0 0 15px 0', lineHeight: '1.4', whiteSpace: 'pre-wrap'
+	            });
+	            dialog.appendChild(messageEl);
 
             const input = document.createElement('input');
             input.type = 'text';
@@ -2202,11 +2480,34 @@
             }
             textarea.style.height = newHeight + "px";
         }
+
+        const ctx = {
+            options,
+            state,
+            core,
+            uiShared,
+            idPrefix,
+            cssPrefix,
+            ids,
+            classes,
+            URL_METHODS,
+            getUrlMethodDisplayText,
+            setIconImage,
+            setTrustedHTML: Utils?.dom?.setTrustedHTML,
+            safeGMGet,
+            safeGMSet,
+            debounce
+        };
+
+        engineApi = createEngineApi(ctx);
+        return engineApi;
+    }
 /* -------------------------------------------------------------------------- *
  * Module 04 · Keyboard handling (hotkey parsing, matching, action dispatch)
  * -------------------------------------------------------------------------- */
 
-        function createKeyboardLayer({ options, state, core } = {}) {
+        function createKeyboardLayer(ctx = {}) {
+            const { state, core } = ctx;
             const CAPTURE_DATASET_KEY = "shortcutCapture";
             const CAPTURE_DATASET_VALUE = "1";
 
@@ -2317,29 +2618,11 @@
                     }
                 }
 
-                const keys = [];
-                if (e.ctrlKey) keys.push("CTRL");
-                if (e.shiftKey) keys.push("SHIFT");
-                if (e.altKey) keys.push("ALT");
-                if (e.metaKey) keys.push("CMD");
+                const mainKey = core?.hotkeys?.getMainKeyFromEvent ? core.hotkeys.getMainKeyFromEvent(e) : "";
+                if (!core?.hotkeys?.isAllowedMainKey || !core.hotkeys.isAllowedMainKey(mainKey)) return;
 
-                let mainKey = String(e.key || "").toUpperCase();
-                if (mainKey === ' ') mainKey = 'SPACE';
-                if (mainKey === 'BACKSPACE' || mainKey === 'DELETE') {
-                    mainKey = String(e.code || "").toUpperCase().includes('DELETE') ? 'DELETE' : 'BACKSPACE';
-                }
-                if (mainKey === 'ESCAPE') mainKey = 'ESC';
-
-                const validMainKeyRegex = /^[A-Z0-9~!@#$%^&*()_+=[\]{}|\\;:'",./<>?]$|^F\d+$|^(SPACE|ESC|BACKSPACE|DELETE)$/;
-                if (!validMainKeyRegex.test(mainKey)) {
-                    return;
-                }
-
-                if (["CTRL", "SHIFT", "ALT", "CMD"].includes(mainKey)) return;
-
-                keys.push(mainKey);
-                const modKeys = keys.filter(k => k !== mainKey).sort();
-                const combined = [...modKeys, mainKey].join("+");
+                const combined = core?.hotkeys?.fromEvent ? core.hotkeys.fromEvent(e) : "";
+                if (!combined) return;
 
                 const item = core.getShortcutByHotkeyNorm(combined);
                 if (item) {
@@ -2363,19 +2646,23 @@
  * Module 05 · Settings UI (panel, editor dialog, filters, drag & drop)
  * -------------------------------------------------------------------------- */
 
-        function createSettingsPanelLayer({
-            options,
-            state,
-            core,
-            uiShared,
-            ids,
-            classes,
-            URL_METHODS,
-            setIconImage,
-            safeGMGet,
-            safeGMSet,
-            debounce
-        } = {}) {
+	        function createSettingsPanelLayer(ctx = {}) {
+            const {
+                options,
+                state,
+                core,
+                uiShared,
+                idPrefix,
+                ids,
+                classes,
+                URL_METHODS,
+                getUrlMethodDisplayText,
+                setIconImage,
+                setTrustedHTML,
+                safeGMGet,
+                safeGMSet,
+                debounce
+            } = ctx;
             const { theme, colors, style, dialogs, layout } = uiShared;
             const { addThemeChangeListener, removeThemeChangeListener } = theme;
             const {
@@ -2390,38 +2677,57 @@
             } = colors;
             const { styleTableHeader, styleTableCell, styleButton, styleTransparentButton, styleInputField } = style;
             const { showAlert, showConfirmDialog, showPromptDialog } = dialogs;
-            const { enableScrollLock, disableScrollLock, createResponsiveListener, shouldUseCompactMode, autoResizeTextarea } = layout;
-            const normalizeHotkey = core.normalizeHotkey;
+	            const { enableScrollLock, disableScrollLock, createResponsiveListener, shouldUseCompactMode, autoResizeTextarea } = layout;
+	            const normalizeHotkey = core.normalizeHotkey;
 
-            function getShortcutStats() {
-                const list = core.getShortcuts();
-                const stats = {
-                    total: list.length,
-                    url: 0,
-                    selector: 0,
-                    simulate: 0,
-                    custom: 0
-                };
-                list.forEach(shortcut => {
-                    if (shortcut.actionType === 'url') stats.url++;
-                    else if (shortcut.actionType === 'selector') stats.selector++;
-                    else if (shortcut.actionType === 'simulate') stats.simulate++;
-                    else if (shortcut.actionType === 'custom') stats.custom++;
-                });
-                return stats;
-            }
+	            function matchesSearchQuery(shortcut, queryLower) {
+	                const query = typeof queryLower === "string" ? queryLower : "";
+	                if (!query) return true;
+	                if (!shortcut) return false;
+	                const haystack = [
+	                    shortcut.name,
+	                    shortcut.url,
+	                    shortcut.selector,
+	                    shortcut.simulateKeys,
+	                    shortcut.customAction
+	                ].filter(Boolean).join(" ").toLowerCase();
+	                return haystack.includes(query);
+	            }
 
-            function filterShortcutsByType(type) {
-                const list = core.getShortcuts();
-                const filtered = [];
-                for (let i = 0; i < list.length; i++) {
-                    const shortcut = list[i];
-                    if (type === 'all' || shortcut.actionType === type) {
-                        filtered.push({ item: shortcut, index: i });
-                    }
-                }
-                return filtered;
-            }
+	            function getShortcutStats() {
+	                const list = core.getShortcuts();
+	                const query = String(state.searchQuery || "").trim().toLowerCase();
+	                const stats = {
+	                    total: 0,
+	                    url: 0,
+	                    selector: 0,
+	                    simulate: 0,
+	                    custom: 0
+	                };
+	                list.forEach(shortcut => {
+	                    if (!matchesSearchQuery(shortcut, query)) return;
+	                    stats.total++;
+	                    if (shortcut.actionType === 'url') stats.url++;
+	                    else if (shortcut.actionType === 'selector') stats.selector++;
+	                    else if (shortcut.actionType === 'simulate') stats.simulate++;
+	                    else if (shortcut.actionType === 'custom') stats.custom++;
+	                });
+	                return stats;
+	            }
+
+	            function filterShortcutsByType(type) {
+	                const list = core.getShortcuts();
+	                const query = String(state.searchQuery || "").trim().toLowerCase();
+	                const filtered = [];
+	                for (let i = 0; i < list.length; i++) {
+	                    const shortcut = list[i];
+	                    if (!matchesSearchQuery(shortcut, query)) continue;
+	                    if (type === 'all' || shortcut.actionType === type) {
+	                        filtered.push({ item: shortcut, index: i });
+	                    }
+	                }
+	                return filtered;
+	            }
 
             function getButtonColor(filterType) {
                 const colorMap = {
@@ -2508,7 +2814,11 @@
                 const safeLabel = escapeHtml(label);
                 const safeCount = escapeHtml(count);
                 const html = `<span style="margin-right: 6px;">${safeLabel}</span><span style="background: ${isActive ? 'rgba(255,255,255,0.3)' : color}; color: white; padding: 2px 6px; border-radius: 8px;">${safeCount}</span>`;
-                Utils.dom.setTrustedHTML(button, html);
+                if (typeof setTrustedHTML === "function") {
+                    setTrustedHTML(button, html);
+                } else {
+                    button.textContent = `${label} ${count}`;
+                }
 
                 button.addEventListener('mouseenter', () => {
                     if (state.currentFilter !== filterType) {
@@ -2562,17 +2872,41 @@
                 }
             }
 
-            /* ------------------------------------------------------------------
-             * 设置面板
-             * ------------------------------------------------------------------ */
+	            /* ------------------------------------------------------------------
+	             * 设置面板
+	             * ------------------------------------------------------------------ */
 
-        function openSettingsPanel() {
-            if (state.currentPanelOverlay) {
-                state.currentPanelOverlay.remove();
-                state.currentPanelOverlay = null;
-            }
-            state.isSettingsPanelOpen = true;
-            enableScrollLock();
+	            function closeSettingsPanel() {
+	                if (typeof state.currentPanelCloser === "function") {
+	                    state.currentPanelCloser();
+	                    return;
+	                }
+	                if (state.currentPanelOverlay) {
+	                    if (typeof state.currentEditCloser === "function") {
+	                        try { state.currentEditCloser(); } catch {}
+	                    }
+	                    try { state.currentPanelOverlay.remove(); } catch {}
+	                    state.currentPanelOverlay = null;
+	                    state.isSettingsPanelOpen = false;
+	                    disableScrollLock();
+	                    if (state.destroyResponsiveListener) {
+	                        state.destroyResponsiveListener();
+	                        state.destroyResponsiveListener = null;
+	                    }
+	                }
+	            }
+
+	        function openSettingsPanel() {
+	            if (typeof state.currentPanelCloser === "function") {
+	                closeSettingsPanel();
+	                return;
+	            }
+	            if (state.currentPanelOverlay) {
+	                try { state.currentPanelOverlay.remove(); } catch {}
+	                state.currentPanelOverlay = null;
+	            }
+	            state.isSettingsPanelOpen = true;
+	            enableScrollLock();
 
             const overlay = document.createElement("div");
             overlay.id = ids.settingsOverlay;
@@ -2616,38 +2950,406 @@
             });
             headerContainer.appendChild(title);
 
-            const statsContainer = createStatsDisplay();
-            headerContainer.appendChild(statsContainer);
+	            const statsContainer = createStatsDisplay();
+	            headerContainer.appendChild(statsContainer);
 
-            panel.appendChild(headerContainer);
+	            const searchContainer = document.createElement("div");
+	            Object.assign(searchContainer.style, {
+	                display: "flex",
+	                alignItems: "center",
+	                justifyContent: "flex-end",
+	                gap: "6px",
+	                flex: "1 1 220px",
+	                minWidth: "220px"
+	            });
+
+	            const searchInput = document.createElement("input");
+	            searchInput.type = "search";
+	            searchInput.placeholder = options.text.hints.searchPlaceholder || "搜索名称/目标";
+	            searchInput.value = String(state.searchQuery || "");
+	            Object.assign(searchInput.style, {
+	                width: "220px",
+	                maxWidth: "100%"
+	            });
+
+	            const clearSearchBtn = document.createElement("button");
+	            clearSearchBtn.type = "button";
+	            clearSearchBtn.title = options.text.buttons.clear || "清除";
+	            clearSearchBtn.textContent = "×";
+	            Object.assign(clearSearchBtn.style, {
+	                width: "32px",
+	                height: "32px",
+	                display: "flex",
+	                alignItems: "center",
+	                justifyContent: "center",
+	                fontSize: "18px",
+	                lineHeight: "1"
+	            });
+
+	            const applySearch = debounce(() => {
+	                state.searchQuery = searchInput.value.trim();
+	                renderShortcutsList(state.isDarkMode);
+	                updateStatsDisplay();
+	            }, 120);
+
+	            searchInput.addEventListener("input", applySearch);
+	            searchInput.addEventListener("keydown", (e) => {
+	                if (e.key === "Escape") {
+	                    e.preventDefault();
+	                    searchInput.value = "";
+	                    applySearch();
+	                }
+	            });
+	            clearSearchBtn.addEventListener("click", () => {
+	                searchInput.value = "";
+	                applySearch();
+	                searchInput.focus();
+	            });
+
+	            searchContainer.appendChild(searchInput);
+	            searchContainer.appendChild(clearSearchBtn);
+	            headerContainer.appendChild(searchContainer);
+
+	            panel.appendChild(headerContainer);
 
             const listContainer = document.createElement("div");
-            Object.assign(listContainer.style, {
-                maxHeight: "calc(80vh - 150px)", overflowY: "auto", marginBottom: "15px",
-                width: "100%", overflowX: "hidden"
-            });
-            panel.appendChild(listContainer);
+	            Object.assign(listContainer.style, {
+	                maxHeight: "calc(80vh - 150px)", overflowY: "auto", marginBottom: "15px",
+	                width: "100%", overflowX: "hidden"
+	            });
+	            panel.appendChild(listContainer);
 
-            const bottomBar = document.createElement("div");
-            Object.assign(bottomBar.style, {
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                marginTop: "10px", flexWrap: "wrap", gap: "10px"
-            });
+	            function getExportPayload() {
+	                const shortcuts = core.getShortcuts();
+	                const userIcons = safeGMGet(options.storageKeys.userIcons, []);
+	                return {
+	                    schemaVersion: 1,
+	                    exportedAt: new Date().toISOString(),
+	                    shortcuts,
+	                    userIcons
+	                };
+	            }
 
-            const addBtn = document.createElement("button");
-            addBtn.textContent = options.text.buttons.addShortcut || "添加新快捷键";
-            addBtn.onclick = () => { editShortcut(); };
-            bottomBar.appendChild(addBtn);
+	            async function tryCopyToClipboard(text) {
+	                const value = String(text ?? "");
+	                try {
+	                    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+	                        await navigator.clipboard.writeText(value);
+	                        return true;
+	                    }
+	                } catch {}
+	                try {
+	                    const ta = document.createElement("textarea");
+	                    ta.value = value;
+	                    ta.style.position = "fixed";
+	                    ta.style.top = "-1000px";
+	                    ta.style.left = "-1000px";
+	                    document.body.appendChild(ta);
+	                    ta.focus();
+	                    ta.select();
+	                    const ok = document.execCommand && document.execCommand("copy");
+	                    document.body.removeChild(ta);
+	                    return !!ok;
+	                } catch {
+	                    return false;
+	                }
+	            }
 
-            const saveBtn = document.createElement("button");
-            saveBtn.textContent = options.text.buttons.saveAndClose || "保存并关闭";
-            saveBtn.onclick = () => { saveShortcuts(); closePanel(); };
-            bottomBar.appendChild(saveBtn);
+	            function openExportDialog() {
+	                const payload = getExportPayload();
+	                const json = JSON.stringify(payload, null, 2);
+
+	                const ioOverlay = document.createElement("div");
+	                Object.assign(ioOverlay.style, {
+	                    position: "fixed",
+	                    top: 0,
+	                    left: 0,
+	                    width: "100vw",
+	                    height: "100vh",
+	                    zIndex: "999999",
+	                    display: "flex",
+	                    alignItems: "center",
+	                    justifyContent: "center",
+	                    padding: "20px",
+	                    boxSizing: "border-box"
+	                });
+	                ioOverlay.onclick = (e) => { if (e.target === ioOverlay) close(); };
+
+	                const box = document.createElement("div");
+	                Object.assign(box.style, {
+	                    width: "100%",
+	                    maxWidth: "820px",
+	                    maxHeight: "90vh",
+	                    overflow: "auto",
+	                    borderRadius: "8px",
+	                    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+	                    padding: "16px",
+	                    boxSizing: "border-box"
+	                });
+	                box.onclick = (e) => e.stopPropagation();
+
+	                const titleEl = document.createElement("h3");
+	                titleEl.textContent = options.text.buttons.export || "导出";
+	                Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
+	                box.appendChild(titleEl);
+
+	                const textarea = document.createElement("textarea");
+	                textarea.value = json;
+	                textarea.readOnly = true;
+	                Object.assign(textarea.style, { height: "360px", resize: "vertical" });
+	                box.appendChild(textarea);
+
+	                const btnRow = document.createElement("div");
+	                Object.assign(btnRow.style, {
+	                    display: "flex",
+	                    justifyContent: "flex-end",
+	                    gap: "10px",
+	                    marginTop: "12px",
+	                    flexWrap: "wrap"
+	                });
+
+	                const copyBtn = document.createElement("button");
+	                copyBtn.textContent = options.text.buttons.copy || "复制";
+	                copyBtn.onclick = async () => {
+	                    const ok = await tryCopyToClipboard(textarea.value);
+	                    if (ok) showAlert("已复制到剪贴板。");
+	                    else showAlert("复制失败，请手动复制。");
+	                };
+	                btnRow.appendChild(copyBtn);
+
+	                const closeBtn = document.createElement("button");
+	                closeBtn.textContent = options.text.buttons.close || "关闭";
+	                closeBtn.onclick = close;
+	                btnRow.appendChild(closeBtn);
+
+	                box.appendChild(btnRow);
+	                ioOverlay.appendChild(box);
+	                overlay.appendChild(ioOverlay);
+
+	                const updateTheme = (isDark) => {
+	                    ioOverlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
+	                    box.style.background = getPanelBackgroundColor(isDark);
+	                    box.style.color = getTextColor(isDark);
+	                    titleEl.style.color = getTextColor(isDark);
+	                    styleInputField(textarea, isDark);
+	                    textarea.style.height = "360px";
+	                    textarea.style.resize = "vertical";
+	                    styleButton(copyBtn, "#2196F3", "#1e88e5");
+	                    styleButton(closeBtn, "#9E9E9E", "#757575");
+	                };
+
+	                addThemeChangeListener(updateTheme);
+	                updateTheme(state.isDarkMode);
+
+	                function close() {
+	                    removeThemeChangeListener(updateTheme);
+	                    try { ioOverlay.remove(); } catch {}
+	                }
+	            }
+
+	            function openImportDialog() {
+	                const ioOverlay = document.createElement("div");
+	                Object.assign(ioOverlay.style, {
+	                    position: "fixed",
+	                    top: 0,
+	                    left: 0,
+	                    width: "100vw",
+	                    height: "100vh",
+	                    zIndex: "999999",
+	                    display: "flex",
+	                    alignItems: "center",
+	                    justifyContent: "center",
+	                    padding: "20px",
+	                    boxSizing: "border-box"
+	                });
+	                ioOverlay.onclick = (e) => { if (e.target === ioOverlay) close(); };
+
+	                const box = document.createElement("div");
+	                Object.assign(box.style, {
+	                    width: "100%",
+	                    maxWidth: "820px",
+	                    maxHeight: "90vh",
+	                    overflow: "auto",
+	                    borderRadius: "8px",
+	                    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+	                    padding: "16px",
+	                    boxSizing: "border-box"
+	                });
+	                box.onclick = (e) => e.stopPropagation();
+
+	                const titleEl = document.createElement("h3");
+	                titleEl.textContent = options.text.buttons.import || "导入";
+	                Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
+	                box.appendChild(titleEl);
+
+	                const tip = document.createElement("div");
+	                tip.textContent = "支持导入 { shortcuts: [...], userIcons?: [...] } 或直接导入 shortcuts 数组。";
+	                Object.assign(tip.style, { fontSize: "12px", opacity: "0.75", marginBottom: "8px", lineHeight: "1.4" });
+	                box.appendChild(tip);
+
+	                const textarea = document.createElement("textarea");
+	                textarea.placeholder = "粘贴 JSON 到这里…";
+	                Object.assign(textarea.style, { height: "360px", resize: "vertical" });
+	                box.appendChild(textarea);
+
+	                const btnRow = document.createElement("div");
+	                Object.assign(btnRow.style, {
+	                    display: "flex",
+	                    justifyContent: "flex-end",
+	                    gap: "10px",
+	                    marginTop: "12px",
+	                    flexWrap: "wrap"
+	                });
+
+	                const confirmBtn = document.createElement("button");
+	                confirmBtn.textContent = options.text.buttons.confirm || "确定";
+	                confirmBtn.onclick = () => {
+	                    let parsed = null;
+	                    try {
+	                        parsed = JSON.parse(textarea.value);
+	                    } catch (err) {
+	                        showAlert("JSON 解析失败，请检查格式。");
+	                        return;
+	                    }
+
+	                    const shortcutsRaw = Array.isArray(parsed)
+	                        ? parsed
+	                        : (Array.isArray(parsed?.shortcuts) ? parsed.shortcuts : null);
+	                    if (!Array.isArray(shortcutsRaw)) {
+	                        showAlert("导入数据中未找到 shortcuts 数组。");
+	                        return;
+	                    }
+
+	                    const normalized = shortcutsRaw.map((sc) => core.normalizeShortcut(sc));
+	                    const hotkeyMap = new Map();
+	                    const duplicates = [];
+	                    for (const sc of normalized) {
+	                        const hk = String(sc?.hotkey || "");
+	                        if (!hk) continue;
+	                        if (hotkeyMap.has(hk)) {
+	                            duplicates.push([hk, hotkeyMap.get(hk), sc.name || ""]);
+	                        } else {
+	                            hotkeyMap.set(hk, sc.name || "");
+	                        }
+	                    }
+	                    if (duplicates.length > 0) {
+	                        const lines = duplicates.slice(0, 12).map(([hk, a, b]) => `${hk}: ${a} / ${b}`).join("\n");
+	                        showAlert(`导入失败：存在重复快捷键(请先在 JSON 中修复)：\n${lines}${duplicates.length > 12 ? "\n..." : ""}`);
+	                        return;
+	                    }
+
+	                    core.setShortcuts(normalized, { persist: false });
+
+	                    if (!Array.isArray(parsed)) {
+	                        const iconsRaw = Array.isArray(parsed?.userIcons) ? parsed.userIcons : null;
+	                        if (iconsRaw) {
+	                            const cleaned = iconsRaw
+	                                .map((it) => ({
+	                                    name: typeof it?.name === "string" ? it.name.trim() : "",
+	                                    url: typeof it?.url === "string" ? it.url.trim() : ""
+	                                }))
+	                                .filter((it) => it.name && it.url);
+	                            safeGMSet(options.storageKeys.userIcons, cleaned);
+	                        }
+	                    }
+
+	                    renderShortcutsList(state.isDarkMode);
+	                    updateStatsDisplay();
+	                    close();
+	                };
+	                btnRow.appendChild(confirmBtn);
+
+	                const cancelBtn = document.createElement("button");
+	                cancelBtn.textContent = options.text.buttons.cancel || "取消";
+	                cancelBtn.onclick = close;
+	                btnRow.appendChild(cancelBtn);
+
+	                box.appendChild(btnRow);
+	                ioOverlay.appendChild(box);
+	                overlay.appendChild(ioOverlay);
+
+	                const updateTheme = (isDark) => {
+	                    ioOverlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
+	                    box.style.background = getPanelBackgroundColor(isDark);
+	                    box.style.color = getTextColor(isDark);
+	                    titleEl.style.color = getTextColor(isDark);
+	                    tip.style.color = getTextColor(isDark);
+	                    styleInputField(textarea, isDark);
+	                    textarea.style.height = "360px";
+	                    textarea.style.resize = "vertical";
+	                    styleButton(confirmBtn, "#2196F3", "#1e88e5");
+	                    styleButton(cancelBtn, "#9E9E9E", "#757575");
+	                };
+
+	                addThemeChangeListener(updateTheme);
+	                updateTheme(state.isDarkMode);
+
+	                function close() {
+	                    removeThemeChangeListener(updateTheme);
+	                    try { ioOverlay.remove(); } catch {}
+	                }
+	            }
+
+	            function resetToDefaults() {
+	                const defaults = Array.isArray(options.defaultShortcuts) ? options.defaultShortcuts : [];
+	                const normalized = defaults.map((sc) => core.normalizeShortcut(sc));
+	                core.setShortcuts(normalized, { persist: false });
+	                state.currentFilter = "all";
+	                state.searchQuery = "";
+	                searchInput.value = "";
+	                renderShortcutsList(state.isDarkMode);
+	                updateStatsDisplay();
+	            }
+
+	            const bottomBar = document.createElement("div");
+	            Object.assign(bottomBar.style, {
+	                display: "flex", justifyContent: "space-between", alignItems: "center",
+	                marginTop: "10px", flexWrap: "wrap", gap: "10px"
+	            });
+
+	            const leftBar = document.createElement("div");
+	            Object.assign(leftBar.style, {
+	                display: "flex",
+	                alignItems: "center",
+	                gap: "10px",
+	                flexWrap: "wrap"
+	            });
+	            bottomBar.appendChild(leftBar);
+
+	            const addBtn = document.createElement("button");
+	            addBtn.textContent = options.text.buttons.addShortcut || "添加新快捷键";
+	            addBtn.onclick = () => { editShortcut(); };
+	            leftBar.appendChild(addBtn);
+
+	            const importBtn = document.createElement("button");
+	            importBtn.textContent = options.text.buttons.import || "导入";
+	            importBtn.onclick = () => { openImportDialog(); };
+	            leftBar.appendChild(importBtn);
+
+	            const exportBtn = document.createElement("button");
+	            exportBtn.textContent = options.text.buttons.export || "导出";
+	            exportBtn.onclick = () => { openExportDialog(); };
+	            leftBar.appendChild(exportBtn);
+
+	            const resetBtn = document.createElement("button");
+	            resetBtn.textContent = options.text.buttons.reset || "重置默认";
+	            resetBtn.onclick = () => {
+	                showConfirmDialog("确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)", () => {
+	                    resetToDefaults();
+	                });
+	            };
+	            leftBar.appendChild(resetBtn);
+
+	            const saveBtn = document.createElement("button");
+	            saveBtn.textContent = options.text.buttons.saveAndClose || "保存并关闭";
+	            saveBtn.onclick = () => { core.persistShortcuts(); closePanel(); };
+	            bottomBar.appendChild(saveBtn);
 
             panel.appendChild(bottomBar);
             overlay.appendChild(panel);
             document.body.appendChild(overlay);
             state.currentPanelOverlay = overlay;
+            state.currentPanelCloser = closePanel;
 
             state.isCompactMode = shouldUseCompactMode(panel);
 
@@ -2655,16 +3357,38 @@
                 renderShortcutsList(state.isDarkMode);
             });
 
-            const updatePanelTheme = (isDark) => {
-                overlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
-                panel.style.background = getPanelBackgroundColor(isDark);
-                panel.style.color = getTextColor(isDark);
-                headerContainer.style.borderBottom = `1px solid ${getBorderColor(isDark)}`;
-                title.style.color = getTextColor(isDark);
-                styleButton(addBtn, "#FF9800", "#F57C00");
-                styleButton(saveBtn, "#4CAF50", "#45A049");
-                renderShortcutsList(isDark);
-            };
+	            const updatePanelTheme = (isDark) => {
+	                overlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
+	                panel.style.background = getPanelBackgroundColor(isDark);
+	                panel.style.color = getTextColor(isDark);
+	                headerContainer.style.borderBottom = `1px solid ${getBorderColor(isDark)}`;
+	                title.style.color = getTextColor(isDark);
+	                styleButton(addBtn, "#FF9800", "#F57C00");
+	                styleButton(importBtn, "#2196F3", "#1e88e5");
+	                styleButton(exportBtn, "#607D8B", "#546e7a");
+	                styleButton(resetBtn, "#F44336", "#D32F2F");
+	                styleButton(saveBtn, "#4CAF50", "#45A049");
+	                styleInputField(searchInput, isDark);
+	                searchInput.style.width = "220px";
+	                searchInput.style.maxWidth = "100%";
+	                Object.assign(clearSearchBtn.style, {
+	                    border: `1px solid ${getBorderColor(isDark)}`,
+	                    borderRadius: "6px",
+	                    backgroundColor: getInputBackgroundColor(isDark),
+	                    color: getTextColor(isDark),
+	                    cursor: "pointer",
+	                    transition: "background-color 0.2s ease, border-color 0.2s ease"
+	                });
+	                clearSearchBtn.onmouseover = () => {
+	                    clearSearchBtn.style.backgroundColor = getHoverColor(isDark);
+	                    clearSearchBtn.style.borderColor = getPrimaryColor();
+	                };
+	                clearSearchBtn.onmouseout = () => {
+	                    clearSearchBtn.style.backgroundColor = getInputBackgroundColor(isDark);
+	                    clearSearchBtn.style.borderColor = getBorderColor(isDark);
+	                };
+	                renderShortcutsList(isDark);
+	            };
 
             addThemeChangeListener(updatePanelTheme);
             updatePanelTheme(state.isDarkMode);
@@ -2751,9 +3475,9 @@
                 listContainer.appendChild(container);
             }
 
-            function createStandardTableRow(item, index, isDark) {
-                const row = document.createElement("tr");
-                setupDragAndDrop(row, index);
+	            function createStandardTableRow(item, index, isDark) {
+	                const row = document.createElement("tr");
+	                setupDragAndDrop(row, item, index);
 
                 const tdIcon = document.createElement("td");
                 styleTableCell(tdIcon, isDark);
@@ -2783,7 +3507,9 @@
                 const targetText = item.url || item.selector || item.simulateKeys || item.customAction || "-";
                 tdTarget.textContent = targetText;
                 if (item.actionType === 'url' && item.url) {
-                    const methodText = getUrlMethodDisplayText(item.urlMethod);
+                    const methodText = (typeof getUrlMethodDisplayText === "function")
+                        ? getUrlMethodDisplayText(item.urlMethod)
+                        : (URL_METHODS?.[item.urlMethod]?.name || "未知跳转方式");
                     tdTarget.title = `${methodText}:\n---\n${targetText}`;
                 } else {
                     tdTarget.title = targetText;
@@ -2795,7 +3521,7 @@
                 styleTableCell(tdTarget, isDark);
 
                 const tdHotkey = document.createElement("td");
-                tdHotkey.textContent = item.hotkey || "";
+                tdHotkey.textContent = core?.hotkeys?.formatForDisplay ? (core.hotkeys.formatForDisplay(item.hotkey) || "") : (item.hotkey || "");
                 styleTableCell(tdHotkey, isDark);
 
                 const tdAction = document.createElement("td");
@@ -2813,8 +3539,8 @@
                 return row;
             }
 
-            function createCompactCard(item, index, isDark) {
-                const card = document.createElement("div");
+	            function createCompactCard(item, index, isDark) {
+	                const card = document.createElement("div");
                 card.className = classes.compactCard;
                 Object.assign(card.style, {
                     border: `1px solid ${getBorderColor(isDark)}`,
@@ -2828,7 +3554,7 @@
                     boxSizing: "border-box"
                 });
 
-                setupDragAndDrop(card, index);
+	                setupDragAndDrop(card, item, index);
 
                 const firstRow = document.createElement("div");
                 Object.assign(firstRow.style, {
@@ -2888,7 +3614,7 @@
                     minWidth: "60px",
                     textAlign: "center"
                 });
-                hotkeyContainer.textContent = item.hotkey || "无";
+                hotkeyContainer.textContent = core?.hotkeys?.formatForDisplay ? (core.hotkeys.formatForDisplay(item.hotkey) || "无") : (item.hotkey || "无");
 
                 const actionButtons = createActionButtons(item, index, isDark);
                 Object.assign(actionButtons.style, {
@@ -2919,7 +3645,9 @@
                 const targetText = item.url || item.selector || item.simulateKeys || item.customAction || "（无目标配置）";
                 secondRow.textContent = targetText;
                 if (item.actionType === 'url' && item.url) {
-                    const methodText = getUrlMethodDisplayText(item.urlMethod);
+                    const methodText = (typeof getUrlMethodDisplayText === "function")
+                        ? getUrlMethodDisplayText(item.urlMethod)
+                        : (URL_METHODS?.[item.urlMethod]?.name || "未知跳转方式");
                     secondRow.title = `${methodText}:\n---\n${targetText}`;
                 } else {
                     secondRow.title = targetText;
@@ -2992,100 +3720,167 @@
                 return buttonContainer;
             }
 
-            function setupDragAndDrop(element, index) {
-                element.setAttribute("draggable", "true");
-                element.style.cursor = "move";
-                element.dataset.index = index;
+	            let draggingShortcutId = null;
 
-                element.addEventListener("dragstart", e => {
-                    e.dataTransfer.effectAllowed = "move";
-                    e.dataTransfer.setData("text/plain", index.toString());
-                    element.classList.add("dragging");
-                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
-                    if (container) container.classList.add("is-dragging");
-                });
+	            function matchesCurrentView(shortcut) {
+	                if (!shortcut) return false;
+	                if (state.currentFilter && state.currentFilter !== 'all') {
+	                    if (shortcut.actionType !== state.currentFilter) return false;
+	                }
+	                const query = String(state.searchQuery || "").trim().toLowerCase();
+	                if (!query) return true;
+	                const haystack = [
+	                    shortcut.name,
+	                    shortcut.url,
+	                    shortcut.selector,
+	                    shortcut.simulateKeys,
+	                    shortcut.customAction
+	                ].filter(Boolean).join(" ").toLowerCase();
+	                return haystack.includes(query);
+	            }
 
-                element.addEventListener("dragover", e => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    const draggingElement = document.querySelector(".dragging");
-                    if (!draggingElement || draggingElement === element) return;
+	            function reorderShortcutsInCurrentView(fromId, toId, { after = false } = {}) {
+	                const from = typeof fromId === "string" ? fromId.trim() : "";
+	                const to = typeof toId === "string" ? toId.trim() : "";
+	                if (!from || !to || from === to) return false;
 
-                    const rect = element.getBoundingClientRect();
-                    const midY = rect.top + rect.height / 2;
+	                let changed = false;
+	                core.mutateShortcuts((list) => {
+	                    const indices = [];
+	                    const items = [];
+	                    for (let i = 0; i < list.length; i++) {
+	                        const sc = list[i];
+	                        if (matchesCurrentView(sc)) {
+	                            indices.push(i);
+	                            items.push(sc);
+	                        }
+	                    }
 
-                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
-                    if (container) {
-                        container.querySelectorAll(".dragover-top, .dragover-bottom").forEach(el => {
-                            el.classList.remove("dragover-top", "dragover-bottom");
-                        });
-                    }
+	                    const fromPos = items.findIndex((sc) => sc && sc.id === from);
+	                    const toPos = items.findIndex((sc) => sc && sc.id === to);
+	                    if (fromPos < 0 || toPos < 0 || fromPos === toPos) return;
 
-                    element.classList.add(e.clientY < midY ? "dragover-top" : "dragover-bottom");
-                });
+	                    const moved = items.splice(fromPos, 1)[0];
+	                    let insertPos = toPos + (after ? 1 : 0);
+	                    if (fromPos < insertPos) insertPos -= 1;
+	                    if (insertPos < 0) insertPos = 0;
+	                    if (insertPos > items.length) insertPos = items.length;
+	                    items.splice(insertPos, 0, moved);
 
-                element.addEventListener("dragleave", () => {
-                    element.classList.remove("dragover-top", "dragover-bottom");
-                });
+	                    for (let i = 0; i < indices.length; i++) {
+	                        list[indices[i]] = items[i];
+	                    }
+	                    changed = true;
+	                });
+	                return changed;
+	            }
 
-                element.addEventListener("drop", e => {
-                    e.preventDefault();
-                    e.stopPropagation();
+	            function setupDragAndDrop(element, item, index) {
+	                const shortcutId = item && typeof item.id === "string" ? item.id : "";
+	                element.setAttribute("draggable", "true");
+	                element.style.cursor = "move";
+	                element.dataset.index = index;
+	                element.dataset.shortcutId = shortcutId;
 
-                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
-                    if (container) {
-                        container.querySelectorAll(".dragover-top, .dragover-bottom").forEach(el => {
-                            el.classList.remove("dragover-top", "dragover-bottom");
-                        });
-                    }
+	                element.addEventListener("dragstart", (e) => {
+	                    draggingShortcutId = shortcutId || null;
+	                    try {
+	                        if (e.dataTransfer) {
+	                            e.dataTransfer.effectAllowed = "move";
+	                            e.dataTransfer.setData("text/plain", shortcutId || "");
+	                        }
+	                    } catch {}
 
-                    const fromIndexStr = e.dataTransfer.getData("text/plain");
-                    if (fromIndexStr === null) return;
+	                    element.classList.add("dragging");
+	                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
+	                    if (container) container.classList.add("is-dragging");
+	                });
 
-                    const fromIndex = parseInt(fromIndexStr, 10);
-                    const toIndex = index;
+	                element.addEventListener("dragover", (e) => {
+	                    e.preventDefault();
+	                    try { if (e.dataTransfer) e.dataTransfer.dropEffect = "move"; } catch {}
 
-                    if (isNaN(fromIndex) || fromIndex === toIndex) return;
+	                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
+	                    const draggingElement = container?.querySelector?.(".dragging") || document.querySelector(".dragging");
+	                    if (!draggingElement || draggingElement === element) return;
 
-                    try {
-                        core.mutateShortcuts((list) => {
-                            const movedItem = list.splice(fromIndex, 1)[0];
-                            list.splice(toIndex, 0, movedItem);
-                        });
-                        renderShortcutsList(state.isDarkMode);
-                        updateStatsDisplay();
-                    } catch (err) {
-                        console.error("Drag-and-drop error:", err);
-                        showAlert("拖拽排序时出错: " + err);
-                    }
-                });
+	                    const rect = element.getBoundingClientRect();
+	                    const midY = rect.top + rect.height / 2;
 
-                element.addEventListener("dragend", () => {
-                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
-                    if (container) {
-                        container.classList.remove("is-dragging");
-                        container.querySelectorAll(".dragging, .dragover-top, .dragover-bottom").forEach(el => {
-                            el.classList.remove("dragging", "dragover-top", "dragover-bottom");
-                        });
-                    }
-                });
-            }
+	                    if (container) {
+	                        container.querySelectorAll(".dragover-top, .dragover-bottom").forEach((el) => {
+	                            el.classList.remove("dragover-top", "dragover-bottom");
+	                        });
+	                    }
 
-            function closePanel() {
-                state.isSettingsPanelOpen = false;
-                disableScrollLock();
-                if (state.destroyResponsiveListener) {
-                    state.destroyResponsiveListener();
-                    state.destroyResponsiveListener = null;
-                }
-                removeThemeChangeListener(updatePanelTheme);
-                panel.style.opacity = "0";
-                panel.style.transform = "translateY(20px)";
-                setTimeout(() => {
-                    if (overlay) overlay.remove();
-                    state.currentPanelOverlay = null;
-                }, 300);
-            }
+	                    element.classList.add(e.clientY < midY ? "dragover-top" : "dragover-bottom");
+	                });
+
+	                element.addEventListener("dragleave", () => {
+	                    element.classList.remove("dragover-top", "dragover-bottom");
+	                });
+
+	                element.addEventListener("drop", (e) => {
+	                    e.preventDefault();
+	                    e.stopPropagation();
+
+	                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
+	                    if (container) {
+	                        container.querySelectorAll(".dragover-top, .dragover-bottom").forEach((el) => {
+	                            el.classList.remove("dragover-top", "dragover-bottom");
+	                        });
+	                    }
+
+	                    const fromId = draggingShortcutId || (() => {
+	                        try { return e.dataTransfer ? e.dataTransfer.getData("text/plain") : ""; } catch { return ""; }
+	                    })();
+	                    const toId = shortcutId;
+	                    const dropAfter = element.classList.contains("dragover-bottom");
+	                    if (!fromId || !toId || fromId === toId) return;
+
+	                    try {
+	                        const changed = reorderShortcutsInCurrentView(fromId, toId, { after: dropAfter });
+	                        if (changed) {
+	                            renderShortcutsList(state.isDarkMode);
+	                            updateStatsDisplay();
+	                        }
+	                    } catch (err) {
+	                        console.error("Drag-and-drop error:", err);
+	                        showAlert("拖拽排序时出错: " + err);
+	                    }
+	                });
+
+	                element.addEventListener("dragend", () => {
+	                    draggingShortcutId = null;
+	                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
+	                    if (container) {
+	                        container.classList.remove("is-dragging");
+	                        container.querySelectorAll(".dragging, .dragover-top, .dragover-bottom").forEach((el) => {
+	                            el.classList.remove("dragging", "dragover-top", "dragover-bottom");
+	                        });
+	                    }
+	                });
+	            }
+
+	            function closePanel() {
+	                state.currentPanelCloser = null;
+	                if (typeof state.currentEditCloser === "function") {
+	                    try { state.currentEditCloser(); } catch {}
+	                }
+	                state.isSettingsPanelOpen = false;
+	                disableScrollLock();
+	                if (state.destroyResponsiveListener) {
+	                    state.destroyResponsiveListener();
+	                    state.destroyResponsiveListener = null;
+	                }
+	                removeThemeChangeListener(updatePanelTheme);
+	                panel.style.opacity = "0";
+	                panel.style.transform = "translateY(20px)";
+	                setTimeout(() => {
+	                    if (overlay) overlay.remove();
+	                    state.currentPanelOverlay = null;
+	                }, 300);
+	            }
 
             function editShortcut(item = null, index = -1) {
                 const isNew = !item;
@@ -3193,10 +3988,11 @@
                 actionInputs.selector = selectorTextarea.input;
 
                 const simulateContainer = document.createElement('div');
-                const { container: simulateInputContainer, getSimulateKeys } = createEnhancedKeyboardCaptureInput("模拟按键:", temp.simulateKeys, {
+                const { container: simulateInputContainer, getSimulateKeys, destroy: destroySimulateKeysCapture } = createEnhancedKeyboardCaptureInput("模拟按键:", temp.simulateKeys, {
                     placeholder: options.text.hints.simulate,
                     hint: options.text.hints.simulateHelp,
-                    methodName: "getSimulateKeys"
+                    methodName: "getSimulateKeys",
+                    captureType: "simulate"
                 });
                 simulateContainer.appendChild(simulateInputContainer);
                 formDiv.appendChild(simulateContainer);
@@ -3222,7 +4018,7 @@
                     }
                 } catch {}
 
-                const { label: iconLabel, input: iconTextarea, preview: iconPreview } = createIconField("图标URL:", temp.icon);
+                const { label: iconLabel, input: iconTextarea, preview: iconPreview, destroy: destroyIconField } = createIconField("图标URL:", temp.icon);
                 formDiv.appendChild(iconLabel);
 
                 setIconImage(iconPreview, temp.icon || "");
@@ -3238,7 +4034,7 @@
                 const { container: iconLibraryContainer, updateTheme: updateIconLibraryTheme } = createIconLibraryUI(iconTextarea, iconPreview);
                 formDiv.appendChild(iconLibraryContainer);
 
-                const { container: hotkeyContainer, getHotkey } = createEnhancedKeyboardCaptureInput("快捷键:", temp.hotkey, {
+                const { container: hotkeyContainer, getHotkey, destroy: destroyHotkeyCapture } = createEnhancedKeyboardCaptureInput("快捷键:", temp.hotkey, {
                     placeholder: options.text.hints.hotkey,
                     hint: options.text.hints.hotkeyHelp,
                     methodName: "getHotkey"
@@ -3313,11 +4109,12 @@
                 cancelBtn.onclick = closeEdit;
                 btnRow.appendChild(cancelBtn);
 
-                formDiv.appendChild(btnRow);
-                editOverlay.appendChild(formDiv);
-                document.body.appendChild(editOverlay);
+	                formDiv.appendChild(btnRow);
+	                editOverlay.appendChild(formDiv);
+	                document.body.appendChild(editOverlay);
+	                state.currentEditCloser = closeEdit;
 
-                const updateEditPanelTheme = (isDark) => {
+	                const updateEditPanelTheme = (isDark) => {
                     formDiv.style.background = getPanelBackgroundColor(isDark);
                     formDiv.style.color = getTextColor(isDark);
                     h3.style.borderBottom = `1px solid ${getBorderColor(isDark)}`;
@@ -3349,12 +4146,16 @@
                     }, 350);
                 });
 
-                function closeEdit() {
-                    removeThemeChangeListener(updateEditPanelTheme);
-                    formDiv.style.opacity = "0";
-                    formDiv.style.transform = "translateY(20px)";
-                    setTimeout(() => editOverlay.remove(), 300);
-                }
+	                function closeEdit() {
+	                    state.currentEditCloser = null;
+	                    removeThemeChangeListener(updateEditPanelTheme);
+	                    try { if (typeof destroyIconField === "function") destroyIconField(); } catch {}
+	                    try { if (typeof destroySimulateKeysCapture === "function") destroySimulateKeysCapture(); } catch {}
+	                    try { if (typeof destroyHotkeyCapture === "function") destroyHotkeyCapture(); } catch {}
+	                    formDiv.style.opacity = "0";
+	                    formDiv.style.transform = "translateY(20px)";
+	                    setTimeout(() => editOverlay.remove(), 300);
+	                }
             }
 
             function createUrlMethodConfigUI(currentMethod = "current", currentAdvanced = "href") {
@@ -3394,11 +4195,10 @@
                     flexWrap: "wrap"
                 });
 
-                const methods = [
-                    { value: 'current', text: '当前窗口' },
-                    { value: 'spa', text: 'SPA路由' },
-                    { value: 'newWindow', text: '新窗口' }
-                ];
+	                const methods = Object.entries(URL_METHODS || {}).map(([value, cfg]) => ({
+	                    value,
+	                    text: (cfg && cfg.name) ? cfg.name : value
+	                }));
 
                 let selectedMethod = currentMethod;
                 let selectedAdvanced = currentAdvanced;
@@ -3638,7 +4438,11 @@
                 addThemeChangeListener(updatePreviewTheme);
                 updatePreviewTheme(state.isDarkMode);
 
-                return { label, input: textarea, preview };
+                const destroy = () => {
+                    removeThemeChangeListener(updatePreviewTheme);
+                };
+
+                return { label, input: textarea, preview, destroy };
             }
 
             function createIconLibraryUI(targetTextarea, targetPreviewImg) {
@@ -3828,11 +4632,12 @@
 	                return { container, updateTheme };
 	            }
 
-            function createEnhancedKeyboardCaptureInput(labelText, currentValue, {
-                placeholder = "点击此处，然后按下快捷键组合",
-                hint = "💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合",
-                methodName = "getHotkey"
-            } = {}) {
+	            function createEnhancedKeyboardCaptureInput(labelText, currentValue, {
+	                placeholder = "点击此处，然后按下快捷键组合",
+	                hint = "💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合",
+	                methodName = "getHotkey",
+	                captureType = "hotkey"
+	            } = {}) {
                 const container = document.createElement("div");
                 container.style.margin = "12px 0 4px";
 
@@ -3907,28 +4712,27 @@
                     updateCaptureState();
                 }
 
-                function stopCapture() {
-                    if (!isCapturing) return;
-                    isCapturing = false;
-                    mainInput.placeholder = placeholder;
-                    const finalKeys = buildHotkeyString();
-                    if (finalKeys) {
-                        mainInput.value = finalKeys;
-                        statusDiv.textContent = `✅ 已捕获${labelText}: ${finalKeys}`;
-                    } else {
-                        statusDiv.textContent = `❌ 未捕获到有效的${labelText}`;
-                    }
-                    mainInput.blur();
-                    updateCaptureState();
-                }
+	                function stopCapture() {
+	                    if (!isCapturing) return;
+	                    isCapturing = false;
+	                    mainInput.placeholder = placeholder;
+	                    const finalKeys = buildHotkeyString();
+	                    if (finalKeys) {
+	                        mainInput.value = finalKeys;
+	                        const displayKeys = core?.hotkeys?.formatForDisplay ? (core.hotkeys.formatForDisplay(finalKeys) || finalKeys) : finalKeys;
+	                        statusDiv.textContent = `✅ 已捕获${labelText}: ${displayKeys}`;
+	                    } else {
+	                        statusDiv.textContent = `❌ 未捕获到有效的${labelText}`;
+	                    }
+	                    mainInput.blur();
+	                    updateCaptureState();
+	                }
 
-                function buildHotkeyString() {
-                    if (!capturedMainKey) return "";
-                    const modArray = Array.from(capturedModifiers).sort();
-                    return modArray.length > 0
-                        ? [...modArray, capturedMainKey].join("+")
-                        : capturedMainKey;
-                }
+	                function buildHotkeyString() {
+	                    if (!capturedMainKey) return "";
+	                    const raw = [...capturedModifiers, capturedMainKey].filter(Boolean).join("+");
+	                    return core?.hotkeys?.normalize ? core.hotkeys.normalize(raw) : raw;
+	                }
 
                 function updateCaptureState() {
                     if (isCapturing) {
@@ -3966,41 +4770,51 @@
                         updateDisplay();
                         return;
                     }
-                    if (['MetaLeft', 'MetaRight'].includes(code) || key === 'Meta') {
-                        if (e.type === 'keydown') capturedModifiers.add('CMD');
-                        else capturedModifiers.delete('CMD');
-                        updateDisplay();
-                        return;
-                    }
+	                    if (['MetaLeft', 'MetaRight'].includes(code) || key === 'Meta') {
+	                        if (e.type === 'keydown') capturedModifiers.add('CMD');
+	                        else capturedModifiers.delete('CMD');
+	                        updateDisplay();
+	                        return;
+	                    }
 
-                    if (e.type === 'keydown') {
-                        const keyInfo = ENHANCED_KEY_MAP[code];
-                        if (keyInfo) {
-                            capturedMainKey = keyInfo.standard;
-                            updateDisplay();
-                            setTimeout(stopCapture, 100);
-                        } else {
-                            let standardKey = key.toUpperCase();
-                            if (standardKey.length === 1 || ['ESCAPE', 'ENTER', 'SPACE', 'TAB'].includes(standardKey)) {
-                                if (standardKey === 'ESCAPE') standardKey = 'ESC';
-                                capturedMainKey = standardKey;
-                                updateDisplay();
-                                setTimeout(stopCapture, 100);
-                            }
-                        }
-                    }
-                }
+	                    if (e.type === 'keydown') {
+	                        const standardKey = core?.hotkeys?.getMainKeyFromEvent ? core.hotkeys.getMainKeyFromEvent(e) : "";
+	                        if (!standardKey) return;
 
-                function updateDisplay() {
-                    if (!isCapturing) return;
-                    let displayParts = Array.from(capturedModifiers);
-                    if (capturedMainKey) {
-                        const keyEntry = Object.entries(ENHANCED_KEY_MAP).find(([code, info]) => info.standard === capturedMainKey);
-                        const displayKey = keyEntry ? keyEntry[1].display : capturedMainKey;
-                        displayParts.push(displayKey);
-                    }
-                    mainInput.value = displayParts.join(" + ");
-                }
+	                        if (captureType === "hotkey" && core?.hotkeys?.isAllowedMainKey && !core.hotkeys.isAllowedMainKey(standardKey)) {
+	                            const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
+	                            statusDiv.textContent = `❌ 不支持的快捷键: ${displayKey}`;
+	                            return;
+	                        }
+
+	                        if (captureType === "simulate" && core?.hotkeys?.isAllowedSimulateMainKey && !core.hotkeys.isAllowedSimulateMainKey(standardKey)) {
+	                            const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
+	                            statusDiv.textContent = `❌ 不支持的模拟按键: ${displayKey}`;
+	                            return;
+	                        }
+
+	                        capturedMainKey = standardKey;
+	                        updateDisplay();
+	                        setTimeout(stopCapture, 100);
+	                    }
+	                }
+
+	                function updateDisplay() {
+	                    if (!isCapturing) return;
+	                    const orderedMods = core?.hotkeys?.modifierOrder || ['CTRL', 'SHIFT', 'ALT', 'CMD'];
+	                    const displayParts = [];
+
+	                    for (const mod of orderedMods) {
+	                        if (!capturedModifiers.has(mod)) continue;
+	                        displayParts.push(core?.hotkeys?.formatModifierToken ? core.hotkeys.formatModifierToken(mod) : mod);
+	                    }
+
+	                    if (capturedMainKey) {
+	                        displayParts.push(core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(capturedMainKey) : capturedMainKey);
+	                    }
+
+	                    mainInput.value = displayParts.join(" + ");
+	                }
 
                 mainInput.addEventListener("click", startCapture);
                 mainInput.addEventListener("focus", startCapture);
@@ -4048,138 +4862,173 @@
                     };
                 };
 
-                updateTheme(state.isDarkMode);
-                addThemeChangeListener(updateTheme);
+	                updateTheme(state.isDarkMode);
+	                addThemeChangeListener(updateTheme);
 
-                const result = { container };
-                result[methodName] = () => mainInput.value.trim();
-                return result;
-            }
+	                const destroy = () => {
+	                    removeThemeChangeListener(updateTheme);
+	                };
+
+	                const result = { container, destroy };
+	                result[methodName] = () => mainInput.value.trim();
+	                return result;
+	            }
         }
 
-            return Object.freeze({ openSettingsPanel });
-        }
+	            return Object.freeze({ openSettingsPanel, closeSettingsPanel });
+	        }
 /* -------------------------------------------------------------------------- *
  * Module 06 · Styling & exports (CSS injection, lifecycle, global API)
  * -------------------------------------------------------------------------- */
 
-        const keyboardLayer = createKeyboardLayer({ options, state, core });
-        const settingsPanelLayer = createSettingsPanelLayer({
-            options,
-            state,
-            core,
-            uiShared,
-            ids,
-            classes,
-            URL_METHODS,
-            setIconImage,
-            safeGMGet,
-            safeGMSet,
-            debounce
-        });
+        function createEngineApi(ctx = {}) {
+            const {
+                options,
+                state,
+                core,
+                uiShared,
+                cssPrefix,
+                ids,
+                classes,
+                URL_METHODS
+            } = ctx;
 
-        /* ------------------------------------------------------------------
-         * 样式注入
-         * ------------------------------------------------------------------ */
+            const keyboardLayer = createKeyboardLayer(ctx);
+            const settingsPanelLayer = createSettingsPanelLayer(ctx);
 
-        function injectDragCss() {
-            const styleId = `${cssPrefix}-drag-style`;
-            if (document.getElementById(styleId)) return;
-            const styleEl = document.createElement('style');
-            styleEl.id = styleId;
+            /* ------------------------------------------------------------------
+             * 样式注入
+             * ------------------------------------------------------------------ */
 
-            const updateDragStyle = (isDark) => {
-                const primaryColor = uiShared.colors.getPrimaryColor();
-                styleEl.textContent = `
-                    #${ids.tableBody}.is-dragging tr {
-                        opacity: 0.5;
-                    }
-                    #${ids.tableBody} tr.dragging {
-                        opacity: 1 !important;
-                        background-color: ${primaryColor}30 !important;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                    }
-                    #${ids.tableBody} tr.dragover-top {
-                        border-top: 2px dashed ${primaryColor};
-                    }
-                    #${ids.tableBody} tr.dragover-bottom {
-                        border-bottom: 2px dashed ${primaryColor};
-                    }
+            function injectDragCss() {
+                const styleId = `${cssPrefix}-drag-style`;
+                let styleEl = document.getElementById(styleId);
+                if (!styleEl) {
+                    styleEl = document.createElement('style');
+                    styleEl.id = styleId;
+                    document.head.appendChild(styleEl);
+                }
 
-                    .${classes.compactContainer}.is-dragging .${classes.compactCard} {
-                        opacity: 0.5;
-                    }
-                    .${classes.compactCard}.dragging {
-                        opacity: 1 !important;
-                        background-color: ${primaryColor}30 !important;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-                        transform: scale(1.02);
-                        border-color: ${primaryColor} !important;
-                    }
-                    .${classes.compactCard}.dragover-top {
-                        border-top: 3px dashed ${primaryColor} !important;
-                    }
-                    .${classes.compactCard}.dragover-bottom {
-                        border-bottom: 3px dashed ${primaryColor} !important;
-                    }
-
-                    @media (max-width: ${options.ui.compactBreakpoint || 800}px) {
-                        .${classes.compactCard} {
-                            margin: 0;
-                            max-width: 100%;
-                            align-self: flex-start;
+                const updateDragStyle = () => {
+                    const primaryColor = uiShared.colors.getPrimaryColor();
+                    styleEl.textContent = `
+                        #${ids.tableBody}.is-dragging tr {
+                            opacity: 0.5;
                         }
-                        .${classes.compactContainer} {
-                            align-items: stretch !important;
+                        #${ids.tableBody} tr.dragging {
+                            opacity: 1 !important;
+                            background-color: ${primaryColor}30 !important;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
                         }
-                    }
-                `;
-            };
+                        #${ids.tableBody} tr.dragover-top {
+                            border-top: 2px dashed ${primaryColor};
+                        }
+                        #${ids.tableBody} tr.dragover-bottom {
+                            border-bottom: 2px dashed ${primaryColor};
+                        }
 
-            document.head.appendChild(styleEl);
-            uiShared.theme.addThemeChangeListener(updateDragStyle);
-            updateDragStyle(state.isDarkMode);
-        }
+                        .${classes.compactContainer}.is-dragging .${classes.compactCard} {
+                            opacity: 0.5;
+                        }
+                        .${classes.compactCard}.dragging {
+                            opacity: 1 !important;
+                            background-color: ${primaryColor}30 !important;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+                            transform: scale(1.02);
+                            border-color: ${primaryColor} !important;
+                        }
+                        .${classes.compactCard}.dragover-top {
+                            border-top: 3px dashed ${primaryColor} !important;
+                        }
+                        .${classes.compactCard}.dragover-bottom {
+                            border-bottom: 3px dashed ${primaryColor} !important;
+                        }
 
-        /* ------------------------------------------------------------------
-         * 生命周期
-         * ------------------------------------------------------------------ */
+                        @media (max-width: ${options.ui.compactBreakpoint || 800}px) {
+                            .${classes.compactCard} {
+                                margin: 0;
+                                max-width: 100%;
+                                align-self: flex-start;
+                            }
+                            .${classes.compactContainer} {
+                                align-items: stretch !important;
+                            }
+                        }
+                    `;
+                };
 
-        function init() {
-            keyboardLayer.init();
-            uiShared.theme.setupDarkModeObserver();
-            injectDragCss();
-            const menuLabel = options.menuCommandLabel || options.text.menuLabelFallback;
-            if (typeof GM_registerMenuCommand === 'function') {
-                GM_registerMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
+                uiShared.theme.addThemeChangeListener(updateDragStyle);
+                updateDragStyle(state.isDarkMode);
+                return () => {
+                    uiShared.theme.removeThemeChangeListener(updateDragStyle);
+                    try { styleEl.remove(); } catch {}
+                };
             }
-        }
 
-        function destroy() {
-            keyboardLayer.destroy();
-            uiShared.layout.disableScrollLock();
-        }
+            /* ------------------------------------------------------------------
+             * 生命周期
+             * ------------------------------------------------------------------ */
 
-        function getShortcuts() {
-            return core.getShortcuts();
-        }
+            function init() {
+                keyboardLayer.init();
+                if (typeof state.destroyDarkModeObserver === "function") {
+                    try { state.destroyDarkModeObserver(); } catch {}
+                }
+                state.destroyDarkModeObserver = uiShared.theme.setupDarkModeObserver();
 
-        function setShortcuts(newShortcuts) {
-            core.setShortcuts(newShortcuts, { persist: true });
-        }
+                if (typeof state.destroyDragCss === "function") {
+                    try { state.destroyDragCss(); } catch {}
+                }
+                state.destroyDragCss = injectDragCss();
 
-        engineApi = {
-            init,
-            destroy,
-            openSettingsPanel: settingsPanelLayer.openSettingsPanel,
-            getShortcuts,
-            setShortcuts,
-            core,
-            uiShared,
-            URL_METHODS
-        };
-        return engineApi;
-    }
+                const menuLabel = options.menuCommandLabel || options.text.menuLabelFallback;
+                if (!state.menuCommandRegistered && typeof GM_registerMenuCommand === 'function') {
+                    GM_registerMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
+                    state.menuCommandRegistered = true;
+                }
+            }
+
+            function destroy() {
+                keyboardLayer.destroy();
+                settingsPanelLayer.closeSettingsPanel();
+                if (typeof state.destroyDragCss === "function") {
+                    try { state.destroyDragCss(); } catch {}
+                    state.destroyDragCss = null;
+                }
+                if (typeof state.destroyDarkModeObserver === "function") {
+                    try { state.destroyDarkModeObserver(); } catch {}
+                    state.destroyDarkModeObserver = null;
+                }
+                uiShared.layout.disableScrollLock();
+            }
+
+            function getShortcuts() {
+                return core.getShortcuts();
+            }
+
+            function setShortcuts(newShortcuts) {
+                core.setShortcuts(newShortcuts, { persist: true });
+            }
+
+            return Object.freeze({
+                init,
+                destroy,
+                openSettingsPanel: settingsPanelLayer.openSettingsPanel,
+                closeSettingsPanel: settingsPanelLayer.closeSettingsPanel,
+                getShortcuts,
+                setShortcuts,
+                core,
+                uiShared,
+                URL_METHODS
+            });
+        }
+/* -------------------------------------------------------------------------- *
+ * Module 98 · Engine finalize (return API)
+ * -------------------------------------------------------------------------- */
+    // (reserved)
+/* -------------------------------------------------------------------------- *
+ * Module 99 · Global export (ShortcutTemplate)
+ * -------------------------------------------------------------------------- */
 
     global.ShortcutTemplate = Object.freeze({
         VERSION: '20251225',
