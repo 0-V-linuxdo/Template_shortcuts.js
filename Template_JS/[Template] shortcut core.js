@@ -2858,6 +2858,7 @@
 		                    right: "0",
 		                    top: `-${SCROLLBAR_HEIGHT_PX}px`,
 		                    height: `${SCROLLBAR_HEIGHT_PX}px`,
+		                    zIndex: "1",
 		                    overflowX: "auto",
 		                    overflowY: "hidden",
 		                    WebkitOverflowScrolling: "touch",
@@ -2946,13 +2947,21 @@
 		                    { passive: false }
 		                );
 
+		                let cleanup = () => {};
 		                if (window.ResizeObserver) {
 		                    const ro = new ResizeObserver(() => scheduleSync());
 		                    ro.observe(container);
 		                    ro.observe(row);
+		                    cleanup = () => {
+		                        try { ro.disconnect(); } catch {}
+		                    };
 		                } else {
 		                    window.addEventListener("resize", scheduleSync);
+		                    cleanup = () => {
+		                        try { window.removeEventListener("resize", scheduleSync); } catch {}
+		                    };
 		                }
+		                container.__shortcutTemplateStatsCleanup = cleanup;
 
 		                viewport.appendChild(row);
 		                container.appendChild(scrollbar);
@@ -2964,13 +2973,16 @@
 		                return container;
 		            }
 
-            function updateStatsDisplay() {
-                const existingStats = document.getElementById(ids.stats);
-                if (existingStats) {
-                    const newStats = createStatsDisplay();
-                    existingStats.parentNode.replaceChild(newStats, existingStats);
-                }
-            }
+	            function updateStatsDisplay() {
+	                const existingStats = document.getElementById(ids.stats);
+	                if (existingStats) {
+	                    if (typeof existingStats.__shortcutTemplateStatsCleanup === "function") {
+	                        try { existingStats.__shortcutTemplateStatsCleanup(); } catch {}
+	                    }
+	                    const newStats = createStatsDisplay();
+	                    existingStats.parentNode.replaceChild(newStats, existingStats);
+	                }
+	            }
 
 	            /* ------------------------------------------------------------------
 	             * 设置面板
@@ -4309,13 +4321,17 @@
 	                });
 	            }
 
-	            function closePanel() {
-	                closeSettingsMenu({ restoreFocus: false });
-	                state.currentPanelCloser = null;
-	                if (typeof state.currentEditCloser === "function") {
-	                    try { state.currentEditCloser(); } catch {}
-	                }
-	                state.isSettingsPanelOpen = false;
+		            function closePanel() {
+		                closeSettingsMenu({ restoreFocus: false });
+		                state.currentPanelCloser = null;
+		                const statsEl = panel.querySelector(`#${ids.stats}`) || document.getElementById(ids.stats);
+		                if (statsEl && typeof statsEl.__shortcutTemplateStatsCleanup === "function") {
+		                    try { statsEl.__shortcutTemplateStatsCleanup(); } catch {}
+		                }
+		                if (typeof state.currentEditCloser === "function") {
+		                    try { state.currentEditCloser(); } catch {}
+		                }
+		                state.isSettingsPanelOpen = false;
 	                disableScrollLock();
 	                if (state.destroyResponsiveListener) {
 	                    state.destroyResponsiveListener();
