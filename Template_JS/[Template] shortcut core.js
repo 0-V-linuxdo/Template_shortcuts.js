@@ -3045,44 +3045,56 @@
 		            clearSearchBtn.type = "button";
 		            clearSearchBtn.title = options.text.buttons.clear || "清除";
 		            clearSearchBtn.textContent = "×";
-	            Object.assign(clearSearchBtn.style, {
-	                width: "32px",
-	                height: "32px",
-	                display: "none",
-	                alignItems: "center",
-	                justifyContent: "center",
-	                fontSize: "18px",
-	                lineHeight: "1",
-	                border: "none",
-	                backgroundColor: "transparent",
-	                padding: "0",
-	                flex: "0 0 32px"
-	            });
+		        Object.assign(clearSearchBtn.style, {
+		            width: "32px",
+		            height: "32px",
+		            display: "none",
+		            alignItems: "center",
+		            justifyContent: "center",
+		            fontSize: "18px",
+		            lineHeight: "1",
+		            border: "none",
+		            backgroundColor: "transparent",
+		            padding: "0",
+		            flex: "0 0 32px"
+		        });
 
-			            let isSearchExpanded = !!String(state.searchQuery || "").trim();
+		            const searchDivider = document.createElement("div");
+		            Object.assign(searchDivider.style, {
+		                width: "1px",
+		                height: "60%",
+		                alignSelf: "center",
+		                flex: "0 0 1px",
+		                opacity: "0.6",
+		                display: "none"
+		            });
 
-			            const refreshSearchWidgetStyle = (isDark = state.isDarkMode) => {
-			                const hasValue = !!String(searchInput.value || "").trim();
-			                const active = isSearchExpanded || hasValue;
+		            let isSearchExpanded = !!String(state.searchQuery || "").trim();
+
+		            const refreshSearchWidgetStyle = (isDark = state.isDarkMode) => {
+		                const hasValue = !!String(searchInput.value || "").trim();
+		                const active = isSearchExpanded || hasValue;
 		                searchWidget.style.borderColor = active ? getPrimaryColor() : getBorderColor(isDark);
-	                searchIconBtn.style.color = active ? getPrimaryColor() : getTextColor(isDark);
-	            };
+		            searchIconBtn.style.color = active ? getPrimaryColor() : getTextColor(isDark);
+		                searchDivider.style.backgroundColor = active ? getPrimaryColor() : getBorderColor(isDark);
+		        };
 
 	            const updateClearSearchVisibility = () => {
 	                const hasValue = !!String(searchInput.value || "").trim();
 	                clearSearchBtn.style.display = isSearchExpanded && hasValue ? "flex" : "none";
 	            };
 
-			            const setSearchExpanded = (expanded, { focus = false } = {}) => {
-			                isSearchExpanded = !!expanded;
-			                title.style.display = isSearchExpanded ? "none" : "";
-			                searchWidget.style.flex = isSearchExpanded ? "1 1 auto" : "0 0 32px";
-			                searchWidget.style.width = isSearchExpanded ? "100%" : "32px";
-			                searchInput.style.display = isSearchExpanded ? "block" : "none";
-			                updateClearSearchVisibility();
-			                refreshSearchWidgetStyle();
-			                if (isSearchExpanded) {
-			                    if (focus) {
+		            const setSearchExpanded = (expanded, { focus = false } = {}) => {
+		                isSearchExpanded = !!expanded;
+		                title.style.display = isSearchExpanded ? "none" : "";
+		                searchWidget.style.flex = isSearchExpanded ? "1 1 auto" : "0 0 32px";
+		                searchWidget.style.width = isSearchExpanded ? "100%" : "32px";
+		                searchInput.style.display = isSearchExpanded ? "block" : "none";
+		                searchDivider.style.display = isSearchExpanded ? "block" : "none";
+		                updateClearSearchVisibility();
+		                refreshSearchWidgetStyle();
+		                if (isSearchExpanded) {
+		                    if (focus) {
 			                        searchInput.focus();
 			                        searchInput.select();
 		                    }
@@ -3157,6 +3169,7 @@
 		
 		            searchWidget.appendChild(searchInput);
 		            searchWidget.appendChild(clearSearchBtn);
+		            searchWidget.appendChild(searchDivider);
 		            searchWidget.appendChild(searchIconBtn);
 
 		            leftSlot.appendChild(title);
