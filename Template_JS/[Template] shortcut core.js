@@ -1,7 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20251226] v1.0.0
+// @name         [Template] 快捷键跳转 [20251226] v1.1.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20251226] v1.0.0
+// @version      [20251226] v1.1.0
+// @update-log   1.1.0: 重构核心模块(拆分 hotkeys/ui/icons/builtins)，统一面板筛选与拖拽视图匹配，清理 legacy editor，大幅减少 inline styles 并移除面板 setTrustedHTML 依赖
 // @update-log   1.0.0: 新增 ShortcutTemplate.utils(menu/dom/events/oneStep) 以参数化菜单点击与 1step 编排，站点脚本仅需填写参数/defs
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)。
 // @author       You
@@ -1018,7 +1019,230 @@
             });
         }
 /* -------------------------------------------------------------------------- *
- * Module 03 · Engine core (storage, icons, state, shared helpers)
+ * Module 03 · Built-in actions (URL jump / selector click / key simulation)
+ * -------------------------------------------------------------------------- */
+
+        function createBuiltinActionTools(ctx = {}) {
+            const { options, URL_METHODS, Utils, hotkeys, showAlert } = ctx;
+            const consoleTag = options?.consoleTag || "[ShortcutEngine]";
+
+            function getUrlMethodDisplayText(method) {
+                const methodConfig = URL_METHODS?.[method];
+                if (!methodConfig) return "未知跳转方式";
+                return methodConfig.name;
+            }
+
+            function resolveTemplateUrl(targetUrl) {
+                if (typeof options?.resolveUrlTemplate === 'function') {
+                    try {
+                        const resolved = options.resolveUrlTemplate(targetUrl, {
+                            getCurrentSearchTerm: options.getCurrentSearchTerm,
+                            placeholderToken: options.placeholderToken
+                        });
+                        if (resolved) return resolved;
+                    } catch (err) {
+                        console.warn(`${consoleTag} resolveUrlTemplate error`, err);
+                    }
+                }
+                const placeholder = options?.placeholderToken || '%s';
+                if (String(targetUrl || "").includes(placeholder)) {
+                    let keyword = null;
+                    try {
+                        if (typeof options?.getCurrentSearchTerm === 'function') {
+                            keyword = options.getCurrentSearchTerm();
+                        } else {
+                            const urlParams = new URL(location.href).searchParams;
+                            keyword = urlParams.get('q');
+                        }
+                    } catch (err) {
+                        console.warn(`${consoleTag} getCurrentSearchTerm error`, err);
+                    }
+                    if (keyword !== null && keyword !== undefined) {
+                        return String(targetUrl).replaceAll(placeholder, encodeURIComponent(keyword));
+                    } else {
+                        if (placeholder === '%s' && String(targetUrl).includes('?')) {
+                            return String(targetUrl).substring(0, String(targetUrl).indexOf('?'));
+                        }
+                        return String(targetUrl).replaceAll(placeholder, '');
+                    }
+                }
+                return targetUrl;
+            }
+
+            function executeCurrentWindowJump(url, advanced) {
+                switch (advanced) {
+                    case 'href':
+                        window.location.href = url;
+                        break;
+                    case 'replace':
+                        window.location.replace(url);
+                        break;
+                    default:
+                        window.location.href = url;
+                }
+            }
+
+            function executeSpaNavigation(url, advanced) {
+                try {
+                    const urlObj = new URL(url, location.origin);
+                    const title = document.title;
+                    switch (advanced) {
+                        case 'pushState':
+                            window.history.pushState({ url: url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
+                            window.dispatchEvent(new PopStateEvent('popstate', { state: { url: url } }));
+                            break;
+                        case 'replaceState':
+                            window.history.replaceState({ url: url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
+                            window.dispatchEvent(new PopStateEvent('popstate', { state: { url: url } }));
+                            break;
+                        default:
+                            window.history.pushState({ url: url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
+                            window.dispatchEvent(new PopStateEvent('popstate', { state: { url: url } }));
+                    }
+                } catch (e) {
+                    console.warn(`${consoleTag} SPA navigation failed, fallback to location.href:`, e);
+                    window.location.href = url;
+                }
+            }
+
+            function executeNewWindowJump(url, advanced) {
+                switch (advanced) {
+                    case 'open':
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                        break;
+                    case 'popup': {
+                        const popup = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes,status=yes,location=yes,menubar=yes,toolbar=yes');
+                        if (popup) {
+                            popup.focus();
+                        } else {
+                            console.warn(`${consoleTag} Popup blocked, fallback to normal open`);
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                        }
+                        break;
+                    }
+                    default:
+                        window.open(url, '_blank', 'noopener,noreferrer');
+                }
+            }
+
+            function jumpToUrl(targetUrl, method = "current", advanced = "href") {
+                try {
+                    const finalUrl = resolveTemplateUrl(targetUrl);
+                    switch (method) {
+                        case 'current':
+                            executeCurrentWindowJump(finalUrl, advanced);
+                            break;
+                        case 'spa':
+                            executeSpaNavigation(finalUrl, advanced);
+                            break;
+                        case 'newWindow':
+                            executeNewWindowJump(finalUrl, advanced);
+                            break;
+                        default:
+                            console.warn(`${consoleTag} Unknown URL method: ${method}, fallback to current window`);
+                            executeCurrentWindowJump(finalUrl, advanced);
+                    }
+                } catch (e) {
+                    console.error(`${consoleTag} Invalid URL or error in jumpToUrl:`, targetUrl, e);
+                    if (typeof showAlert === "function") {
+                        showAlert(`无效的跳转网址或发生错误: ${targetUrl}`);
+                    }
+                }
+            }
+
+            function clickElement(selector) {
+                const sel = (typeof selector === "string") ? selector.trim() : "";
+                if (!sel) return;
+
+                const element = Utils?.dom?.safeQuerySelector ? Utils.dom.safeQuerySelector(document, sel) : document.querySelector(sel);
+                if (!element) {
+                    if (typeof showAlert === "function") showAlert(`无法找到元素: ${sel}`);
+                    return;
+                }
+
+                const tagName = (element.tagName || "").toUpperCase();
+                const inputType = (element.getAttribute && element.getAttribute("type") || "").toLowerCase();
+                if (tagName === "INPUT" && inputType === "checkbox") {
+                    try { element.click(); } catch {}
+                    return;
+                }
+                if (tagName === "LABEL") {
+                    try { element.click(); } catch {}
+                    return;
+                }
+
+                const ok = Utils?.events?.simulateClick ? Utils.events.simulateClick(element, { nativeFallback: true }) : false;
+                if (ok) return;
+
+                const fallbackTarget = (typeof element.closest === "function")
+                    ? (element.closest('button, a, [role=\"button\"], [onclick]') || element)
+                    : element;
+
+                try {
+                    if (typeof fallbackTarget.click === "function") {
+                        fallbackTarget.click();
+                        return;
+                    }
+                } catch {}
+
+                try {
+                    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
+                    fallbackTarget.dispatchEvent(clickEvent);
+                } catch (eventError) {
+                    console.error(`${consoleTag} Failed to dispatch click event on element: ${sel}`, eventError);
+                    if (typeof showAlert === "function") showAlert(`无法模拟点击元素: ${sel}`);
+                }
+            }
+
+            function simulateKeystroke(keyString) {
+                if (!keyString) return;
+                const parts = String(keyString).toUpperCase().split('+');
+                const mainKeyStr = parts.pop();
+                const modifiers = parts;
+
+                if (!mainKeyStr) {
+                    console.warn(`${consoleTag} Invalid simulateKeys string (missing main key):`, keyString);
+                    return;
+                }
+
+                const keyProps = typeof hotkeys?.getKeyEventProps === "function" ? hotkeys.getKeyEventProps(mainKeyStr) : null;
+                if (!keyProps) {
+                    console.warn(`${consoleTag} Unknown main key for simulation:`, mainKeyStr, "in", keyString);
+                    return;
+                }
+
+                const eventInit = {
+                    key: keyProps.key,
+                    code: keyProps.code,
+                    bubbles: true,
+                    cancelable: true,
+                    ctrlKey: modifiers.includes("CTRL"),
+                    shiftKey: modifiers.includes("SHIFT"),
+                    altKey: modifiers.includes("ALT"),
+                    metaKey: modifiers.includes("META") || modifiers.includes("CMD"),
+                };
+                const targetElement = document.activeElement || document.body;
+                try {
+                    const kdEvent = new KeyboardEvent('keydown', eventInit);
+                    targetElement.dispatchEvent(kdEvent);
+                    setTimeout(() => {
+                        const kuEvent = new KeyboardEvent('keyup', eventInit);
+                        targetElement.dispatchEvent(kuEvent);
+                    }, 10);
+                } catch (e) {
+                    console.error(`${consoleTag} Error dispatching simulated keyboard event:`, e);
+                }
+            }
+
+            return Object.freeze({
+                getUrlMethodDisplayText,
+                jumpToUrl,
+                clickElement,
+                simulateKeystroke
+            });
+        }
+/* -------------------------------------------------------------------------- *
+ * Module 03 · Engine core (factory, storage, state wiring)
  * -------------------------------------------------------------------------- */
 
     /* ------------------------------------------------------------------
@@ -1047,7 +1271,11 @@
         };
 
         const classes = {
+            overlay: `${cssPrefix}-overlay`,
+            panel: `${cssPrefix}-panel`,
             filterButton: `${cssPrefix}-filter-button`,
+            filterLabel: `${cssPrefix}-filter-label`,
+            filterCount: `${cssPrefix}-filter-count`,
             compactContainer: `${cssPrefix}-compact-container`,
             compactCard: `${cssPrefix}-compact-card`
         };
@@ -1079,61 +1307,13 @@
 	            filterChangedEventName: `${idPrefix}-filterChanged`
 	        };
 
-	        const HOTKEY_MODIFIER_ORDER = Object.freeze(["CTRL", "SHIFT", "ALT", "CMD"]);
-	        const HOTKEY_MODIFIER_ALIASES = Object.freeze({
-	            CTRL: "CTRL",
-	            CONTROL: "CTRL",
-	            SHIFT: "SHIFT",
-	            ALT: "ALT",
-	            OPTION: "ALT",
-	            OPT: "ALT",
-	            CMD: "CMD",
-	            COMMAND: "CMD",
-	            META: "CMD",
-	            WIN: "CMD",
-	            WINDOWS: "CMD"
-	        });
-
-	        const HOTKEY_MODIFIER_DISPLAY = Object.freeze({
-	            CTRL: "Ctrl",
-	            SHIFT: "Shift",
-	            ALT: "Alt",
-	            CMD: "Cmd"
-	        });
-
-	        const SHIFTED_SYMBOL_TO_BASE_KEY = Object.freeze({
-	            "!": "1",
-	            "@": "2",
-	            "#": "3",
-	            "$": "4",
-	            "%": "5",
-	            "^": "6",
-	            "&": "7",
-	            "*": "8",
-	            "(": "9",
-	            ")": "0",
-	            "_": "-",
-	            "+": "=",
-	            "{": "[",
-	            "}": "]",
-	            "|": "\\",
-	            ":": ";",
-	            "\"": "'",
-	            "<": ",",
-	            ">": ".",
-	            "?": "/",
-	            "~": "`"
-	        });
-
 	        const GMX = (typeof GM_xmlhttpRequest === 'function')
 	            ? GM_xmlhttpRequest
 	            : (typeof GM !== 'undefined' && GM.xmlHttpRequest ? GM.xmlHttpRequest : null);
 
+        const hotkeys = createHotkeysToolkit();
+
         let engineApi = null;
-        let shortcuts = loadShortcuts();
-        ensureUniqueShortcutIds(shortcuts);
-        const core = createCoreLayer();
-        const uiShared = createUiSharedLayer();
 
         /* ------------------ 通用工具函数 ------------------ */
 
@@ -1147,6 +1327,7 @@
             }
             return fallback;
         }
+
 	        function safeGMSet(key, value) {
 	            try {
 	                if (typeof GM_setValue === 'function') {
@@ -1181,30 +1362,31 @@
             }
         }
 
-		        function normalizeShortcut(raw) {
-		            const shortcut = raw && typeof raw === 'object' ? raw : {};
-                const key = (typeof shortcut.key === "string") ? shortcut.key.trim() : "";
-                let id = (typeof shortcut.id === "string") ? shortcut.id.trim() : "";
-                if (!id) {
-                    id = key ? `key:${key}` : generateShortcutId();
-                }
-                const dataRaw = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : null;
-		            return {
-                    id,
-                    key,
-		                name: shortcut.name || "",
-		                actionType: shortcut.actionType || (shortcut.url ? 'url' : (shortcut.selector ? 'selector' : (shortcut.simulateKeys ? 'simulate' : (shortcut.customAction ? 'custom' : '')))),
-		                url: shortcut.url || "",
-		                urlMethod: shortcut.urlMethod || "current",
-		                urlAdvanced: shortcut.urlAdvanced || "href",
-		                selector: shortcut.selector || "",
-		                simulateKeys: normalizeHotkey(shortcut.simulateKeys || ""),
-		                customAction: shortcut.customAction || "",
-		                hotkey: normalizeHotkey(shortcut.hotkey || ""),
-		                icon: shortcut.icon || "",
-                    data: dataRaw ? clone(dataRaw) : {}
-		            };
-		        }
+        function normalizeShortcut(raw) {
+            const shortcut = raw && typeof raw === 'object' ? raw : {};
+            const key = (typeof shortcut.key === "string") ? shortcut.key.trim() : "";
+            let id = (typeof shortcut.id === "string") ? shortcut.id.trim() : "";
+            if (!id) {
+                id = key ? `key:${key}` : generateShortcutId();
+            }
+            const dataRaw = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : null;
+            const normalizeHotkey = typeof hotkeys?.normalize === "function" ? hotkeys.normalize : (v) => String(v || "");
+            return {
+                id,
+                key,
+                name: shortcut.name || "",
+                actionType: shortcut.actionType || (shortcut.url ? 'url' : (shortcut.selector ? 'selector' : (shortcut.simulateKeys ? 'simulate' : (shortcut.customAction ? 'custom' : '')))),
+                url: shortcut.url || "",
+                urlMethod: shortcut.urlMethod || "current",
+                urlAdvanced: shortcut.urlAdvanced || "href",
+                selector: shortcut.selector || "",
+                simulateKeys: normalizeHotkey(shortcut.simulateKeys || ""),
+                customAction: shortcut.customAction || "",
+                hotkey: normalizeHotkey(shortcut.hotkey || ""),
+                icon: shortcut.icon || "",
+                data: dataRaw ? clone(dataRaw) : {}
+            };
+        }
 
         function loadShortcuts() {
             const stored = safeGMGet(options.storageKeys.shortcuts, options.defaultShortcuts);
@@ -1212,9 +1394,23 @@
             return list.map(normalizeShortcut);
         }
 
+        let shortcuts = loadShortcuts();
+        ensureUniqueShortcutIds(shortcuts);
+
         function saveShortcuts() {
             safeGMSet(options.storageKeys.shortcuts, shortcuts);
         }
+
+        const uiShared = createUiSharedLayer({ options, state, ids, idPrefix, cssPrefix });
+        const debounce = uiShared?.utils?.debounce || ((fn) => fn);
+        const iconManager = createIconManager({ options, safeGMGet, safeGMSet, GMX });
+        const builtinActions = createBuiltinActionTools({
+            options,
+            URL_METHODS,
+            Utils,
+            hotkeys,
+            showAlert: uiShared?.dialogs?.showAlert
+        });
 
         function executeCustomAction(item, event) {
             const key = (item && item.customAction) ? String(item.customAction) : "";
@@ -1248,7 +1444,7 @@
             function registerBuiltInActions() {
                 actions.register("url", ({ shortcut }) => {
                     if (shortcut?.url) {
-                        jumpToUrl(shortcut.url, shortcut.urlMethod, shortcut.urlAdvanced);
+                        builtinActions.jumpToUrl(shortcut.url, shortcut.urlMethod, shortcut.urlAdvanced);
                     } else {
                         console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'url' but has no URL defined.`);
                     }
@@ -1256,7 +1452,7 @@
 
                 actions.register("selector", ({ shortcut }) => {
                     if (shortcut?.selector) {
-                        clickElement(shortcut.selector);
+                        builtinActions.clickElement(shortcut.selector);
                     } else {
                         console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'selector' but has no selector defined.`);
                     }
@@ -1264,14 +1460,14 @@
 
                 actions.register("simulate", ({ shortcut }) => {
                     if (shortcut?.simulateKeys) {
-                        simulateKeystroke(shortcut.simulateKeys);
+                        builtinActions.simulateKeystroke(shortcut.simulateKeys);
                     } else {
                         console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'simulate' but has no simulateKeys defined.`);
                     }
                 }, { label: options?.text?.stats?.simulate || "按键模拟", shortLabel: "按键", color: "#9C27B0", builtin: true });
 
-                actions.register("custom", ({ shortcut, event, engine }) => {
-                    executeCustomAction(shortcut, event, engine);
+                actions.register("custom", ({ shortcut, event }) => {
+                    executeCustomAction(shortcut, event);
                 }, { label: options?.text?.stats?.custom || "自定义动作", shortLabel: "自定义", color: "#607D8B", builtin: true });
             }
 
@@ -1302,7 +1498,7 @@
                 for (let i = 0; i < shortcuts.length; i++) {
                     const item = shortcuts[i];
                     if (!item || !item.hotkey) continue;
-                    const norm = normalizeHotkey(item.hotkey);
+                    const norm = hotkeys.normalize(item.hotkey);
                     if (!norm) continue;
                     if (!next.has(norm)) next.set(norm, i);
                 }
@@ -1355,448 +1551,117 @@
 
             rebuildHotkeyIndex();
 
-                const actionApi = Object.freeze({
-                    register: actions.register,
-                    unregister: actions.unregister,
-                    has: actions.has,
-                    get: actions.get,
-                    list: actions.list,
-                    builtins: BUILTIN_ACTION_TYPES.slice()
-                });
-
-                coreApi = Object.freeze({
-		                setShortcuts: setShortcutsList,
-		                mutateShortcuts,
-		                persistShortcuts: saveShortcuts,
-		                getShortcuts: getShortcutsSnapshot,
-		                rebuildHotkeyIndex,
-		                getShortcutByHotkeyNorm,
-		                executeShortcutAction,
-                    actions: actionApi,
-		                hotkeys: Object.freeze({
-		                    normalize: normalizeHotkey,
-		                    modifierOrder: HOTKEY_MODIFIER_ORDER,
-		                    fromEvent: getHotkeyFromKeyboardEvent,
-		                    getMainKeyFromEvent: getStandardKeyFromKeyboardEvent,
-		                    isAllowedMainKey: isAllowedHotkeyMainKey,
-		                    isAllowedSimulateMainKey,
-		                    formatForDisplay: formatHotkeyForDisplay,
-		                    formatModifierToken: formatHotkeyModifierToken,
-		                    formatKeyToken: formatHotkeyMainKeyDisplayToken
-		                }),
-		                normalizeHotkey,
-		                normalizeShortcut
-		            });
-                return coreApi;
-		        }
-
-        function createUiSharedLayer() {
-            return Object.freeze({
-                theme: Object.freeze({
-                    addThemeChangeListener,
-                    removeThemeChangeListener,
-                    setupDarkModeObserver,
-                    detectInitialDarkMode
-                }),
-                colors: Object.freeze({
-                    getPrimaryColor,
-                    getOverlayBackgroundColor,
-                    getPanelBackgroundColor,
-                    getInputBackgroundColor,
-                    getTextColor,
-                    getBorderColor,
-                    getTableHeaderBackground,
-                    getHoverColor
-                }),
-                style: Object.freeze({
-                    styleTableHeader,
-                    styleTableCell,
-                    styleButton,
-                    styleTransparentButton,
-                    styleInputField
-                }),
-                dialogs: Object.freeze({
-                    showAlert,
-                    showConfirmDialog,
-                    showPromptDialog
-                }),
-                layout: Object.freeze({
-                    enableScrollLock,
-                    disableScrollLock,
-                    autoResizeTextarea,
-                    createResponsiveListener,
-                    shouldUseCompactMode
-                })
+            const actionApi = Object.freeze({
+                register: actions.register,
+                unregister: actions.unregister,
+                has: actions.has,
+                get: actions.get,
+                list: actions.list,
+                builtins: BUILTIN_ACTION_TYPES.slice()
             });
-        }
 
-        function getDefaultIconURL() {
-            if (options.defaultIconURL) return options.defaultIconURL;
-            if (options.iconLibrary.length > 0) return options.iconLibrary[0].url || "";
-            return "";
-        }
-
-        function getCachedIconDataURL(url) {
-            try { return safeGMGet(options.storageKeys.iconCachePrefix + url, ""); } catch { return ""; }
-        }
-        function saveCachedIconDataURL(url, dataURL) {
-            safeGMSet(options.storageKeys.iconCachePrefix + url, dataURL);
-        }
-        function mimeFrom(url, headersLower) {
-            let m = (headersLower || "").match(/content-type:\s*([^\r\n;]+)/);
-            if (m && m[1]) return m[1].trim();
-            if (/\.(svg)(\?|#|$)/i.test(url)) return "image/svg+xml";
-            if (/\.(jpe?g)(\?|#|$)/i.test(url)) return "image/jpeg";
-            if (/\.(png)(\?|#|$)/i.test(url)) return "image/png";
-            if (/\.(gif)(\?|#|$)/i.test(url)) return "image/gif";
-            if (/\.(ico)(\?|#|$)/i.test(url)) return "image/x-icon";
-            return "image/png";
-        }
-        function arrayBufferToDataURL(buf, mime) {
-            const bytes = new Uint8Array(buf);
-            let binary = "";
-            for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-            const b64 = btoa(binary);
-            return `data:${mime};base64,${b64}`;
-        }
-        function fetchIconAsDataURL(url, cb) {
-            if (!GMX) { cb(null); return; }
-            GMX({
-                method: "GET",
-                url,
-                responseType: "arraybuffer",
-                onload: function(resp) {
-                    if (resp.status >= 200 && resp.status < 400 && resp.response) {
-                        const mime = mimeFrom(url, (resp.responseHeaders || "").toLowerCase());
-                        const dataURL = arrayBufferToDataURL(resp.response, mime);
-                        cb(dataURL);
-                    } else cb(null);
-                },
-                onerror: function() { cb(null); }
+            coreApi = Object.freeze({
+                setShortcuts: setShortcutsList,
+                mutateShortcuts,
+                persistShortcuts: saveShortcuts,
+                getShortcuts: getShortcutsSnapshot,
+                rebuildHotkeyIndex,
+                getShortcutByHotkeyNorm,
+                executeShortcutAction,
+                actions: actionApi,
+                hotkeys: Object.freeze({
+                    normalize: hotkeys.normalize,
+                    modifierOrder: hotkeys.modifierOrder,
+                    fromEvent: hotkeys.fromEvent,
+                    getMainKeyFromEvent: hotkeys.getMainKeyFromEvent,
+                    isAllowedMainKey: hotkeys.isAllowedMainKey,
+                    isAllowedSimulateMainKey: hotkeys.isAllowedSimulateMainKey,
+                    formatForDisplay: hotkeys.formatForDisplay,
+                    formatModifierToken: hotkeys.formatModifierToken,
+                    formatKeyToken: hotkeys.formatKeyToken
+                }),
+                normalizeHotkey: hotkeys.normalize,
+                normalizeShortcut
             });
+            return coreApi;
         }
 
-        function shouldBypassIconCache(url) {
-            try {
-                if (typeof options.shouldBypassIconCache === 'function') {
-                    return !!options.shouldBypassIconCache(url);
-                }
-            } catch (err) {
-                console.warn(`${options.consoleTag} shouldBypassIconCache error`, err);
-            }
-            return false;
-        }
+        const core = createCoreLayer();
 
-        function setIconImage(imgEl, iconUrl) {
-            const fallback = getDefaultIconURL();
-            if (!iconUrl) {
-                imgEl.src = fallback;
-                return;
-            }
-            if (iconUrl.startsWith("data:") || iconUrl.startsWith("blob:")) {
-                imgEl.src = iconUrl;
-                return;
-            }
+        const ctx = {
+            options,
+            state,
+            core,
+            uiShared,
+            idPrefix,
+            cssPrefix,
+            ids,
+            classes,
+            URL_METHODS,
+            getUrlMethodDisplayText: builtinActions.getUrlMethodDisplayText,
+            setIconImage: iconManager.setIconImage,
+            setTrustedHTML: Utils?.dom?.setTrustedHTML,
+            safeGMGet,
+            safeGMSet,
+            debounce
+        };
 
-            if (shouldBypassIconCache(iconUrl)) {
-                imgEl.src = iconUrl;
-                imgEl.onerror = () => {
-                    imgEl.onerror = null;
-                    imgEl.src = fallback;
-                };
-                return;
-            }
+        uiShared?.theme?.applyThemeCssVariables?.(state.isDarkMode);
 
-            const cached = getCachedIconDataURL(iconUrl);
-            if (cached) {
-                imgEl.src = cached;
-                return;
-            }
+	        engineApi = createEngineApi(ctx);
+	        return engineApi;
+	    }
+/* -------------------------------------------------------------------------- *
+ * Module 03 · Hotkeys (normalize, capture, display, key-event mapping)
+ * -------------------------------------------------------------------------- */
 
-            imgEl.src = iconUrl;
+        const HOTKEY_MODIFIER_ORDER = Object.freeze(["CTRL", "SHIFT", "ALT", "CMD"]);
+        const HOTKEY_MODIFIER_ALIASES = Object.freeze({
+            CTRL: "CTRL",
+            CONTROL: "CTRL",
+            SHIFT: "SHIFT",
+            ALT: "ALT",
+            OPTION: "ALT",
+            OPT: "ALT",
+            CMD: "CMD",
+            COMMAND: "CMD",
+            META: "CMD",
+            WIN: "CMD",
+            WINDOWS: "CMD"
+        });
 
-            const onErr = () => {
-                imgEl.removeEventListener('error', onErr);
-                fetchIconAsDataURL(iconUrl, (dataURL) => {
-                    if (dataURL) {
-                        saveCachedIconDataURL(iconUrl, dataURL);
-                        imgEl.src = dataURL;
-                    } else {
-                        imgEl.src = fallback;
-                    }
-                });
-            };
-            imgEl.addEventListener('error', onErr, { once: true });
-        }
+        const HOTKEY_MODIFIER_DISPLAY = Object.freeze({
+            CTRL: "Ctrl",
+            SHIFT: "Shift",
+            ALT: "Alt",
+            CMD: "Cmd"
+        });
 
-        function debounce(fn, delay = 300) {
-            let t = null;
-            return function(...args) {
-                clearTimeout(t);
-                t = setTimeout(() => fn.apply(this, args), delay);
-            };
-        }
+        const SHIFTED_SYMBOL_TO_BASE_KEY = Object.freeze({
+            "!": "1",
+            "@": "2",
+            "#": "3",
+            "$": "4",
+            "%": "5",
+            "^": "6",
+            "&": "7",
+            "*": "8",
+            "(": "9",
+            ")": "0",
+            "_": "-",
+            "+": "=",
+            "{": "[",
+            "}": "]",
+            "|": "\\",
+            ":": ";",
+            "\"": "'",
+            "<": ",",
+            ">": ".",
+            "?": "/",
+            "~": "`"
+        });
 
-        function enableScrollLock() {
-            if (state.scrollLock.isLocked) return;
-            const lock = state.scrollLock;
-
-            lock.scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            lock.scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-            lock.originalBodyOverflow = document.body.style.overflow || '';
-            lock.originalBodyPosition = document.body.style.position || '';
-            lock.originalBodyTop = document.body.style.top || '';
-            lock.originalBodyLeft = document.body.style.left || '';
-            lock.originalBodyWidth = document.body.style.width || '';
-
-            document.body.style.overflow = 'hidden';
-            document.body.style.position = 'fixed';
-            document.body.style.top = `-${lock.scrollTop}px`;
-            document.body.style.left = `-${lock.scrollLeft}px`;
-            document.body.style.width = '100%';
-
-            lock.isLocked = true;
-
-            document.addEventListener('wheel', preventScrollEvent, { passive: false, capture: true });
-            document.addEventListener('touchmove', preventScrollEvent, { passive: false, capture: true });
-            document.addEventListener('scroll', preventScrollEvent, { passive: false, capture: true });
-            document.addEventListener('keydown', preventScrollKeyEvent, { passive: false, capture: true });
-        }
-
-        function disableScrollLock() {
-            if (!state.scrollLock.isLocked) return;
-            const lock = state.scrollLock;
-
-            document.removeEventListener('wheel', preventScrollEvent, { capture: true });
-            document.removeEventListener('touchmove', preventScrollEvent, { capture: true });
-            document.removeEventListener('scroll', preventScrollEvent, { capture: true });
-            document.removeEventListener('keydown', preventScrollKeyEvent, { capture: true });
-
-            document.body.style.overflow = lock.originalBodyOverflow;
-            document.body.style.position = lock.originalBodyPosition;
-            document.body.style.top = lock.originalBodyTop;
-            document.body.style.left = lock.originalBodyLeft;
-            document.body.style.width = lock.originalBodyWidth;
-
-            window.scrollTo(lock.scrollLeft, lock.scrollTop);
-            lock.isLocked = false;
-        }
-
-        function preventScrollEvent(e) {
-            if (isEventFromPanel(e)) return;
-            e.preventDefault();
-            e.stopPropagation();
-            return false;
-        }
-
-        function preventScrollKeyEvent(e) {
-            const scrollKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', 'Space'];
-            if (scrollKeys.includes(e.code) || scrollKeys.includes(e.key)) {
-                if (isEventFromScrollableElement(e)) return;
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
-        }
-
-        function isEventFromPanel(e) {
-            if (!e.target) return false;
-            const panel = document.getElementById(ids.settingsPanel);
-            const edit = document.getElementById(ids.editForm);
-            return (panel && panel.contains(e.target)) || (edit && edit.contains(e.target));
-        }
-
-	        function isEventFromScrollableElement(e) {
-	            if (!e.target) return false;
-	            let element = e.target;
-	            while (element && element !== document.body) {
-                const style = window.getComputedStyle(element);
-                const isScrollable = style.overflowY === 'auto' ||
-                                    style.overflowY === 'scroll' ||
-                                    style.overflow === 'auto' ||
-                                    style.overflow === 'scroll';
-
-                if (isScrollable) {
-                    return isEventFromPanel(e);
-                }
-                element = element.parentElement;
-	            }
-	            return false;
-	        }
-
-	        function shouldUseCompactMode(container) {
-	            if (!container) return false;
-	            const containerWidth = container.offsetWidth;
-	            return containerWidth < (options.ui.compactBreakpoint || 800);
-        }
-
-        function createResponsiveListener(container, callback) {
-            if (!window.ResizeObserver) {
-                const handleResize = debounce(() => {
-                    const newCompactMode = shouldUseCompactMode(container);
-                    if (newCompactMode !== state.isCompactMode) {
-                        state.isCompactMode = newCompactMode;
-                        callback(state.isCompactMode);
-                    }
-                }, 200);
-                window.addEventListener('resize', handleResize);
-                return () => window.removeEventListener('resize', handleResize);
-            }
-
-            const resizeObserver = new ResizeObserver(debounce((entries) => {
-                for (const entry of entries) {
-                    const newCompactMode = shouldUseCompactMode(entry.target);
-                    if (newCompactMode !== state.isCompactMode) {
-                        state.isCompactMode = newCompactMode;
-                        callback(state.isCompactMode);
-                    }
-                }
-            }, 100));
-
-            resizeObserver.observe(container);
-            return () => resizeObserver.disconnect();
-        }
-
-        function getUrlMethodDisplayText(method) {
-            const methodConfig = URL_METHODS[method];
-            if (!methodConfig) return "未知跳转方式";
-            return methodConfig.name;
-        }
-
-        const darkModeListeners = [];
-        function addThemeChangeListener(callback) {
-            if (typeof callback === 'function' && !darkModeListeners.includes(callback)) {
-                darkModeListeners.push(callback);
-            }
-        }
-        function removeThemeChangeListener(callback) {
-            const idx = darkModeListeners.indexOf(callback);
-            if (idx !== -1) darkModeListeners.splice(idx, 1);
-        }
-        function notifyThemeChangeListeners() {
-            darkModeListeners.forEach(callback => {
-                try { callback(state.isDarkMode); } catch (e) {
-                    console.error(`${options.consoleTag} theme change listener error`, e);
-                }
-            });
-        }
-
-		        function detectInitialDarkMode() {
-		            const htmlEl = document.documentElement;
-		            const bodyEl = document.body;
-		            let detectedDarkMode = false;
-	            if (htmlEl.classList.contains('dark') || bodyEl?.classList?.contains('dark')) {
-	                detectedDarkMode = true;
-	            } else if (htmlEl.getAttribute('data-theme') === 'dark' || bodyEl?.getAttribute?.('data-theme') === 'dark') {
-	                detectedDarkMode = true;
-	            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-	                if (!htmlEl.classList.contains('light') && !bodyEl?.classList?.contains('light')) {
-	                    detectedDarkMode = true;
-	                }
-	            } else {
-                try {
-                    const bgColor = window.getComputedStyle(bodyEl || htmlEl).backgroundColor;
-                    if (isColorDark(bgColor)) {
-                        detectedDarkMode = true;
-                    }
-                } catch (e) {
-                    console.warn(`${options.consoleTag} Could not compute background color.`);
-                }
-            }
-                applyThemeCssVariables(detectedDarkMode);
-	            if (state.isDarkMode !== detectedDarkMode) {
-	                state.isDarkMode = detectedDarkMode;
-	                notifyThemeChangeListeners();
-	            }
-	        }
-
-        function isColorDark(colorStr) {
-            if (!colorStr || colorStr === 'transparent')
-                return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            try {
-                let r, g, b, a = 1;
-                if (colorStr.startsWith('rgba')) {
-                    const parts = colorStr.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)\s*$/i);
-                    if (!parts) return window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    [, r, g, b, a] = parts.map(Number);
-                    a = isNaN(a) ? 1 : a;
-                    if (a < 0.5) return false;
-                } else if (colorStr.startsWith('rgb')) {
-                    const parts = colorStr.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*$/i);
-                    if (!parts) return window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    [, r, g, b] = parts.map(Number);
-                } else if (colorStr.startsWith('#')) {
-                    let hex = colorStr.substring(1);
-                    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-                    if (hex.length === 4) hex = hex.split('').map(c => c + c).join('');
-                    if (hex.length === 8) a = parseInt(hex.substring(6, 8), 16) / 255;
-                    if (hex.length !== 6 && hex.length !== 8) return window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    r = parseInt(hex.substring(0, 2), 16);
-                    g = parseInt(hex.substring(2, 4), 16);
-                    b = parseInt(hex.substring(4, 6), 16);
-                    if (a < 0.5) return false;
-                } else {
-                    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-                }
-                const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-                return luminance < 0.5;
-            } catch (e) {
-                console.warn(`${options.consoleTag} Error parsing color:`, colorStr, e);
-                return window.matchMedia('(prefers-color-scheme: dark)').matches;
-            }
-        }
-
-	        function setupDarkModeObserver() {
-	            let cleaned = false;
-	            let intervalId = null;
-	            let observer = null;
-	            let removeMediaListener = null;
-
-	            if (window.matchMedia) {
-	                const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-	                const listener = () => { detectInitialDarkMode(); };
-	                if (darkModeMediaQuery.addEventListener) {
-	                    darkModeMediaQuery.addEventListener('change', listener);
-	                    removeMediaListener = () => darkModeMediaQuery.removeEventListener('change', listener);
-	                } else if (darkModeMediaQuery.addListener) {
-	                    darkModeMediaQuery.addListener(listener);
-	                    removeMediaListener = () => darkModeMediaQuery.removeListener(listener);
-	                }
-	            }
-
-	            const observerCallback = (mutations) => {
-	                let themeMightHaveChanged = false;
-	                for (const mutation of mutations) {
-	                    if (mutation.type === 'attributes' && (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme')) {
-	                        themeMightHaveChanged = true;
-	                        break;
-	                    }
-	                }
-	                if (themeMightHaveChanged) {
-	                    detectInitialDarkMode();
-	                }
-	            };
-	            observer = new MutationObserver(observerCallback);
-	            try {
-	                observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
-	                if (document.body) {
-	                    observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-theme'] });
-	                }
-	            } catch {}
-
-	            intervalId = setInterval(() => { detectInitialDarkMode(); }, 5000);
-	            detectInitialDarkMode();
-
-	            return () => {
-	                if (cleaned) return;
-	                cleaned = true;
-	                try { if (removeMediaListener) removeMediaListener(); } catch {}
-	                try { if (observer) observer.disconnect(); } catch {}
-	                try { if (intervalId) clearInterval(intervalId); } catch {}
-	            };
-	        }
-
-	        const HOTKEY_CODE_MAP = {
+        const HOTKEY_CODE_MAP = {
             'KeyA': { display: 'A', standard: 'A' },
             'KeyB': { display: 'B', standard: 'B' },
             'KeyC': { display: 'C', standard: 'C' },
@@ -1889,18 +1754,18 @@
             'NumpadEnter': { display: 'Num Enter', standard: 'NUMPADENTER' },
         };
 
-	        const HOTKEY_STANDARD_DISPLAY_MAP = (() => {
-	            const map = Object.create(null);
-	            for (const info of Object.values(HOTKEY_CODE_MAP)) {
-	                if (!info || !info.standard || !info.display) continue;
-	                if (!map[info.standard]) map[info.standard] = info.display;
-	            }
-	            return Object.freeze(map);
-	        })();
+        const HOTKEY_STANDARD_DISPLAY_MAP = (() => {
+            const map = Object.create(null);
+            for (const info of Object.values(HOTKEY_CODE_MAP)) {
+                if (!info || !info.standard || !info.display) continue;
+                if (!map[info.standard]) map[info.standard] = info.display;
+            }
+            return Object.freeze(map);
+        })();
 
-	        const KEY_EVENT_MAP = (() => {
-	            const map = Object.create(null);
-	            const add = (standard, key, code) => { map[standard] = { key, code }; };
+        const KEY_EVENT_MAP = (() => {
+            const map = Object.create(null);
+            const add = (standard, key, code) => { map[standard] = { key, code }; };
 
             for (let charCode = 65; charCode <= 90; charCode++) {
                 const letter = String.fromCharCode(charCode);
@@ -1960,537 +1825,372 @@
             add('NUMPADDECIMAL', '.', 'NumpadDecimal');
             add('NUMPADENTER', 'Enter', 'NumpadEnter');
 
-	            return Object.freeze(map);
-	        })();
+            return Object.freeze(map);
+        })();
 
-	        function normalizeMainKeyToken(rawKey, modifiers) {
-	            if (!rawKey) return "";
-	            const token = String(rawKey).toUpperCase();
-	            if (HOTKEY_MODIFIER_ALIASES[token]) return "";
+        function normalizeMainKeyToken(rawKey, modifiers) {
+            if (!rawKey) return "";
+            const token = String(rawKey).toUpperCase();
+            if (HOTKEY_MODIFIER_ALIASES[token]) return "";
 
-	            let mainKey = token;
-	            if (mainKey === "ESCAPE") mainKey = "ESC";
-	            if (mainKey === "SPACEBAR") mainKey = "SPACE";
-	            if (mainKey === "DEL") mainKey = "DELETE";
+            let mainKey = token;
+            if (mainKey === "ESCAPE") mainKey = "ESC";
+            if (mainKey === "SPACEBAR") mainKey = "SPACE";
+            if (mainKey === "DEL") mainKey = "DELETE";
 
-	            const shiftedBase = SHIFTED_SYMBOL_TO_BASE_KEY[mainKey];
-	            if (shiftedBase) {
-	                if (modifiers && typeof modifiers.add === "function") modifiers.add("SHIFT");
-	                mainKey = shiftedBase;
-	            }
-
-	            return mainKey;
-	        }
-
-	        function normalizeHotkey(hotkeyStr) {
-	            if (!hotkeyStr || typeof hotkeyStr !== 'string') return "";
-	            const raw = hotkeyStr.replace(/\s+/g, "");
-	            if (!raw) return "";
-
-	            const parts = raw.split("+").filter(Boolean);
-	            if (parts.length === 0) return "";
-
-	            const modifiers = new Set();
-	            let mainKey = "";
-
-	            for (const part of parts) {
-	                const token = String(part || "").trim();
-	                if (!token) continue;
-	                const upper = token.toUpperCase();
-	                const mod = HOTKEY_MODIFIER_ALIASES[upper];
-	                if (mod) {
-	                    modifiers.add(mod);
-	                    continue;
-	                }
-	                mainKey = upper;
-	            }
-
-	            mainKey = normalizeMainKeyToken(mainKey, modifiers);
-	            if (!mainKey) return "";
-
-	            const orderedMods = [];
-	            for (const mod of HOTKEY_MODIFIER_ORDER) {
-	                if (modifiers.has(mod)) orderedMods.push(mod);
-	            }
-
-		            return orderedMods.length ? [...orderedMods, mainKey].join("+") : mainKey;
-		        }
-
-		        function getStandardKeyFromKeyboardEvent(e) {
-		            if (!e) return "";
-		            const code = String(e.code || "");
-		            const fromCode = code ? HOTKEY_CODE_MAP[code] : null;
-		            if (fromCode && fromCode.standard) return fromCode.standard;
-
-		            const keyRaw = String(e.key || "");
-		            if (!keyRaw) return "";
-		            if (keyRaw === " ") return "SPACE";
-
-		            let key = keyRaw.toUpperCase();
-		            if (key === "ESCAPE") key = "ESC";
-		            if (key === "SPACEBAR") key = "SPACE";
-		            if (key === "DEL") key = "DELETE";
-
-		            const shiftedBase = SHIFTED_SYMBOL_TO_BASE_KEY[key];
-		            if (shiftedBase) key = shiftedBase;
-		            return key;
-		        }
-
-		        function getHotkeyFromKeyboardEvent(e) {
-		            if (!e) return "";
-		            const modifiers = new Set();
-		            if (e.ctrlKey) modifiers.add("CTRL");
-		            if (e.shiftKey) modifiers.add("SHIFT");
-		            if (e.altKey) modifiers.add("ALT");
-		            if (e.metaKey) modifiers.add("CMD");
-
-		            const mainKey = normalizeMainKeyToken(getStandardKeyFromKeyboardEvent(e), modifiers);
-		            if (!mainKey) return "";
-
-		            const orderedMods = [];
-		            for (const mod of HOTKEY_MODIFIER_ORDER) {
-		                if (modifiers.has(mod)) orderedMods.push(mod);
-		            }
-
-		            return orderedMods.length ? [...orderedMods, mainKey].join("+") : mainKey;
-		        }
-
-		        function isAllowedHotkeyMainKey(mainKey) {
-		            const key = String(mainKey || "");
-		            if (!key) return false;
-		            if (key === "SPACE" || key === "ESC" || key === "BACKSPACE" || key === "DELETE") return true;
-		            if (/^F\d+$/.test(key)) return true;
-		            if (/^NUMPAD\d$/.test(key)) return true;
-		            if (["NUMPADADD", "NUMPADSUBTRACT", "NUMPADMULTIPLY", "NUMPADDIVIDE", "NUMPADDECIMAL"].includes(key)) return true;
-		            if (key.length !== 1) return false;
-		            return /^[A-Z0-9~!@#$%^&*()_=[\]{}|\\;:'",./<>?-]$/.test(key);
-		        }
-
-		        function isAllowedSimulateMainKey(mainKey) {
-		            const normalized = normalizeMainKeyToken(String(mainKey || "").toUpperCase(), null);
-		            if (!normalized) return false;
-		            return !!KEY_EVENT_MAP[normalized];
-		        }
-
-		        function formatHotkeyModifierToken(token) {
-		            const upper = String(token || "").toUpperCase();
-		            const canonical = HOTKEY_MODIFIER_ALIASES[upper] || upper;
-		            return HOTKEY_MODIFIER_DISPLAY[canonical] || canonical;
-		        }
-
-		        function formatHotkeyMainKeyDisplayToken(token) {
-		            const normalized = normalizeMainKeyToken(String(token || "").toUpperCase(), null);
-		            if (!normalized) return "";
-		            return HOTKEY_STANDARD_DISPLAY_MAP[normalized] || normalized;
-		        }
-
-		        function formatHotkeyForDisplay(hotkeyStr) {
-		            const norm = normalizeHotkey(hotkeyStr);
-		            if (!norm) return "";
-		            const parts = norm.split("+").filter(Boolean);
-		            return parts
-		                .map((part) => (HOTKEY_MODIFIER_ALIASES[part] ? formatHotkeyModifierToken(part) : formatHotkeyMainKeyDisplayToken(part)))
-		                .join(" + ");
-		        }
-
-	        function jumpToUrl(targetUrl, method = "current", advanced = "href") {
-	            try {
-	                let finalUrl = resolveTemplateUrl(targetUrl);
-	                switch (method) {
-                    case 'current':
-                        executeCurrentWindowJump(finalUrl, advanced);
-                        break;
-                    case 'spa':
-                        executeSpaNavigation(finalUrl, advanced);
-                        break;
-                    case 'newWindow':
-                        executeNewWindowJump(finalUrl, advanced);
-                        break;
-                    default:
-                        console.warn(`${options.consoleTag} Unknown URL method: ${method}, fallback to current window`);
-                        executeCurrentWindowJump(finalUrl, advanced);
-                }
-            } catch (e) {
-                console.error(`${options.consoleTag} Invalid URL or error in jumpToUrl:`, targetUrl, e);
-                showAlert(`无效的跳转网址或发生错误: ${targetUrl}`);
+            const shiftedBase = SHIFTED_SYMBOL_TO_BASE_KEY[mainKey];
+            if (shiftedBase) {
+                if (modifiers && typeof modifiers.add === "function") modifiers.add("SHIFT");
+                mainKey = shiftedBase;
             }
+
+            return mainKey;
         }
 
-        function resolveTemplateUrl(targetUrl) {
-            if (typeof options.resolveUrlTemplate === 'function') {
+        function normalizeHotkey(hotkeyStr) {
+            if (!hotkeyStr || typeof hotkeyStr !== 'string') return "";
+            const raw = hotkeyStr.replace(/\s+/g, "");
+            if (!raw) return "";
+
+            const parts = raw.split("+").filter(Boolean);
+            if (parts.length === 0) return "";
+
+            const modifiers = new Set();
+            let mainKey = "";
+
+            for (const part of parts) {
+                const token = String(part || "").trim();
+                if (!token) continue;
+                const upper = token.toUpperCase();
+                const mod = HOTKEY_MODIFIER_ALIASES[upper];
+                if (mod) {
+                    modifiers.add(mod);
+                    continue;
+                }
+                mainKey = upper;
+            }
+
+            mainKey = normalizeMainKeyToken(mainKey, modifiers);
+            if (!mainKey) return "";
+
+            const orderedMods = [];
+            for (const mod of HOTKEY_MODIFIER_ORDER) {
+                if (modifiers.has(mod)) orderedMods.push(mod);
+            }
+
+            return orderedMods.length ? [...orderedMods, mainKey].join("+") : mainKey;
+        }
+
+        function getStandardKeyFromKeyboardEvent(e) {
+            if (!e) return "";
+            const code = String(e.code || "");
+            const fromCode = code ? HOTKEY_CODE_MAP[code] : null;
+            if (fromCode && fromCode.standard) return fromCode.standard;
+
+            const keyRaw = String(e.key || "");
+            if (!keyRaw) return "";
+            if (keyRaw === " ") return "SPACE";
+
+            let key = keyRaw.toUpperCase();
+            if (key === "ESCAPE") key = "ESC";
+            if (key === "SPACEBAR") key = "SPACE";
+            if (key === "DEL") key = "DELETE";
+
+            const shiftedBase = SHIFTED_SYMBOL_TO_BASE_KEY[key];
+            if (shiftedBase) key = shiftedBase;
+            return key;
+        }
+
+        function getHotkeyFromKeyboardEvent(e) {
+            if (!e) return "";
+            const modifiers = new Set();
+            if (e.ctrlKey) modifiers.add("CTRL");
+            if (e.shiftKey) modifiers.add("SHIFT");
+            if (e.altKey) modifiers.add("ALT");
+            if (e.metaKey) modifiers.add("CMD");
+
+            const mainKey = getStandardKeyFromKeyboardEvent(e);
+            if (!mainKey) return "";
+
+            const orderedMods = [];
+            for (const mod of HOTKEY_MODIFIER_ORDER) {
+                if (modifiers.has(mod)) orderedMods.push(mod);
+            }
+
+            return orderedMods.length ? [...orderedMods, mainKey].join("+") : mainKey;
+        }
+
+        function isAllowedHotkeyMainKey(mainKey) {
+            const key = String(mainKey || "");
+            if (!key) return false;
+            if (key === "SPACE" || key === "ESC" || key === "BACKSPACE" || key === "DELETE") return true;
+            if (/^F\d+$/.test(key)) return true;
+            if (/^NUMPAD\d$/.test(key)) return true;
+            if (["NUMPADADD", "NUMPADSUBTRACT", "NUMPADMULTIPLY", "NUMPADDIVIDE", "NUMPADDECIMAL"].includes(key)) return true;
+            if (key.length !== 1) return false;
+            return /^[A-Z0-9~!@#$%^&*()_=[\]{}|\\;:'",./<>?-]$/.test(key);
+        }
+
+        function isAllowedSimulateMainKey(mainKey) {
+            const normalized = normalizeMainKeyToken(String(mainKey || "").toUpperCase(), null);
+            if (!normalized) return false;
+            return !!KEY_EVENT_MAP[normalized];
+        }
+
+        function formatHotkeyModifierToken(token) {
+            const upper = String(token || "").toUpperCase();
+            const canonical = HOTKEY_MODIFIER_ALIASES[upper] || upper;
+            return HOTKEY_MODIFIER_DISPLAY[canonical] || canonical;
+        }
+
+        function formatHotkeyMainKeyDisplayToken(token) {
+            const normalized = normalizeMainKeyToken(String(token || "").toUpperCase(), null);
+            if (!normalized) return "";
+            return HOTKEY_STANDARD_DISPLAY_MAP[normalized] || normalized;
+        }
+
+        function formatHotkeyForDisplay(hotkeyStr) {
+            const norm = normalizeHotkey(hotkeyStr);
+            if (!norm) return "";
+            const parts = norm.split("+").filter(Boolean);
+            return parts
+                .map((part) => (HOTKEY_MODIFIER_ALIASES[part] ? formatHotkeyModifierToken(part) : formatHotkeyMainKeyDisplayToken(part)))
+                .join(" + ");
+        }
+
+        function createHotkeysToolkit() {
+            function getKeyEventProps(standardMainKey) {
+                const key = String(standardMainKey || "").toUpperCase();
+                return KEY_EVENT_MAP[key] || null;
+            }
+
+            return Object.freeze({
+                normalize: normalizeHotkey,
+                fromEvent: getHotkeyFromKeyboardEvent,
+                getMainKeyFromEvent: getStandardKeyFromKeyboardEvent,
+                isAllowedMainKey: isAllowedHotkeyMainKey,
+                isAllowedSimulateMainKey,
+                formatForDisplay: formatHotkeyForDisplay,
+                formatModifierToken: formatHotkeyModifierToken,
+                formatKeyToken: formatHotkeyMainKeyDisplayToken,
+                modifierOrder: HOTKEY_MODIFIER_ORDER,
+                getKeyEventProps
+            });
+        }
+/* -------------------------------------------------------------------------- *
+ * Module 03 · Icons (favicon loading + GM cache)
+ * -------------------------------------------------------------------------- */
+
+        function createIconManager({
+            options,
+            safeGMGet,
+            safeGMSet,
+            GMX
+        } = {}) {
+            const opts = options && typeof options === "object" ? options : {};
+
+            function getDefaultIconURL() {
+                if (opts.defaultIconURL) return opts.defaultIconURL;
+                if (Array.isArray(opts.iconLibrary) && opts.iconLibrary.length > 0) return opts.iconLibrary[0].url || "";
+                return "";
+            }
+
+            function getCachedIconDataURL(url) {
+                try { return safeGMGet(opts.storageKeys.iconCachePrefix + url, ""); } catch { return ""; }
+            }
+            function saveCachedIconDataURL(url, dataURL) {
+                safeGMSet(opts.storageKeys.iconCachePrefix + url, dataURL);
+            }
+            function mimeFrom(url, headersLower) {
+                let m = (headersLower || "").match(/content-type:\s*([^\r\n;]+)/);
+                if (m && m[1]) return m[1].trim();
+                if (/\.(svg)(\?|#|$)/i.test(url)) return "image/svg+xml";
+                if (/\.(jpe?g)(\?|#|$)/i.test(url)) return "image/jpeg";
+                if (/\.(png)(\?|#|$)/i.test(url)) return "image/png";
+                if (/\.(gif)(\?|#|$)/i.test(url)) return "image/gif";
+                if (/\.(ico)(\?|#|$)/i.test(url)) return "image/x-icon";
+                return "image/png";
+            }
+            function arrayBufferToDataURL(buf, mime) {
+                const bytes = new Uint8Array(buf);
+                let binary = "";
+                for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                const b64 = btoa(binary);
+                return `data:${mime};base64,${b64}`;
+            }
+            function fetchIconAsDataURL(url, cb) {
+                if (!GMX) { cb(null); return; }
+                GMX({
+                    method: "GET",
+                    url,
+                    responseType: "arraybuffer",
+                    onload: function(resp) {
+                        if (resp.status >= 200 && resp.status < 400 && resp.response) {
+                            const mime = mimeFrom(url, (resp.responseHeaders || "").toLowerCase());
+                            const dataURL = arrayBufferToDataURL(resp.response, mime);
+                            cb(dataURL);
+                        } else cb(null);
+                    },
+                    onerror: function() { cb(null); }
+                });
+            }
+
+            function shouldBypassIconCache(url) {
                 try {
-                    const resolved = options.resolveUrlTemplate(targetUrl, {
-                        getCurrentSearchTerm: options.getCurrentSearchTerm,
-                        placeholderToken: options.placeholderToken
+                    if (typeof opts.shouldBypassIconCache === 'function') {
+                        return !!opts.shouldBypassIconCache(url);
+                    }
+                } catch (err) {
+                    console.warn(`${opts.consoleTag} shouldBypassIconCache error`, err);
+                }
+                return false;
+            }
+
+            function setIconImage(imgEl, iconUrl) {
+                const fallback = getDefaultIconURL();
+                if (!imgEl) return;
+                if (!iconUrl) {
+                    imgEl.src = fallback;
+                    return;
+                }
+                if (iconUrl.startsWith("data:") || iconUrl.startsWith("blob:")) {
+                    imgEl.src = iconUrl;
+                    return;
+                }
+
+                if (shouldBypassIconCache(iconUrl)) {
+                    imgEl.src = iconUrl;
+                    imgEl.onerror = () => {
+                        imgEl.onerror = null;
+                        imgEl.src = fallback;
+                    };
+                    return;
+                }
+
+                const cached = getCachedIconDataURL(iconUrl);
+                if (cached) {
+                    imgEl.src = cached;
+                    return;
+                }
+
+                imgEl.src = iconUrl;
+
+                const onErr = () => {
+                    imgEl.removeEventListener('error', onErr);
+                    fetchIconAsDataURL(iconUrl, (dataURL) => {
+                        if (dataURL) {
+                            saveCachedIconDataURL(iconUrl, dataURL);
+                            imgEl.src = dataURL;
+                        } else {
+                            imgEl.src = fallback;
+                        }
                     });
-                    if (resolved) return resolved;
-                } catch (err) {
-                    console.warn(`${options.consoleTag} resolveUrlTemplate error`, err);
+                };
+                imgEl.addEventListener('error', onErr, { once: true });
+            }
+
+            return Object.freeze({
+                setIconImage
+            });
+        }
+/* -------------------------------------------------------------------------- *
+ * Module 03 · UI shared (theme, colors, dialogs, layout, styles)
+ * -------------------------------------------------------------------------- */
+
+        function createUiSharedLayer(ctx = {}) {
+            const { options, state, ids, idPrefix, cssPrefix } = ctx;
+            const classPrefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
+
+            function debounce(fn, delay = 300) {
+                let t = null;
+                return function(...args) {
+                    clearTimeout(t);
+                    t = setTimeout(() => fn.apply(this, args), delay);
+                };
+            }
+
+            /* ------------------------------ Theme ------------------------------ */
+
+            const darkModeListeners = [];
+            function addThemeChangeListener(callback) {
+                if (typeof callback === 'function' && !darkModeListeners.includes(callback)) {
+                    darkModeListeners.push(callback);
                 }
             }
-            const placeholder = options.placeholderToken || '%s';
-            if (targetUrl.includes(placeholder)) {
-                let keyword = null;
+            function removeThemeChangeListener(callback) {
+                const idx = darkModeListeners.indexOf(callback);
+                if (idx !== -1) darkModeListeners.splice(idx, 1);
+            }
+            function notifyThemeChangeListeners() {
+                darkModeListeners.forEach(callback => {
+                    try { callback(state.isDarkMode); } catch (e) {
+                        console.error(`${options.consoleTag} theme change listener error`, e);
+                    }
+                });
+            }
+
+            function isColorDark(colorStr) {
+                if (!colorStr || colorStr === 'transparent')
+                    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                 try {
-                    if (typeof options.getCurrentSearchTerm === 'function') {
-                        keyword = options.getCurrentSearchTerm();
+                    let r, g, b, a = 1;
+                    if (colorStr.startsWith('rgba')) {
+                        const parts = colorStr.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)\s*$/i);
+                        if (!parts) return window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        [, r, g, b, a] = parts.map(Number);
+                        a = isNaN(a) ? 1 : a;
+                        if (a < 0.5) return false;
+                    } else if (colorStr.startsWith('rgb')) {
+                        const parts = colorStr.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*$/i);
+                        if (!parts) return window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        [, r, g, b] = parts.map(Number);
+                    } else if (colorStr.startsWith('#')) {
+                        let hex = colorStr.substring(1);
+                        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+                        if (hex.length === 4) hex = hex.split('').map(c => c + c).join('');
+                        if (hex.length === 8) a = parseInt(hex.substring(6, 8), 16) / 255;
+                        if (hex.length !== 6 && hex.length !== 8) return window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        r = parseInt(hex.substring(0, 2), 16);
+                        g = parseInt(hex.substring(2, 4), 16);
+                        b = parseInt(hex.substring(4, 6), 16);
+                        if (a < 0.5) return false;
                     } else {
-                        const urlParams = new URL(location.href).searchParams;
-                        keyword = urlParams.get('q');
+                        return window.matchMedia('(prefers-color-scheme: dark)').matches;
                     }
-                } catch (err) {
-                    console.warn(`${options.consoleTag} getCurrentSearchTerm error`, err);
-                }
-                if (keyword !== null && keyword !== undefined) {
-                    return targetUrl.replaceAll(placeholder, encodeURIComponent(keyword));
-                } else {
-                    if (placeholder === '%s' && targetUrl.includes('?')) {
-                        return targetUrl.substring(0, targetUrl.indexOf('?'));
-                    }
-                    return targetUrl.replaceAll(placeholder, '');
+                    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+                    return luminance < 0.5;
+                } catch (e) {
+                    console.warn(`${options.consoleTag} Error parsing color:`, colorStr, e);
+                    return window.matchMedia('(prefers-color-scheme: dark)').matches;
                 }
             }
-            return targetUrl;
-        }
 
-        function executeCurrentWindowJump(url, advanced) {
-            switch (advanced) {
-                case 'href':
-                    window.location.href = url;
-                    break;
-                case 'replace':
-                    window.location.replace(url);
-                    break;
-                default:
-                    window.location.href = url;
+            /* ------------------------------ Colors ----------------------------- */
+
+            function getPrimaryColor() {
+                return (options.colors && options.colors.primary) ? options.colors.primary : '#0066cc';
             }
-        }
-
-        function executeSpaNavigation(url, advanced) {
-            try {
-                const urlObj = new URL(url, window.location.origin);
-                const title = document.title;
-                switch (advanced) {
-                    case 'pushState':
-                        window.history.pushState({ url: url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
-                        window.dispatchEvent(new PopStateEvent('popstate', { state: { url: url } }));
-                        break;
-                    case 'replaceState':
-                        window.history.replaceState({ url: url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
-                        window.dispatchEvent(new PopStateEvent('popstate', { state: { url: url } }));
-                        break;
-                    default:
-                        window.history.pushState({ url: url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
-                        window.dispatchEvent(new PopStateEvent('popstate', { state: { url: url } }));
-                }
-            } catch (e) {
-                console.warn(`${options.consoleTag} SPA navigation failed, fallback to location.href:`, e);
-                window.location.href = url;
+            function getOverlayBackgroundColor(isDark = state.isDarkMode) {
+                return isDark ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.5)";
             }
-        }
-
-        function executeNewWindowJump(url, advanced) {
-            switch (advanced) {
-                case 'open':
-                    window.open(url, '_blank', 'noopener,noreferrer');
-                    break;
-                case 'popup':
-                    const popup = window.open(url, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes,status=yes,location=yes,menubar=yes,toolbar=yes');
-                    if (popup) {
-                        popup.focus();
-                    } else {
-                        console.warn(`${options.consoleTag} Popup blocked, fallback to normal open`);
-                        window.open(url, '_blank', 'noopener,noreferrer');
-                    }
-                    break;
-                default:
-                    window.open(url, '_blank', 'noopener,noreferrer');
+            function getPanelBackgroundColor(isDark = state.isDarkMode) {
+                return isDark ? "#1a1a1a" : "#ffffff";
             }
-        }
-
-	        function clickElement(selector) {
-	            const sel = (typeof selector === "string") ? selector.trim() : "";
-	            if (!sel) return;
-
-	            const element = Utils.dom.safeQuerySelector(document, sel);
-	            if (!element) {
-	                showAlert(`无法找到元素: ${sel}`);
-	                return;
-	            }
-
-	            const tagName = (element.tagName || "").toUpperCase();
-	            const inputType = (element.getAttribute && element.getAttribute("type") || "").toLowerCase();
-	            if (tagName === "INPUT" && inputType === "checkbox") {
-	                try { element.click(); } catch {}
-	                return;
-	            }
-	            if (tagName === "LABEL") {
-	                try { element.click(); } catch {}
-	                return;
-	            }
-
-	            const ok = Utils.events.simulateClick(element, { nativeFallback: true });
-	            if (ok) return;
-
-	            const fallbackTarget = (typeof element.closest === "function")
-	                ? (element.closest('button, a, [role="button"], [onclick]') || element)
-	                : element;
-
-	            try {
-	                if (typeof fallbackTarget.click === "function") {
-	                    fallbackTarget.click();
-	                    return;
-	                }
-	            } catch {}
-
-	            try {
-	                const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
-	                fallbackTarget.dispatchEvent(clickEvent);
-	            } catch (eventError) {
-	                console.error(`${options.consoleTag} Failed to dispatch click event on element: ${sel}`, eventError);
-	                showAlert(`无法模拟点击元素: ${sel}`);
-	            }
-	        }
-
-        function simulateKeystroke(keyString) {
-            if (!keyString) return;
-            const parts = keyString.toUpperCase().split('+');
-            const mainKeyStr = parts.pop();
-            const modifiers = parts;
-
-            if (!mainKeyStr) {
-                console.warn(`${options.consoleTag} Invalid simulateKeys string (missing main key):`, keyString);
-                return;
+            function getInputBackgroundColor(isDark = state.isDarkMode) {
+                return isDark ? "#2d2d2d" : "#f9f9f9";
             }
-
-            const keyProps = KEY_EVENT_MAP[mainKeyStr];
-            if (!keyProps) {
-                console.warn(`${options.consoleTag} Unknown main key for simulation:`, mainKeyStr, "in", keyString);
-                return;
+            function getTextColor(isDark = state.isDarkMode) {
+                return isDark ? "#ffffff" : "#1a1a1a";
             }
-
-            const eventInit = {
-                key: keyProps.key,
-                code: keyProps.code,
-                bubbles: true,
-                cancelable: true,
-                ctrlKey: modifiers.includes("CTRL"),
-                shiftKey: modifiers.includes("SHIFT"),
-                altKey: modifiers.includes("ALT"),
-                metaKey: modifiers.includes("META") || modifiers.includes("CMD"),
-            };
-            const targetElement = document.activeElement || document.body;
-            try {
-                const kdEvent = new KeyboardEvent('keydown', eventInit);
-                targetElement.dispatchEvent(kdEvent);
-                setTimeout(() => {
-                    const kuEvent = new KeyboardEvent('keyup', eventInit);
-                    targetElement.dispatchEvent(kuEvent);
-                }, 10);
-            } catch (e) {
-                console.error(`${options.consoleTag} Error dispatching simulated keyboard event:`, e);
+            function getBorderColor(isDark = state.isDarkMode) {
+                return isDark ? "#404040" : "#e0e0e0";
             }
-        }
-
-        function showAlert(message, title = options.text.dialogs.alert || "提示") {
-            const modal = document.createElement('div');
-            modal.className = `${cssPrefix}-custom-modal`;
-            Object.assign(modal.style, {
-                position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-                backgroundColor: getOverlayBackgroundColor(state.isDarkMode), zIndex: '999999',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-            });
-
-            const dialog = document.createElement('div');
-            Object.assign(dialog.style, {
-                background: getPanelBackgroundColor(state.isDarkMode), borderRadius: '8px',
-                padding: '20px', maxWidth: '400px', width: '90%', maxHeight: '80vh',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', color: getTextColor(state.isDarkMode)
-            });
-
-            const titleEl = document.createElement('h3');
-            titleEl.textContent = title;
-            Object.assign(titleEl.style, {
-                margin: '0 0 15px 0', fontSize: '1.1em', fontWeight: 'bold'
-            });
-            dialog.appendChild(titleEl);
-
-	            const messageEl = document.createElement('p');
-	            messageEl.textContent = message;
-	            Object.assign(messageEl.style, {
-	                margin: '0 0 20px 0', lineHeight: '1.4', whiteSpace: 'pre-wrap'
-	            });
-	            dialog.appendChild(messageEl);
-
-            const buttonContainer = document.createElement('div');
-            Object.assign(buttonContainer.style, {
-                textAlign: 'right'
-            });
-
-            const okButton = document.createElement('button');
-            okButton.textContent = options.text.buttons.confirm || '确定';
-            styleButton(okButton, "#4CAF50", "#45A049");
-            okButton.onclick = () => {
-                document.body.removeChild(modal);
-            };
-            buttonContainer.appendChild(okButton);
-            dialog.appendChild(buttonContainer);
-            modal.appendChild(dialog);
-            document.body.appendChild(modal);
-            okButton.focus();
-        }
-
-        function showConfirmDialog(message, onConfirm, title = options.text.dialogs.confirm || "确认") {
-            const modal = document.createElement('div');
-            modal.className = `${cssPrefix}-custom-modal`;
-            Object.assign(modal.style, {
-                position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-                backgroundColor: getOverlayBackgroundColor(state.isDarkMode), zIndex: '999999',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-            });
-
-            const dialog = document.createElement('div');
-            Object.assign(dialog.style, {
-                background: getPanelBackgroundColor(state.isDarkMode), borderRadius: '8px',
-                padding: '20px', maxWidth: '400px', width: '90%', maxHeight: '80vh',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', color: getTextColor(state.isDarkMode)
-            });
-
-            const titleEl = document.createElement('h3');
-            titleEl.textContent = title;
-            Object.assign(titleEl.style, {
-                margin: '0 0 15px 0', fontSize: '1.1em', fontWeight: 'bold'
-            });
-            dialog.appendChild(titleEl);
-
-	            const messageEl = document.createElement('p');
-	            messageEl.textContent = message;
-	            Object.assign(messageEl.style, {
-	                margin: '0 0 20px 0', lineHeight: '1.4', whiteSpace: 'pre-wrap'
-	            });
-	            dialog.appendChild(messageEl);
-
-            const buttonContainer = document.createElement('div');
-            Object.assign(buttonContainer.style, {
-                display: 'flex', justifyContent: 'flex-end', gap: '10px'
-            });
-
-            const cancelButton = document.createElement('button');
-            cancelButton.textContent = options.text.buttons.cancel || '取消';
-            styleButton(cancelButton, "#9E9E9E", "#757575");
-            cancelButton.onclick = () => {
-                document.body.removeChild(modal);
-            };
-            buttonContainer.appendChild(cancelButton);
-
-            const confirmButton = document.createElement('button');
-            confirmButton.textContent = options.text.buttons.confirm || '确定';
-            styleButton(confirmButton, "#F44336", "#D32F2F");
-            confirmButton.onclick = () => {
-                document.body.removeChild(modal);
-                if (onConfirm) onConfirm();
-            };
-            buttonContainer.appendChild(confirmButton);
-
-            dialog.appendChild(buttonContainer);
-            modal.appendChild(dialog);
-            document.body.appendChild(modal);
-            cancelButton.focus();
-        }
-
-        function showPromptDialog(message, defaultValue = "", onConfirm = null, title = options.text.dialogs.prompt || "输入") {
-            const modal = document.createElement('div');
-            modal.className = `${cssPrefix}-custom-modal`;
-            Object.assign(modal.style, {
-                position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-                backgroundColor: getOverlayBackgroundColor(state.isDarkMode), zIndex: '999999',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-            });
-
-            const dialog = document.createElement('div');
-            Object.assign(dialog.style, {
-                background: getPanelBackgroundColor(state.isDarkMode), borderRadius: '8px',
-                padding: '20px', maxWidth: '400px', width: '90%', maxHeight: '80vh',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', color: getTextColor(state.isDarkMode)
-            });
-
-            const titleEl = document.createElement('h3');
-            titleEl.textContent = title;
-            Object.assign(titleEl.style, {
-                margin: '0 0 15px 0', fontSize: '1.1em', fontWeight: 'bold'
-            });
-            dialog.appendChild(titleEl);
-
-	            const messageEl = document.createElement('p');
-	            messageEl.textContent = message;
-	            Object.assign(messageEl.style, {
-	                margin: '0 0 15px 0', lineHeight: '1.4', whiteSpace: 'pre-wrap'
-	            });
-	            dialog.appendChild(messageEl);
-
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = defaultValue;
-            styleInputField(input, state.isDarkMode);
-            input.style.marginBottom = '20px';
-            dialog.appendChild(input);
-
-            const buttonContainer = document.createElement('div');
-            Object.assign(buttonContainer.style, {
-                display: 'flex', justifyContent: 'flex-end', gap: '10px'
-            });
-
-            const cancelButton = document.createElement('button');
-            cancelButton.textContent = options.text.buttons.cancel || '取消';
-            styleButton(cancelButton, "#9E9E9E", "#757575");
-            cancelButton.onclick = () => {
-                document.body.removeChild(modal);
-                if (onConfirm) onConfirm(null);
-            };
-            buttonContainer.appendChild(cancelButton);
-
-            const confirmButton = document.createElement('button');
-            confirmButton.textContent = options.text.buttons.confirm || '确定';
-            styleButton(confirmButton, "#4CAF50", "#45A049");
-            confirmButton.onclick = () => {
-                const value = input.value.trim();
-                document.body.removeChild(modal);
-                if (onConfirm) onConfirm(value);
-            };
-            buttonContainer.appendChild(confirmButton);
-
-            dialog.appendChild(buttonContainer);
-            modal.appendChild(dialog);
-            document.body.appendChild(modal);
-            input.focus();
-            input.select();
-        }
-
-        function getPrimaryColor() {
-            return options.colors.primary || '#0066cc';
-        }
-
-        function getOverlayBackgroundColor(isDark = state.isDarkMode) {
-            return isDark ? "rgba(0, 0, 0, 0.7)" : "rgba(0, 0, 0, 0.5)";
-        }
-        function getPanelBackgroundColor(isDark = state.isDarkMode) {
-            return isDark ? "#1a1a1a" : "#ffffff";
-        }
-        function getInputBackgroundColor(isDark = state.isDarkMode) {
-            return isDark ? "#2d2d2d" : "#f9f9f9";
-        }
-        function getTextColor(isDark = state.isDarkMode) {
-            return isDark ? "#ffffff" : "#1a1a1a";
-        }
-        function getBorderColor(isDark = state.isDarkMode) {
-            return isDark ? "#404040" : "#e0e0e0";
-        }
-        function getTableHeaderBackground(isDark = state.isDarkMode) {
-            return isDark ? "#2d2d2d" : "#f5f5f5";
-        }
-	        function getHoverColor(isDark = state.isDarkMode) {
-	            return isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)";
-	        }
+            function getTableHeaderBackground(isDark = state.isDarkMode) {
+                return isDark ? "#2d2d2d" : "#f5f5f5";
+            }
+            function getHoverColor(isDark = state.isDarkMode) {
+                return isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)";
+            }
 
             function applyThemeCssVariables(isDark = state.isDarkMode) {
                 const root = document && document.documentElement ? document.documentElement : null;
@@ -2511,78 +2211,472 @@
                 setVar("hover-bg", getHoverColor(isDark));
             }
 
-	        function styleTableHeader(th, isDark = state.isDarkMode) {
+            function detectInitialDarkMode() {
+                const htmlEl = document.documentElement;
+                const bodyEl = document.body;
+                let detectedDarkMode = false;
+                if (htmlEl.classList.contains('dark') || bodyEl?.classList?.contains('dark')) {
+                    detectedDarkMode = true;
+                } else if (htmlEl.getAttribute('data-theme') === 'dark' || bodyEl?.getAttribute?.('data-theme') === 'dark') {
+                    detectedDarkMode = true;
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    if (!htmlEl.classList.contains('light') && !bodyEl?.classList?.contains('light')) {
+                        detectedDarkMode = true;
+                    }
+                } else {
+                    try {
+                        const bgColor = window.getComputedStyle(bodyEl || htmlEl).backgroundColor;
+                        if (isColorDark(bgColor)) {
+                            detectedDarkMode = true;
+                        }
+                    } catch (e) {
+                        console.warn(`${options.consoleTag} Could not compute background color.`);
+                    }
+                }
+
+                applyThemeCssVariables(detectedDarkMode);
+                if (state.isDarkMode !== detectedDarkMode) {
+                    state.isDarkMode = detectedDarkMode;
+                    notifyThemeChangeListeners();
+                }
+            }
+
+            function setupDarkModeObserver() {
+                let cleaned = false;
+                let intervalId = null;
+                let observer = null;
+                let removeMediaListener = null;
+
+                if (window.matchMedia) {
+                    const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                    const listener = () => { detectInitialDarkMode(); };
+                    if (darkModeMediaQuery.addEventListener) {
+                        darkModeMediaQuery.addEventListener('change', listener);
+                        removeMediaListener = () => darkModeMediaQuery.removeEventListener('change', listener);
+                    } else if (darkModeMediaQuery.addListener) {
+                        darkModeMediaQuery.addListener(listener);
+                        removeMediaListener = () => darkModeMediaQuery.removeListener(listener);
+                    }
+                }
+
+                const observerCallback = (mutations) => {
+                    let themeMightHaveChanged = false;
+                    for (const mutation of mutations) {
+                        if (mutation.type === 'attributes' && (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme')) {
+                            themeMightHaveChanged = true;
+                            break;
+                        }
+                    }
+                    if (themeMightHaveChanged) {
+                        detectInitialDarkMode();
+                    }
+                };
+                observer = new MutationObserver(observerCallback);
+
+                const observeTarget = document.documentElement || document.body;
+                if (observeTarget) {
+                    try {
+                        observer.observe(observeTarget, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+                    } catch (err) {
+                        console.warn(`${options.consoleTag} MutationObserver observe failed`, err);
+                    }
+                }
+
+                intervalId = setInterval(() => { detectInitialDarkMode(); }, 5000);
+                detectInitialDarkMode();
+
+                return () => {
+                    if (cleaned) return;
+                    cleaned = true;
+                    if (intervalId) {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                    }
+                    if (observer) {
+                        try { observer.disconnect(); } catch {}
+                        observer = null;
+                    }
+                    if (removeMediaListener) {
+                        try { removeMediaListener(); } catch {}
+                        removeMediaListener = null;
+                    }
+                };
+            }
+
+            /* ------------------------------ Styles ----------------------------- */
+
+            function styleTableHeader(th) {
                 const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
                 th.classList.add(`${prefix}-th`);
-	        }
-	        function styleTableCell(td, isDark = state.isDarkMode) {
+            }
+            function styleTableCell(td) {
                 const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
                 td.classList.add(`${prefix}-td`);
-	        }
-	        function styleButton(btn, bgColor, hoverColor, isDark = state.isDarkMode) {
+            }
+            function styleButton(btn, bgColor, hoverColor) {
                 const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
                 btn.classList.add(`${prefix}-btn`);
                 try {
                     btn.style.setProperty(`--${prefix}-btn-bg`, String(bgColor ?? ""));
                     btn.style.setProperty(`--${prefix}-btn-hover-bg`, String(hoverColor ?? ""));
                 } catch {}
-	        }
-	        function styleTransparentButton(btn, textColor, hoverBg, isDark = state.isDarkMode) {
+            }
+            function styleTransparentButton(btn, textColor, hoverBg) {
                 const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
                 btn.classList.add(`${prefix}-btn-ghost`);
                 try {
                     btn.style.setProperty(`--${prefix}-ghost-color`, String(textColor ?? ""));
                     btn.style.setProperty(`--${prefix}-ghost-hover-bg`, String(hoverBg ?? ""));
                 } catch {}
-	        }
-		        function styleInputField(input, isDark = state.isDarkMode) {
+            }
+            function styleInputField(input) {
                 const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
                 input.classList.add(`${prefix}-input`);
-		        }
-
-	        function autoResizeTextarea(textarea) {
-	            textarea.style.height = "auto";
-	            const style = window.getComputedStyle(textarea);
-            const lineHeight = parseInt(style.lineHeight) || 20;
-            const paddingTop = parseInt(style.paddingTop) || 0;
-            const paddingBottom = parseInt(style.paddingBottom) || 0;
-            const minHeight = lineHeight + paddingTop + paddingBottom;
-            const maxHeight = lineHeight * 5 + paddingTop + paddingBottom;
-            let newHeight = textarea.scrollHeight;
-            if (newHeight < minHeight) {
-                newHeight = minHeight;
-            } else if (newHeight > maxHeight) {
-                newHeight = maxHeight;
-                textarea.style.overflowY = "auto";
-            } else {
-                textarea.style.overflowY = "hidden";
             }
-            textarea.style.height = newHeight + "px";
+
+            /* ------------------------------ Dialogs ---------------------------- */
+
+            function showAlert(message, title = options.text.dialogs.alert || "提示") {
+                const modal = document.createElement('div');
+                modal.className = `${classPrefix}-overlay`;
+                modal.style.zIndex = '999999';
+
+                const dialog = document.createElement('div');
+                dialog.className = `${classPrefix}-panel`;
+                Object.assign(dialog.style, { maxWidth: '400px', width: '90%', maxHeight: '80vh', overflow: 'auto' });
+
+                const titleEl = document.createElement('h3');
+                titleEl.textContent = title;
+                Object.assign(titleEl.style, {
+                    margin: '0 0 15px 0', fontSize: '1.1em', fontWeight: 'bold'
+                });
+                dialog.appendChild(titleEl);
+
+                const messageEl = document.createElement('p');
+                messageEl.textContent = message;
+                Object.assign(messageEl.style, {
+                    margin: '0 0 20px 0', lineHeight: '1.4', whiteSpace: 'pre-wrap'
+                });
+                dialog.appendChild(messageEl);
+
+                const buttonContainer = document.createElement('div');
+                Object.assign(buttonContainer.style, {
+                    textAlign: 'right'
+                });
+
+                const okButton = document.createElement('button');
+                okButton.textContent = options.text.buttons.confirm || '确定';
+                styleButton(okButton, "#4CAF50", "#45A049");
+                okButton.onclick = () => {
+                    document.body.removeChild(modal);
+                };
+                buttonContainer.appendChild(okButton);
+                dialog.appendChild(buttonContainer);
+                modal.appendChild(dialog);
+                document.body.appendChild(modal);
+                okButton.focus();
+            }
+
+            function showConfirmDialog(message, onConfirm, title = options.text.dialogs.confirm || "确认") {
+                const modal = document.createElement('div');
+                modal.className = `${classPrefix}-overlay`;
+                modal.style.zIndex = '999999';
+
+                const dialog = document.createElement('div');
+                dialog.className = `${classPrefix}-panel`;
+                Object.assign(dialog.style, { maxWidth: '400px', width: '90%', maxHeight: '80vh', overflow: 'auto' });
+
+                const titleEl = document.createElement('h3');
+                titleEl.textContent = title;
+                Object.assign(titleEl.style, {
+                    margin: '0 0 15px 0', fontSize: '1.1em', fontWeight: 'bold'
+                });
+                dialog.appendChild(titleEl);
+
+                const messageEl = document.createElement('p');
+                messageEl.textContent = message;
+                Object.assign(messageEl.style, {
+                    margin: '0 0 20px 0', lineHeight: '1.4', whiteSpace: 'pre-wrap'
+                });
+                dialog.appendChild(messageEl);
+
+                const buttonContainer = document.createElement('div');
+                Object.assign(buttonContainer.style, {
+                    display: 'flex', justifyContent: 'flex-end', gap: '10px'
+                });
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = options.text.buttons.cancel || '取消';
+                styleButton(cancelButton, "#9E9E9E", "#757575");
+                cancelButton.onclick = () => {
+                    document.body.removeChild(modal);
+                };
+                buttonContainer.appendChild(cancelButton);
+
+                const confirmButton = document.createElement('button');
+                confirmButton.textContent = options.text.buttons.confirm || '确定';
+                styleButton(confirmButton, "#F44336", "#D32F2F");
+                confirmButton.onclick = () => {
+                    document.body.removeChild(modal);
+                    if (onConfirm) onConfirm();
+                };
+                buttonContainer.appendChild(confirmButton);
+
+                dialog.appendChild(buttonContainer);
+                modal.appendChild(dialog);
+                document.body.appendChild(modal);
+                cancelButton.focus();
+            }
+
+            function showPromptDialog(message, defaultValue = "", onConfirm = null, title = options.text.dialogs.prompt || "输入") {
+                const modal = document.createElement('div');
+                modal.className = `${classPrefix}-overlay`;
+                modal.style.zIndex = '999999';
+
+                const dialog = document.createElement('div');
+                dialog.className = `${classPrefix}-panel`;
+                Object.assign(dialog.style, { maxWidth: '400px', width: '90%', maxHeight: '80vh', overflow: 'auto' });
+
+                const titleEl = document.createElement('h3');
+                titleEl.textContent = title;
+                Object.assign(titleEl.style, {
+                    margin: '0 0 15px 0', fontSize: '1.1em', fontWeight: 'bold'
+                });
+                dialog.appendChild(titleEl);
+
+                const messageEl = document.createElement('p');
+                messageEl.textContent = message;
+                Object.assign(messageEl.style, {
+                    margin: '0 0 10px 0', lineHeight: '1.4', whiteSpace: 'pre-wrap'
+                });
+                dialog.appendChild(messageEl);
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = defaultValue || '';
+                Object.assign(input.style, { width: '100%', marginBottom: '20px' });
+                styleInputField(input);
+                dialog.appendChild(input);
+
+                const buttonContainer = document.createElement('div');
+                Object.assign(buttonContainer.style, {
+                    display: 'flex', justifyContent: 'flex-end', gap: '10px'
+                });
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = options.text.buttons.cancel || '取消';
+                styleButton(cancelButton, "#9E9E9E", "#757575");
+                cancelButton.onclick = () => {
+                    document.body.removeChild(modal);
+                };
+                buttonContainer.appendChild(cancelButton);
+
+                const confirmButton = document.createElement('button');
+                confirmButton.textContent = options.text.buttons.confirm || '确定';
+                styleButton(confirmButton, "#4CAF50", "#45A049");
+                confirmButton.onclick = () => {
+                    const val = input.value;
+                    document.body.removeChild(modal);
+                    if (onConfirm) onConfirm(val);
+                };
+                buttonContainer.appendChild(confirmButton);
+
+                dialog.appendChild(buttonContainer);
+                modal.appendChild(dialog);
+                document.body.appendChild(modal);
+                input.focus();
+                input.select();
+            }
+
+            /* ------------------------------ Layout ----------------------------- */
+
+            function preventScrollEvent(e) {
+                if (isEventFromPanel(e)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+
+            function preventScrollKeyEvent(e) {
+                const scrollKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', 'Space'];
+                if (scrollKeys.includes(e.code) || scrollKeys.includes(e.key)) {
+                    if (isEventFromScrollableElement(e)) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+            }
+
+            function isEventFromPanel(e) {
+                if (!e.target) return false;
+                const panel = document.getElementById(ids.settingsPanel);
+                const edit = document.getElementById(ids.editForm);
+                return (panel && panel.contains(e.target)) || (edit && edit.contains(e.target));
+            }
+
+            function isEventFromScrollableElement(e) {
+                if (!e.target) return false;
+                let element = e.target;
+                while (element && element !== document.body) {
+                    const style = window.getComputedStyle(element);
+                    const isScrollable = style.overflowY === 'auto' ||
+                                        style.overflowY === 'scroll' ||
+                                        style.overflow === 'auto' ||
+                                        style.overflow === 'scroll';
+
+                    if (isScrollable) {
+                        return isEventFromPanel(e);
+                    }
+                    element = element.parentElement;
+                }
+                return false;
+            }
+
+            function enableScrollLock() {
+                if (state.scrollLock.isLocked) return;
+                const lock = state.scrollLock;
+
+                lock.scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                lock.scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+                lock.originalBodyOverflow = document.body.style.overflow || '';
+                lock.originalBodyPosition = document.body.style.position || '';
+                lock.originalBodyTop = document.body.style.top || '';
+                lock.originalBodyLeft = document.body.style.left || '';
+                lock.originalBodyWidth = document.body.style.width || '';
+
+                document.body.style.overflow = 'hidden';
+                document.body.style.position = 'fixed';
+                document.body.style.top = `-${lock.scrollTop}px`;
+                document.body.style.left = `-${lock.scrollLeft}px`;
+                document.body.style.width = '100%';
+
+                lock.isLocked = true;
+
+                document.addEventListener('wheel', preventScrollEvent, { passive: false, capture: true });
+                document.addEventListener('touchmove', preventScrollEvent, { passive: false, capture: true });
+                document.addEventListener('scroll', preventScrollEvent, { passive: false, capture: true });
+                document.addEventListener('keydown', preventScrollKeyEvent, { passive: false, capture: true });
+            }
+
+            function disableScrollLock() {
+                if (!state.scrollLock.isLocked) return;
+                const lock = state.scrollLock;
+
+                document.removeEventListener('wheel', preventScrollEvent, { capture: true });
+                document.removeEventListener('touchmove', preventScrollEvent, { capture: true });
+                document.removeEventListener('scroll', preventScrollEvent, { capture: true });
+                document.removeEventListener('keydown', preventScrollKeyEvent, { capture: true });
+
+                document.body.style.overflow = lock.originalBodyOverflow;
+                document.body.style.position = lock.originalBodyPosition;
+                document.body.style.top = lock.originalBodyTop;
+                document.body.style.left = lock.originalBodyLeft;
+                document.body.style.width = lock.originalBodyWidth;
+
+                window.scrollTo(lock.scrollLeft, lock.scrollTop);
+                lock.isLocked = false;
+            }
+
+            function shouldUseCompactMode(container) {
+                if (!container) return false;
+                const containerWidth = container.offsetWidth;
+                return containerWidth < (options.ui.compactBreakpoint || 800);
+            }
+
+            function createResponsiveListener(container, callback) {
+                if (!window.ResizeObserver) {
+                    const handleResize = debounce(() => {
+                        const newCompactMode = shouldUseCompactMode(container);
+                        if (newCompactMode !== state.isCompactMode) {
+                            state.isCompactMode = newCompactMode;
+                            callback(state.isCompactMode);
+                        }
+                    }, 200);
+                    window.addEventListener('resize', handleResize);
+                    return () => window.removeEventListener('resize', handleResize);
+                }
+
+                const resizeObserver = new ResizeObserver(debounce((entries) => {
+                    for (const entry of entries) {
+                        if (entry.target === container) {
+                            const newCompactMode = shouldUseCompactMode(container);
+                            if (newCompactMode !== state.isCompactMode) {
+                                state.isCompactMode = newCompactMode;
+                                callback(state.isCompactMode);
+                            }
+                        }
+                    }
+                }, 200));
+
+                try { resizeObserver.observe(container); } catch {}
+
+                return () => {
+                    try { resizeObserver.disconnect(); } catch {}
+                };
+            }
+
+            function autoResizeTextarea(textarea) {
+                textarea.style.height = "auto";
+                const style = window.getComputedStyle(textarea);
+                const lineHeight = parseInt(style.lineHeight) || 20;
+                const paddingTop = parseInt(style.paddingTop) || 0;
+                const paddingBottom = parseInt(style.paddingBottom) || 0;
+                const minHeight = lineHeight + paddingTop + paddingBottom;
+                const maxHeight = lineHeight * 5 + paddingTop + paddingBottom;
+                let newHeight = textarea.scrollHeight;
+                if (newHeight < minHeight) {
+                    newHeight = minHeight;
+                } else if (newHeight > maxHeight) {
+                    newHeight = maxHeight;
+                    textarea.style.overflowY = "auto";
+                } else {
+                    textarea.style.overflowY = "hidden";
+                }
+                textarea.style.height = newHeight + "px";
+            }
+
+            return Object.freeze({
+                theme: Object.freeze({
+                    addThemeChangeListener,
+                    removeThemeChangeListener,
+                    setupDarkModeObserver,
+                    detectInitialDarkMode,
+                    applyThemeCssVariables
+                }),
+                colors: Object.freeze({
+                    getPrimaryColor,
+                    getOverlayBackgroundColor,
+                    getPanelBackgroundColor,
+                    getInputBackgroundColor,
+                    getTextColor,
+                    getBorderColor,
+                    getTableHeaderBackground,
+                    getHoverColor
+                }),
+                style: Object.freeze({
+                    styleTableHeader,
+                    styleTableCell,
+                    styleButton,
+                    styleTransparentButton,
+                    styleInputField
+                }),
+                dialogs: Object.freeze({
+                    showAlert,
+                    showConfirmDialog,
+                    showPromptDialog
+                }),
+                layout: Object.freeze({
+                    enableScrollLock,
+                    disableScrollLock,
+                    autoResizeTextarea,
+                    createResponsiveListener,
+                    shouldUseCompactMode
+                }),
+                utils: Object.freeze({
+                    debounce
+                })
+            });
         }
-
-	        const ctx = {
-	            options,
-	            state,
-	            core,
-	            uiShared,
-            idPrefix,
-            cssPrefix,
-            ids,
-            classes,
-            URL_METHODS,
-            getUrlMethodDisplayText,
-            setIconImage,
-            setTrustedHTML: Utils?.dom?.setTrustedHTML,
-            safeGMGet,
-            safeGMSet,
-	            debounce
-	        };
-
-            applyThemeCssVariables(state.isDarkMode);
-
-	        engineApi = createEngineApi(ctx);
-	        return engineApi;
-	    }
 /* -------------------------------------------------------------------------- *
  * Module 04 · Keyboard handling (hotkey parsing, matching, action dispatch)
  * -------------------------------------------------------------------------- */
@@ -2734,12 +2828,12 @@
                 core,
                 uiShared,
                 idPrefix,
+                cssPrefix,
                 ids,
                 classes,
                 URL_METHODS,
                 getUrlMethodDisplayText,
                 setIconImage,
-                setTrustedHTML,
                 safeGMGet,
                 safeGMSet,
                 debounce
@@ -2761,36 +2855,14 @@
 	            const { enableScrollLock, disableScrollLock, createResponsiveListener, shouldUseCompactMode, autoResizeTextarea } = layout;
 	            const normalizeHotkey = core.normalizeHotkey;
 
-	            function matchesSearchQuery(shortcut, queryLower) {
-	                const query = typeof queryLower === "string" ? queryLower : "";
-	                if (!query) return true;
-	                if (!shortcut) return false;
-                    let dataText = "";
-                    try {
-                        if (shortcut.data && typeof shortcut.data === "object") {
-                            dataText = JSON.stringify(shortcut.data);
-                        }
-                    } catch {}
-	                const haystack = [
-	                    shortcut.name,
-	                    shortcut.url,
-	                    shortcut.selector,
-	                    shortcut.simulateKeys,
-	                    shortcut.customAction,
-                        shortcut.actionType,
-                        dataText
-	                ].filter(Boolean).join(" ").toLowerCase();
-	                return haystack.includes(query);
-	            }
-
 	            function getShortcutStats() {
 	                const list = core.getShortcuts();
 	                const query = String(state.searchQuery || "").trim().toLowerCase();
 	                const stats = { total: 0, byType: Object.create(null) };
 	                list.forEach(shortcut => {
-	                    if (!matchesSearchQuery(shortcut, query)) return;
+	                    if (!panelMatchesSearchQuery(shortcut, query)) return;
 	                    stats.total++;
-                        const type = String(shortcut?.actionType || "").trim() || "unknown";
+                        const type = panelNormalizeActionType(shortcut);
                         stats.byType[type] = (stats.byType[type] || 0) + 1;
 	                });
 	                return stats;
@@ -2802,8 +2874,8 @@
 	                const filtered = [];
 	                for (let i = 0; i < list.length; i++) {
 	                    const shortcut = list[i];
-	                    if (!matchesSearchQuery(shortcut, query)) continue;
-                        const shortcutType = String(shortcut?.actionType || "").trim() || "unknown";
+	                    if (!panelMatchesSearchQuery(shortcut, query)) continue;
+                        const shortcutType = panelNormalizeActionType(shortcut);
 	                    if (type === 'all' || shortcutType === type) {
 	                        filtered.push({ item: shortcut, index: i });
 	                    }
@@ -2908,25 +2980,11 @@
                     const filterType = button.dataset.filterType;
                     const isActive = state.currentFilter === filterType;
                     const color = getButtonColor(filterType);
-                    if (isActive) {
-                        button.style.backgroundColor = color;
-                        button.style.color = "white";
-                        button.style.transform = "scale(1)";
-                        const countSpan = button.querySelector('span:last-child');
-                        if (countSpan) {
-                            countSpan.style.background = 'rgba(255,255,255,0.3)';
-                            countSpan.style.color = 'white';
-                        }
-                    } else {
-                        button.style.backgroundColor = "transparent";
-                        button.style.color = color;
-                        button.style.transform = "scale(1)";
-                        const countSpan = button.querySelector('span:last-child');
-                        if (countSpan) {
-                            countSpan.style.background = color;
-                            countSpan.style.color = 'white';
-                        }
-                    }
+                    button.dataset.active = isActive ? "1" : "0";
+                    try {
+                        const prefix = String(cssPrefix || "").trim();
+                        if (prefix) button.style.setProperty(`--${prefix}-filter-color`, color);
+                    } catch {}
                 });
             }
 
@@ -2947,54 +3005,23 @@
 	                button.dataset.filterType = filterType;
 	                button.type = "button";
 	                const isActive = state.currentFilter === filterType;
-	                Object.assign(button.style, {
-	                    flex: "0 0 auto",
-	                    display: "inline-flex",
-	                    alignItems: "center",
-	                    padding: "6px 12px",
-	                    borderRadius: "12px",
-	                    fontSize: "12px",
-                    fontWeight: "bold",
-                    color: isActive ? "white" : color,
-                    backgroundColor: isActive ? color : "transparent",
-                    border: `2px solid ${color}`,
-                    whiteSpace: "nowrap",
-                    minWidth: "fit-content",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    outline: "none"
-                });
+                    button.dataset.active = isActive ? "1" : "0";
+                    try {
+                        const prefix = String(cssPrefix || "").trim();
+                        if (prefix) button.style.setProperty(`--${prefix}-filter-color`, color);
+                    } catch {}
 
-                const escapeHtml = (input) =>
-                    String(input ?? "").replace(/[&<>"']/g, (ch) => ({
-                        "&": "&amp;",
-                        "<": "&lt;",
-                        ">": "&gt;",
-                        '"': "&quot;",
-                        "'": "&#39;"
-                    })[ch] || ch);
+                    const labelSpan = document.createElement("span");
+                    labelSpan.className = classes.filterLabel;
+                    labelSpan.textContent = String(label ?? "");
 
-                const safeLabel = escapeHtml(label);
-                const safeCount = escapeHtml(count);
-                const html = `<span style="margin-right: 6px;">${safeLabel}</span><span style="background: ${isActive ? 'rgba(255,255,255,0.3)' : color}; color: white; padding: 2px 6px; border-radius: 8px;">${safeCount}</span>`;
-                if (typeof setTrustedHTML === "function") {
-                    setTrustedHTML(button, html);
-                } else {
-                    button.textContent = `${label} ${count}`;
-                }
+                    const countSpan = document.createElement("span");
+                    countSpan.className = classes.filterCount;
+                    countSpan.textContent = String(count ?? "");
 
-                button.addEventListener('mouseenter', () => {
-                    if (state.currentFilter !== filterType) {
-                        button.style.backgroundColor = color + "20";
-                        button.style.transform = "scale(1.05)";
-                    }
-                });
-                button.addEventListener('mouseleave', () => {
-                    if (state.currentFilter !== filterType) {
-                        button.style.backgroundColor = "transparent";
-                        button.style.transform = "scale(1)";
-                    }
-                });
+                    button.appendChild(labelSpan);
+                    button.appendChild(countSpan);
+
                 button.addEventListener('click', () => {
                     setFilter(filterType);
                 });
@@ -3203,18 +3230,14 @@
 
             const overlay = document.createElement("div");
             overlay.id = ids.settingsOverlay;
-            Object.assign(overlay.style, {
-                position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-                zIndex: "99998", display: "flex", justifyContent: "center", alignItems: "center",
-                padding: "20px", boxSizing: "border-box"
-            });
+            overlay.className = classes.overlay;
+            overlay.style.zIndex = "99998";
             overlay.onclick = (e) => { if (e.target === overlay) closePanel(); };
 
             const panel = document.createElement("div");
             panel.id = ids.settingsPanel;
+            panel.className = classes.panel;
             Object.assign(panel.style, {
-                borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                padding: "20px", fontFamily: "sans-serif", position: "relative",
                 opacity: "0", transform: "translateY(20px)",
                 transition: "opacity 0.3s ease, transform 0.3s ease",
                 maxHeight: "90vh", overflowY: "auto",
@@ -3690,9 +3713,6 @@
             });
 
 	            const updatePanelTheme = (isDark) => {
-	                overlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
-	                panel.style.background = getPanelBackgroundColor(isDark);
-	                panel.style.color = getTextColor(isDark);
 	                headerContainer.style.borderBottom = `1px solid ${getBorderColor(isDark)}`;
 	                title.style.color = getTextColor(isDark);
 	                styleButton(addBtn, "#FF9800", "#F57C00");
@@ -4138,8 +4158,7 @@
                     panelOpenShortcutEditor(ctx, { item, index, renderShortcutsList, updateStatsDisplay });
 	            }
 
-
-        }
+}
 
 	            return Object.freeze({ openSettingsPanel, closeSettingsPanel });
 	        }
@@ -4153,23 +4172,6 @@
 
             let draggingShortcutId = null;
 
-            function matchesCurrentView(shortcut) {
-                if (!shortcut) return false;
-                if (state.currentFilter && state.currentFilter !== 'all') {
-                    if (shortcut.actionType !== state.currentFilter) return false;
-                }
-                const query = String(state.searchQuery || "").trim().toLowerCase();
-                if (!query) return true;
-                const haystack = [
-                    shortcut.name,
-                    shortcut.url,
-                    shortcut.selector,
-                    shortcut.simulateKeys,
-                    shortcut.customAction
-                ].filter(Boolean).join(" ").toLowerCase();
-                return haystack.includes(query);
-            }
-
             function reorderShortcutsInCurrentView(fromId, toId, { after = false } = {}) {
                 const from = typeof fromId === "string" ? fromId.trim() : "";
                 const to = typeof toId === "string" ? toId.trim() : "";
@@ -4181,7 +4183,7 @@
                     const items = [];
                     for (let i = 0; i < list.length; i++) {
                         const sc = list[i];
-                        if (matchesCurrentView(sc)) {
+                        if (panelMatchesCurrentView(ctx, sc)) {
                             indices.push(i);
                             items.push(sc);
                         }
@@ -4306,6 +4308,8 @@
                 core,
                 uiShared,
                 idPrefix,
+                cssPrefix,
+                classes,
                 ids,
                 URL_METHODS,
                 setIconImage,
@@ -4352,17 +4356,17 @@
 
             const editOverlay = document.createElement("div");
             editOverlay.id = ids.editOverlay;
-            Object.assign(editOverlay.style, {
-                position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-                backgroundColor: "rgba(0, 0, 0, 0.3)", zIndex: "99999", display: "flex",
-                justifyContent: "center", alignItems: "center", padding: "20px", boxSizing: "border-box"
-            });
+            editOverlay.className = classes?.overlay || "";
+            editOverlay.style.zIndex = "99999";
+            try {
+                const prefix = String(cssPrefix || "").trim();
+                if (prefix) editOverlay.style.setProperty(`--${prefix}-overlay-bg`, "rgba(0, 0, 0, 0.3)");
+            } catch {}
 
             const formDiv = document.createElement("div");
             formDiv.id = ids.editForm;
+            formDiv.className = classes?.panel || "";
             Object.assign(formDiv.style, {
-                borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                padding: "20px", fontFamily: "sans-serif", position: "relative",
                 opacity: "0", transform: "translateY(20px)",
                 transition: "opacity 0.3s ease, transform 0.3s ease",
                 maxHeight: "90vh", overflowY: "auto",
@@ -4665,8 +4669,6 @@
             state.currentEditCloser = closeEdit;
 
             const updateEditPanelTheme = (isDark) => {
-                formDiv.style.background = getPanelBackgroundColor(isDark);
-                formDiv.style.color = getTextColor(isDark);
                 h3.style.borderBottom = `1px solid ${getBorderColor(isDark)}`;
                 h3.style.paddingBottom = "10px";
                 styleInputField(nameInput.input, isDark);
@@ -5459,6 +5461,51 @@
             return result;
         }
 /* -------------------------------------------------------------------------- *
+ * Module 05 · Panel Filter (search + current-view predicate shared by panel/dnd)
+ * -------------------------------------------------------------------------- */
+
+        function panelNormalizeActionType(shortcut) {
+            const type = shortcut && typeof shortcut.actionType === "string" ? shortcut.actionType.trim() : "";
+            return type || "unknown";
+        }
+
+        function panelBuildShortcutSearchHaystack(shortcut) {
+            if (!shortcut || typeof shortcut !== "object") return "";
+            let dataText = "";
+            try {
+                if (shortcut.data && typeof shortcut.data === "object") {
+                    dataText = JSON.stringify(shortcut.data);
+                }
+            } catch {}
+
+            return [
+                shortcut.name,
+                shortcut.url,
+                shortcut.selector,
+                shortcut.simulateKeys,
+                shortcut.customAction,
+                shortcut.actionType,
+                dataText
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+        }
+
+        function panelMatchesSearchQuery(shortcut, queryLower) {
+            const query = typeof queryLower === "string" ? queryLower : "";
+            if (!query) return true;
+            return panelBuildShortcutSearchHaystack(shortcut).includes(query);
+        }
+
+        function panelMatchesCurrentView(ctx, shortcut) {
+            if (!shortcut) return false;
+            const filterType = String(ctx?.state?.currentFilter || "all");
+            if (filterType !== "all" && panelNormalizeActionType(shortcut) !== filterType) return false;
+            const queryLower = String(ctx?.state?.searchQuery || "").trim().toLowerCase();
+            return panelMatchesSearchQuery(shortcut, queryLower);
+        }
+/* -------------------------------------------------------------------------- *
  * Module 05 · Panel I/O (import/export, clipboard)
  * -------------------------------------------------------------------------- */
 
@@ -5500,12 +5547,10 @@
         }
 
 	        function panelOpenExportDialog(ctx, { overlay } = {}) {
-            const { options, uiShared, state } = ctx;
-            const { colors, style, dialogs, theme } = uiShared;
-            const { getOverlayBackgroundColor, getPanelBackgroundColor, getTextColor } = colors;
+            const { options, uiShared, classes } = ctx;
+            const { style, dialogs } = uiShared;
             const { styleInputField, styleButton } = style;
             const { showAlert } = dialogs;
-            const { addThemeChangeListener, removeThemeChangeListener } = theme;
 
             if (!overlay) return;
 
@@ -5513,31 +5558,18 @@
             const json = JSON.stringify(payload, null, 2);
 
             const ioOverlay = document.createElement("div");
-            Object.assign(ioOverlay.style, {
-                position: "fixed",
-                top: 0,
-                left: 0,
-                width: "100vw",
-                height: "100vh",
-                zIndex: "999999",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "20px",
-                boxSizing: "border-box"
-            });
+            ioOverlay.className = classes?.overlay || "";
+            ioOverlay.style.zIndex = "999999";
             ioOverlay.onclick = (e) => { if (e.target === ioOverlay) close(); };
 
             const box = document.createElement("div");
+            box.className = classes?.panel || "";
             Object.assign(box.style, {
                 width: "100%",
                 maxWidth: "820px",
                 maxHeight: "90vh",
                 overflow: "auto",
-                borderRadius: "8px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                padding: "16px",
-                boxSizing: "border-box"
+                padding: "16px"
             });
             box.onclick = (e) => e.stopPropagation();
 
@@ -5550,6 +5582,7 @@
             textarea.value = json;
             textarea.readOnly = true;
             Object.assign(textarea.style, { height: "360px", resize: "vertical" });
+            styleInputField(textarea);
             box.appendChild(textarea);
 
             const btnRow = document.createElement("div");
@@ -5568,74 +5601,45 @@
                 if (ok) showAlert("已复制到剪贴板。");
                 else showAlert("复制失败，请手动复制。");
             };
+            styleButton(copyBtn, "#2196F3", "#1e88e5");
             btnRow.appendChild(copyBtn);
 
             const closeBtn = document.createElement("button");
             closeBtn.textContent = options.text.buttons.close || "关闭";
             closeBtn.onclick = close;
+            styleButton(closeBtn, "#9E9E9E", "#757575");
             btnRow.appendChild(closeBtn);
 
             box.appendChild(btnRow);
             ioOverlay.appendChild(box);
             overlay.appendChild(ioOverlay);
 
-            const updateTheme = (isDark) => {
-                ioOverlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
-                box.style.background = getPanelBackgroundColor(isDark);
-                box.style.color = getTextColor(isDark);
-                titleEl.style.color = getTextColor(isDark);
-                styleInputField(textarea, isDark);
-                textarea.style.height = "360px";
-                textarea.style.resize = "vertical";
-                styleButton(copyBtn, "#2196F3", "#1e88e5");
-                styleButton(closeBtn, "#9E9E9E", "#757575");
-            };
-
-            addThemeChangeListener(updateTheme);
-            updateTheme(state.isDarkMode);
-
             function close() {
-                removeThemeChangeListener(updateTheme);
                 try { ioOverlay.remove(); } catch {}
             }
         }
 
 	        function panelOpenImportDialog(ctx, { overlay, renderShortcutsList, updateStatsDisplay } = {}) {
-            const { options, uiShared, state, core, safeGMSet } = ctx;
-            const { colors, style, dialogs, theme } = uiShared;
-            const { getOverlayBackgroundColor, getPanelBackgroundColor, getTextColor } = colors;
+            const { options, uiShared, state, core, safeGMSet, classes } = ctx;
+            const { style, dialogs } = uiShared;
             const { styleInputField, styleButton } = style;
             const { showAlert } = dialogs;
-            const { addThemeChangeListener, removeThemeChangeListener } = theme;
 
             if (!overlay) return;
 
             const ioOverlay = document.createElement("div");
-            Object.assign(ioOverlay.style, {
-                position: "fixed",
-                top: 0,
-                left: 0,
-                width: "100vw",
-                height: "100vh",
-                zIndex: "999999",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "20px",
-                boxSizing: "border-box"
-            });
+            ioOverlay.className = classes?.overlay || "";
+            ioOverlay.style.zIndex = "999999";
             ioOverlay.onclick = (e) => { if (e.target === ioOverlay) close(); };
 
             const box = document.createElement("div");
+            box.className = classes?.panel || "";
             Object.assign(box.style, {
                 width: "100%",
                 maxWidth: "820px",
                 maxHeight: "90vh",
                 overflow: "auto",
-                borderRadius: "8px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                padding: "16px",
-                boxSizing: "border-box"
+                padding: "16px"
             });
             box.onclick = (e) => e.stopPropagation();
 
@@ -5652,6 +5656,7 @@
             const textarea = document.createElement("textarea");
             textarea.placeholder = "粘贴 JSON 到这里…";
             Object.assign(textarea.style, { height: "360px", resize: "vertical" });
+            styleInputField(textarea);
             box.appendChild(textarea);
 
             const btnRow = document.createElement("div");
@@ -5719,35 +5724,20 @@
                 if (typeof updateStatsDisplay === "function") updateStatsDisplay();
                 close();
             };
+            styleButton(confirmBtn, "#2196F3", "#1e88e5");
             btnRow.appendChild(confirmBtn);
 
             const cancelBtn = document.createElement("button");
             cancelBtn.textContent = options.text.buttons.cancel || "取消";
             cancelBtn.onclick = close;
+            styleButton(cancelBtn, "#9E9E9E", "#757575");
             btnRow.appendChild(cancelBtn);
 
             box.appendChild(btnRow);
             ioOverlay.appendChild(box);
             overlay.appendChild(ioOverlay);
 
-            const updateTheme = (isDark) => {
-                ioOverlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
-                box.style.background = getPanelBackgroundColor(isDark);
-                box.style.color = getTextColor(isDark);
-                titleEl.style.color = getTextColor(isDark);
-                tip.style.color = getTextColor(isDark);
-                styleInputField(textarea, isDark);
-                textarea.style.height = "360px";
-                textarea.style.resize = "vertical";
-                styleButton(confirmBtn, "#2196F3", "#1e88e5");
-                styleButton(cancelBtn, "#9E9E9E", "#757575");
-            };
-
-            addThemeChangeListener(updateTheme);
-            updateTheme(state.isDarkMode);
-
             function close() {
-                removeThemeChangeListener(updateTheme);
                 try { ioOverlay.remove(); } catch {}
             }
         }
@@ -5858,6 +5848,68 @@
                         vertical-align: middle;
                         color: var(--${p}-text);
                         font-size: 14px;
+                    }
+
+                    .${p}-overlay {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100vw;
+                        height: 100vh;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 20px;
+                        box-sizing: border-box;
+                        background: var(--${p}-overlay-bg);
+                    }
+
+                    .${p}-panel {
+                        background: var(--${p}-panel-bg);
+                        color: var(--${p}-text);
+                        border: 1px solid var(--${p}-border);
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                        padding: 20px;
+                        box-sizing: border-box;
+                        font-family: sans-serif;
+                        position: relative;
+                    }
+
+                    .${p}-filter-button {
+                        flex: 0 0 auto;
+                        display: inline-flex;
+                        align-items: center;
+                        padding: 6px 12px;
+                        border-radius: 12px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        white-space: nowrap;
+                        min-width: fit-content;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        outline: none;
+                        border: 2px solid var(--${p}-filter-color, var(--${p}-primary));
+                        color: var(--${p}-filter-color, var(--${p}-primary));
+                        background-color: transparent;
+                    }
+                    .${p}-filter-button[data-active="1"] {
+                        background-color: var(--${p}-filter-color, var(--${p}-primary));
+                        color: #fff;
+                    }
+                    .${p}-filter-button:hover:not([data-active="1"]) {
+                        background-color: var(--${p}-hover-bg);
+                        transform: scale(1.05);
+                    }
+                    .${p}-filter-label { margin-right: 6px; }
+                    .${p}-filter-count {
+                        background: var(--${p}-filter-color, var(--${p}-primary));
+                        color: #fff;
+                        padding: 2px 6px;
+                        border-radius: 8px;
+                    }
+                    .${p}-filter-button[data-active="1"] .${p}-filter-count {
+                        background: rgba(255,255,255,0.3);
                     }
                 `;
 
