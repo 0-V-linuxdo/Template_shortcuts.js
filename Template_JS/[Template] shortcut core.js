@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20251225] v1.0.0
+// @name         [Template] 快捷键跳转 [20251226] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20251225] v1.0.0
+// @version      [20251226] v1.0.0
 // @update-log   1.0.0: 新增 ShortcutTemplate.utils(menu/dom/events/oneStep) 以参数化菜单点击与 1step 编排，站点脚本仅需填写参数/defs
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)。
 // @author       You
@@ -41,7 +41,7 @@
      * ------------------------------------------------------------------ */
 
     const DEFAULT_OPTIONS = {
-        version: '20251225',
+        version: '20251226',
         menuCommandLabel: '设置快捷键',
         panelTitle: '自定义快捷键',
         storageKeys: {
@@ -59,6 +59,9 @@
         protectedIconUrls: [],
         defaultShortcuts: [],
         customActions: {},
+        actionHandlers: {},
+        allowOverrideBuiltinActions: false,
+        actionTypeMeta: {},
         colors: {
             primary: '#0066cc'
         },
@@ -962,6 +965,59 @@
         });
     })();
 /* -------------------------------------------------------------------------- *
+ * Module 03 · Action registry (extensible action handlers)
+ * -------------------------------------------------------------------------- */
+
+        function createActionRegistry({ consoleTag = "[ShortcutEngine]" } = {}) {
+            const entries = new Map();
+
+            function normalizeType(actionType) {
+                return String(actionType || "").trim();
+            }
+
+            function register(actionType, handler, meta = {}) {
+                const type = normalizeType(actionType);
+                if (!type) return false;
+                if (typeof handler !== "function") {
+                    console.warn(`${consoleTag} action handler for "${type}" is not a function; ignored.`);
+                    return false;
+                }
+                const safeMeta = meta && typeof meta === "object" ? { ...meta } : {};
+                entries.set(type, Object.freeze({ type, handler, meta: Object.freeze(safeMeta) }));
+                return true;
+            }
+
+            function unregister(actionType) {
+                const type = normalizeType(actionType);
+                if (!type) return false;
+                return entries.delete(type);
+            }
+
+            function has(actionType) {
+                const type = normalizeType(actionType);
+                if (!type) return false;
+                return entries.has(type);
+            }
+
+            function get(actionType) {
+                const type = normalizeType(actionType);
+                if (!type) return null;
+                return entries.get(type) || null;
+            }
+
+            function list() {
+                return Array.from(entries.values()).map((entry) => entry);
+            }
+
+            return Object.freeze({
+                register,
+                unregister,
+                has,
+                get,
+                list
+            });
+        }
+/* -------------------------------------------------------------------------- *
  * Module 03 · Engine core (storage, icons, state, shared helpers)
  * -------------------------------------------------------------------------- */
 
@@ -1018,6 +1074,7 @@
 	            destroyResponsiveListener: null,
 	            destroyDarkModeObserver: null,
 	            destroyDragCss: null,
+                destroyBaseCss: null,
 	            menuCommandRegistered: false,
 	            filterChangedEventName: `${idPrefix}-filterChanged`
 	        };
@@ -1131,6 +1188,7 @@
                 if (!id) {
                     id = key ? `key:${key}` : generateShortcutId();
                 }
+                const dataRaw = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : null;
 		            return {
                     id,
                     key,
@@ -1143,7 +1201,8 @@
 		                simulateKeys: normalizeHotkey(shortcut.simulateKeys || ""),
 		                customAction: shortcut.customAction || "",
 		                hotkey: normalizeHotkey(shortcut.hotkey || ""),
-		                icon: shortcut.icon || ""
+		                icon: shortcut.icon || "",
+                    data: dataRaw ? clone(dataRaw) : {}
 		            };
 		        }
 
@@ -1181,6 +1240,62 @@
 
         function createCoreLayer() {
             let hotkeyIndex = new Map();
+            let coreApi = null;
+            const actions = createActionRegistry({ consoleTag: options.consoleTag });
+
+            const BUILTIN_ACTION_TYPES = Object.freeze(["url", "selector", "simulate", "custom"]);
+
+            function registerBuiltInActions() {
+                actions.register("url", ({ shortcut }) => {
+                    if (shortcut?.url) {
+                        jumpToUrl(shortcut.url, shortcut.urlMethod, shortcut.urlAdvanced);
+                    } else {
+                        console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'url' but has no URL defined.`);
+                    }
+                }, { label: options?.text?.stats?.url || "URL跳转", shortLabel: "URL", color: "#4CAF50", builtin: true });
+
+                actions.register("selector", ({ shortcut }) => {
+                    if (shortcut?.selector) {
+                        clickElement(shortcut.selector);
+                    } else {
+                        console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'selector' but has no selector defined.`);
+                    }
+                }, { label: options?.text?.stats?.selector || "元素点击", shortLabel: "点击", color: "#FF9800", builtin: true });
+
+                actions.register("simulate", ({ shortcut }) => {
+                    if (shortcut?.simulateKeys) {
+                        simulateKeystroke(shortcut.simulateKeys);
+                    } else {
+                        console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'simulate' but has no simulateKeys defined.`);
+                    }
+                }, { label: options?.text?.stats?.simulate || "按键模拟", shortLabel: "按键", color: "#9C27B0", builtin: true });
+
+                actions.register("custom", ({ shortcut, event, engine }) => {
+                    executeCustomAction(shortcut, event, engine);
+                }, { label: options?.text?.stats?.custom || "自定义动作", shortLabel: "自定义", color: "#607D8B", builtin: true });
+            }
+
+            function registerUserActionHandlers() {
+                const handlers = options.actionHandlers && typeof options.actionHandlers === "object" ? options.actionHandlers : null;
+                if (!handlers) return;
+                const allowOverrideBuiltin = !!options.allowOverrideBuiltinActions;
+                for (const [type, handler] of Object.entries(handlers)) {
+                    if (!type) continue;
+                    if (BUILTIN_ACTION_TYPES.includes(type) && !allowOverrideBuiltin) {
+                        console.warn(`${options.consoleTag} actionHandlers attempted to override built-in action "${type}". Set allowOverrideBuiltinActions=true to allow.`);
+                        continue;
+                    }
+                    const meta = options.actionTypeMeta && typeof options.actionTypeMeta === "object" ? options.actionTypeMeta[type] : null;
+                    const finalMeta = meta && typeof meta === "object" ? { ...meta } : {};
+                    if (BUILTIN_ACTION_TYPES.includes(type) && typeof finalMeta.builtin !== "boolean") {
+                        finalMeta.builtin = false;
+                    }
+                    actions.register(type, handler, finalMeta);
+                }
+            }
+
+            registerBuiltInActions();
+            registerUserActionHandlers();
 
             function rebuildHotkeyIndex() {
                 const next = new Map();
@@ -1202,33 +1317,19 @@
 
             function executeShortcutAction(item, event) {
                 if (!item) return;
-                switch (item.actionType) {
-                    case 'url':
-                        if (item.url) {
-                            jumpToUrl(item.url, item.urlMethod, item.urlAdvanced);
-                        } else {
-                            console.warn(`${options.consoleTag} Shortcut "${item.name}" is type 'url' but has no URL defined.`);
-                        }
-                        break;
-                    case 'selector':
-                        if (item.selector) {
-                            clickElement(item.selector);
-                        } else {
-                            console.warn(`${options.consoleTag} Shortcut "${item.name}" is type 'selector' but has no selector defined.`);
-                        }
-                        break;
-                    case 'simulate':
-                        if (item.simulateKeys) {
-                            simulateKeystroke(item.simulateKeys);
-                        } else {
-                            console.warn(`${options.consoleTag} Shortcut "${item.name}" is type 'simulate' but has no simulateKeys defined.`);
-                        }
-                        break;
-                    case 'custom':
-                        executeCustomAction(item, event);
-                        break;
-                    default:
-                        console.warn(`${options.consoleTag} Shortcut "${item.name}" has unknown actionType: ${item.actionType}`);
+                const type = String(item.actionType || "").trim();
+                const entry = type ? actions.get(type) : null;
+                if (!entry || typeof entry.handler !== "function") {
+                    console.warn(`${options.consoleTag} Shortcut "${item?.name || ""}" has unknown actionType: ${type}`);
+                    return;
+                }
+                try {
+                    const res = entry.handler({ shortcut: item, event, engine: engineApi, core: coreApi, options });
+                    if (res && typeof res.then === "function") {
+                        res.catch((err) => console.warn(`${options.consoleTag} Action "${type}" rejected:`, err));
+                    }
+                } catch (err) {
+                    console.warn(`${options.consoleTag} Action "${type}" failed:`, err);
                 }
             }
 
@@ -1254,29 +1355,40 @@
 
             rebuildHotkeyIndex();
 
-	            return Object.freeze({
-	                setShortcuts: setShortcutsList,
-	                mutateShortcuts,
-	                persistShortcuts: saveShortcuts,
-	                getShortcuts: getShortcutsSnapshot,
-	                rebuildHotkeyIndex,
-	                getShortcutByHotkeyNorm,
-	                executeShortcutAction,
-	                hotkeys: Object.freeze({
-	                    normalize: normalizeHotkey,
-	                    modifierOrder: HOTKEY_MODIFIER_ORDER,
-	                    fromEvent: getHotkeyFromKeyboardEvent,
-	                    getMainKeyFromEvent: getStandardKeyFromKeyboardEvent,
-	                    isAllowedMainKey: isAllowedHotkeyMainKey,
-	                    isAllowedSimulateMainKey,
-	                    formatForDisplay: formatHotkeyForDisplay,
-	                    formatModifierToken: formatHotkeyModifierToken,
-	                    formatKeyToken: formatHotkeyMainKeyDisplayToken
-	                }),
-	                normalizeHotkey,
-	                normalizeShortcut
-	            });
-	        }
+                const actionApi = Object.freeze({
+                    register: actions.register,
+                    unregister: actions.unregister,
+                    has: actions.has,
+                    get: actions.get,
+                    list: actions.list,
+                    builtins: BUILTIN_ACTION_TYPES.slice()
+                });
+
+                coreApi = Object.freeze({
+		                setShortcuts: setShortcutsList,
+		                mutateShortcuts,
+		                persistShortcuts: saveShortcuts,
+		                getShortcuts: getShortcutsSnapshot,
+		                rebuildHotkeyIndex,
+		                getShortcutByHotkeyNorm,
+		                executeShortcutAction,
+                    actions: actionApi,
+		                hotkeys: Object.freeze({
+		                    normalize: normalizeHotkey,
+		                    modifierOrder: HOTKEY_MODIFIER_ORDER,
+		                    fromEvent: getHotkeyFromKeyboardEvent,
+		                    getMainKeyFromEvent: getStandardKeyFromKeyboardEvent,
+		                    isAllowedMainKey: isAllowedHotkeyMainKey,
+		                    isAllowedSimulateMainKey,
+		                    formatForDisplay: formatHotkeyForDisplay,
+		                    formatModifierToken: formatHotkeyModifierToken,
+		                    formatKeyToken: formatHotkeyMainKeyDisplayToken
+		                }),
+		                normalizeHotkey,
+		                normalizeShortcut
+		            });
+                return coreApi;
+		        }
 
         function createUiSharedLayer() {
             return Object.freeze({
@@ -1569,10 +1681,10 @@
             });
         }
 
-	        function detectInitialDarkMode() {
-	            const htmlEl = document.documentElement;
-	            const bodyEl = document.body;
-	            let detectedDarkMode = false;
+		        function detectInitialDarkMode() {
+		            const htmlEl = document.documentElement;
+		            const bodyEl = document.body;
+		            let detectedDarkMode = false;
 	            if (htmlEl.classList.contains('dark') || bodyEl?.classList?.contains('dark')) {
 	                detectedDarkMode = true;
 	            } else if (htmlEl.getAttribute('data-theme') === 'dark' || bodyEl?.getAttribute?.('data-theme') === 'dark') {
@@ -1591,11 +1703,12 @@
                     console.warn(`${options.consoleTag} Could not compute background color.`);
                 }
             }
-            if (state.isDarkMode !== detectedDarkMode) {
-                state.isDarkMode = detectedDarkMode;
-                notifyThemeChangeListeners();
-            }
-        }
+                applyThemeCssVariables(detectedDarkMode);
+	            if (state.isDarkMode !== detectedDarkMode) {
+	                state.isDarkMode = detectedDarkMode;
+	                notifyThemeChangeListeners();
+	            }
+	        }
 
         function isColorDark(colorStr) {
             if (!colorStr || colorStr === 'transparent')
@@ -2375,92 +2488,57 @@
         function getTableHeaderBackground(isDark = state.isDarkMode) {
             return isDark ? "#2d2d2d" : "#f5f5f5";
         }
-        function getHoverColor(isDark = state.isDarkMode) {
-            return isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)";
-        }
-
-        function styleTableHeader(th, isDark = state.isDarkMode) {
-            Object.assign(th.style, {
-                borderBottom: `2px solid ${getBorderColor(isDark)}`,
-                padding: "10px 8px",
-                textAlign: th.style.textAlign || "left",
-                background: getTableHeaderBackground(isDark),
-                fontWeight: "bold",
-                position: "sticky",
-                top: "-1px",
-                zIndex: "1",
-                color: getTextColor(isDark)
-            });
-        }
-        function styleTableCell(td, isDark = state.isDarkMode) {
-            Object.assign(td.style, {
-                padding: "10px 8px",
-                borderBottom: `1px solid ${getBorderColor(isDark)}`,
-                verticalAlign: "middle",
-                color: getTextColor(isDark),
-                fontSize: "14px"
-            });
-        }
-        function styleButton(btn, bgColor, hoverColor, isDark = state.isDarkMode) {
-            Object.assign(btn.style, {
-                background: bgColor,
-                border: `1px solid ${bgColor}`,
-                color: "#fff",
-                borderRadius: "6px",
-                padding: "8px 16px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-                transition: "background-color 0.2s ease, border-color 0.2s ease"
-            });
-            btn.onmouseover = () => {
-                btn.style.background = hoverColor;
-                btn.style.borderColor = hoverColor;
-            };
-            btn.onmouseout = () => {
-                btn.style.background = bgColor;
-                btn.style.borderColor = bgColor;
-            };
-            btn.onfocus = () => (btn.style.boxShadow = `0 0 0 2px ${getPanelBackgroundColor(isDark)}, 0 0 0 4px ${getPrimaryColor()}`);
-            btn.onblur = () => (btn.style.boxShadow = 'none');
-        }
-        function styleTransparentButton(btn, textColor, hoverBg, isDark = state.isDarkMode) {
-            Object.assign(btn.style, {
-                background: "transparent",
-                color: textColor,
-                border: "none",
-                borderRadius: "4px",
-                padding: "6px 8px",
-                cursor: "pointer",
-                fontSize: "16px",
-                lineHeight: "1",
-                transition: "background-color 0.2s ease"
-            });
-            btn.onmouseover = () => { btn.style.background = hoverBg; };
-            btn.onmouseout = () => { btn.style.background = "transparent"; };
-        }
-	        function styleInputField(input, isDark = state.isDarkMode) {
-	            Object.assign(input.style, {
-	                boxSizing: "border-box",
-	                width: "100%",
-                padding: "8px 10px",
-                border: `1px solid ${getBorderColor(isDark)}`,
-                borderRadius: "6px",
-                fontSize: "14px",
-                outline: "none",
-                background: getInputBackgroundColor(isDark),
-                color: getTextColor(isDark),
-                transition: "border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease"
-            });
-            input.onfocus = () => {
-                input.style.borderColor = getPrimaryColor();
-                input.style.boxShadow = `0 0 0 1px ${getPrimaryColor()}`;
-            };
-	            input.onblur = () => {
-	                input.style.borderColor = getBorderColor(isDark);
-	                input.style.boxShadow = 'none';
-	            };
+	        function getHoverColor(isDark = state.isDarkMode) {
+	            return isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)";
 	        }
+
+            function applyThemeCssVariables(isDark = state.isDarkMode) {
+                const root = document && document.documentElement ? document.documentElement : null;
+                if (!root) return;
+
+                const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
+                const setVar = (name, value) => {
+                    try { root.style.setProperty(`--${prefix}-${name}`, String(value ?? "")); } catch {}
+                };
+
+                setVar("primary", getPrimaryColor());
+                setVar("overlay-bg", getOverlayBackgroundColor(isDark));
+                setVar("panel-bg", getPanelBackgroundColor(isDark));
+                setVar("input-bg", getInputBackgroundColor(isDark));
+                setVar("text", getTextColor(isDark));
+                setVar("border", getBorderColor(isDark));
+                setVar("table-header-bg", getTableHeaderBackground(isDark));
+                setVar("hover-bg", getHoverColor(isDark));
+            }
+
+	        function styleTableHeader(th, isDark = state.isDarkMode) {
+                const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
+                th.classList.add(`${prefix}-th`);
+	        }
+	        function styleTableCell(td, isDark = state.isDarkMode) {
+                const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
+                td.classList.add(`${prefix}-td`);
+	        }
+	        function styleButton(btn, bgColor, hoverColor, isDark = state.isDarkMode) {
+                const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
+                btn.classList.add(`${prefix}-btn`);
+                try {
+                    btn.style.setProperty(`--${prefix}-btn-bg`, String(bgColor ?? ""));
+                    btn.style.setProperty(`--${prefix}-btn-hover-bg`, String(hoverColor ?? ""));
+                } catch {}
+	        }
+	        function styleTransparentButton(btn, textColor, hoverBg, isDark = state.isDarkMode) {
+                const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
+                btn.classList.add(`${prefix}-btn-ghost`);
+                try {
+                    btn.style.setProperty(`--${prefix}-ghost-color`, String(textColor ?? ""));
+                    btn.style.setProperty(`--${prefix}-ghost-hover-bg`, String(hoverBg ?? ""));
+                } catch {}
+	        }
+		        function styleInputField(input, isDark = state.isDarkMode) {
+                const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
+                input.classList.add(`${prefix}-input`);
+		        }
 
 	        function autoResizeTextarea(textarea) {
 	            textarea.style.height = "auto";
@@ -2482,11 +2560,11 @@
             textarea.style.height = newHeight + "px";
         }
 
-        const ctx = {
-            options,
-            state,
-            core,
-            uiShared,
+	        const ctx = {
+	            options,
+	            state,
+	            core,
+	            uiShared,
             idPrefix,
             cssPrefix,
             ids,
@@ -2497,12 +2575,14 @@
             setTrustedHTML: Utils?.dom?.setTrustedHTML,
             safeGMGet,
             safeGMSet,
-            debounce
-        };
+	            debounce
+	        };
 
-        engineApi = createEngineApi(ctx);
-        return engineApi;
-    }
+            applyThemeCssVariables(state.isDarkMode);
+
+	        engineApi = createEngineApi(ctx);
+	        return engineApi;
+	    }
 /* -------------------------------------------------------------------------- *
  * Module 04 · Keyboard handling (hotkey parsing, matching, action dispatch)
  * -------------------------------------------------------------------------- */
@@ -2685,12 +2765,20 @@
 	                const query = typeof queryLower === "string" ? queryLower : "";
 	                if (!query) return true;
 	                if (!shortcut) return false;
+                    let dataText = "";
+                    try {
+                        if (shortcut.data && typeof shortcut.data === "object") {
+                            dataText = JSON.stringify(shortcut.data);
+                        }
+                    } catch {}
 	                const haystack = [
 	                    shortcut.name,
 	                    shortcut.url,
 	                    shortcut.selector,
 	                    shortcut.simulateKeys,
-	                    shortcut.customAction
+	                    shortcut.customAction,
+                        shortcut.actionType,
+                        dataText
 	                ].filter(Boolean).join(" ").toLowerCase();
 	                return haystack.includes(query);
 	            }
@@ -2698,20 +2786,12 @@
 	            function getShortcutStats() {
 	                const list = core.getShortcuts();
 	                const query = String(state.searchQuery || "").trim().toLowerCase();
-	                const stats = {
-	                    total: 0,
-	                    url: 0,
-	                    selector: 0,
-	                    simulate: 0,
-	                    custom: 0
-	                };
+	                const stats = { total: 0, byType: Object.create(null) };
 	                list.forEach(shortcut => {
 	                    if (!matchesSearchQuery(shortcut, query)) return;
 	                    stats.total++;
-	                    if (shortcut.actionType === 'url') stats.url++;
-	                    else if (shortcut.actionType === 'selector') stats.selector++;
-	                    else if (shortcut.actionType === 'simulate') stats.simulate++;
-	                    else if (shortcut.actionType === 'custom') stats.custom++;
+                        const type = String(shortcut?.actionType || "").trim() || "unknown";
+                        stats.byType[type] = (stats.byType[type] || 0) + 1;
 	                });
 	                return stats;
 	            }
@@ -2723,22 +2803,103 @@
 	                for (let i = 0; i < list.length; i++) {
 	                    const shortcut = list[i];
 	                    if (!matchesSearchQuery(shortcut, query)) continue;
-	                    if (type === 'all' || shortcut.actionType === type) {
+                        const shortcutType = String(shortcut?.actionType || "").trim() || "unknown";
+	                    if (type === 'all' || shortcutType === type) {
 	                        filtered.push({ item: shortcut, index: i });
 	                    }
 	                }
 	                return filtered;
 	            }
 
+            const ACTION_TYPE_COLOR_MAP = Object.freeze({
+                all: "#0066cc",
+                url: "#4CAF50",
+                selector: "#FF9800",
+                simulate: "#9C27B0",
+                custom: "#607D8B"
+            });
+
+            const ACTION_TYPE_COLOR_PALETTE = Object.freeze([
+                "#009688",
+                "#3F51B5",
+                "#E91E63",
+                "#795548",
+                "#673AB7",
+                "#00BCD4",
+                "#8BC34A",
+                "#FFC107",
+                "#CDDC39",
+                "#FF5722"
+            ]);
+
+            function hashStringToNumber(input) {
+                const str = String(input || "");
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+                }
+                return Math.abs(hash);
+            }
+
+            function getStableTypeColor(type) {
+                const idx = hashStringToNumber(type) % ACTION_TYPE_COLOR_PALETTE.length;
+                return ACTION_TYPE_COLOR_PALETTE[idx] || ACTION_TYPE_COLOR_MAP.all;
+            }
+
             function getButtonColor(filterType) {
-                const colorMap = {
-                    'all': "#0066cc",
-                    'url': "#4CAF50",
-                    'selector': "#FF9800",
-                    'simulate': "#9C27B0",
-                    'custom': "#607D8B"
-                };
-                return colorMap[filterType] || "#0066cc";
+                const type = String(filterType || "").trim();
+                if (!type) return ACTION_TYPE_COLOR_MAP.all;
+                if (ACTION_TYPE_COLOR_MAP[type]) return ACTION_TYPE_COLOR_MAP[type];
+                return getStableTypeColor(type);
+            }
+
+            function normalizeHexColor(value) {
+                const v = String(value || "").trim();
+                return /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";
+            }
+
+            function getActionTypeMeta(actionType) {
+                const type = String(actionType || "").trim() || "unknown";
+                const entry = (typeof core?.actions?.get === "function") ? core.actions.get(type) : null;
+                const meta = entry && entry.meta && typeof entry.meta === "object" ? entry.meta : null;
+
+                const labelRaw = meta && typeof meta.label === "string" ? meta.label.trim() : "";
+                const label = labelRaw || (type === "unknown" ? "未知" : type);
+
+                const shortLabelRaw = meta && typeof meta.shortLabel === "string" ? meta.shortLabel.trim() : "";
+                let shortLabel = shortLabelRaw;
+                if (!shortLabel) {
+                    if (type === "url") shortLabel = "URL";
+                    else if (type === "selector") shortLabel = "点击";
+                    else if (type === "simulate") shortLabel = "按键";
+                    else if (type === "custom") shortLabel = "自定义";
+                    else shortLabel = label.length > 4 ? label.slice(0, 4) : label;
+                }
+
+                const color = normalizeHexColor(meta?.color) || getButtonColor(type);
+
+                const builtin = (meta && typeof meta.builtin === "boolean")
+                    ? meta.builtin
+                    : ["url", "selector", "simulate", "custom"].includes(type);
+
+                return { type, label, shortLabel, color, builtin };
+            }
+
+            function getShortcutTargetText(item) {
+                if (!item) return "-";
+                if (item.actionType === "url") return item.url || "-";
+                if (item.actionType === "selector") return item.selector || "-";
+                if (item.actionType === "simulate") return item.simulateKeys || "-";
+                if (item.actionType === "custom") return item.customAction || "-";
+                const data = item.data && typeof item.data === "object" ? item.data : null;
+                if (data && Object.keys(data).length > 0) {
+                    try {
+                        const json = JSON.stringify(data);
+                        if (json.length <= 180) return json;
+                        return json.slice(0, 177) + "...";
+                    } catch {}
+                }
+                return "-";
             }
 
             function updateFilterButtonsState() {
@@ -2890,13 +3051,33 @@
 		                    willChange: "transform"
 		                });
 
+                        const byType = stats?.byType && typeof stats.byType === "object" ? stats.byType : {};
+                        const presentTypes = Object.keys(byType).filter((type) => type && byType[type] > 0);
+                        const builtinOrder = Array.isArray(core?.actions?.builtins)
+                            ? core.actions.builtins.slice()
+                            : ["url", "selector", "simulate", "custom"];
+
 		                const filterButtons = [
-		                    { type: 'all', label: options.text.stats.total || "总计", count: stats.total, color: "#0066cc" },
-		                    { type: 'url', label: options.text.stats.url || "URL跳转", count: stats.url, color: "#4CAF50" },
-		                    { type: 'selector', label: options.text.stats.selector || "元素点击", count: stats.selector, color: "#FF9800" },
-		                    { type: 'simulate', label: options.text.stats.simulate || "按键模拟", count: stats.simulate, color: "#9C27B0" },
-		                    { type: 'custom', label: options.text.stats.custom || "自定义动作", count: stats.custom, color: "#607D8B" }
+		                    { type: 'all', label: options.text.stats.total || "总计", count: stats.total, color: getButtonColor("all") }
 		                ];
+
+                        builtinOrder.forEach((type) => {
+                            const count = byType[type] || 0;
+                            if (!count) return;
+                            const meta = getActionTypeMeta(type);
+                            filterButtons.push({ type, label: meta.label, count, color: meta.color });
+                        });
+
+                        const builtinSet = new Set(builtinOrder);
+                        const extraButtons = presentTypes
+                            .filter((type) => !builtinSet.has(type))
+                            .map((type) => {
+                                const meta = getActionTypeMeta(type);
+                                return { type, label: meta.label, count: byType[type], color: meta.color };
+                            })
+                            .sort((a, b) => String(a.label).localeCompare(String(b.label), "zh", { numeric: true }));
+
+                        extraButtons.forEach((btn) => filterButtons.push(btn));
 		                filterButtons.forEach(buttonData => {
 		                    if (buttonData.type !== 'all' && buttonData.count === 0) return;
 		                    const button = createFilterButton(buttonData.label, buttonData.count, buttonData.color, buttonData.type);
@@ -3286,283 +3467,22 @@
 
 	            panel.appendChild(headerContainer);
 
-            const listContainer = document.createElement("div");
-	            Object.assign(listContainer.style, {
-	                maxHeight: "calc(80vh - 150px)", overflowY: "auto", marginBottom: "15px",
-	                width: "100%", overflowX: "hidden"
-	            });
-	            panel.appendChild(listContainer);
+	            const listContainer = document.createElement("div");
+		            Object.assign(listContainer.style, {
+		                maxHeight: "calc(80vh - 150px)", overflowY: "auto", marginBottom: "15px",
+		                width: "100%", overflowX: "hidden"
+		            });
+		            panel.appendChild(listContainer);
 
-	            function getExportPayload() {
-	                const shortcuts = core.getShortcuts();
-	                const userIcons = safeGMGet(options.storageKeys.userIcons, []);
-	                return {
-	                    schemaVersion: 1,
-	                    exportedAt: new Date().toISOString(),
-	                    shortcuts,
-	                    userIcons
-	                };
-	            }
+                    const dnd = panelCreateDragAndDropController(ctx, { renderShortcutsList, updateStatsDisplay });
 
-	            async function tryCopyToClipboard(text) {
-	                const value = String(text ?? "");
-	                try {
-	                    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-	                        await navigator.clipboard.writeText(value);
-	                        return true;
-	                    }
-	                } catch {}
-	                try {
-	                    const ta = document.createElement("textarea");
-	                    ta.value = value;
-	                    ta.style.position = "fixed";
-	                    ta.style.top = "-1000px";
-	                    ta.style.left = "-1000px";
-	                    document.body.appendChild(ta);
-	                    ta.focus();
-	                    ta.select();
-	                    const ok = document.execCommand && document.execCommand("copy");
-	                    document.body.removeChild(ta);
-	                    return !!ok;
-	                } catch {
-	                    return false;
-	                }
-	            }
+			            function openExportDialog() {
+			                panelOpenExportDialog(ctx, { overlay });
+			            }
 
-	            function openExportDialog() {
-	                const payload = getExportPayload();
-	                const json = JSON.stringify(payload, null, 2);
-
-	                const ioOverlay = document.createElement("div");
-	                Object.assign(ioOverlay.style, {
-	                    position: "fixed",
-	                    top: 0,
-	                    left: 0,
-	                    width: "100vw",
-	                    height: "100vh",
-	                    zIndex: "999999",
-	                    display: "flex",
-	                    alignItems: "center",
-	                    justifyContent: "center",
-	                    padding: "20px",
-	                    boxSizing: "border-box"
-	                });
-	                ioOverlay.onclick = (e) => { if (e.target === ioOverlay) close(); };
-
-	                const box = document.createElement("div");
-	                Object.assign(box.style, {
-	                    width: "100%",
-	                    maxWidth: "820px",
-	                    maxHeight: "90vh",
-	                    overflow: "auto",
-	                    borderRadius: "8px",
-	                    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-	                    padding: "16px",
-	                    boxSizing: "border-box"
-	                });
-	                box.onclick = (e) => e.stopPropagation();
-
-	                const titleEl = document.createElement("h3");
-	                titleEl.textContent = options.text.buttons.export || "导出";
-	                Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
-	                box.appendChild(titleEl);
-
-	                const textarea = document.createElement("textarea");
-	                textarea.value = json;
-	                textarea.readOnly = true;
-	                Object.assign(textarea.style, { height: "360px", resize: "vertical" });
-	                box.appendChild(textarea);
-
-	                const btnRow = document.createElement("div");
-	                Object.assign(btnRow.style, {
-	                    display: "flex",
-	                    justifyContent: "flex-end",
-	                    gap: "10px",
-	                    marginTop: "12px",
-	                    flexWrap: "wrap"
-	                });
-
-	                const copyBtn = document.createElement("button");
-	                copyBtn.textContent = options.text.buttons.copy || "复制";
-	                copyBtn.onclick = async () => {
-	                    const ok = await tryCopyToClipboard(textarea.value);
-	                    if (ok) showAlert("已复制到剪贴板。");
-	                    else showAlert("复制失败，请手动复制。");
-	                };
-	                btnRow.appendChild(copyBtn);
-
-	                const closeBtn = document.createElement("button");
-	                closeBtn.textContent = options.text.buttons.close || "关闭";
-	                closeBtn.onclick = close;
-	                btnRow.appendChild(closeBtn);
-
-	                box.appendChild(btnRow);
-	                ioOverlay.appendChild(box);
-	                overlay.appendChild(ioOverlay);
-
-	                const updateTheme = (isDark) => {
-	                    ioOverlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
-	                    box.style.background = getPanelBackgroundColor(isDark);
-	                    box.style.color = getTextColor(isDark);
-	                    titleEl.style.color = getTextColor(isDark);
-	                    styleInputField(textarea, isDark);
-	                    textarea.style.height = "360px";
-	                    textarea.style.resize = "vertical";
-	                    styleButton(copyBtn, "#2196F3", "#1e88e5");
-	                    styleButton(closeBtn, "#9E9E9E", "#757575");
-	                };
-
-	                addThemeChangeListener(updateTheme);
-	                updateTheme(state.isDarkMode);
-
-	                function close() {
-	                    removeThemeChangeListener(updateTheme);
-	                    try { ioOverlay.remove(); } catch {}
-	                }
-	            }
-
-	            function openImportDialog() {
-	                const ioOverlay = document.createElement("div");
-	                Object.assign(ioOverlay.style, {
-	                    position: "fixed",
-	                    top: 0,
-	                    left: 0,
-	                    width: "100vw",
-	                    height: "100vh",
-	                    zIndex: "999999",
-	                    display: "flex",
-	                    alignItems: "center",
-	                    justifyContent: "center",
-	                    padding: "20px",
-	                    boxSizing: "border-box"
-	                });
-	                ioOverlay.onclick = (e) => { if (e.target === ioOverlay) close(); };
-
-	                const box = document.createElement("div");
-	                Object.assign(box.style, {
-	                    width: "100%",
-	                    maxWidth: "820px",
-	                    maxHeight: "90vh",
-	                    overflow: "auto",
-	                    borderRadius: "8px",
-	                    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-	                    padding: "16px",
-	                    boxSizing: "border-box"
-	                });
-	                box.onclick = (e) => e.stopPropagation();
-
-	                const titleEl = document.createElement("h3");
-	                titleEl.textContent = options.text.buttons.import || "导入";
-	                Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
-	                box.appendChild(titleEl);
-
-	                const tip = document.createElement("div");
-	                tip.textContent = "支持导入 { shortcuts: [...], userIcons?: [...] } 或直接导入 shortcuts 数组。";
-	                Object.assign(tip.style, { fontSize: "12px", opacity: "0.75", marginBottom: "8px", lineHeight: "1.4" });
-	                box.appendChild(tip);
-
-	                const textarea = document.createElement("textarea");
-	                textarea.placeholder = "粘贴 JSON 到这里…";
-	                Object.assign(textarea.style, { height: "360px", resize: "vertical" });
-	                box.appendChild(textarea);
-
-	                const btnRow = document.createElement("div");
-	                Object.assign(btnRow.style, {
-	                    display: "flex",
-	                    justifyContent: "flex-end",
-	                    gap: "10px",
-	                    marginTop: "12px",
-	                    flexWrap: "wrap"
-	                });
-
-	                const confirmBtn = document.createElement("button");
-	                confirmBtn.textContent = options.text.buttons.confirm || "确定";
-	                confirmBtn.onclick = () => {
-	                    let parsed = null;
-	                    try {
-	                        parsed = JSON.parse(textarea.value);
-	                    } catch (err) {
-	                        showAlert("JSON 解析失败，请检查格式。");
-	                        return;
-	                    }
-
-	                    const shortcutsRaw = Array.isArray(parsed)
-	                        ? parsed
-	                        : (Array.isArray(parsed?.shortcuts) ? parsed.shortcuts : null);
-	                    if (!Array.isArray(shortcutsRaw)) {
-	                        showAlert("导入数据中未找到 shortcuts 数组。");
-	                        return;
-	                    }
-
-	                    const normalized = shortcutsRaw.map((sc) => core.normalizeShortcut(sc));
-	                    const hotkeyMap = new Map();
-	                    const duplicates = [];
-	                    for (const sc of normalized) {
-	                        const hk = String(sc?.hotkey || "");
-	                        if (!hk) continue;
-	                        if (hotkeyMap.has(hk)) {
-	                            duplicates.push([hk, hotkeyMap.get(hk), sc.name || ""]);
-	                        } else {
-	                            hotkeyMap.set(hk, sc.name || "");
-	                        }
-	                    }
-	                    if (duplicates.length > 0) {
-	                        const lines = duplicates.slice(0, 12).map(([hk, a, b]) => `${hk}: ${a} / ${b}`).join("\n");
-	                        showAlert(`导入失败：存在重复快捷键(请先在 JSON 中修复)：\n${lines}${duplicates.length > 12 ? "\n..." : ""}`);
-	                        return;
-	                    }
-
-	                    core.setShortcuts(normalized, { persist: false });
-
-	                    if (!Array.isArray(parsed)) {
-	                        const iconsRaw = Array.isArray(parsed?.userIcons) ? parsed.userIcons : null;
-	                        if (iconsRaw) {
-	                            const cleaned = iconsRaw
-	                                .map((it) => ({
-	                                    name: typeof it?.name === "string" ? it.name.trim() : "",
-	                                    url: typeof it?.url === "string" ? it.url.trim() : ""
-	                                }))
-	                                .filter((it) => it.name && it.url);
-	                            safeGMSet(options.storageKeys.userIcons, cleaned);
-	                        }
-	                    }
-
-	                    renderShortcutsList(state.isDarkMode);
-	                    updateStatsDisplay();
-	                    close();
-	                };
-	                btnRow.appendChild(confirmBtn);
-
-	                const cancelBtn = document.createElement("button");
-	                cancelBtn.textContent = options.text.buttons.cancel || "取消";
-	                cancelBtn.onclick = close;
-	                btnRow.appendChild(cancelBtn);
-
-	                box.appendChild(btnRow);
-	                ioOverlay.appendChild(box);
-	                overlay.appendChild(ioOverlay);
-
-	                const updateTheme = (isDark) => {
-	                    ioOverlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
-	                    box.style.background = getPanelBackgroundColor(isDark);
-	                    box.style.color = getTextColor(isDark);
-	                    titleEl.style.color = getTextColor(isDark);
-	                    tip.style.color = getTextColor(isDark);
-	                    styleInputField(textarea, isDark);
-	                    textarea.style.height = "360px";
-	                    textarea.style.resize = "vertical";
-	                    styleButton(confirmBtn, "#2196F3", "#1e88e5");
-	                    styleButton(cancelBtn, "#9E9E9E", "#757575");
-	                };
-
-	                addThemeChangeListener(updateTheme);
-	                updateTheme(state.isDarkMode);
-
-	                function close() {
-	                    removeThemeChangeListener(updateTheme);
-	                    try { ioOverlay.remove(); } catch {}
-	                }
-	            }
+		            function openImportDialog() {
+		                panelOpenImportDialog(ctx, { overlay, renderShortcutsList, updateStatsDisplay });
+		            }
 
 	            function resetToDefaults() {
 	                const defaults = Array.isArray(options.defaultShortcuts) ? options.defaultShortcuts : [];
@@ -3936,7 +3856,7 @@
 
 	            function createStandardTableRow(item, index, isDark) {
 	                const row = document.createElement("tr");
-	                setupDragAndDrop(row, item, index);
+	                dnd.setupDragAndDrop(row, item, index);
 
                 const tdIcon = document.createElement("td");
                 styleTableCell(tdIcon, isDark);
@@ -3951,27 +3871,31 @@
                 styleTableCell(tdName, isDark);
 
                 const tdType = document.createElement("td");
-                let typeText = "未知";
-                switch(item.actionType) {
-                    case 'url': typeText = "URL跳转"; break;
-                    case 'selector': typeText = "元素点击"; break;
-                    case 'simulate': typeText = "按键模拟"; break;
-                    case 'custom': typeText = "自定义动作"; break;
-                }
-                tdType.textContent = typeText;
+                const typeMeta = getActionTypeMeta(item.actionType);
+                tdType.textContent = typeMeta.label;
+                tdType.title = typeMeta.type;
                 Object.assign(tdType.style, { fontSize: "0.9em", opacity: "0.8" });
                 styleTableCell(tdType, isDark);
 
                 const tdTarget = document.createElement("td");
-                const targetText = item.url || item.selector || item.simulateKeys || item.customAction || "-";
+                const targetText = getShortcutTargetText(item);
                 tdTarget.textContent = targetText;
-                if (item.actionType === 'url' && item.url) {
+                if (typeMeta.builtin && item.actionType === 'url' && item.url) {
                     const methodText = (typeof getUrlMethodDisplayText === "function")
                         ? getUrlMethodDisplayText(item.urlMethod)
                         : (URL_METHODS?.[item.urlMethod]?.name || "未知跳转方式");
                     tdTarget.title = `${methodText}:\n---\n${targetText}`;
                 } else {
-                    tdTarget.title = targetText;
+                    let titleText = targetText;
+                    if (!typeMeta.builtin) {
+                        try {
+                            const data = item.data && typeof item.data === "object" ? item.data : null;
+                            if (data && Object.keys(data).length > 0) {
+                                titleText = JSON.stringify(data, null, 2);
+                            }
+                        } catch {}
+                    }
+                    tdTarget.title = titleText;
                 }
                 Object.assign(tdTarget.style, {
                     wordBreak: "break-all", maxWidth: "300px", overflow: "hidden",
@@ -4013,7 +3937,7 @@
                     boxSizing: "border-box"
                 });
 
-	                setupDragAndDrop(card, item, index);
+		                dnd.setupDragAndDrop(card, item, index);
 
                 const firstRow = document.createElement("div");
                 Object.assign(firstRow.style, {
@@ -4042,15 +3966,9 @@
                 nameContainer.textContent = item.name;
 
                 const typeContainer = document.createElement("div");
-                let typeText = "未知";
-                switch(item.actionType) {
-                    case 'url': typeText = "URL"; break;
-                    case 'selector': typeText = "点击"; break;
-                    case 'simulate': typeText = "按键"; break;
-                    case 'custom': typeText = "自定义"; break;
-                }
+                const typeMeta = getActionTypeMeta(item.actionType);
                 Object.assign(typeContainer.style, {
-                    backgroundColor: getPrimaryColor(),
+                    backgroundColor: typeMeta.color,
                     color: "white",
                     padding: "2px 6px",
                     borderRadius: "4px",
@@ -4058,7 +3976,8 @@
                     fontWeight: "bold",
                     whiteSpace: "nowrap"
                 });
-                typeContainer.textContent = typeText;
+                typeContainer.textContent = typeMeta.shortLabel;
+                typeContainer.title = typeMeta.label;
 
                 const hotkeyContainer = document.createElement("div");
                 Object.assign(hotkeyContainer.style, {
@@ -4101,15 +4020,25 @@
                     boxSizing: "border-box"
                 });
 
-                const targetText = item.url || item.selector || item.simulateKeys || item.customAction || "（无目标配置）";
-                secondRow.textContent = targetText;
-                if (item.actionType === 'url' && item.url) {
+                const targetText = getShortcutTargetText(item);
+                const displayTargetText = targetText === "-" ? "（无目标配置）" : targetText;
+                secondRow.textContent = displayTargetText;
+                if (typeMeta.builtin && item.actionType === 'url' && item.url) {
                     const methodText = (typeof getUrlMethodDisplayText === "function")
                         ? getUrlMethodDisplayText(item.urlMethod)
                         : (URL_METHODS?.[item.urlMethod]?.name || "未知跳转方式");
-                    secondRow.title = `${methodText}:\n---\n${targetText}`;
+                    secondRow.title = `${methodText}:\n---\n${displayTargetText}`;
                 } else {
-                    secondRow.title = targetText;
+                    let titleText = displayTargetText;
+                    if (!typeMeta.builtin) {
+                        try {
+                            const data = item.data && typeof item.data === "object" ? item.data : null;
+                            if (data && Object.keys(data).length > 0) {
+                                titleText = JSON.stringify(data, null, 2);
+                            }
+                        } catch {}
+                    }
+                    secondRow.title = titleText;
                 }
 
                 card.appendChild(firstRow);
@@ -4179,148 +4108,7 @@
                 return buttonContainer;
             }
 
-	            let draggingShortcutId = null;
-
-	            function matchesCurrentView(shortcut) {
-	                if (!shortcut) return false;
-	                if (state.currentFilter && state.currentFilter !== 'all') {
-	                    if (shortcut.actionType !== state.currentFilter) return false;
-	                }
-	                const query = String(state.searchQuery || "").trim().toLowerCase();
-	                if (!query) return true;
-	                const haystack = [
-	                    shortcut.name,
-	                    shortcut.url,
-	                    shortcut.selector,
-	                    shortcut.simulateKeys,
-	                    shortcut.customAction
-	                ].filter(Boolean).join(" ").toLowerCase();
-	                return haystack.includes(query);
-	            }
-
-	            function reorderShortcutsInCurrentView(fromId, toId, { after = false } = {}) {
-	                const from = typeof fromId === "string" ? fromId.trim() : "";
-	                const to = typeof toId === "string" ? toId.trim() : "";
-	                if (!from || !to || from === to) return false;
-
-	                let changed = false;
-	                core.mutateShortcuts((list) => {
-	                    const indices = [];
-	                    const items = [];
-	                    for (let i = 0; i < list.length; i++) {
-	                        const sc = list[i];
-	                        if (matchesCurrentView(sc)) {
-	                            indices.push(i);
-	                            items.push(sc);
-	                        }
-	                    }
-
-	                    const fromPos = items.findIndex((sc) => sc && sc.id === from);
-	                    const toPos = items.findIndex((sc) => sc && sc.id === to);
-	                    if (fromPos < 0 || toPos < 0 || fromPos === toPos) return;
-
-	                    const moved = items.splice(fromPos, 1)[0];
-	                    let insertPos = toPos + (after ? 1 : 0);
-	                    if (fromPos < insertPos) insertPos -= 1;
-	                    if (insertPos < 0) insertPos = 0;
-	                    if (insertPos > items.length) insertPos = items.length;
-	                    items.splice(insertPos, 0, moved);
-
-	                    for (let i = 0; i < indices.length; i++) {
-	                        list[indices[i]] = items[i];
-	                    }
-	                    changed = true;
-	                });
-	                return changed;
-	            }
-
-	            function setupDragAndDrop(element, item, index) {
-	                const shortcutId = item && typeof item.id === "string" ? item.id : "";
-	                element.setAttribute("draggable", "true");
-	                element.style.cursor = "move";
-	                element.dataset.index = index;
-	                element.dataset.shortcutId = shortcutId;
-
-	                element.addEventListener("dragstart", (e) => {
-	                    draggingShortcutId = shortcutId || null;
-	                    try {
-	                        if (e.dataTransfer) {
-	                            e.dataTransfer.effectAllowed = "move";
-	                            e.dataTransfer.setData("text/plain", shortcutId || "");
-	                        }
-	                    } catch {}
-
-	                    element.classList.add("dragging");
-	                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
-	                    if (container) container.classList.add("is-dragging");
-	                });
-
-	                element.addEventListener("dragover", (e) => {
-	                    e.preventDefault();
-	                    try { if (e.dataTransfer) e.dataTransfer.dropEffect = "move"; } catch {}
-
-	                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
-	                    const draggingElement = container?.querySelector?.(".dragging") || document.querySelector(".dragging");
-	                    if (!draggingElement || draggingElement === element) return;
-
-	                    const rect = element.getBoundingClientRect();
-	                    const midY = rect.top + rect.height / 2;
-
-	                    if (container) {
-	                        container.querySelectorAll(".dragover-top, .dragover-bottom").forEach((el) => {
-	                            el.classList.remove("dragover-top", "dragover-bottom");
-	                        });
-	                    }
-
-	                    element.classList.add(e.clientY < midY ? "dragover-top" : "dragover-bottom");
-	                });
-
-	                element.addEventListener("dragleave", () => {
-	                    element.classList.remove("dragover-top", "dragover-bottom");
-	                });
-
-	                element.addEventListener("drop", (e) => {
-	                    e.preventDefault();
-	                    e.stopPropagation();
-
-	                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
-	                    if (container) {
-	                        container.querySelectorAll(".dragover-top, .dragover-bottom").forEach((el) => {
-	                            el.classList.remove("dragover-top", "dragover-bottom");
-	                        });
-	                    }
-
-	                    const fromId = draggingShortcutId || (() => {
-	                        try { return e.dataTransfer ? e.dataTransfer.getData("text/plain") : ""; } catch { return ""; }
-	                    })();
-	                    const toId = shortcutId;
-	                    const dropAfter = element.classList.contains("dragover-bottom");
-	                    if (!fromId || !toId || fromId === toId) return;
-
-	                    try {
-	                        const changed = reorderShortcutsInCurrentView(fromId, toId, { after: dropAfter });
-	                        if (changed) {
-	                            renderShortcutsList(state.isDarkMode);
-	                            updateStatsDisplay();
-	                        }
-	                    } catch (err) {
-	                        console.error("Drag-and-drop error:", err);
-	                        showAlert("拖拽排序时出错: " + err);
-	                    }
-	                });
-
-	                element.addEventListener("dragend", () => {
-	                    draggingShortcutId = null;
-	                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
-	                    if (container) {
-	                        container.classList.remove("is-dragging");
-	                        container.querySelectorAll(".dragging, .dragover-top, .dragover-bottom").forEach((el) => {
-	                            el.classList.remove("dragging", "dragover-top", "dragover-bottom");
-	                        });
-	                    }
-	                });
-	            }
-
+                    
 		            function closePanel() {
 		                closeSettingsMenu({ restoreFocus: false });
 		                state.currentPanelCloser = null;
@@ -4346,205 +4134,502 @@
 	                }, 300);
 	            }
 
-            function editShortcut(item = null, index = -1) {
-                const isNew = !item;
-                let temp = item ? { ...item } : {
-                    name: "",
-                    actionType: "url",
-                    url: "",
-                    urlMethod: "current",
-                    urlAdvanced: "href",
-                    selector: "",
-                    simulateKeys: "",
-                    customAction: "",
-                    hotkey: "",
-                    icon: ""
-                };
-                if (item && !item.actionType) {
-                    temp.actionType = item.url ? 'url' : (item.selector ? 'selector' : (item.simulateKeys ? 'simulate' : (item.customAction ? 'custom' : 'url')));
+	            function editShortcut(item = null, index = -1) {
+                    panelOpenShortcutEditor(ctx, { item, index, renderShortcutsList, updateStatsDisplay });
+	            }
+
+
+        }
+
+	            return Object.freeze({ openSettingsPanel, closeSettingsPanel });
+	        }
+/* -------------------------------------------------------------------------- *
+ * Module 05 · Panel Drag & Drop (reorder within current view)
+ * -------------------------------------------------------------------------- */
+
+	        function panelCreateDragAndDropController(ctx, { renderShortcutsList, updateStatsDisplay } = {}) {
+            const { ids, classes, state, core, uiShared } = ctx;
+            const { showAlert } = uiShared.dialogs;
+
+            let draggingShortcutId = null;
+
+            function matchesCurrentView(shortcut) {
+                if (!shortcut) return false;
+                if (state.currentFilter && state.currentFilter !== 'all') {
+                    if (shortcut.actionType !== state.currentFilter) return false;
                 }
-                if (!temp.customAction) temp.customAction = "";
-                if (!temp.urlMethod) temp.urlMethod = "current";
-                if (!temp.urlAdvanced) temp.urlAdvanced = "href";
+                const query = String(state.searchQuery || "").trim().toLowerCase();
+                if (!query) return true;
+                const haystack = [
+                    shortcut.name,
+                    shortcut.url,
+                    shortcut.selector,
+                    shortcut.simulateKeys,
+                    shortcut.customAction
+                ].filter(Boolean).join(" ").toLowerCase();
+                return haystack.includes(query);
+            }
 
-                const editOverlay = document.createElement("div");
-                editOverlay.id = ids.editOverlay;
-                Object.assign(editOverlay.style, {
-                    position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-                    backgroundColor: "rgba(0, 0, 0, 0.3)", zIndex: "99999", display: "flex",
-                    justifyContent: "center", alignItems: "center", padding: "20px", boxSizing: "border-box"
-                });
+            function reorderShortcutsInCurrentView(fromId, toId, { after = false } = {}) {
+                const from = typeof fromId === "string" ? fromId.trim() : "";
+                const to = typeof toId === "string" ? toId.trim() : "";
+                if (!from || !to || from === to) return false;
 
-                const formDiv = document.createElement("div");
-                formDiv.id = ids.editForm;
-                Object.assign(formDiv.style, {
-                    borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                    padding: "20px", fontFamily: "sans-serif", position: "relative",
-                    opacity: "0", transform: "translateY(20px)",
-                    transition: "opacity 0.3s ease, transform 0.3s ease",
-                    maxHeight: "90vh", overflowY: "auto",
-                    width: "100%", maxWidth: "500px", minWidth: "320px"
-                });
-                formDiv.onclick = (e) => e.stopPropagation();
-
-                const h3 = document.createElement("h3");
-                h3.textContent = isNew ? "添加快捷键" : "编辑快捷键";
-                Object.assign(h3.style, { marginTop: "0", marginBottom: "15px", fontSize: "1.1em" });
-                formDiv.appendChild(h3);
-
-                const nameInput = createInputField("名称:", temp.name, "text");
-                formDiv.appendChild(nameInput.label);
-
-                const actionTypeDiv = document.createElement("div");
-                actionTypeDiv.style.margin = "15px 0";
-                const actionTypeLabel = document.createElement("div");
-                actionTypeLabel.textContent = "操作类型:";
-                Object.assign(actionTypeLabel.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
-                actionTypeDiv.appendChild(actionTypeLabel);
-                const actionTypes = [
-                    { value: 'url', text: 'URL 跳转' },
-                    { value: 'selector', text: '元素点击' },
-                    { value: 'simulate', text: '按键模拟' },
-                    { value: 'custom', text: '自定义动作' }
-                ];
-                const radioGroup = document.createElement("div");
-                Object.assign(radioGroup.style, { display: 'flex', gap: '15px', flexWrap: 'wrap' });
-                const actionInputs = {};
-                actionTypes.forEach(at => {
-                    const radioLabel = document.createElement("label");
-                    Object.assign(radioLabel.style, { display: 'inline-flex', alignItems: 'center', cursor: 'pointer' });
-                    const radio = document.createElement("input");
-                    radio.type = "radio";
-                    radio.name = "actionType";
-                    radio.value = at.value;
-                    radio.checked = temp.actionType === at.value;
-                    Object.assign(radio.style, { marginRight: "5px", cursor: 'pointer' });
-                    radio.addEventListener('change', () => {
-                        if (radio.checked) {
-                            temp.actionType = at.value;
-                            urlContainer.style.display = (at.value === 'url') ? 'block' : 'none';
-                            selectorContainer.style.display = (at.value === 'selector') ? 'block' : 'none';
-                            simulateContainer.style.display = (at.value === 'simulate') ? 'block' : 'none';
-                            customContainer.style.display = (at.value === 'custom') ? 'block' : 'none';
+                let changed = false;
+                core.mutateShortcuts((list) => {
+                    const indices = [];
+                    const items = [];
+                    for (let i = 0; i < list.length; i++) {
+                        const sc = list[i];
+                        if (matchesCurrentView(sc)) {
+                            indices.push(i);
+                            items.push(sc);
                         }
-                    });
-                    radioLabel.appendChild(radio);
-                    radioLabel.appendChild(document.createTextNode(at.text));
-                    radioGroup.appendChild(radioLabel);
-                });
-                actionTypeDiv.appendChild(radioGroup);
-                formDiv.appendChild(actionTypeDiv);
-
-                const urlContainer = document.createElement('div');
-                const urlTextarea = createInputField("目标网址 (URL):", temp.url, "textarea", "例如: https://example.com/search?q=%s");
-                urlContainer.appendChild(urlTextarea.label);
-
-                const urlMethodContainer = createUrlMethodConfigUI(temp.urlMethod, temp.urlAdvanced);
-                urlContainer.appendChild(urlMethodContainer.container);
-
-                formDiv.appendChild(urlContainer);
-                actionInputs.url = urlTextarea.input;
-
-                const selectorContainer = document.createElement('div');
-                const selectorTextarea = createInputField("目标选择器 (Selector):", temp.selector, "textarea", '例如: label[for="sidebar-visible"]');
-                selectorContainer.appendChild(selectorTextarea.label);
-                formDiv.appendChild(selectorContainer);
-                actionInputs.selector = selectorTextarea.input;
-
-                const simulateContainer = document.createElement('div');
-                const { container: simulateInputContainer, getSimulateKeys, destroy: destroySimulateKeysCapture } = createEnhancedKeyboardCaptureInput("模拟按键:", temp.simulateKeys, {
-                    placeholder: options.text.hints.simulate,
-                    hint: options.text.hints.simulateHelp,
-                    methodName: "getSimulateKeys",
-                    captureType: "simulate"
-                });
-                simulateContainer.appendChild(simulateInputContainer);
-                formDiv.appendChild(simulateContainer);
-
-                const customContainer = document.createElement('div');
-                const customActionField = createInputField("自定义动作 (customAction):", temp.customAction, "text", "从脚本提供的 customActions 中选择/输入 key");
-                customContainer.appendChild(customActionField.label);
-                formDiv.appendChild(customContainer);
-                actionInputs.customAction = customActionField.input;
-
-                try {
-                    const keys = Object.keys(options.customActions || {}).filter(Boolean).sort();
-                    if (keys.length) {
-                        const datalist = document.createElement("datalist");
-                        datalist.id = `${idPrefix}-custom-actions-list`;
-                        keys.forEach(k => {
-                            const opt = document.createElement("option");
-                            opt.value = k;
-                            datalist.appendChild(opt);
-                        });
-                        customActionField.input.setAttribute("list", datalist.id);
-                        customActionField.label.appendChild(datalist);
                     }
-                } catch {}
 
-                const { label: iconLabel, input: iconTextarea, preview: iconPreview, destroy: destroyIconField } = createIconField("图标URL:", temp.icon);
-                formDiv.appendChild(iconLabel);
+                    const fromPos = items.findIndex((sc) => sc && sc.id === from);
+                    const toPos = items.findIndex((sc) => sc && sc.id === to);
+                    if (fromPos < 0 || toPos < 0 || fromPos === toPos) return;
 
-                setIconImage(iconPreview, temp.icon || "");
-                const debouncedPreview = debounce(() => {
-                    const val = iconTextarea.value.trim();
-                    setIconImage(iconPreview, val || "");
-                }, 300);
-                iconTextarea.addEventListener("input", () => {
-                    autoResizeTextarea(iconTextarea);
-                    debouncedPreview();
+                    const moved = items.splice(fromPos, 1)[0];
+                    let insertPos = toPos + (after ? 1 : 0);
+                    if (fromPos < insertPos) insertPos -= 1;
+                    if (insertPos < 0) insertPos = 0;
+                    if (insertPos > items.length) insertPos = items.length;
+                    items.splice(insertPos, 0, moved);
+
+                    for (let i = 0; i < indices.length; i++) {
+                        list[indices[i]] = items[i];
+                    }
+                    changed = true;
+                });
+                return changed;
+            }
+
+            function setupDragAndDrop(element, item, index) {
+                const shortcutId = item && typeof item.id === "string" ? item.id : "";
+                element.setAttribute("draggable", "true");
+                element.style.cursor = "move";
+                element.dataset.index = index;
+                element.dataset.shortcutId = shortcutId;
+
+                element.addEventListener("dragstart", (e) => {
+                    draggingShortcutId = shortcutId || null;
+                    try {
+                        if (e.dataTransfer) {
+                            e.dataTransfer.effectAllowed = "move";
+                            e.dataTransfer.setData("text/plain", shortcutId || "");
+                        }
+                    } catch {}
+
+                    element.classList.add("dragging");
+                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
+                    if (container) container.classList.add("is-dragging");
                 });
 
-                const { container: iconLibraryContainer, updateTheme: updateIconLibraryTheme } = createIconLibraryUI(iconTextarea, iconPreview);
-                formDiv.appendChild(iconLibraryContainer);
+                element.addEventListener("dragover", (e) => {
+                    e.preventDefault();
+                    try { if (e.dataTransfer) e.dataTransfer.dropEffect = "move"; } catch {}
 
-                const { container: hotkeyContainer, getHotkey, destroy: destroyHotkeyCapture } = createEnhancedKeyboardCaptureInput("快捷键:", temp.hotkey, {
-                    placeholder: options.text.hints.hotkey,
-                    hint: options.text.hints.hotkeyHelp,
-                    methodName: "getHotkey"
+                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
+                    const draggingElement = container?.querySelector?.(".dragging") || document.querySelector(".dragging");
+                    if (!draggingElement || draggingElement === element) return;
+
+                    const rect = element.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+
+                    if (container) {
+                        container.querySelectorAll(".dragover-top, .dragover-bottom").forEach((el) => {
+                            el.classList.remove("dragover-top", "dragover-bottom");
+                        });
+                    }
+
+                    element.classList.add(e.clientY < midY ? "dragover-top" : "dragover-bottom");
                 });
-                formDiv.appendChild(hotkeyContainer);
 
-                urlContainer.style.display = (temp.actionType === 'url') ? 'block' : 'none';
-                selectorContainer.style.display = (temp.actionType === 'selector') ? 'block' : 'none';
-                simulateContainer.style.display = (temp.actionType === 'simulate') ? 'block' : 'none';
-                customContainer.style.display = (temp.actionType === 'custom') ? 'block' : 'none';
-
-                const btnRow = document.createElement("div");
-                Object.assign(btnRow.style, {
-                    marginTop: "20px", display: "flex", justifyContent: "flex-end",
-                    gap: "10px", flexWrap: "wrap"
+                element.addEventListener("dragleave", () => {
+                    element.classList.remove("dragover-top", "dragover-bottom");
                 });
 
-                const confirmBtn = document.createElement("button");
-                confirmBtn.textContent = options.text.buttons.confirm || "确定";
-                confirmBtn.onclick = () => {
-                    temp.name = nameInput.input.value.trim();
-                    temp.url = actionInputs.url.value.trim();
-                    temp.selector = actionInputs.selector.value.trim();
-                    temp.simulateKeys = getSimulateKeys().replace(/\s+/g, "");
-                    temp.customAction = (actionInputs.customAction?.value || "").trim();
-                    temp.icon = iconTextarea.value.trim();
-                    const finalHotkey = getHotkey();
-                    const urlMethodConfig = urlMethodContainer.getConfig();
-                    temp.urlMethod = urlMethodConfig.method;
-                    temp.urlAdvanced = urlMethodConfig.advanced;
+                element.addEventListener("drop", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
 
-                    if (!temp.name) { showAlert("请填写名称!"); return; }
-                    if (temp.actionType === 'url' && !temp.url) { showAlert("请填写目标网址!"); return; }
-                    if (temp.actionType === 'selector' && !temp.selector) { showAlert("请填写目标选择器!"); return; }
-                    if (temp.actionType === 'simulate' && !temp.simulateKeys) { showAlert("请设置模拟按键!"); return; }
-                    if (temp.actionType === 'custom' && !temp.customAction) { showAlert("请设置自定义动作 key!"); return; }
-                    if (!finalHotkey) { showAlert("请设置快捷键!"); return; }
-                    if (finalHotkey.endsWith('+')) { showAlert("快捷键设置不完整 (缺少主键)!"); return; }
+                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
+                    if (container) {
+                        container.querySelectorAll(".dragover-top, .dragover-bottom").forEach((el) => {
+                            el.classList.remove("dragover-top", "dragover-bottom");
+                        });
+                    }
 
-                    const normalizedNewHotkey = normalizeHotkey(finalHotkey);
-                    if (core.getShortcuts().some((s, i) => normalizeHotkey(s.hotkey) === normalizedNewHotkey && i !== index)) {
-                        showAlert("该快捷键已被其他项使用, 请选择其他组合!");
+                    const fromId = draggingShortcutId || (() => {
+                        try { return e.dataTransfer ? e.dataTransfer.getData("text/plain") : ""; } catch { return ""; }
+                    })();
+                    const toId = shortcutId;
+                    const dropAfter = element.classList.contains("dragover-bottom");
+                    if (!fromId || !toId || fromId === toId) return;
+
+                    try {
+                        const changed = reorderShortcutsInCurrentView(fromId, toId, { after: dropAfter });
+                        if (changed) {
+                            if (typeof renderShortcutsList === "function") renderShortcutsList(state.isDarkMode);
+                            if (typeof updateStatsDisplay === "function") updateStatsDisplay();
+                        }
+                    } catch (err) {
+                        console.error("Drag-and-drop error:", err);
+                        showAlert("拖拽排序时出错: " + err);
+                    }
+                });
+
+                element.addEventListener("dragend", () => {
+                    draggingShortcutId = null;
+                    const container = element.closest(`#${ids.tableBody}`) || element.closest(`.${classes.compactContainer}`);
+                    if (container) {
+                        container.classList.remove("is-dragging");
+                        container.querySelectorAll(".dragging, .dragover-top, .dragover-bottom").forEach((el) => {
+                            el.classList.remove("dragging", "dragover-top", "dragover-bottom");
+                        });
+                    }
+                });
+            }
+
+            return Object.freeze({ setupDragAndDrop });
+        }
+/* -------------------------------------------------------------------------- *
+ * Module 05 · Panel Editor (add/edit shortcut, icon picker, hotkey capture)
+ * -------------------------------------------------------------------------- */
+
+	        function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderShortcutsList, updateStatsDisplay } = {}) {
+            const {
+                options,
+                state,
+                core,
+                uiShared,
+                idPrefix,
+                ids,
+                URL_METHODS,
+                setIconImage,
+                debounce,
+            } = ctx;
+            const { theme, colors, style, dialogs, layout } = uiShared;
+            const { addThemeChangeListener, removeThemeChangeListener } = theme;
+            const {
+                getPrimaryColor,
+                getPanelBackgroundColor,
+                getInputBackgroundColor,
+                getTextColor,
+                getBorderColor,
+                getHoverColor
+            } = colors;
+            const { styleButton, styleInputField } = style;
+            const { showAlert } = dialogs;
+            const { autoResizeTextarea } = layout;
+
+            const normalizeHotkey = core.normalizeHotkey;
+
+            const isNew = !item;
+            const temp = item
+                ? { ...item, data: (item && typeof item.data === "object" && !Array.isArray(item.data)) ? clone(item.data) : {} }
+                : {
+                name: "",
+                actionType: "url",
+                url: "",
+                urlMethod: "current",
+                urlAdvanced: "href",
+                selector: "",
+                simulateKeys: "",
+                customAction: "",
+                hotkey: "",
+                icon: "",
+                data: {}
+            };
+            if (item && !item.actionType) {
+                temp.actionType = item.url ? 'url' : (item.selector ? 'selector' : (item.simulateKeys ? 'simulate' : (item.customAction ? 'custom' : 'url')));
+            }
+            if (!temp.customAction) temp.customAction = "";
+            if (!temp.urlMethod) temp.urlMethod = "current";
+            if (!temp.urlAdvanced) temp.urlAdvanced = "href";
+
+            const editOverlay = document.createElement("div");
+            editOverlay.id = ids.editOverlay;
+            Object.assign(editOverlay.style, {
+                position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+                backgroundColor: "rgba(0, 0, 0, 0.3)", zIndex: "99999", display: "flex",
+                justifyContent: "center", alignItems: "center", padding: "20px", boxSizing: "border-box"
+            });
+
+            const formDiv = document.createElement("div");
+            formDiv.id = ids.editForm;
+            Object.assign(formDiv.style, {
+                borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                padding: "20px", fontFamily: "sans-serif", position: "relative",
+                opacity: "0", transform: "translateY(20px)",
+                transition: "opacity 0.3s ease, transform 0.3s ease",
+                maxHeight: "90vh", overflowY: "auto",
+                width: "100%", maxWidth: "500px", minWidth: "320px"
+            });
+            formDiv.onclick = (e) => e.stopPropagation();
+
+            const h3 = document.createElement("h3");
+            h3.textContent = isNew ? "添加快捷键" : "编辑快捷键";
+            Object.assign(h3.style, { marginTop: "0", marginBottom: "15px", fontSize: "1.1em" });
+            formDiv.appendChild(h3);
+
+            const nameInput = panelCreateInputField(ctx, "名称:", temp.name, "text");
+            formDiv.appendChild(nameInput.label);
+
+            const actionTypeDiv = document.createElement("div");
+            actionTypeDiv.style.margin = "15px 0";
+            const actionTypeLabel = document.createElement("div");
+            actionTypeLabel.textContent = "操作类型:";
+            Object.assign(actionTypeLabel.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
+            actionTypeDiv.appendChild(actionTypeLabel);
+            const builtinLabels = Object.freeze({
+                url: options?.text?.stats?.url || "URL跳转",
+                selector: options?.text?.stats?.selector || "元素点击",
+                simulate: options?.text?.stats?.simulate || "按键模拟",
+                custom: options?.text?.stats?.custom || "自定义动作"
+            });
+
+            const builtinOrder = Array.isArray(core?.actions?.builtins)
+                ? core.actions.builtins.slice()
+                : ["url", "selector", "simulate", "custom"];
+            const builtinSet = new Set(builtinOrder);
+
+            const actionEntries = (typeof core?.actions?.list === "function") ? core.actions.list() : [];
+            const entriesByType = new Map(actionEntries.map((entry) => [String(entry?.type || "").trim(), entry]));
+            const usedTypes = new Set();
+            const actionTypes = [];
+
+            function addActionType(type, fallbackLabel) {
+                const normalized = String(type || "").trim();
+                if (!normalized || usedTypes.has(normalized)) return;
+                usedTypes.add(normalized);
+                const entry = entriesByType.get(normalized);
+                const metaLabel = entry && entry.meta && typeof entry.meta.label === "string" ? entry.meta.label.trim() : "";
+                actionTypes.push({ value: normalized, text: metaLabel || fallbackLabel || normalized });
+            }
+
+            builtinOrder.forEach((type) => addActionType(type, builtinLabels[type] || type));
+
+            const extraTypes = [];
+            actionEntries.forEach((entry) => {
+                const type = String(entry?.type || "").trim();
+                if (!type || usedTypes.has(type)) return;
+                const metaLabel = entry && entry.meta && typeof entry.meta.label === "string" ? entry.meta.label.trim() : "";
+                extraTypes.push({ value: type, text: metaLabel || type });
+            });
+            extraTypes.sort((a, b) => String(a.text).localeCompare(String(b.text), "zh", { numeric: true }));
+            extraTypes.forEach((opt) => addActionType(opt.value, opt.text));
+
+            if (temp.actionType && !usedTypes.has(temp.actionType)) {
+                addActionType(temp.actionType, `${temp.actionType} (未注册)`);
+            }
+
+            const actionTypeHint = document.createElement("div");
+            Object.assign(actionTypeHint.style, { marginTop: "6px", fontSize: "12px", opacity: "0.75", lineHeight: "1.4" });
+            actionTypeDiv.appendChild(actionTypeHint);
+
+            function isBuiltinActionType(type) {
+                const normalized = String(type || "").trim();
+                const entry = entriesByType.get(normalized);
+                if (entry && entry.meta && typeof entry.meta.builtin === "boolean") return entry.meta.builtin;
+                return builtinSet.has(normalized);
+            }
+
+            function updateActionTypeHint(type) {
+                const normalized = String(type || "").trim();
+                if (!normalized) {
+                    actionTypeHint.textContent = "";
+                    return;
+                }
+                if (!entriesByType.has(normalized)) {
+                    actionTypeHint.textContent = "该类型当前未注册 handler；触发时会提示 unknown actionType。";
+                    return;
+                }
+                if (!isBuiltinActionType(normalized)) {
+                    actionTypeHint.textContent = "扩展类型：可在下方 data JSON 传递参数。";
+                    return;
+                }
+                actionTypeHint.textContent = "";
+            }
+            const radioGroup = document.createElement("div");
+            Object.assign(radioGroup.style, { display: 'flex', gap: '15px', flexWrap: 'wrap' });
+            const actionInputs = {};
+            actionTypes.forEach(at => {
+                const radioLabel = document.createElement("label");
+                Object.assign(radioLabel.style, { display: 'inline-flex', alignItems: 'center', cursor: 'pointer' });
+                const radio = document.createElement("input");
+                radio.type = "radio";
+                radio.name = "actionType";
+                radio.value = at.value;
+                radio.checked = temp.actionType === at.value;
+                Object.assign(radio.style, { marginRight: "5px", cursor: 'pointer' });
+                radio.addEventListener('change', () => {
+                    if (radio.checked) {
+                        temp.actionType = at.value;
+                        const isBuiltin = isBuiltinActionType(at.value);
+                        urlContainer.style.display = (isBuiltin && at.value === 'url') ? 'block' : 'none';
+                        selectorContainer.style.display = (isBuiltin && at.value === 'selector') ? 'block' : 'none';
+                        simulateContainer.style.display = (isBuiltin && at.value === 'simulate') ? 'block' : 'none';
+                        customContainer.style.display = (isBuiltin && at.value === 'custom') ? 'block' : 'none';
+                        updateActionTypeHint(at.value);
+                    }
+                });
+                radioLabel.appendChild(radio);
+                radioLabel.appendChild(document.createTextNode(at.text));
+                radioGroup.appendChild(radioLabel);
+            });
+            actionTypeDiv.appendChild(radioGroup);
+            formDiv.appendChild(actionTypeDiv);
+
+            const urlContainer = document.createElement('div');
+            const urlTextarea = panelCreateInputField(ctx, "目标网址 (URL):", temp.url, "textarea", "例如: https://example.com/search?q=%s");
+            urlContainer.appendChild(urlTextarea.label);
+
+            const urlMethodContainer = panelCreateUrlMethodConfigUI(ctx, temp.urlMethod, temp.urlAdvanced);
+            urlContainer.appendChild(urlMethodContainer.container);
+
+            formDiv.appendChild(urlContainer);
+            actionInputs.url = urlTextarea.input;
+
+            const selectorContainer = document.createElement('div');
+            const selectorTextarea = panelCreateInputField(ctx, "目标选择器 (Selector):", temp.selector, "textarea", '例如: label[for="sidebar-visible"]');
+            selectorContainer.appendChild(selectorTextarea.label);
+            formDiv.appendChild(selectorContainer);
+            actionInputs.selector = selectorTextarea.input;
+
+            const simulateContainer = document.createElement('div');
+            const simulateCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, "模拟按键:", temp.simulateKeys, {
+                placeholder: options.text.hints.simulate,
+                hint: options.text.hints.simulateHelp,
+                methodName: "getSimulateKeys",
+                captureType: "simulate"
+            });
+            const { container: simulateInputContainer, destroy: destroySimulateKeysCapture } = simulateCapture;
+            const getSimulateKeys = simulateCapture.getSimulateKeys;
+            simulateContainer.appendChild(simulateInputContainer);
+            formDiv.appendChild(simulateContainer);
+
+            const customContainer = document.createElement('div');
+            const customActionField = panelCreateInputField(ctx, "自定义动作 (customAction):", temp.customAction, "text", "从脚本提供的 customActions 中选择/输入 key");
+            customContainer.appendChild(customActionField.label);
+            formDiv.appendChild(customContainer);
+            actionInputs.customAction = customActionField.input;
+
+            try {
+                const keys = Object.keys(options.customActions || {}).filter(Boolean).sort();
+                if (keys.length) {
+                    const datalist = document.createElement("datalist");
+                    datalist.id = `${idPrefix}-custom-actions-list`;
+                    keys.forEach(k => {
+                        const opt = document.createElement("option");
+                        opt.value = k;
+                        datalist.appendChild(opt);
+                    });
+                    customActionField.input.setAttribute("list", datalist.id);
+                    customActionField.label.appendChild(datalist);
+                }
+            } catch {}
+
+            const dataField = panelCreateInputField(
+                ctx,
+                "扩展参数 (data JSON，可选):",
+                JSON.stringify(temp.data || {}, null, 2),
+                "textarea",
+                '例如: {"foo":"bar"}'
+            );
+            formDiv.appendChild(dataField.label);
+            const dataTextarea = dataField.input;
+
+            const iconField = panelCreateIconField(ctx, "图标URL:", temp.icon);
+            const { label: iconLabel, input: iconTextarea, preview: iconPreview, destroy: destroyIconField } = iconField;
+            formDiv.appendChild(iconLabel);
+
+            setIconImage(iconPreview, temp.icon || "");
+            const debouncedPreview = debounce(() => {
+                const val = iconTextarea.value.trim();
+                setIconImage(iconPreview, val || "");
+            }, 300);
+            iconTextarea.addEventListener("input", () => {
+                autoResizeTextarea(iconTextarea);
+                debouncedPreview();
+            });
+
+            const iconLibrary = panelCreateIconLibraryUI(ctx, iconTextarea, iconPreview);
+            const { container: iconLibraryContainer, destroy: destroyIconLibrary } = iconLibrary;
+            formDiv.appendChild(iconLibraryContainer);
+
+            const hotkeyCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, "快捷键:", temp.hotkey, {
+                placeholder: options.text.hints.hotkey,
+                hint: options.text.hints.hotkeyHelp,
+                methodName: "getHotkey"
+            });
+            const { container: hotkeyContainer, destroy: destroyHotkeyCapture } = hotkeyCapture;
+            const getHotkey = hotkeyCapture.getHotkey;
+            formDiv.appendChild(hotkeyContainer);
+
+            const initialBuiltin = isBuiltinActionType(temp.actionType);
+            urlContainer.style.display = (initialBuiltin && temp.actionType === 'url') ? 'block' : 'none';
+            selectorContainer.style.display = (initialBuiltin && temp.actionType === 'selector') ? 'block' : 'none';
+            simulateContainer.style.display = (initialBuiltin && temp.actionType === 'simulate') ? 'block' : 'none';
+            customContainer.style.display = (initialBuiltin && temp.actionType === 'custom') ? 'block' : 'none';
+            updateActionTypeHint(temp.actionType);
+
+            const btnRow = document.createElement("div");
+            Object.assign(btnRow.style, {
+                marginTop: "20px", display: "flex", justifyContent: "flex-end",
+                gap: "10px", flexWrap: "wrap"
+            });
+
+            const confirmBtn = document.createElement("button");
+            confirmBtn.textContent = options.text.buttons.confirm || "确定";
+            confirmBtn.onclick = () => {
+                temp.name = nameInput.input.value.trim();
+                temp.url = actionInputs.url.value.trim();
+                temp.selector = actionInputs.selector.value.trim();
+                temp.simulateKeys = getSimulateKeys().replace(/\s+/g, "");
+                temp.customAction = (actionInputs.customAction?.value || "").trim();
+                temp.icon = iconTextarea.value.trim();
+
+                let parsedData = {};
+                const dataText = String(dataTextarea?.value || "").trim();
+                if (dataText) {
+                    try {
+                        parsedData = JSON.parse(dataText);
+                    } catch {
+                        showAlert("data JSON 解析失败，请检查格式。");
                         return;
                     }
-                    temp.hotkey = finalHotkey;
+                    if (!parsedData || typeof parsedData !== "object" || Array.isArray(parsedData)) {
+                        showAlert("data 必须是 JSON 对象 (例如 {\"foo\":\"bar\"})。");
+                        return;
+                    }
+                }
+                temp.data = parsedData;
 
+                const finalHotkey = getHotkey();
+                const urlMethodConfig = urlMethodContainer.getConfig();
+                temp.urlMethod = urlMethodConfig.method;
+                temp.urlAdvanced = urlMethodConfig.advanced;
+
+                if (!temp.name) { showAlert("请填写名称!"); return; }
+                const isBuiltinAction = isBuiltinActionType(temp.actionType);
+                if (isBuiltinAction && temp.actionType === 'url' && !temp.url) { showAlert("请填写目标网址!"); return; }
+                if (isBuiltinAction && temp.actionType === 'selector' && !temp.selector) { showAlert("请填写目标选择器!"); return; }
+                if (isBuiltinAction && temp.actionType === 'simulate' && !temp.simulateKeys) { showAlert("请设置模拟按键!"); return; }
+                if (isBuiltinAction && temp.actionType === 'custom' && !temp.customAction) { showAlert("请设置自定义动作 key!"); return; }
+                if (!finalHotkey) { showAlert("请设置快捷键!"); return; }
+                if (finalHotkey.endsWith('+')) { showAlert("快捷键设置不完整 (缺少主键)!"); return; }
+
+                const normalizedNewHotkey = normalizeHotkey(finalHotkey);
+                if (core.getShortcuts().some((s, i) => normalizeHotkey(s.hotkey) === normalizedNewHotkey && i !== index)) {
+                    showAlert("该快捷键已被其他项使用, 请选择其他组合!");
+                    return;
+                }
+                temp.hotkey = finalHotkey;
+
+                if (isBuiltinAction) {
                     if (temp.actionType !== 'url') {
                         temp.url = "";
                         temp.urlMethod = "current";
@@ -4553,794 +4638,1119 @@
                     if (temp.actionType !== 'selector') temp.selector = "";
                     if (temp.actionType !== 'simulate') temp.simulateKeys = "";
                     if (temp.actionType !== 'custom') temp.customAction = "";
+                }
 
-                    const normalized = core.normalizeShortcut(temp);
-                    core.mutateShortcuts((list) => {
-                        if (isNew) {
-                            list.push(normalized);
-                        } else {
-                            list[index] = normalized;
-                        }
-                    });
-                    renderShortcutsList(state.isDarkMode);
-                    updateStatsDisplay();
-                    closeEdit();
-                };
-                btnRow.appendChild(confirmBtn);
+                const normalized = core.normalizeShortcut(temp);
+                core.mutateShortcuts((list) => {
+                    if (isNew) {
+                        list.push(normalized);
+                    } else {
+                        list[index] = normalized;
+                    }
+                });
+                if (typeof renderShortcutsList === "function") renderShortcutsList(state.isDarkMode);
+                if (typeof updateStatsDisplay === "function") updateStatsDisplay();
+                closeEdit();
+            };
+            btnRow.appendChild(confirmBtn);
 
-                const cancelBtn = document.createElement("button");
-                cancelBtn.textContent = options.text.buttons.cancel || "取消";
-                cancelBtn.onclick = closeEdit;
-                btnRow.appendChild(cancelBtn);
+            const cancelBtn = document.createElement("button");
+            cancelBtn.textContent = options.text.buttons.cancel || "取消";
+            cancelBtn.onclick = closeEdit;
+            btnRow.appendChild(cancelBtn);
 
-	                formDiv.appendChild(btnRow);
-	                editOverlay.appendChild(formDiv);
-	                document.body.appendChild(editOverlay);
-	                state.currentEditCloser = closeEdit;
+            formDiv.appendChild(btnRow);
+            editOverlay.appendChild(formDiv);
+            document.body.appendChild(editOverlay);
+            state.currentEditCloser = closeEdit;
 
-	                const updateEditPanelTheme = (isDark) => {
-                    formDiv.style.background = getPanelBackgroundColor(isDark);
-                    formDiv.style.color = getTextColor(isDark);
-                    h3.style.borderBottom = `1px solid ${getBorderColor(isDark)}`;
-                    h3.style.paddingBottom = "10px";
-                    styleInputField(nameInput.input, isDark);
-                    styleInputField(actionInputs.url, isDark);
-                    styleInputField(actionInputs.selector, isDark);
-                    if (actionInputs.customAction) styleInputField(actionInputs.customAction, isDark);
-                    styleInputField(iconTextarea, isDark);
-                    actionTypeDiv.querySelectorAll('input[type="radio"]').forEach(rb => rb.style.accentColor = getPrimaryColor());
-                    urlMethodContainer.updateTheme(isDark);
-                    styleButton(confirmBtn, "#2196F3", "#1e88e5");
-                    styleButton(cancelBtn, "#9E9E9E", "#757575");
-                    updateIconLibraryTheme(isDark);
-                };
+            const updateEditPanelTheme = (isDark) => {
+                formDiv.style.background = getPanelBackgroundColor(isDark);
+                formDiv.style.color = getTextColor(isDark);
+                h3.style.borderBottom = `1px solid ${getBorderColor(isDark)}`;
+                h3.style.paddingBottom = "10px";
+                styleInputField(nameInput.input, isDark);
+                styleInputField(actionInputs.url, isDark);
+                styleInputField(actionInputs.selector, isDark);
+                if (actionInputs.customAction) styleInputField(actionInputs.customAction, isDark);
+                styleInputField(iconTextarea, isDark);
+                styleInputField(dataTextarea, isDark);
+                actionTypeHint.style.color = getTextColor(isDark);
+                actionTypeDiv.querySelectorAll('input[type="radio"]').forEach(rb => rb.style.accentColor = getPrimaryColor());
+                urlMethodContainer.updateTheme(isDark);
+                styleButton(confirmBtn, "#2196F3", "#1e88e5");
+                styleButton(cancelBtn, "#9E9E9E", "#757575");
+            };
 
-                addThemeChangeListener(updateEditPanelTheme);
-                updateEditPanelTheme(state.isDarkMode);
+            addThemeChangeListener(updateEditPanelTheme);
+            updateEditPanelTheme(state.isDarkMode);
 
-                requestAnimationFrame(() => {
-                    formDiv.style.opacity = "1";
+            requestAnimationFrame(() => {
+                formDiv.style.opacity = "1";
                     formDiv.style.transform = "translateY(0)";
                     setTimeout(() => {
-                        [actionInputs.url, actionInputs.selector, iconTextarea].forEach(ta => {
-                            if (ta && ta.tagName === 'TEXTAREA') {
-                                autoResizeTextarea(ta);
-                            }
-                        });
+                    [actionInputs.url, actionInputs.selector, iconTextarea, dataTextarea].forEach(ta => {
+                        if (ta && ta.tagName === 'TEXTAREA') {
+                            autoResizeTextarea(ta);
+                        }
+                    });
                     }, 350);
-                });
+            });
 
-	                function closeEdit() {
-	                    state.currentEditCloser = null;
-	                    removeThemeChangeListener(updateEditPanelTheme);
-	                    try { if (typeof destroyIconField === "function") destroyIconField(); } catch {}
-	                    try { if (typeof destroySimulateKeysCapture === "function") destroySimulateKeysCapture(); } catch {}
-	                    try { if (typeof destroyHotkeyCapture === "function") destroyHotkeyCapture(); } catch {}
-	                    formDiv.style.opacity = "0";
-	                    formDiv.style.transform = "translateY(20px)";
-	                    setTimeout(() => editOverlay.remove(), 300);
-	                }
+            function closeEdit() {
+                state.currentEditCloser = null;
+                removeThemeChangeListener(updateEditPanelTheme);
+                try { if (typeof destroyIconField === "function") destroyIconField(); } catch {}
+                try { if (typeof destroyIconLibrary === "function") destroyIconLibrary(); } catch {}
+                try { if (typeof destroySimulateKeysCapture === "function") destroySimulateKeysCapture(); } catch {}
+                try { if (typeof destroyHotkeyCapture === "function") destroyHotkeyCapture(); } catch {}
+                formDiv.style.opacity = "0";
+                formDiv.style.transform = "translateY(20px)";
+                setTimeout(() => editOverlay.remove(), 300);
             }
-
-            function createUrlMethodConfigUI(currentMethod = "current", currentAdvanced = "href") {
-                const container = document.createElement("div");
-                container.style.marginTop = "10px";
-
-                const titleRow = document.createElement("div");
-                Object.assign(titleRow.style, {
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: "8px"
-                });
-
-                const title = document.createElement("div");
-                title.textContent = "跳转方式:";
-                Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em" });
-                titleRow.appendChild(title);
-
-                const expandButton = document.createElement("button");
-                expandButton.type = "button";
-                expandButton.title = "展开/折叠高级选项";
-                Object.assign(expandButton.style, {
-                    width: "32px", height: "32px", padding: "0", cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "16px", border: "1px solid transparent", background: "transparent",
-                    borderRadius: "4px", transition: "background-color 0.2s ease, border-color 0.2s ease"
-                });
-                titleRow.appendChild(expandButton);
-                container.appendChild(titleRow);
-
-                const methodRow = document.createElement("div");
-                Object.assign(methodRow.style, {
-                    display: "flex",
-                    gap: "15px",
-                    marginBottom: "10px",
-                    flexWrap: "wrap"
-                });
-
-	                const methods = Object.entries(URL_METHODS || {}).map(([value, cfg]) => ({
-	                    value,
-	                    text: (cfg && cfg.name) ? cfg.name : value
-	                }));
-
-                let selectedMethod = currentMethod;
-                let selectedAdvanced = currentAdvanced;
-                let isExpanded = false;
-
-                methods.forEach(method => {
-                    const label = document.createElement("label");
-                    Object.assign(label.style, {
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        cursor: 'pointer'
-                    });
-
-                    const radio = document.createElement("input");
-                    radio.type = "radio";
-                    radio.name = "urlMethod";
-                    radio.value = method.value;
-                    radio.checked = selectedMethod === method.value;
-                    Object.assign(radio.style, { marginRight: "5px", cursor: 'pointer' });
-
-                    radio.addEventListener('change', () => {
-                        if (radio.checked) {
-                            selectedMethod = method.value;
-                            const defaultAdvanced = Object.keys(URL_METHODS[method.value].options)[0];
-                            selectedAdvanced = defaultAdvanced;
-                            updateAdvancedOptions();
-                            updateTheme(state.isDarkMode);
-                        }
-                    });
-
-                    label.appendChild(radio);
-                    label.appendChild(document.createTextNode(method.text));
-                    methodRow.appendChild(label);
-                });
-                container.appendChild(methodRow);
-
-                const advancedContainer = document.createElement("div");
-                Object.assign(advancedContainer.style, {
-                    display: "none",
-                    marginTop: "10px",
-                    padding: "8px",
-                    borderRadius: "6px",
-                    border: "1px solid"
-                });
-                container.appendChild(advancedContainer);
-
-	                function updateAdvancedOptions() {
-	                    advancedContainer.replaceChildren();
-	                    const advancedTitle = document.createElement("div");
-	                    advancedTitle.textContent = "高级选项:";
-	                    Object.assign(advancedTitle.style, {
-	                        fontWeight: "bold",
-                        fontSize: "0.8em",
-                        marginBottom: "8px",
-                        opacity: "0.8"
-                    });
-                    advancedContainer.appendChild(advancedTitle);
-
-                    const advancedRow = document.createElement("div");
-                    Object.assign(advancedRow.style, {
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "6px"
-                    });
-
-                    const methodConfig = URL_METHODS[selectedMethod];
-                    if (methodConfig) {
-                        Object.entries(methodConfig.options).forEach(([key, option]) => {
-                            const label = document.createElement("label");
-                            Object.assign(label.style, {
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                cursor: 'pointer',
-                                gap: '8px'
-                            });
-
-                            const radio = document.createElement("input");
-                            radio.type = "radio";
-                            radio.name = "urlAdvanced";
-                            radio.value = key;
-                            radio.checked = selectedAdvanced === key;
-                            Object.assign(radio.style, { cursor: 'pointer', marginTop: '2px' });
-                            radio.style.accentColor = getPrimaryColor();
-
-                            radio.addEventListener('change', () => {
-                                if (radio.checked) {
-                                    selectedAdvanced = key;
-                                }
-                            });
-
-                            const textContainer = document.createElement("div");
-                            Object.assign(textContainer.style, {
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '2px'
-                            });
-
-                            const nameSpan = document.createElement("span");
-                            nameSpan.textContent = option.name;
-                            Object.assign(nameSpan.style, {
-                                fontWeight: "bold",
-                                fontSize: "0.9em"
-                            });
-
-                            const descSpan = document.createElement("span");
-                            descSpan.textContent = option.desc;
-                            Object.assign(descSpan.style, {
-                                fontSize: "0.8em",
-                                opacity: "0.7",
-                                lineHeight: "1.3"
-                            });
-
-                            textContainer.appendChild(nameSpan);
-                            textContainer.appendChild(descSpan);
-
-                            label.appendChild(radio);
-                            label.appendChild(textContainer);
-                            advancedRow.appendChild(label);
-                        });
-                    }
-                    advancedContainer.appendChild(advancedRow);
-                }
-
-	                expandButton.addEventListener("click", () => {
-	                    isExpanded = !isExpanded;
-	                    advancedContainer.style.display = isExpanded ? 'block' : 'none';
-	                    expandButton.textContent = isExpanded ? '▲' : '▼';
-	                    if (isExpanded) {
-	                        updateTheme(state.isDarkMode);
-	                        updateAdvancedOptions();
-	                    }
-	                });
-
-	                expandButton.textContent = isExpanded ? '▲' : '▼';
-	                updateAdvancedOptions();
-
-                function updateTheme(isDark) {
-                    title.style.color = getTextColor(isDark);
-                    expandButton.style.color = getTextColor(isDark);
-                    expandButton.onmouseover = () => {
-                        expandButton.style.backgroundColor = getHoverColor(isDark);
-                        expandButton.style.borderColor = getPrimaryColor();
-                    };
-                    expandButton.onmouseout = () => {
-                        expandButton.style.backgroundColor = 'transparent';
-                        expandButton.style.borderColor = 'transparent';
-                    };
-                    expandButton.dispatchEvent(new Event('mouseout'));
-
-                    advancedContainer.style.backgroundColor = getInputBackgroundColor(isDark);
-                    advancedContainer.style.borderColor = getBorderColor(isDark);
-                    container.querySelectorAll('input[type="radio"]').forEach(radio => {
-                        radio.style.accentColor = getPrimaryColor();
-                    });
-                    container.querySelectorAll('label, span, div').forEach(el => {
-                        if (el !== title && !el.querySelector('input')) {
-                            el.style.color = getTextColor(isDark);
-                        }
-                    });
-                }
-
-                function getConfig() {
-                    return {
-                        method: selectedMethod,
-                        advanced: selectedAdvanced
-                    };
-                }
-
-                return {
-                    container,
-                    updateTheme,
-                    getConfig
-                };
-            }
-
-            function createInputField(labelText, value, type = "text", placeholder = "") {
-                const label = document.createElement("label");
-                Object.assign(label.style, { display: "block", margin: "12px 0 4px", fontWeight: "bold", fontSize: "0.9em" });
-                label.appendChild(document.createTextNode(labelText));
-
-                const input = type === "textarea" ? document.createElement("textarea") : document.createElement("input");
-                if (type !== "textarea") input.type = type;
-                input.value = value;
-                input.placeholder = placeholder;
-                input.style.display = 'block';
-
-                if (type === "textarea") {
-                    input.rows = 1;
-                    Object.assign(input.style, {
-                        minHeight: "36px",
-                        resize: "vertical",
-                        overflowY: "hidden"
-                    });
-                    input.addEventListener("input", function() { autoResizeTextarea(this); });
-                    requestAnimationFrame(() => autoResizeTextarea(input));
-                }
-                label.appendChild(input);
-                return { label, input };
-            }
-
-            function createIconField(labelText, value) {
-                const label = document.createElement("label");
-                Object.assign(label.style, { display: "block", margin: "12px 0 4px", fontWeight: "bold", fontSize: "0.9em" });
-                label.appendChild(document.createTextNode(labelText));
-
-                const wrap = document.createElement("div");
-                Object.assign(wrap.style, {
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "8px"
-                });
-
-                const textarea = document.createElement("textarea");
-                textarea.value = value || "";
-                textarea.placeholder = "在此粘贴URL, 或从下方图库选择";
-                textarea.rows = 1;
-                Object.assign(textarea.style, {
-                    minHeight: "36px",
-                    resize: "vertical",
-                    overflowY: "hidden",
-                    flexGrow: "1",
-                    minWidth: "200px"
-                });
-
-                const preview = document.createElement("img");
-                Object.assign(preview.style, { width: "36px", height: "36px", objectFit: "contain", borderRadius: "4px", flexShrink: "0" });
-
-                requestAnimationFrame(() => autoResizeTextarea(textarea));
-                wrap.appendChild(textarea);
-                wrap.appendChild(preview);
-                label.appendChild(wrap);
-
-                const updatePreviewTheme = (isDark) => {
-                    preview.style.border = `1px solid ${getBorderColor(isDark)}`;
-                    preview.style.backgroundColor = getInputBackgroundColor(isDark);
-                };
-                addThemeChangeListener(updatePreviewTheme);
-                updatePreviewTheme(state.isDarkMode);
-
-                const destroy = () => {
-                    removeThemeChangeListener(updatePreviewTheme);
-                };
-
-                return { label, input: textarea, preview, destroy };
-            }
-
-            function createIconLibraryUI(targetTextarea, targetPreviewImg) {
-                let userIcons = safeGMGet(options.storageKeys.userIcons, []);
-                let isExpanded = false;
-                let longPressTimer = null;
-
-                const container = document.createElement("div");
-                container.style.marginTop = "10px";
-
-                const title = document.createElement("div");
-                title.textContent = "或从图库选择:";
-                Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
-                container.appendChild(title);
-
-                const gridWrapper = document.createElement("div");
-                gridWrapper.style.position = "relative";
-                container.appendChild(gridWrapper);
-
-                const iconGrid = document.createElement("div");
-                Object.assign(iconGrid.style, {
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(36px, 1fr))",
-                    gap: "8px",
-                    padding: "8px",
-                    borderRadius: "6px",
-                    border: "1px solid",
-                    maxHeight: "170px",
-                    overflowY: "auto",
-                    transition: "background-color 0.2s ease, border-color 0.2s ease",
-                });
-                gridWrapper.appendChild(iconGrid);
-
-                const baseButtonStyle = {
-                    width: "32px", height: "32px", padding: "0",
-                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "16px", transition: "background-color 0.2s ease, border-color 0.2s ease",
-                    position: "absolute", zIndex: "2"
-                };
-
-                const expandButton = document.createElement("button");
-                expandButton.type = "button";
-                expandButton.title = "展开/折叠更多图标";
-                Object.assign(expandButton.style, baseButtonStyle, {
-                    border: "1px solid transparent",
-                    background: "transparent",
-                    top: "-16px",
-                    right: "8px",
-                    transform: "translateY(-50%)"
-                });
-	                expandButton.addEventListener("click", () => {
-	                    isExpanded = !isExpanded;
-	                    iconGrid.querySelectorAll('.extra-icon').forEach(btn => {
-	                        btn.style.display = isExpanded ? 'flex' : 'none';
-	                    });
-	                    expandButton.textContent = isExpanded ? '▲' : '▼';
-	                });
-	                gridWrapper.appendChild(expandButton);
-
-                const addButton = document.createElement("button");
-                addButton.type = "button";
-                addButton.textContent = "➕";
-                addButton.title = "将输入框中的图标URL添加到图库";
-                Object.assign(addButton.style, baseButtonStyle, {
-                    border: "1px solid",
-                    borderRadius: "4px",
-                    bottom: "8px",
-                    right: "8px",
-                });
-                addButton.addEventListener('click', () => {
-                    const url = targetTextarea.value.trim();
-                    if (!url) { showAlert("请输入图标的URL！"); return; }
-                    if (userIcons.some(icon => icon.url === url) || options.iconLibrary.some(icon => icon.url === url)) { showAlert("该图标已存在于图库中。"); return; }
-                    showPromptDialog("请输入图标的名称：", "", (name) => {
-                        if (name && name.trim()) {
-                            userIcons.push({ name: name.trim(), url: url });
-                            safeGMSet(options.storageKeys.userIcons, userIcons);
-                            renderIconGrid();
-                        }
-                    });
-                });
-                gridWrapper.appendChild(addButton);
-
-	                function renderIconGrid() {
-	                    iconGrid.replaceChildren();
-	                    const allIcons = [...options.iconLibrary, ...userIcons];
-
-                    allIcons.forEach(iconInfo => {
-                        const isProtected = options.protectedIconUrls.includes(iconInfo.url);
-                        const isUserAdded = userIcons.some(ui => ui.url === iconInfo.url);
-
-                        const button = document.createElement("button");
-                        button.type = "button";
-                        button.title = iconInfo.name + (isUserAdded ? " (长按删除)" : "");
-                        Object.assign(button.style, {
-                            width: "36px", height: "36px", padding: "4px", border: "1px solid", borderRadius: "4px",
-                            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                            transition: "background-color 0.2s ease, border-color 0.2s ease", position: "relative"
-                        });
-                        const img = document.createElement("img");
-                        Object.assign(img.style, { width: "24px", height: "24px", objectFit: "contain", pointerEvents: "none" });
-                        setIconImage(img, iconInfo.url);
-                        button.appendChild(img);
-
-                        if (!isProtected) {
-                            button.classList.add('extra-icon');
-                            button.style.display = isExpanded ? 'flex' : 'none';
-                        }
-
-                        button.addEventListener("click", () => {
-                            targetTextarea.value = iconInfo.url;
-                            setIconImage(targetPreviewImg, iconInfo.url);
-                            targetTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-                        });
-
-                        if (isUserAdded) {
-                            button.addEventListener("mousedown", (e) => {
-                                if (e.button !== 0) return;
-                                longPressTimer = setTimeout(() => {
-                                    showConfirmDialog(`确定要删除自定义图标 "${iconInfo.name}" 吗?`, () => {
-                                        userIcons = userIcons.filter(icon => icon.url !== iconInfo.url);
-                                        safeGMSet(options.storageKeys.userIcons, userIcons);
-                                        renderIconGrid();
-                                    });
-                                    longPressTimer = null;
-                                }, 1000);
-                            });
-                            const clearLongPress = () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
-                            button.addEventListener("mouseup", clearLongPress);
-                            button.addEventListener("mouseleave", clearLongPress);
-                        }
-
-                        iconGrid.appendChild(button);
-                    });
-                    updateTheme(state.isDarkMode);
-                }
-
-                const updateTheme = (isDark) => {
-                    title.style.color = getTextColor(isDark);
-                    gridWrapper.style.backgroundColor = getInputBackgroundColor(isDark);
-                    gridWrapper.style.borderColor = getBorderColor(isDark);
-                    iconGrid.style.borderColor = 'transparent';
-
-                    const gridButtons = Array.from(iconGrid.querySelectorAll('button'));
-
-                    addButton.style.backgroundColor = getInputBackgroundColor(isDark);
-                    addButton.style.borderColor = getBorderColor(isDark);
-                    addButton.style.color = getTextColor(isDark);
-                    addButton.onmouseover = () => {
-                        addButton.style.backgroundColor = getHoverColor(isDark);
-                        addButton.style.borderColor = getPrimaryColor();
-                    };
-                    addButton.onmouseout = () => {
-                        addButton.style.backgroundColor = getInputBackgroundColor(isDark);
-                        addButton.style.borderColor = getBorderColor(isDark);
-                    };
-
-                    expandButton.style.color = getTextColor(isDark);
-                    expandButton.onmouseover = () => {
-                        expandButton.style.backgroundColor = getHoverColor(isDark);
-                        expandButton.style.borderColor = getPrimaryColor();
-                    };
-                    expandButton.onmouseout = () => {
-                        expandButton.style.backgroundColor = 'transparent';
-                        expandButton.style.borderColor = 'transparent';
-                    };
-                    expandButton.dispatchEvent(new Event('mouseout'));
-
-                    gridButtons.forEach(btn => {
-                        btn.style.backgroundColor = "transparent";
-                        btn.style.borderColor = getBorderColor(isDark);
-                        btn.style.color = getTextColor(isDark);
-                        btn.onmouseover = () => {
-                            btn.style.backgroundColor = getHoverColor(isDark);
-                            btn.style.borderColor = getPrimaryColor();
-                        };
-                        btn.onmouseout = () => {
-                            btn.style.backgroundColor = "transparent";
-                            btn.style.borderColor = getBorderColor(isDark);
-                        };
-                    });
-                };
-
-	                renderIconGrid();
-	                expandButton.textContent = isExpanded ? '▲' : '▼';
-
-	                return { container, updateTheme };
-	            }
-
-	            function createEnhancedKeyboardCaptureInput(labelText, currentValue, {
-	                placeholder = "点击此处，然后按下快捷键组合",
-	                hint = "💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合",
-	                methodName = "getHotkey",
-	                captureType = "hotkey"
-	            } = {}) {
-                const container = document.createElement("div");
-                container.style.margin = "12px 0 4px";
-
-                const label = document.createElement("div");
-                label.textContent = labelText;
-                Object.assign(label.style, {
-                    fontWeight: "bold",
-                    fontSize: "0.9em",
-                    marginBottom: "8px"
-                });
-                container.appendChild(label);
-
-                const inputContainer = document.createElement("div");
-                Object.assign(inputContainer.style, {
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    marginBottom: "8px"
-                });
-
-                const mainInput = document.createElement("input");
-                mainInput.type = "text";
-                mainInput.placeholder = placeholder;
-                mainInput.readOnly = true;
-                mainInput.dataset.shortcutCapture = "1";
-                mainInput.value = currentValue || "";
-                Object.assign(mainInput.style, {
-                    flexGrow: "1",
-                    cursor: "pointer",
-                    textAlign: "center",
-                    fontWeight: "bold",
-                    fontSize: "14px",
-                    minWidth: "200px"
-                });
-
-                const clearButton = document.createElement("button");
-                clearButton.type = "button";
-                clearButton.textContent = "🗑️";
-                clearButton.title = options.text.buttons.clear || `清除${labelText}`;
-                Object.assign(clearButton.style, {
-                    padding: "8px 12px",
-                    border: "1px solid",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    backgroundColor: "transparent",
-                    flexShrink: "0"
-                });
-
-                const statusDiv = document.createElement("div");
-                Object.assign(statusDiv.style, {
-                    fontSize: "0.8em",
-                    marginTop: "5px",
-                    opacity: "0.7",
-                    minHeight: "20px"
-                });
-                statusDiv.textContent = hint;
-
-                let isCapturing = false;
-                let capturedModifiers = new Set();
-                let capturedMainKey = "";
-
-                function startCapture() {
-                    if (isCapturing) return;
-                    isCapturing = true;
-                    capturedModifiers.clear();
-                    capturedMainKey = "";
-                    mainInput.value = "";
-                    mainInput.placeholder = `请按下${labelText}组合...`;
-                    statusDiv.textContent = `🎯 正在捕获${labelText}，请按下组合键...`;
-                    mainInput.focus();
-                    updateCaptureState();
-                }
-
-	                function stopCapture() {
-	                    if (!isCapturing) return;
-	                    isCapturing = false;
-	                    mainInput.placeholder = placeholder;
-	                    const finalKeys = buildHotkeyString();
-	                    if (finalKeys) {
-	                        mainInput.value = finalKeys;
-	                        const displayKeys = core?.hotkeys?.formatForDisplay ? (core.hotkeys.formatForDisplay(finalKeys) || finalKeys) : finalKeys;
-	                        statusDiv.textContent = `✅ 已捕获${labelText}: ${displayKeys}`;
-	                    } else {
-	                        statusDiv.textContent = `❌ 未捕获到有效的${labelText}`;
-	                    }
-	                    mainInput.blur();
-	                    updateCaptureState();
-	                }
-
-	                function buildHotkeyString() {
-	                    if (!capturedMainKey) return "";
-	                    const raw = [...capturedModifiers, capturedMainKey].filter(Boolean).join("+");
-	                    return core?.hotkeys?.normalize ? core.hotkeys.normalize(raw) : raw;
-	                }
-
-                function updateCaptureState() {
-                    if (isCapturing) {
-                        mainInput.style.backgroundColor = getPrimaryColor() + "20";
-                        mainInput.style.borderColor = getPrimaryColor();
-                        mainInput.style.boxShadow = `0 0 0 1px ${getPrimaryColor()}`;
-                    } else {
-                        styleInputField(mainInput, state.isDarkMode);
-                    }
-                }
-
-                function handleKeyEvent(e) {
-                    if (!isCapturing) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    const code = e.code;
-                    const key = e.key;
-
-                    if (['ControlLeft', 'ControlRight'].includes(code) || key === 'Control') {
-                        if (e.type === 'keydown') capturedModifiers.add('CTRL');
-                        else capturedModifiers.delete('CTRL');
-                        updateDisplay();
-                        return;
-                    }
-                    if (['ShiftLeft', 'ShiftRight'].includes(code) || key === 'Shift') {
-                        if (e.type === 'keydown') capturedModifiers.add('SHIFT');
-                        else capturedModifiers.delete('SHIFT');
-                        updateDisplay();
-                        return;
-                    }
-                    if (['AltLeft', 'AltRight'].includes(code) || key === 'Alt') {
-                        if (e.type === 'keydown') capturedModifiers.add('ALT');
-                        else capturedModifiers.delete('ALT');
-                        updateDisplay();
-                        return;
-                    }
-	                    if (['MetaLeft', 'MetaRight'].includes(code) || key === 'Meta') {
-	                        if (e.type === 'keydown') capturedModifiers.add('CMD');
-	                        else capturedModifiers.delete('CMD');
-	                        updateDisplay();
-	                        return;
-	                    }
-
-	                    if (e.type === 'keydown') {
-	                        const standardKey = core?.hotkeys?.getMainKeyFromEvent ? core.hotkeys.getMainKeyFromEvent(e) : "";
-	                        if (!standardKey) return;
-
-	                        if (captureType === "hotkey" && core?.hotkeys?.isAllowedMainKey && !core.hotkeys.isAllowedMainKey(standardKey)) {
-	                            const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
-	                            statusDiv.textContent = `❌ 不支持的快捷键: ${displayKey}`;
-	                            return;
-	                        }
-
-	                        if (captureType === "simulate" && core?.hotkeys?.isAllowedSimulateMainKey && !core.hotkeys.isAllowedSimulateMainKey(standardKey)) {
-	                            const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
-	                            statusDiv.textContent = `❌ 不支持的模拟按键: ${displayKey}`;
-	                            return;
-	                        }
-
-	                        capturedMainKey = standardKey;
-	                        updateDisplay();
-	                        setTimeout(stopCapture, 100);
-	                    }
-	                }
-
-	                function updateDisplay() {
-	                    if (!isCapturing) return;
-	                    const orderedMods = core?.hotkeys?.modifierOrder || ['CTRL', 'SHIFT', 'ALT', 'CMD'];
-	                    const displayParts = [];
-
-	                    for (const mod of orderedMods) {
-	                        if (!capturedModifiers.has(mod)) continue;
-	                        displayParts.push(core?.hotkeys?.formatModifierToken ? core.hotkeys.formatModifierToken(mod) : mod);
-	                    }
-
-	                    if (capturedMainKey) {
-	                        displayParts.push(core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(capturedMainKey) : capturedMainKey);
-	                    }
-
-	                    mainInput.value = displayParts.join(" + ");
-	                }
-
-                mainInput.addEventListener("click", startCapture);
-                mainInput.addEventListener("focus", startCapture);
-                mainInput.addEventListener("keydown", handleKeyEvent);
-                mainInput.addEventListener("keyup", handleKeyEvent);
-                mainInput.addEventListener("blur", () => {
-                    setTimeout(() => {
-                        if (isCapturing && document.activeElement !== mainInput) {
-                            stopCapture();
-                        }
-                    }, 100);
-                });
-
-                clearButton.addEventListener("click", () => {
-                    mainInput.value = "";
-                    capturedModifiers.clear();
-                    capturedMainKey = "";
-                    statusDiv.textContent = `🗑️ ${labelText}已清除`;
-                    if (isCapturing) {
-                        stopCapture();
-                    }
-                });
-
-                inputContainer.appendChild(mainInput);
-                inputContainer.appendChild(clearButton);
-                container.appendChild(inputContainer);
-                container.appendChild(statusDiv);
-
-                const updateTheme = (isDark) => {
-                    label.style.color = getTextColor(isDark);
-                    statusDiv.style.color = getTextColor(isDark);
-                    if (!isCapturing) {
-                        styleInputField(mainInput, isDark);
-                    }
-                    clearButton.style.color = getTextColor(isDark);
-                    clearButton.style.borderColor = getBorderColor(isDark);
-                    clearButton.style.backgroundColor = getInputBackgroundColor(isDark);
-                    clearButton.onmouseover = () => {
-                        clearButton.style.backgroundColor = getHoverColor(isDark);
-                        clearButton.style.borderColor = "#F44336";
-                    };
-                    clearButton.onmouseout = () => {
-                        clearButton.style.backgroundColor = getInputBackgroundColor(isDark);
-                        clearButton.style.borderColor = getBorderColor(isDark);
-                    };
-                };
-
-	                updateTheme(state.isDarkMode);
-	                addThemeChangeListener(updateTheme);
-
-	                const destroy = () => {
-	                    removeThemeChangeListener(updateTheme);
-	                };
-
-	                const result = { container, destroy };
-	                result[methodName] = () => mainInput.value.trim();
-	                return result;
-	            }
         }
 
-	            return Object.freeze({ openSettingsPanel, closeSettingsPanel });
-	        }
+	        function panelCreateUrlMethodConfigUI(ctx, currentMethod = "current", currentAdvanced = "href") {
+            const { URL_METHODS, uiShared, state } = ctx;
+            const { colors } = uiShared;
+            const { getPrimaryColor, getTextColor, getHoverColor, getInputBackgroundColor, getBorderColor } = colors;
+
+            const container = document.createElement("div");
+            container.style.marginTop = "10px";
+
+            const titleRow = document.createElement("div");
+            Object.assign(titleRow.style, {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "8px"
+            });
+
+            const title = document.createElement("div");
+            title.textContent = "跳转方式:";
+            Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em" });
+            titleRow.appendChild(title);
+
+            const expandButton = document.createElement("button");
+            expandButton.type = "button";
+            expandButton.title = "展开/折叠高级选项";
+            Object.assign(expandButton.style, {
+                width: "32px", height: "32px", padding: "0", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "16px", border: "1px solid transparent", background: "transparent",
+                borderRadius: "4px", transition: "background-color 0.2s ease, border-color 0.2s ease"
+            });
+            titleRow.appendChild(expandButton);
+            container.appendChild(titleRow);
+
+            const methodRow = document.createElement("div");
+            Object.assign(methodRow.style, {
+                display: "flex",
+                gap: "15px",
+                marginBottom: "10px",
+                flexWrap: "wrap"
+            });
+
+            const methods = Object.entries(URL_METHODS || {}).map(([value, cfg]) => ({
+                value,
+                text: (cfg && cfg.name) ? cfg.name : value
+            }));
+
+            let selectedMethod = currentMethod;
+            let selectedAdvanced = currentAdvanced;
+            let isExpanded = false;
+
+            methods.forEach(method => {
+                const label = document.createElement("label");
+                Object.assign(label.style, {
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    cursor: 'pointer'
+                });
+
+                const radio = document.createElement("input");
+                radio.type = "radio";
+                radio.name = "urlMethod";
+                radio.value = method.value;
+                radio.checked = selectedMethod === method.value;
+                Object.assign(radio.style, { marginRight: "5px", cursor: 'pointer' });
+
+                radio.addEventListener('change', () => {
+                    if (radio.checked) {
+                        selectedMethod = method.value;
+                        const defaultAdvanced = Object.keys(URL_METHODS[method.value].options)[0];
+                        selectedAdvanced = defaultAdvanced;
+                        updateAdvancedOptions();
+                        updateTheme(state.isDarkMode);
+                    }
+                });
+
+                label.appendChild(radio);
+                label.appendChild(document.createTextNode(method.text));
+                methodRow.appendChild(label);
+            });
+            container.appendChild(methodRow);
+
+            const advancedContainer = document.createElement("div");
+            Object.assign(advancedContainer.style, {
+                display: "none",
+                marginTop: "10px",
+                padding: "8px",
+                borderRadius: "6px",
+                border: "1px solid"
+            });
+            container.appendChild(advancedContainer);
+
+            function updateAdvancedOptions() {
+                advancedContainer.replaceChildren();
+                const advancedTitle = document.createElement("div");
+                advancedTitle.textContent = "高级选项:";
+                Object.assign(advancedTitle.style, {
+                    fontWeight: "bold",
+                    fontSize: "0.8em",
+                    marginBottom: "8px",
+                    opacity: "0.8"
+                });
+                advancedContainer.appendChild(advancedTitle);
+
+                const advancedRow = document.createElement("div");
+                Object.assign(advancedRow.style, {
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px"
+                });
+
+                const methodConfig = URL_METHODS[selectedMethod];
+                if (methodConfig) {
+                    Object.entries(methodConfig.options).forEach(([key, option]) => {
+                        const label = document.createElement("label");
+                        Object.assign(label.style, {
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            cursor: 'pointer',
+                            gap: '8px'
+                        });
+
+                        const radio = document.createElement("input");
+                        radio.type = "radio";
+                        radio.name = "urlAdvanced";
+                        radio.value = key;
+                        radio.checked = selectedAdvanced === key;
+                        Object.assign(radio.style, { cursor: 'pointer', marginTop: '2px' });
+                        radio.style.accentColor = getPrimaryColor();
+
+                        radio.addEventListener('change', () => {
+                            if (radio.checked) {
+                                selectedAdvanced = key;
+                            }
+                        });
+
+                        const textContainer = document.createElement("div");
+                        Object.assign(textContainer.style, {
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px'
+                        });
+
+                        const nameSpan = document.createElement("span");
+                        nameSpan.textContent = option.name;
+                        Object.assign(nameSpan.style, {
+                            fontWeight: "bold",
+                            fontSize: "0.9em"
+                        });
+
+                        const descSpan = document.createElement("span");
+                        descSpan.textContent = option.desc;
+                        Object.assign(descSpan.style, {
+                            fontSize: "0.8em",
+                            opacity: "0.7",
+                            lineHeight: "1.3"
+                        });
+
+                        textContainer.appendChild(nameSpan);
+                        textContainer.appendChild(descSpan);
+
+                        label.appendChild(radio);
+                        label.appendChild(textContainer);
+                        advancedRow.appendChild(label);
+                    });
+                }
+                advancedContainer.appendChild(advancedRow);
+            }
+
+            expandButton.addEventListener("click", () => {
+                isExpanded = !isExpanded;
+                advancedContainer.style.display = isExpanded ? 'block' : 'none';
+                expandButton.textContent = isExpanded ? '▲' : '▼';
+                if (isExpanded) {
+                    updateTheme(state.isDarkMode);
+                    updateAdvancedOptions();
+                }
+            });
+
+            expandButton.textContent = isExpanded ? '▲' : '▼';
+            updateAdvancedOptions();
+
+            function updateTheme(isDark) {
+                title.style.color = getTextColor(isDark);
+                expandButton.style.color = getTextColor(isDark);
+                expandButton.onmouseover = () => {
+                    expandButton.style.backgroundColor = getHoverColor(isDark);
+                    expandButton.style.borderColor = getPrimaryColor();
+                };
+                expandButton.onmouseout = () => {
+                    expandButton.style.backgroundColor = 'transparent';
+                    expandButton.style.borderColor = 'transparent';
+                };
+                expandButton.dispatchEvent(new Event('mouseout'));
+
+                advancedContainer.style.backgroundColor = getInputBackgroundColor(isDark);
+                advancedContainer.style.borderColor = getBorderColor(isDark);
+                container.querySelectorAll('input[type="radio"]').forEach(radio => {
+                    radio.style.accentColor = getPrimaryColor();
+                });
+                container.querySelectorAll('label, span, div').forEach(el => {
+                    if (el !== title && !el.querySelector('input')) {
+                        el.style.color = getTextColor(isDark);
+                    }
+                });
+            }
+
+            function getConfig() {
+                return {
+                    method: selectedMethod,
+                    advanced: selectedAdvanced
+                };
+            }
+
+            return {
+                container,
+                updateTheme,
+                getConfig
+            };
+        }
+
+	        function panelCreateInputField(ctx, labelText, value, type = "text", placeholder = "") {
+            const { uiShared } = ctx;
+            const { layout } = uiShared;
+            const { autoResizeTextarea } = layout;
+
+            const label = document.createElement("label");
+            Object.assign(label.style, { display: "block", margin: "12px 0 4px", fontWeight: "bold", fontSize: "0.9em" });
+            label.appendChild(document.createTextNode(labelText));
+
+            const input = type === "textarea" ? document.createElement("textarea") : document.createElement("input");
+            if (type !== "textarea") input.type = type;
+            input.value = value;
+            input.placeholder = placeholder;
+            input.style.display = 'block';
+
+            if (type === "textarea") {
+                input.rows = 1;
+                Object.assign(input.style, {
+                    minHeight: "36px",
+                    resize: "vertical",
+                    overflowY: "hidden"
+                });
+                input.addEventListener("input", function() { autoResizeTextarea(this); });
+                requestAnimationFrame(() => autoResizeTextarea(input));
+            }
+            label.appendChild(input);
+            return { label, input };
+        }
+
+	        function panelCreateIconField(ctx, labelText, value) {
+            const { uiShared, state } = ctx;
+            const { theme, colors } = uiShared;
+            const { addThemeChangeListener, removeThemeChangeListener } = theme;
+            const { getBorderColor, getInputBackgroundColor } = colors;
+            const { autoResizeTextarea } = uiShared.layout;
+
+            const label = document.createElement("label");
+            Object.assign(label.style, { display: "block", margin: "12px 0 4px", fontWeight: "bold", fontSize: "0.9em" });
+            label.appendChild(document.createTextNode(labelText));
+
+            const wrap = document.createElement("div");
+            Object.assign(wrap.style, {
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px"
+            });
+
+            const textarea = document.createElement("textarea");
+            textarea.value = value || "";
+            textarea.placeholder = "在此粘贴URL, 或从下方图库选择";
+            textarea.rows = 1;
+            Object.assign(textarea.style, {
+                minHeight: "36px",
+                resize: "vertical",
+                overflowY: "hidden",
+                flexGrow: "1",
+                minWidth: "200px"
+            });
+
+            const preview = document.createElement("img");
+            Object.assign(preview.style, { width: "36px", height: "36px", objectFit: "contain", borderRadius: "4px", flexShrink: "0" });
+
+            requestAnimationFrame(() => autoResizeTextarea(textarea));
+            wrap.appendChild(textarea);
+            wrap.appendChild(preview);
+            label.appendChild(wrap);
+
+            const updatePreviewTheme = (isDark) => {
+                preview.style.border = `1px solid ${getBorderColor(isDark)}`;
+                preview.style.backgroundColor = getInputBackgroundColor(isDark);
+            };
+            addThemeChangeListener(updatePreviewTheme);
+            updatePreviewTheme(state.isDarkMode);
+
+            const destroy = () => {
+                removeThemeChangeListener(updatePreviewTheme);
+            };
+
+            return { label, input: textarea, preview, destroy };
+        }
+
+	        function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg) {
+            const { options, uiShared, state, safeGMGet, safeGMSet, setIconImage } = ctx;
+            const { theme, colors, dialogs } = uiShared;
+            const { addThemeChangeListener, removeThemeChangeListener } = theme;
+            const { getPrimaryColor, getInputBackgroundColor, getTextColor, getBorderColor, getHoverColor } = colors;
+            const { showAlert, showConfirmDialog, showPromptDialog } = dialogs;
+
+            let userIcons = safeGMGet(options.storageKeys.userIcons, []);
+            let isExpanded = false;
+            let longPressTimer = null;
+
+            const container = document.createElement("div");
+            container.style.marginTop = "10px";
+
+            const title = document.createElement("div");
+            title.textContent = "或从图库选择:";
+            Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
+            container.appendChild(title);
+
+            const gridWrapper = document.createElement("div");
+            gridWrapper.style.position = "relative";
+            container.appendChild(gridWrapper);
+
+            const iconGrid = document.createElement("div");
+            Object.assign(iconGrid.style, {
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(36px, 1fr))",
+                gap: "8px",
+                padding: "8px",
+                borderRadius: "6px",
+                border: "1px solid",
+                maxHeight: "170px",
+                overflowY: "auto",
+                transition: "background-color 0.2s ease, border-color 0.2s ease",
+            });
+            gridWrapper.appendChild(iconGrid);
+
+            const baseButtonStyle = {
+                width: "32px", height: "32px", padding: "0",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "16px", transition: "background-color 0.2s ease, border-color 0.2s ease",
+                position: "absolute", zIndex: "2"
+            };
+
+            const expandButton = document.createElement("button");
+            expandButton.type = "button";
+            expandButton.title = "展开/折叠更多图标";
+            Object.assign(expandButton.style, baseButtonStyle, {
+                border: "1px solid transparent",
+                background: "transparent",
+                top: "-16px",
+                right: "8px",
+                transform: "translateY(-50%)"
+            });
+            expandButton.addEventListener("click", () => {
+                isExpanded = !isExpanded;
+                iconGrid.querySelectorAll('.extra-icon').forEach(btn => {
+                    btn.style.display = isExpanded ? 'flex' : 'none';
+                });
+                expandButton.textContent = isExpanded ? '▲' : '▼';
+            });
+            gridWrapper.appendChild(expandButton);
+
+            const addButton = document.createElement("button");
+            addButton.type = "button";
+            addButton.textContent = "➕";
+            addButton.title = "将输入框中的图标URL添加到图库";
+            Object.assign(addButton.style, baseButtonStyle, {
+                border: "1px solid",
+                borderRadius: "4px",
+                bottom: "8px",
+                right: "8px",
+            });
+            addButton.addEventListener('click', () => {
+                const url = targetTextarea.value.trim();
+                if (!url) { showAlert("请输入图标的URL！"); return; }
+                if (userIcons.some(icon => icon.url === url) || options.iconLibrary.some(icon => icon.url === url)) { showAlert("该图标已存在于图库中。"); return; }
+                showPromptDialog("请输入图标的名称：", "", (name) => {
+                    if (name && name.trim()) {
+                        userIcons.push({ name: name.trim(), url: url });
+                        safeGMSet(options.storageKeys.userIcons, userIcons);
+                        renderIconGrid();
+                    }
+                });
+            });
+            gridWrapper.appendChild(addButton);
+
+            function renderIconGrid() {
+                iconGrid.replaceChildren();
+                const allIcons = [...options.iconLibrary, ...userIcons];
+
+                allIcons.forEach(iconInfo => {
+                    const isProtected = options.protectedIconUrls.includes(iconInfo.url);
+                    const isUserAdded = userIcons.some(ui => ui.url === iconInfo.url);
+
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.title = iconInfo.name + (isUserAdded ? " (长按删除)" : "");
+                    Object.assign(button.style, {
+                        width: "36px", height: "36px", padding: "4px", border: "1px solid", borderRadius: "4px",
+                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "background-color 0.2s ease, border-color 0.2s ease", position: "relative"
+                    });
+                    const img = document.createElement("img");
+                    Object.assign(img.style, { width: "24px", height: "24px", objectFit: "contain", pointerEvents: "none" });
+                    setIconImage(img, iconInfo.url);
+                    button.appendChild(img);
+
+                    if (!isProtected) {
+                        button.classList.add('extra-icon');
+                        button.style.display = isExpanded ? 'flex' : 'none';
+                    }
+
+                    button.addEventListener("click", () => {
+                        targetTextarea.value = iconInfo.url;
+                        setIconImage(targetPreviewImg, iconInfo.url);
+                        targetTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+
+                    if (isUserAdded) {
+                        button.addEventListener("mousedown", (e) => {
+                            if (e.button !== 0) return;
+                            longPressTimer = setTimeout(() => {
+                                showConfirmDialog(`确定要删除自定义图标 "${iconInfo.name}" 吗?`, () => {
+                                    userIcons = userIcons.filter(icon => icon.url !== iconInfo.url);
+                                    safeGMSet(options.storageKeys.userIcons, userIcons);
+                                    renderIconGrid();
+                                });
+                                longPressTimer = null;
+                            }, 1000);
+                        });
+                        const clearLongPress = () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
+                        button.addEventListener("mouseup", clearLongPress);
+                        button.addEventListener("mouseleave", clearLongPress);
+                    }
+
+                    iconGrid.appendChild(button);
+                });
+                updateTheme(state.isDarkMode);
+            }
+
+            const updateTheme = (isDark) => {
+                title.style.color = getTextColor(isDark);
+                gridWrapper.style.backgroundColor = getInputBackgroundColor(isDark);
+                gridWrapper.style.borderColor = getBorderColor(isDark);
+                iconGrid.style.borderColor = 'transparent';
+
+                const gridButtons = Array.from(iconGrid.querySelectorAll('button'));
+
+                addButton.style.backgroundColor = getInputBackgroundColor(isDark);
+                addButton.style.borderColor = getBorderColor(isDark);
+                addButton.style.color = getTextColor(isDark);
+                addButton.onmouseover = () => {
+                    addButton.style.backgroundColor = getHoverColor(isDark);
+                    addButton.style.borderColor = getPrimaryColor();
+                };
+                addButton.onmouseout = () => {
+                    addButton.style.backgroundColor = getInputBackgroundColor(isDark);
+                    addButton.style.borderColor = getBorderColor(isDark);
+                };
+
+                expandButton.style.color = getTextColor(isDark);
+                expandButton.onmouseover = () => {
+                    expandButton.style.backgroundColor = getHoverColor(isDark);
+                    expandButton.style.borderColor = getPrimaryColor();
+                };
+                expandButton.onmouseout = () => {
+                    expandButton.style.backgroundColor = 'transparent';
+                    expandButton.style.borderColor = 'transparent';
+                };
+                expandButton.dispatchEvent(new Event('mouseout'));
+
+                gridButtons.forEach(btn => {
+                    btn.style.backgroundColor = "transparent";
+                    btn.style.borderColor = getBorderColor(isDark);
+                    btn.style.color = getTextColor(isDark);
+                    btn.onmouseover = () => {
+                        btn.style.backgroundColor = getHoverColor(isDark);
+                        btn.style.borderColor = getPrimaryColor();
+                    };
+                    btn.onmouseout = () => {
+                        btn.style.backgroundColor = "transparent";
+                        btn.style.borderColor = getBorderColor(isDark);
+                    };
+                });
+            };
+
+            renderIconGrid();
+            expandButton.textContent = isExpanded ? '▲' : '▼';
+
+            addThemeChangeListener(updateTheme);
+            updateTheme(state.isDarkMode);
+
+            const destroy = () => {
+                removeThemeChangeListener(updateTheme);
+            };
+
+            return { container, updateTheme, destroy };
+        }
+
+	        function panelCreateEnhancedKeyboardCaptureInput(ctx, labelText, currentValue, {
+            placeholder = "点击此处，然后按下快捷键组合",
+            hint = "💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合",
+            methodName = "getHotkey",
+            captureType = "hotkey"
+        } = {}) {
+            const { options, state, core, uiShared } = ctx;
+            const { theme, colors, style } = uiShared;
+            const { addThemeChangeListener, removeThemeChangeListener } = theme;
+            const { getPrimaryColor, getTextColor, getBorderColor, getInputBackgroundColor, getHoverColor } = colors;
+            const { styleInputField } = style;
+
+            const container = document.createElement("div");
+            container.style.margin = "12px 0 4px";
+
+            const label = document.createElement("div");
+            label.textContent = labelText;
+            Object.assign(label.style, {
+                fontWeight: "bold",
+                fontSize: "0.9em",
+                marginBottom: "8px"
+            });
+            container.appendChild(label);
+
+            const inputContainer = document.createElement("div");
+            Object.assign(inputContainer.style, {
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                marginBottom: "8px"
+            });
+
+            const mainInput = document.createElement("input");
+            mainInput.type = "text";
+            mainInput.placeholder = placeholder;
+            mainInput.readOnly = true;
+            mainInput.dataset.shortcutCapture = "1";
+            mainInput.value = currentValue || "";
+            Object.assign(mainInput.style, {
+                flexGrow: "1",
+                cursor: "pointer",
+                textAlign: "center",
+                fontWeight: "bold",
+                fontSize: "14px",
+                minWidth: "200px"
+            });
+
+            const clearButton = document.createElement("button");
+            clearButton.type = "button";
+            clearButton.textContent = "🗑️";
+            clearButton.title = options.text.buttons.clear || `清除${labelText}`;
+            Object.assign(clearButton.style, {
+                padding: "8px 12px",
+                border: "1px solid",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "14px",
+                backgroundColor: "transparent",
+                flexShrink: "0"
+            });
+
+            const statusDiv = document.createElement("div");
+            Object.assign(statusDiv.style, {
+                fontSize: "0.8em",
+                marginTop: "5px",
+                opacity: "0.7",
+                minHeight: "20px"
+            });
+            statusDiv.textContent = hint;
+
+            let isCapturing = false;
+            const capturedModifiers = new Set();
+            let capturedMainKey = "";
+
+            function startCapture() {
+                if (isCapturing) return;
+                isCapturing = true;
+                capturedModifiers.clear();
+                capturedMainKey = "";
+                mainInput.value = "";
+                mainInput.placeholder = `请按下${labelText}组合...`;
+                statusDiv.textContent = `🎯 正在捕获${labelText}，请按下组合键...`;
+                mainInput.focus();
+                updateCaptureState();
+            }
+
+            function stopCapture() {
+                if (!isCapturing) return;
+                isCapturing = false;
+                mainInput.placeholder = placeholder;
+                const finalKeys = buildHotkeyString();
+                if (finalKeys) {
+                    mainInput.value = finalKeys;
+                    const displayKeys = core?.hotkeys?.formatForDisplay ? (core.hotkeys.formatForDisplay(finalKeys) || finalKeys) : finalKeys;
+                    statusDiv.textContent = `✅ 已捕获${labelText}: ${displayKeys}`;
+                } else {
+                    statusDiv.textContent = `❌ 未捕获到有效的${labelText}`;
+                }
+                mainInput.blur();
+                updateCaptureState();
+            }
+
+            function buildHotkeyString() {
+                if (!capturedMainKey) return "";
+                const raw = [...capturedModifiers, capturedMainKey].filter(Boolean).join("+");
+                return core?.hotkeys?.normalize ? core.hotkeys.normalize(raw) : raw;
+            }
+
+            function updateCaptureState() {
+                if (isCapturing) {
+                    mainInput.style.backgroundColor = getPrimaryColor() + "20";
+                    mainInput.style.borderColor = getPrimaryColor();
+                    mainInput.style.boxShadow = `0 0 0 1px ${getPrimaryColor()}`;
+                } else {
+                    styleInputField(mainInput, state.isDarkMode);
+                }
+            }
+
+            function handleKeyEvent(e) {
+                if (!isCapturing) return;
+                e.preventDefault();
+                e.stopPropagation();
+
+                const code = e.code;
+                const key = e.key;
+
+                if (['ControlLeft', 'ControlRight'].includes(code) || key === 'Control') {
+                    if (e.type === 'keydown') capturedModifiers.add('CTRL');
+                    else capturedModifiers.delete('CTRL');
+                    updateDisplay();
+                    return;
+                }
+                if (['ShiftLeft', 'ShiftRight'].includes(code) || key === 'Shift') {
+                    if (e.type === 'keydown') capturedModifiers.add('SHIFT');
+                    else capturedModifiers.delete('SHIFT');
+                    updateDisplay();
+                    return;
+                }
+                if (['AltLeft', 'AltRight'].includes(code) || key === 'Alt') {
+                    if (e.type === 'keydown') capturedModifiers.add('ALT');
+                    else capturedModifiers.delete('ALT');
+                    updateDisplay();
+                    return;
+                }
+                if (['MetaLeft', 'MetaRight'].includes(code) || key === 'Meta') {
+                    if (e.type === 'keydown') capturedModifiers.add('CMD');
+                    else capturedModifiers.delete('CMD');
+                    updateDisplay();
+                    return;
+                }
+
+                if (e.type === 'keydown') {
+                    const standardKey = core?.hotkeys?.getMainKeyFromEvent ? core.hotkeys.getMainKeyFromEvent(e) : "";
+                    if (!standardKey) return;
+
+                    if (captureType === "hotkey" && core?.hotkeys?.isAllowedMainKey && !core.hotkeys.isAllowedMainKey(standardKey)) {
+                        const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
+                        statusDiv.textContent = `❌ 不支持的快捷键: ${displayKey}`;
+                        return;
+                    }
+
+                    if (captureType === "simulate" && core?.hotkeys?.isAllowedSimulateMainKey && !core.hotkeys.isAllowedSimulateMainKey(standardKey)) {
+                        const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
+                        statusDiv.textContent = `❌ 不支持的模拟按键: ${displayKey}`;
+                        return;
+                    }
+
+                    capturedMainKey = standardKey;
+                    updateDisplay();
+                    setTimeout(stopCapture, 100);
+                }
+            }
+
+            function updateDisplay() {
+                if (!isCapturing) return;
+                const orderedMods = core?.hotkeys?.modifierOrder || ['CTRL', 'SHIFT', 'ALT', 'CMD'];
+                const displayParts = [];
+
+                for (const mod of orderedMods) {
+                    if (!capturedModifiers.has(mod)) continue;
+                    displayParts.push(core?.hotkeys?.formatModifierToken ? core.hotkeys.formatModifierToken(mod) : mod);
+                }
+
+                if (capturedMainKey) {
+                    displayParts.push(core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(capturedMainKey) : capturedMainKey);
+                }
+
+                mainInput.value = displayParts.join(" + ");
+            }
+
+            mainInput.addEventListener("click", startCapture);
+            mainInput.addEventListener("focus", startCapture);
+            mainInput.addEventListener("keydown", handleKeyEvent);
+            mainInput.addEventListener("keyup", handleKeyEvent);
+            mainInput.addEventListener("blur", () => {
+                setTimeout(() => {
+                    if (isCapturing && document.activeElement !== mainInput) {
+                        stopCapture();
+                    }
+                }, 100);
+            });
+
+            clearButton.addEventListener("click", () => {
+                mainInput.value = "";
+                capturedModifiers.clear();
+                capturedMainKey = "";
+                statusDiv.textContent = `🗑️ ${labelText}已清除`;
+                if (isCapturing) {
+                    stopCapture();
+                }
+            });
+
+            inputContainer.appendChild(mainInput);
+            inputContainer.appendChild(clearButton);
+            container.appendChild(inputContainer);
+            container.appendChild(statusDiv);
+
+            const updateTheme = (isDark) => {
+                label.style.color = getTextColor(isDark);
+                statusDiv.style.color = getTextColor(isDark);
+                if (!isCapturing) {
+                    styleInputField(mainInput, isDark);
+                }
+                clearButton.style.color = getTextColor(isDark);
+                clearButton.style.borderColor = getBorderColor(isDark);
+                clearButton.style.backgroundColor = getInputBackgroundColor(isDark);
+                clearButton.onmouseover = () => {
+                    clearButton.style.backgroundColor = getHoverColor(isDark);
+                    clearButton.style.borderColor = "#F44336";
+                };
+                clearButton.onmouseout = () => {
+                    clearButton.style.backgroundColor = getInputBackgroundColor(isDark);
+                    clearButton.style.borderColor = getBorderColor(isDark);
+                };
+            };
+
+            updateTheme(state.isDarkMode);
+            addThemeChangeListener(updateTheme);
+
+            const destroy = () => {
+                removeThemeChangeListener(updateTheme);
+            };
+
+            const result = { container, destroy };
+            result[methodName] = () => mainInput.value.trim();
+            return result;
+        }
+/* -------------------------------------------------------------------------- *
+ * Module 05 · Panel I/O (import/export, clipboard)
+ * -------------------------------------------------------------------------- */
+
+	        function panelGetExportPayload(ctx, { schemaVersion = 1 } = {}) {
+            const { options, core, safeGMGet } = ctx;
+            const shortcuts = core.getShortcuts();
+            const userIcons = safeGMGet(options.storageKeys.userIcons, []);
+            return {
+                schemaVersion,
+                exportedAt: new Date().toISOString(),
+                shortcuts,
+                userIcons
+            };
+        }
+
+	        async function panelTryCopyToClipboard(text) {
+            const value = String(text ?? "");
+            try {
+                if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+                    await navigator.clipboard.writeText(value);
+                    return true;
+                }
+            } catch {}
+            try {
+                const ta = document.createElement("textarea");
+                ta.value = value;
+                ta.style.position = "fixed";
+                ta.style.top = "-1000px";
+                ta.style.left = "-1000px";
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                const ok = document.execCommand && document.execCommand("copy");
+                document.body.removeChild(ta);
+                return !!ok;
+            } catch {
+                return false;
+            }
+        }
+
+	        function panelOpenExportDialog(ctx, { overlay } = {}) {
+            const { options, uiShared, state } = ctx;
+            const { colors, style, dialogs, theme } = uiShared;
+            const { getOverlayBackgroundColor, getPanelBackgroundColor, getTextColor } = colors;
+            const { styleInputField, styleButton } = style;
+            const { showAlert } = dialogs;
+            const { addThemeChangeListener, removeThemeChangeListener } = theme;
+
+            if (!overlay) return;
+
+            const payload = panelGetExportPayload(ctx);
+            const json = JSON.stringify(payload, null, 2);
+
+            const ioOverlay = document.createElement("div");
+            Object.assign(ioOverlay.style, {
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100vw",
+                height: "100vh",
+                zIndex: "999999",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "20px",
+                boxSizing: "border-box"
+            });
+            ioOverlay.onclick = (e) => { if (e.target === ioOverlay) close(); };
+
+            const box = document.createElement("div");
+            Object.assign(box.style, {
+                width: "100%",
+                maxWidth: "820px",
+                maxHeight: "90vh",
+                overflow: "auto",
+                borderRadius: "8px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                padding: "16px",
+                boxSizing: "border-box"
+            });
+            box.onclick = (e) => e.stopPropagation();
+
+            const titleEl = document.createElement("h3");
+            titleEl.textContent = options.text.buttons.export || "导出";
+            Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
+            box.appendChild(titleEl);
+
+            const textarea = document.createElement("textarea");
+            textarea.value = json;
+            textarea.readOnly = true;
+            Object.assign(textarea.style, { height: "360px", resize: "vertical" });
+            box.appendChild(textarea);
+
+            const btnRow = document.createElement("div");
+            Object.assign(btnRow.style, {
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                marginTop: "12px",
+                flexWrap: "wrap"
+            });
+
+            const copyBtn = document.createElement("button");
+            copyBtn.textContent = options.text.buttons.copy || "复制";
+            copyBtn.onclick = async () => {
+                const ok = await panelTryCopyToClipboard(textarea.value);
+                if (ok) showAlert("已复制到剪贴板。");
+                else showAlert("复制失败，请手动复制。");
+            };
+            btnRow.appendChild(copyBtn);
+
+            const closeBtn = document.createElement("button");
+            closeBtn.textContent = options.text.buttons.close || "关闭";
+            closeBtn.onclick = close;
+            btnRow.appendChild(closeBtn);
+
+            box.appendChild(btnRow);
+            ioOverlay.appendChild(box);
+            overlay.appendChild(ioOverlay);
+
+            const updateTheme = (isDark) => {
+                ioOverlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
+                box.style.background = getPanelBackgroundColor(isDark);
+                box.style.color = getTextColor(isDark);
+                titleEl.style.color = getTextColor(isDark);
+                styleInputField(textarea, isDark);
+                textarea.style.height = "360px";
+                textarea.style.resize = "vertical";
+                styleButton(copyBtn, "#2196F3", "#1e88e5");
+                styleButton(closeBtn, "#9E9E9E", "#757575");
+            };
+
+            addThemeChangeListener(updateTheme);
+            updateTheme(state.isDarkMode);
+
+            function close() {
+                removeThemeChangeListener(updateTheme);
+                try { ioOverlay.remove(); } catch {}
+            }
+        }
+
+	        function panelOpenImportDialog(ctx, { overlay, renderShortcutsList, updateStatsDisplay } = {}) {
+            const { options, uiShared, state, core, safeGMSet } = ctx;
+            const { colors, style, dialogs, theme } = uiShared;
+            const { getOverlayBackgroundColor, getPanelBackgroundColor, getTextColor } = colors;
+            const { styleInputField, styleButton } = style;
+            const { showAlert } = dialogs;
+            const { addThemeChangeListener, removeThemeChangeListener } = theme;
+
+            if (!overlay) return;
+
+            const ioOverlay = document.createElement("div");
+            Object.assign(ioOverlay.style, {
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100vw",
+                height: "100vh",
+                zIndex: "999999",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "20px",
+                boxSizing: "border-box"
+            });
+            ioOverlay.onclick = (e) => { if (e.target === ioOverlay) close(); };
+
+            const box = document.createElement("div");
+            Object.assign(box.style, {
+                width: "100%",
+                maxWidth: "820px",
+                maxHeight: "90vh",
+                overflow: "auto",
+                borderRadius: "8px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                padding: "16px",
+                boxSizing: "border-box"
+            });
+            box.onclick = (e) => e.stopPropagation();
+
+            const titleEl = document.createElement("h3");
+            titleEl.textContent = options.text.buttons.import || "导入";
+            Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
+            box.appendChild(titleEl);
+
+            const tip = document.createElement("div");
+            tip.textContent = "支持导入 { shortcuts: [...], userIcons?: [...] } 或直接导入 shortcuts 数组。";
+            Object.assign(tip.style, { fontSize: "12px", opacity: "0.75", marginBottom: "8px", lineHeight: "1.4" });
+            box.appendChild(tip);
+
+            const textarea = document.createElement("textarea");
+            textarea.placeholder = "粘贴 JSON 到这里…";
+            Object.assign(textarea.style, { height: "360px", resize: "vertical" });
+            box.appendChild(textarea);
+
+            const btnRow = document.createElement("div");
+            Object.assign(btnRow.style, {
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                marginTop: "12px",
+                flexWrap: "wrap"
+            });
+
+            const confirmBtn = document.createElement("button");
+            confirmBtn.textContent = options.text.buttons.confirm || "确定";
+            confirmBtn.onclick = () => {
+                let parsed = null;
+                try {
+                    parsed = JSON.parse(textarea.value);
+                } catch {
+                    showAlert("JSON 解析失败，请检查格式。");
+                    return;
+                }
+
+                const shortcutsRaw = Array.isArray(parsed)
+                    ? parsed
+                    : (Array.isArray(parsed?.shortcuts) ? parsed.shortcuts : null);
+                if (!Array.isArray(shortcutsRaw)) {
+                    showAlert("导入数据中未找到 shortcuts 数组。");
+                    return;
+                }
+
+                const normalized = shortcutsRaw.map((sc) => core.normalizeShortcut(sc));
+                const hotkeyMap = new Map();
+                const duplicates = [];
+                for (const sc of normalized) {
+                    const hk = String(sc?.hotkey || "");
+                    if (!hk) continue;
+                    if (hotkeyMap.has(hk)) {
+                        duplicates.push([hk, hotkeyMap.get(hk), sc.name || ""]);
+                    } else {
+                        hotkeyMap.set(hk, sc.name || "");
+                    }
+                }
+                if (duplicates.length > 0) {
+                    const lines = duplicates.slice(0, 12).map(([hk, a, b]) => `${hk}: ${a} / ${b}`).join("\n");
+                    showAlert(`导入失败：存在重复快捷键(请先在 JSON 中修复)：\n${lines}${duplicates.length > 12 ? "\n..." : ""}`);
+                    return;
+                }
+
+                core.setShortcuts(normalized, { persist: false });
+
+                if (!Array.isArray(parsed)) {
+                    const iconsRaw = Array.isArray(parsed?.userIcons) ? parsed.userIcons : null;
+                    if (iconsRaw) {
+                        const cleaned = iconsRaw
+                            .map((it) => ({
+                                name: typeof it?.name === "string" ? it.name.trim() : "",
+                                url: typeof it?.url === "string" ? it.url.trim() : ""
+                            }))
+                            .filter((it) => it.name && it.url);
+                        safeGMSet(options.storageKeys.userIcons, cleaned);
+                    }
+                }
+
+                if (typeof renderShortcutsList === "function") renderShortcutsList(state.isDarkMode);
+                if (typeof updateStatsDisplay === "function") updateStatsDisplay();
+                close();
+            };
+            btnRow.appendChild(confirmBtn);
+
+            const cancelBtn = document.createElement("button");
+            cancelBtn.textContent = options.text.buttons.cancel || "取消";
+            cancelBtn.onclick = close;
+            btnRow.appendChild(cancelBtn);
+
+            box.appendChild(btnRow);
+            ioOverlay.appendChild(box);
+            overlay.appendChild(ioOverlay);
+
+            const updateTheme = (isDark) => {
+                ioOverlay.style.backgroundColor = getOverlayBackgroundColor(isDark);
+                box.style.background = getPanelBackgroundColor(isDark);
+                box.style.color = getTextColor(isDark);
+                titleEl.style.color = getTextColor(isDark);
+                tip.style.color = getTextColor(isDark);
+                styleInputField(textarea, isDark);
+                textarea.style.height = "360px";
+                textarea.style.resize = "vertical";
+                styleButton(confirmBtn, "#2196F3", "#1e88e5");
+                styleButton(cancelBtn, "#9E9E9E", "#757575");
+            };
+
+            addThemeChangeListener(updateTheme);
+            updateTheme(state.isDarkMode);
+
+            function close() {
+                removeThemeChangeListener(updateTheme);
+                try { ioOverlay.remove(); } catch {}
+            }
+        }
 /* -------------------------------------------------------------------------- *
  * Module 06 · Styling & exports (CSS injection, lifecycle, global API)
  * -------------------------------------------------------------------------- */
@@ -5363,6 +5773,98 @@
             /* ------------------------------------------------------------------
              * 样式注入
              * ------------------------------------------------------------------ */
+
+            function injectBaseCss() {
+                const styleId = `${cssPrefix}-base-style`;
+                let styleEl = document.getElementById(styleId);
+                if (!styleEl) {
+                    styleEl = document.createElement('style');
+                    styleEl.id = styleId;
+                    document.head.appendChild(styleEl);
+                }
+
+                const p = String(cssPrefix || "shortcut").trim() || "shortcut";
+                styleEl.textContent = `
+                    .${p}-btn {
+                        background: var(--${p}-btn-bg, var(--${p}-primary));
+                        border: 1px solid var(--${p}-btn-bg, var(--${p}-primary));
+                        color: var(--${p}-btn-text, #fff);
+                        border-radius: 6px;
+                        padding: 8px 16px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.05s ease;
+                    }
+                    .${p}-btn:hover {
+                        background: var(--${p}-btn-hover-bg, var(--${p}-btn-bg, var(--${p}-primary)));
+                        border-color: var(--${p}-btn-hover-bg, var(--${p}-btn-bg, var(--${p}-primary)));
+                    }
+                    .${p}-btn:active { transform: translateY(1px); }
+                    .${p}-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+                    .${p}-btn:focus-visible {
+                        outline: none;
+                        box-shadow: 0 0 0 2px var(--${p}-panel-bg), 0 0 0 4px var(--${p}-primary);
+                    }
+
+                    .${p}-btn-ghost {
+                        background: transparent;
+                        color: var(--${p}-ghost-color, var(--${p}-text));
+                        border: none;
+                        border-radius: 4px;
+                        padding: 6px 8px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        line-height: 1;
+                        transition: background-color 0.2s ease;
+                    }
+                    .${p}-btn-ghost:hover { background: var(--${p}-ghost-hover-bg, var(--${p}-hover-bg)); }
+                    .${p}-btn-ghost:focus-visible {
+                        outline: none;
+                        box-shadow: 0 0 0 2px var(--${p}-panel-bg), 0 0 0 4px var(--${p}-primary);
+                    }
+
+                    .${p}-input {
+                        box-sizing: border-box;
+                        width: 100%;
+                        padding: 8px 10px;
+                        border: 1px solid var(--${p}-border);
+                        border-radius: 6px;
+                        font-size: 14px;
+                        outline: none;
+                        background: var(--${p}-input-bg);
+                        color: var(--${p}-text);
+                        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+                    }
+                    .${p}-input:focus {
+                        border-color: var(--${p}-primary);
+                        box-shadow: 0 0 0 1px var(--${p}-primary);
+                    }
+
+                    .${p}-th {
+                        border-bottom: 2px solid var(--${p}-border);
+                        padding: 10px 8px;
+                        text-align: left;
+                        background: var(--${p}-table-header-bg);
+                        font-weight: bold;
+                        position: sticky;
+                        top: -1px;
+                        z-index: 1;
+                        color: var(--${p}-text);
+                    }
+                    .${p}-td {
+                        padding: 10px 8px;
+                        border-bottom: 1px solid var(--${p}-border);
+                        vertical-align: middle;
+                        color: var(--${p}-text);
+                        font-size: 14px;
+                    }
+                `;
+
+                return () => {
+                    try { styleEl.remove(); } catch {}
+                };
+            }
 
             function injectDragCss() {
                 const styleId = `${cssPrefix}-drag-style`;
@@ -5440,6 +5942,11 @@
                 }
                 state.destroyDarkModeObserver = uiShared.theme.setupDarkModeObserver();
 
+                if (typeof state.destroyBaseCss === "function") {
+                    try { state.destroyBaseCss(); } catch {}
+                }
+                state.destroyBaseCss = injectBaseCss();
+
                 if (typeof state.destroyDragCss === "function") {
                     try { state.destroyDragCss(); } catch {}
                 }
@@ -5458,6 +5965,10 @@
                 if (typeof state.destroyDragCss === "function") {
                     try { state.destroyDragCss(); } catch {}
                     state.destroyDragCss = null;
+                }
+                if (typeof state.destroyBaseCss === "function") {
+                    try { state.destroyBaseCss(); } catch {}
+                    state.destroyBaseCss = null;
                 }
                 if (typeof state.destroyDarkModeObserver === "function") {
                     try { state.destroyDarkModeObserver(); } catch {}
@@ -5481,6 +5992,9 @@
                 closeSettingsPanel: settingsPanelLayer.closeSettingsPanel,
                 getShortcuts,
                 setShortcuts,
+                registerActionHandler: (actionType, handler, meta = {}) => core?.actions?.register?.(actionType, handler, meta),
+                unregisterActionHandler: (actionType) => core?.actions?.unregister?.(actionType),
+                listActionTypes: () => core?.actions?.list?.() || [],
                 core,
                 uiShared,
                 URL_METHODS
@@ -5491,7 +6005,7 @@
  * -------------------------------------------------------------------------- */
 
     global.ShortcutTemplate = Object.freeze({
-        VERSION: '20251225',
+        VERSION: '20251226',
         URL_METHODS,
         createShortcutEngine,
         utils: Utils
