@@ -1,18 +1,16 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20251226] v1.1.0
+// @name         [Template] 快捷键跳转 [20251228] v1.1.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20251226] v1.1.0
+// @version      [20251228] v1.1.1
+// @update-log   1.1.1: 编辑器支持 customAction data 适配（可直接输入关键词/非 JSON）
 // @update-log   1.1.0: 重构核心模块(拆分 hotkeys/ui/icons/builtins)，统一面板筛选与拖拽视图匹配，清理 legacy editor，大幅减少 inline styles 并移除面板 setTrustedHTML 依赖
-// @update-log   1.0.0: 新增 ShortcutTemplate.utils(menu/dom/events/oneStep) 以参数化菜单点击与 1step 编排，站点脚本仅需填写参数/defs
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)。
-// @author       You
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
 // @connect      *
-// @icon         https://raw.githubusercontent.com/favicon.ico
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -41,8 +39,10 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
+    const TEMPLATE_VERSION = "20251228";
+
     const DEFAULT_OPTIONS = {
-        version: '20251226',
+        version: TEMPLATE_VERSION,
         menuCommandLabel: '设置快捷键',
         panelTitle: '自定义快捷键',
         storageKeys: {
@@ -60,6 +60,7 @@
         protectedIconUrls: [],
         defaultShortcuts: [],
         customActions: {},
+        customActionDataAdapters: {},
         actionHandlers: {},
         allowOverrideBuiltinActions: false,
         actionTypeMeta: {},
@@ -68,9 +69,20 @@
         },
         consoleTag: '[ShortcutEngine]',
         shouldBypassIconCache: null,
+        iconCache: {
+            enableMemoryCache: true,
+            memoryMaxEntries: 200,
+            maxDataUrlChars: 180000
+        },
         resolveUrlTemplate: null,
         getCurrentSearchTerm: null,
         placeholderToken: '%s',
+        keyboard: {
+            allowedInputTags: ['INPUT', 'TEXTAREA', 'SELECT'],
+            allowContentEditable: true,
+            blockUnlistedModifierShortcutsInInputsWhenPanelOpen: true,
+            isAllowedShortcutWhenPanelOpen: null
+        },
         text: {
             stats: {
                 total: '总计',
@@ -105,6 +117,109 @@
                 hotkeyHelp: '💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合',
                 simulateHelp: '⚡ 将模拟这个按键组合发送到网页',
                 searchPlaceholder: '搜索名称/目标'
+            },
+            builtins: {
+                unknownUrlMethod: '未知跳转方式',
+                invalidUrlOrError: '无效的跳转网址或发生错误: {url}',
+                elementNotFound: '无法找到元素: {selector}',
+                clickFailed: '无法模拟点击元素: {selector}'
+            },
+            actionTypes: {
+                unknownLabel: '未知',
+                urlShortLabel: 'URL',
+                selectorShortLabel: '点击',
+                simulateShortLabel: '按键',
+                customShortLabel: '自定义'
+            },
+            panel: {
+                resetConfirm: '确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)',
+                confirmDeleteShortcut: '确定删除快捷键【{name}】吗?',
+                tableHeaders: {
+                    icon: '图标',
+                    name: '名称',
+                    type: '类型',
+                    target: '目标',
+                    hotkey: '快捷键',
+                    actions: '操作'
+                },
+                compact: {
+                    noHotkey: '无',
+                    emptyTarget: '（无目标配置）'
+                },
+                dragError: '拖拽排序时出错: {error}'
+            },
+            editor: {
+                titles: {
+                    add: '添加快捷键',
+                    edit: '编辑快捷键'
+                },
+                labels: {
+                    name: '名称:',
+                    actionType: '操作类型:',
+                    url: '目标网址 (URL):',
+                    selector: '目标选择器 (Selector):',
+                    simulate: '模拟按键:',
+                    customAction: '自定义动作 (customAction):',
+                    data: '扩展参数 (data JSON，可选):',
+                    icon: '图标URL:',
+                    hotkey: '快捷键:',
+                    urlMethod: '跳转方式:',
+                    urlMethodToggleAdvanced: '展开/折叠高级选项',
+                    urlMethodAdvanced: '高级选项:',
+                    iconLibrary: '或从图库选择:'
+                },
+                placeholders: {
+                    url: '例如: https://example.com/search?q=%s',
+                    selector: '例如: label[for="sidebar-visible"]',
+                    customAction: '从脚本提供的 customActions 中选择/输入 key',
+                    data: '例如: {"foo":"bar"}',
+                    icon: '在此粘贴URL, 或从下方图库选择'
+                },
+                actionTypeHints: {
+                    unregistered: '该类型当前未注册 handler；触发时会提示 unknown actionType。',
+                    unregisteredSuffix: ' (未注册)',
+                    extended: '扩展类型：可在下方 data JSON 传递参数。'
+                },
+                validation: {
+                    dataParseFailed: 'data 解析失败，请检查输入。',
+                    dataJsonParseFailed: 'data JSON 解析失败，请检查格式。',
+                    dataJsonMustBeObject: 'data 必须是 JSON 对象 (例如 {"foo":"bar"})。',
+                    nameRequired: '请填写名称!',
+                    urlRequired: '请填写目标网址!',
+                    selectorRequired: '请填写目标选择器!',
+                    simulateRequired: '请设置模拟按键!',
+                    customActionRequired: '请设置自定义动作 key!',
+                    hotkeyRequired: '请设置快捷键!',
+                    hotkeyIncomplete: '快捷键设置不完整 (缺少主键)!',
+                    hotkeyDuplicate: '该快捷键已被其他项使用, 请选择其他组合!'
+                },
+                iconLibrary: {
+                    userAddedHint: ' (长按删除)',
+                    expandTitle: '展开/折叠更多图标',
+                    addTitle: '将输入框中的图标URL添加到图库',
+                    promptName: '请输入图标的名称：',
+                    urlRequired: '请输入图标的URL！',
+                    alreadyExists: '该图标已存在于图库中。',
+                    confirmDelete: '确定要删除自定义图标 "{name}" 吗?'
+                },
+                capture: {
+                    placeholderDuringCapture: '请按下{label}组合...',
+                    statusCapturing: '🎯 正在捕获{label}，请按下组合键...',
+                    statusCaptured: '✅ 已捕获{label}: {keys}',
+                    statusInvalid: '❌ 未捕获到有效的{label}',
+                    statusUnsupportedHotkey: '❌ 不支持的快捷键: {key}',
+                    statusUnsupportedSimulate: '❌ 不支持的模拟按键: {key}',
+                    statusCleared: '🗑️ {label}已清除'
+                }
+            },
+            io: {
+                copySuccess: '已复制到剪贴板。',
+                copyFail: '复制失败，请手动复制。',
+                importTip: '支持导入 { shortcuts: [...], userIcons?: [...] } 或直接导入 shortcuts 数组。',
+                importPlaceholder: '粘贴 JSON 到这里…',
+                importJsonParseFailed: 'JSON 解析失败，请检查格式。',
+                importMissingShortcuts: '导入数据中未找到 shortcuts 数组。',
+                importDuplicateHotkeysPrefix: '导入失败：存在重复快捷键(请先在 JSON 中修复)：'
             },
             menuLabelFallback: '打开快捷键设置'
         }
@@ -1026,9 +1141,17 @@
             const { options, URL_METHODS, Utils, hotkeys, showAlert } = ctx;
             const consoleTag = options?.consoleTag || "[ShortcutEngine]";
 
+            function formatMessage(template, vars = {}) {
+                let out = String(template ?? "");
+                for (const [key, value] of Object.entries(vars || {})) {
+                    out = out.split(`{${key}}`).join(String(value ?? ""));
+                }
+                return out;
+            }
+
             function getUrlMethodDisplayText(method) {
                 const methodConfig = URL_METHODS?.[method];
-                if (!methodConfig) return "未知跳转方式";
+                if (!methodConfig) return options?.text?.builtins?.unknownUrlMethod || "未知跳转方式";
                 return methodConfig.name;
             }
 
@@ -1145,7 +1268,8 @@
                 } catch (e) {
                     console.error(`${consoleTag} Invalid URL or error in jumpToUrl:`, targetUrl, e);
                     if (typeof showAlert === "function") {
-                        showAlert(`无效的跳转网址或发生错误: ${targetUrl}`);
+                        const tpl = options?.text?.builtins?.invalidUrlOrError || "无效的跳转网址或发生错误: {url}";
+                        showAlert(formatMessage(tpl, { url: targetUrl }));
                     }
                 }
             }
@@ -1156,7 +1280,10 @@
 
                 const element = Utils?.dom?.safeQuerySelector ? Utils.dom.safeQuerySelector(document, sel) : document.querySelector(sel);
                 if (!element) {
-                    if (typeof showAlert === "function") showAlert(`无法找到元素: ${sel}`);
+                    if (typeof showAlert === "function") {
+                        const tpl = options?.text?.builtins?.elementNotFound || "无法找到元素: {selector}";
+                        showAlert(formatMessage(tpl, { selector: sel }));
+                    }
                     return;
                 }
 
@@ -1190,7 +1317,10 @@
                     fallbackTarget.dispatchEvent(clickEvent);
                 } catch (eventError) {
                     console.error(`${consoleTag} Failed to dispatch click event on element: ${sel}`, eventError);
-                    if (typeof showAlert === "function") showAlert(`无法模拟点击元素: ${sel}`);
+                    if (typeof showAlert === "function") {
+                        const tpl = options?.text?.builtins?.clickFailed || "无法模拟点击元素: {selector}";
+                        showAlert(formatMessage(tpl, { selector: sel }));
+                    }
                 }
             }
 
@@ -1601,6 +1731,12 @@
             getUrlMethodDisplayText: builtinActions.getUrlMethodDisplayText,
             setIconImage: iconManager.setIconImage,
             setTrustedHTML: Utils?.dom?.setTrustedHTML,
+            panelFilter: Object.freeze({
+                normalizeActionType: panelNormalizeActionType,
+                buildShortcutSearchHaystack: panelBuildShortcutSearchHaystack,
+                matchesSearchQuery: panelMatchesSearchQuery,
+                matchesCurrentView: panelMatchesCurrentView
+            }),
             safeGMGet,
             safeGMSet,
             debounce
@@ -1988,6 +2124,16 @@
             GMX
         } = {}) {
             const opts = options && typeof options === "object" ? options : {};
+            const cacheOptions = (opts.iconCache && typeof opts.iconCache === "object") ? opts.iconCache : {};
+            const enableMemoryCache = cacheOptions.enableMemoryCache !== false;
+            const memoryMaxEntries = Number.isFinite(Number(cacheOptions.memoryMaxEntries))
+                ? Math.max(0, Number(cacheOptions.memoryMaxEntries))
+                : 200;
+            const maxDataUrlChars = Number.isFinite(Number(cacheOptions.maxDataUrlChars))
+                ? Math.max(0, Number(cacheOptions.maxDataUrlChars))
+                : 180000;
+            const memoryCache = enableMemoryCache ? new Map() : null; // url -> string | null (null = checked, no cached value)
+            const inflightFetches = new Map(); // url -> callbacks[]
 
             function getDefaultIconURL() {
                 if (opts.defaultIconURL) return opts.defaultIconURL;
@@ -1995,11 +2141,39 @@
                 return "";
             }
 
+            function rememberMemoryCache(url, value) {
+                if (!memoryCache || !url) return;
+                if (memoryCache.has(url)) memoryCache.delete(url);
+                memoryCache.set(url, value);
+                if (memoryMaxEntries > 0 && memoryCache.size > memoryMaxEntries) {
+                    const firstKey = memoryCache.keys().next().value;
+                    if (firstKey) memoryCache.delete(firstKey);
+                }
+            }
+
             function getCachedIconDataURL(url) {
-                try { return safeGMGet(opts.storageKeys.iconCachePrefix + url, ""); } catch { return ""; }
+                const key = opts.storageKeys.iconCachePrefix + url;
+                if (memoryCache && memoryCache.has(key)) {
+                    const val = memoryCache.get(key);
+                    return val || "";
+                }
+                let stored = "";
+                try {
+                    stored = safeGMGet(key, "");
+                } catch {
+                    stored = "";
+                }
+                if (memoryCache) rememberMemoryCache(key, stored ? stored : null);
+                return stored;
             }
             function saveCachedIconDataURL(url, dataURL) {
-                safeGMSet(opts.storageKeys.iconCachePrefix + url, dataURL);
+                const key = opts.storageKeys.iconCachePrefix + url;
+                if (memoryCache) rememberMemoryCache(key, dataURL || null);
+                if (!dataURL) return;
+                if (maxDataUrlChars > 0 && String(dataURL).length > maxDataUrlChars) return;
+                try {
+                    safeGMSet(key, dataURL);
+                } catch {}
             }
             function mimeFrom(url, headersLower) {
                 let m = (headersLower || "").match(/content-type:\s*([^\r\n;]+)/);
@@ -2032,6 +2206,23 @@
                         } else cb(null);
                     },
                     onerror: function() { cb(null); }
+                });
+            }
+
+            function fetchIconAsDataURLOnce(url, cb) {
+                if (!url || typeof cb !== "function") return;
+                const pending = inflightFetches.get(url);
+                if (pending) {
+                    pending.push(cb);
+                    return;
+                }
+                inflightFetches.set(url, [cb]);
+                fetchIconAsDataURL(url, (dataURL) => {
+                    const callbacks = inflightFetches.get(url) || [];
+                    inflightFetches.delete(url);
+                    callbacks.forEach((fn) => {
+                        try { fn(dataURL); } catch {}
+                    });
                 });
             }
 
@@ -2077,7 +2268,7 @@
 
                 const onErr = () => {
                     imgEl.removeEventListener('error', onErr);
-                    fetchIconAsDataURL(iconUrl, (dataURL) => {
+                    fetchIconAsDataURLOnce(iconUrl, (dataURL) => {
                         if (dataURL) {
                             saveCachedIconDataURL(iconUrl, dataURL);
                             imgEl.src = dataURL;
@@ -2682,7 +2873,16 @@
  * -------------------------------------------------------------------------- */
 
         function createKeyboardLayer(ctx = {}) {
-            const { state, core } = ctx;
+            const { state, core, options } = ctx;
+            const consoleTag = options?.consoleTag || "[ShortcutEngine]";
+            const keyboardOptions = (options?.keyboard && typeof options.keyboard === "object") ? options.keyboard : {};
+            const allowedInputTags = Array.isArray(keyboardOptions.allowedInputTags)
+                ? keyboardOptions.allowedInputTags.map((t) => String(t || "").toUpperCase()).filter(Boolean)
+                : ['INPUT', 'TEXTAREA', 'SELECT'];
+            const allowedInputTagSet = new Set(allowedInputTags);
+            const allowContentEditable = keyboardOptions.allowContentEditable !== false;
+            const blockUnlistedModifierShortcutsInInputsWhenPanelOpen =
+                keyboardOptions.blockUnlistedModifierShortcutsInInputsWhenPanelOpen !== false;
             const CAPTURE_DATASET_KEY = "shortcutCapture";
             const CAPTURE_DATASET_VALUE = "1";
 
@@ -2698,14 +2898,13 @@
             function isInAllowedInputElement(eventTarget = null) {
                 const activeEl = eventTarget || document.activeElement;
                 if (!activeEl) return false;
-                const allowedTags = ['INPUT', 'TEXTAREA', 'SELECT'];
-                const isAllowedTag = allowedTags.includes(activeEl.tagName);
-                const isContentEditable = !!activeEl.isContentEditable;
+                const isAllowedTag = allowedInputTagSet.has(activeEl.tagName);
+                const isContentEditable = allowContentEditable && !!activeEl.isContentEditable;
                 const isHotkeyCapturer = isInHotkeyCaptureMode(activeEl);
                 return (isAllowedTag || isContentEditable) && !isHotkeyCapturer;
             }
 
-            function isAllowedShortcut(e) {
+            function defaultIsAllowedShortcut(e) {
                 const key = String(e.key || "").toLowerCase();
                 const code = String(e.code || "");
 
@@ -2760,6 +2959,24 @@
                 return false;
             }
 
+            function isAllowedShortcutWhenPanelOpen(e) {
+                const custom = keyboardOptions.isAllowedShortcutWhenPanelOpen;
+                if (typeof custom === "function") {
+                    try {
+                        const result = custom(e, {
+                            options,
+                            state,
+                            core,
+                            defaultIsAllowedShortcut
+                        });
+                        if (typeof result === "boolean") return result;
+                    } catch (err) {
+                        console.warn(`${consoleTag} keyboard.isAllowedShortcutWhenPanelOpen error`, err);
+                    }
+                }
+                return defaultIsAllowedShortcut(e);
+            }
+
             function onKeydown(e) {
                 if (!e) return;
 
@@ -2767,11 +2984,11 @@
                     if (isInHotkeyCaptureMode(e.target)) {
                         return;
                     }
-                    if (isAllowedShortcut(e)) {
+                    if (isAllowedShortcutWhenPanelOpen(e)) {
                         return;
                     }
                     if (isInAllowedInputElement(e.target)) {
-                        if (e.ctrlKey || e.altKey || e.metaKey) {
+                        if (blockUnlistedModifierShortcutsInInputsWhenPanelOpen && (e.ctrlKey || e.altKey || e.metaKey)) {
                             e.preventDefault();
                             e.stopPropagation();
                             return;
@@ -2836,6 +3053,7 @@
                 setIconImage,
                 safeGMGet,
                 safeGMSet,
+                panelFilter,
                 debounce
             } = ctx;
             const { theme, colors, style, dialogs, layout } = uiShared;
@@ -2854,15 +3072,17 @@
             const { showAlert, showConfirmDialog, showPromptDialog } = dialogs;
 	            const { enableScrollLock, disableScrollLock, createResponsiveListener, shouldUseCompactMode, autoResizeTextarea } = layout;
 	            const normalizeHotkey = core.normalizeHotkey;
+                const matchesSearchQuery = panelFilter?.matchesSearchQuery || panelMatchesSearchQuery;
+                const normalizeActionType = panelFilter?.normalizeActionType || panelNormalizeActionType;
 
 	            function getShortcutStats() {
 	                const list = core.getShortcuts();
 	                const query = String(state.searchQuery || "").trim().toLowerCase();
 	                const stats = { total: 0, byType: Object.create(null) };
 	                list.forEach(shortcut => {
-	                    if (!panelMatchesSearchQuery(shortcut, query)) return;
+	                    if (!matchesSearchQuery(shortcut, query)) return;
 	                    stats.total++;
-                        const type = panelNormalizeActionType(shortcut);
+                        const type = normalizeActionType(shortcut);
                         stats.byType[type] = (stats.byType[type] || 0) + 1;
 	                });
 	                return stats;
@@ -2874,8 +3094,8 @@
 	                const filtered = [];
 	                for (let i = 0; i < list.length; i++) {
 	                    const shortcut = list[i];
-	                    if (!panelMatchesSearchQuery(shortcut, query)) continue;
-                        const shortcutType = panelNormalizeActionType(shortcut);
+	                    if (!matchesSearchQuery(shortcut, query)) continue;
+                        const shortcutType = normalizeActionType(shortcut);
 	                    if (type === 'all' || shortcutType === type) {
 	                        filtered.push({ item: shortcut, index: i });
 	                    }
@@ -2936,15 +3156,16 @@
                 const meta = entry && entry.meta && typeof entry.meta === "object" ? entry.meta : null;
 
                 const labelRaw = meta && typeof meta.label === "string" ? meta.label.trim() : "";
-                const label = labelRaw || (type === "unknown" ? "未知" : type);
+                const unknownLabel = options?.text?.actionTypes?.unknownLabel || "未知";
+                const label = labelRaw || (type === "unknown" ? unknownLabel : type);
 
                 const shortLabelRaw = meta && typeof meta.shortLabel === "string" ? meta.shortLabel.trim() : "";
                 let shortLabel = shortLabelRaw;
                 if (!shortLabel) {
-                    if (type === "url") shortLabel = "URL";
-                    else if (type === "selector") shortLabel = "点击";
-                    else if (type === "simulate") shortLabel = "按键";
-                    else if (type === "custom") shortLabel = "自定义";
+                    if (type === "url") shortLabel = options?.text?.actionTypes?.urlShortLabel || "URL";
+                    else if (type === "selector") shortLabel = options?.text?.actionTypes?.selectorShortLabel || "点击";
+                    else if (type === "simulate") shortLabel = options?.text?.actionTypes?.simulateShortLabel || "按键";
+                    else if (type === "custom") shortLabel = options?.text?.actionTypes?.customShortLabel || "自定义";
                     else shortLabel = label.length > 4 ? label.slice(0, 4) : label;
                 }
 
@@ -3542,20 +3763,15 @@
 
 	            let settingsMenuOverlay = null;
 	            let settingsMenuKeydownHandler = null;
-	            let settingsMenuThemeHandler = null;
 
 	            function closeSettingsMenu({ restoreFocus = true } = {}) {
 	                if (!settingsMenuOverlay) return;
 	                if (typeof settingsMenuKeydownHandler === "function") {
 	                    document.removeEventListener("keydown", settingsMenuKeydownHandler, true);
 	                }
-	                if (typeof settingsMenuThemeHandler === "function") {
-	                    removeThemeChangeListener(settingsMenuThemeHandler);
-	                }
 	                try { settingsMenuOverlay.remove(); } catch {}
 	                settingsMenuOverlay = null;
 	                settingsMenuKeydownHandler = null;
-	                settingsMenuThemeHandler = null;
 	                if (restoreFocus) {
 	                    try { settingsBtn.focus(); } catch {}
 	                }
@@ -3569,24 +3785,14 @@
 
 	                const modal = document.createElement("div");
 	                settingsMenuOverlay = modal;
-	                Object.assign(modal.style, {
-	                    position: "fixed",
-	                    top: 0,
-	                    left: 0,
-	                    width: "100vw",
-	                    height: "100vh",
-	                    zIndex: "999999",
-	                    display: "flex",
-	                    alignItems: "center",
-	                    justifyContent: "center",
-	                    padding: "20px",
-	                    boxSizing: "border-box"
-	                });
+                    modal.className = classes?.overlay || "";
+                    modal.style.zIndex = "999999";
 	                modal.onclick = (e) => {
 	                    if (e.target === modal) closeSettingsMenu();
 	                };
 
 	                const dialog = document.createElement("div");
+                    dialog.className = classes?.panel || "";
 	                Object.assign(dialog.style, {
 	                    width: "100%",
 	                    maxWidth: "420px",
@@ -3628,6 +3834,10 @@
 	                head.appendChild(closeBtn);
 
 	                dialog.appendChild(head);
+                    const p = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
+                    styleTransparentButton(closeBtn, `var(--${p}-text)`, `var(--${p}-hover-bg)`);
+                    closeBtn.style.padding = "6px 8px";
+                    closeBtn.style.borderRadius = "6px";
 
 	                const actions = document.createElement("div");
 	                Object.assign(actions.style, {
@@ -3643,6 +3853,7 @@
 	                    openImportDialog();
 	                };
 	                actions.appendChild(importActionBtn);
+                    styleButton(importActionBtn, "#2196F3", "#1e88e5");
 
 	                const exportActionBtn = document.createElement("button");
 	                exportActionBtn.textContent = options.text.buttons.export || "导出";
@@ -3651,16 +3862,18 @@
 	                    openExportDialog();
 	                };
 	                actions.appendChild(exportActionBtn);
+                    styleButton(exportActionBtn, "#607D8B", "#546e7a");
 
 	                const resetActionBtn = document.createElement("button");
 	                resetActionBtn.textContent = options.text.buttons.reset || "重置默认";
 	                resetActionBtn.onclick = () => {
 	                    closeSettingsMenu({ restoreFocus: false });
-	                    showConfirmDialog("确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)", () => {
+	                    showConfirmDialog(options?.text?.panel?.resetConfirm || "确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)", () => {
 	                        resetToDefaults();
 	                    });
 	                };
 	                actions.appendChild(resetActionBtn);
+                    styleButton(resetActionBtn, "#F44336", "#D32F2F");
 
 	                dialog.appendChild(actions);
 	                modal.appendChild(dialog);
@@ -3673,23 +3886,6 @@
 	                    }
 	                };
 	                document.addEventListener("keydown", settingsMenuKeydownHandler, true);
-
-	                settingsMenuThemeHandler = (isDark) => {
-	                    modal.style.backgroundColor = getOverlayBackgroundColor(isDark);
-	                    dialog.style.background = getPanelBackgroundColor(isDark);
-	                    dialog.style.color = getTextColor(isDark);
-	                    dialog.style.border = `1px solid ${getBorderColor(isDark)}`;
-	                    titleEl.style.color = getTextColor(isDark);
-	                    styleTransparentButton(closeBtn, getTextColor(isDark), getHoverColor(isDark), isDark);
-	                    closeBtn.style.padding = "6px 8px";
-	                    closeBtn.style.borderRadius = "6px";
-	                    styleButton(importActionBtn, "#2196F3", "#1e88e5");
-	                    styleButton(exportActionBtn, "#607D8B", "#546e7a");
-	                    styleButton(resetActionBtn, "#F44336", "#D32F2F");
-	                };
-
-	                addThemeChangeListener(settingsMenuThemeHandler);
-	                settingsMenuThemeHandler(state.isDarkMode);
 	                closeBtn.focus();
 	            }
 
@@ -3821,13 +4017,14 @@
 
                 const thead = document.createElement("thead");
                 const headRow = document.createElement("tr");
+                const tableHeaders = options?.text?.panel?.tableHeaders || {};
                 const headers = [
-                    { text: "图标", width: "60px", align: "center" },
-                    { text: "名称", width: "15%" },
-                    { text: "类型", width: "80px" },
-                    { text: "目标", width: "40%" },
-                    { text: "快捷键", width: "15%" },
-                    { text: "操作", width: "120px", align: "center" }
+                    { text: tableHeaders.icon || "图标", width: "60px", align: "center" },
+                    { text: tableHeaders.name || "名称", width: "15%" },
+                    { text: tableHeaders.type || "类型", width: "80px" },
+                    { text: tableHeaders.target || "目标", width: "40%" },
+                    { text: tableHeaders.hotkey || "快捷键", width: "15%" },
+                    { text: tableHeaders.actions || "操作", width: "120px", align: "center" }
                 ];
                 headers.forEach(header => {
                     const th = document.createElement("th");
@@ -3900,10 +4097,10 @@
                 const tdTarget = document.createElement("td");
                 const targetText = getShortcutTargetText(item);
                 tdTarget.textContent = targetText;
-                if (typeMeta.builtin && item.actionType === 'url' && item.url) {
+                    if (typeMeta.builtin && item.actionType === 'url' && item.url) {
                     const methodText = (typeof getUrlMethodDisplayText === "function")
                         ? getUrlMethodDisplayText(item.urlMethod)
-                        : (URL_METHODS?.[item.urlMethod]?.name || "未知跳转方式");
+                        : (URL_METHODS?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "未知跳转方式");
                     tdTarget.title = `${methodText}:\n---\n${targetText}`;
                 } else {
                     let titleText = targetText;
@@ -4012,7 +4209,10 @@
                     minWidth: "60px",
                     textAlign: "center"
                 });
-                hotkeyContainer.textContent = core?.hotkeys?.formatForDisplay ? (core.hotkeys.formatForDisplay(item.hotkey) || "无") : (item.hotkey || "无");
+                const noHotkeyText = options?.text?.panel?.compact?.noHotkey || "无";
+                hotkeyContainer.textContent = core?.hotkeys?.formatForDisplay
+                    ? (core.hotkeys.formatForDisplay(item.hotkey) || noHotkeyText)
+                    : (item.hotkey || noHotkeyText);
 
                 const actionButtons = createActionButtons(item, index, isDark);
                 Object.assign(actionButtons.style, {
@@ -4041,12 +4241,12 @@
                 });
 
                 const targetText = getShortcutTargetText(item);
-                const displayTargetText = targetText === "-" ? "（无目标配置）" : targetText;
+                const displayTargetText = targetText === "-" ? (options?.text?.panel?.compact?.emptyTarget || "（无目标配置）") : targetText;
                 secondRow.textContent = displayTargetText;
                 if (typeMeta.builtin && item.actionType === 'url' && item.url) {
                     const methodText = (typeof getUrlMethodDisplayText === "function")
                         ? getUrlMethodDisplayText(item.urlMethod)
-                        : (URL_METHODS?.[item.urlMethod]?.name || "未知跳转方式");
+                        : (URL_METHODS?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "未知跳转方式");
                     secondRow.title = `${methodText}:\n---\n${displayTargetText}`;
                 } else {
                     let titleText = displayTargetText;
@@ -4116,7 +4316,8 @@
                 });
                 delButton.onclick = (e) => {
                     e.stopPropagation();
-                    showConfirmDialog(`确定删除快捷键【${item.name}】吗?`, () => {
+                    const tpl = options?.text?.panel?.confirmDeleteShortcut || "确定删除快捷键【{name}】吗?";
+                    showConfirmDialog(tpl.replace("{name}", String(item.name ?? "")), () => {
                         core.mutateShortcuts((list) => { list.splice(index, 1); });
                         renderShortcutsList(state.isDarkMode);
                         updateStatsDisplay();
@@ -4167,8 +4368,9 @@
  * -------------------------------------------------------------------------- */
 
 	        function panelCreateDragAndDropController(ctx, { renderShortcutsList, updateStatsDisplay } = {}) {
-            const { ids, classes, state, core, uiShared } = ctx;
+            const { ids, classes, state, core, uiShared, options, panelFilter } = ctx;
             const { showAlert } = uiShared.dialogs;
+            const matchesCurrentView = panelFilter?.matchesCurrentView || panelMatchesCurrentView;
 
             let draggingShortcutId = null;
 
@@ -4183,7 +4385,7 @@
                     const items = [];
                     for (let i = 0; i < list.length; i++) {
                         const sc = list[i];
-                        if (panelMatchesCurrentView(ctx, sc)) {
+                        if (matchesCurrentView(ctx, sc)) {
                             indices.push(i);
                             items.push(sc);
                         }
@@ -4279,7 +4481,8 @@
                         }
                     } catch (err) {
                         console.error("Drag-and-drop error:", err);
-                        showAlert("拖拽排序时出错: " + err);
+                        const tpl = options?.text?.panel?.dragError || "拖拽排序时出错: {error}";
+                        showAlert(tpl.replace("{error}", String(err ?? "")));
                     }
                 });
 
@@ -4375,17 +4578,19 @@
             formDiv.onclick = (e) => e.stopPropagation();
 
             const h3 = document.createElement("h3");
-            h3.textContent = isNew ? "添加快捷键" : "编辑快捷键";
+            h3.textContent = isNew
+                ? (options?.text?.editor?.titles?.add || "添加快捷键")
+                : (options?.text?.editor?.titles?.edit || "编辑快捷键");
             Object.assign(h3.style, { marginTop: "0", marginBottom: "15px", fontSize: "1.1em" });
             formDiv.appendChild(h3);
 
-            const nameInput = panelCreateInputField(ctx, "名称:", temp.name, "text");
+            const nameInput = panelCreateInputField(ctx, options?.text?.editor?.labels?.name || "名称:", temp.name, "text");
             formDiv.appendChild(nameInput.label);
 
             const actionTypeDiv = document.createElement("div");
             actionTypeDiv.style.margin = "15px 0";
             const actionTypeLabel = document.createElement("div");
-            actionTypeLabel.textContent = "操作类型:";
+            actionTypeLabel.textContent = options?.text?.editor?.labels?.actionType || "操作类型:";
             Object.assign(actionTypeLabel.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
             actionTypeDiv.appendChild(actionTypeLabel);
             const builtinLabels = Object.freeze({
@@ -4427,7 +4632,8 @@
             extraTypes.forEach((opt) => addActionType(opt.value, opt.text));
 
             if (temp.actionType && !usedTypes.has(temp.actionType)) {
-                addActionType(temp.actionType, `${temp.actionType} (未注册)`);
+                const suffix = options?.text?.editor?.actionTypeHints?.unregisteredSuffix || " (未注册)";
+                addActionType(temp.actionType, `${temp.actionType}${suffix}`);
             }
 
             const actionTypeHint = document.createElement("div");
@@ -4448,11 +4654,11 @@
                     return;
                 }
                 if (!entriesByType.has(normalized)) {
-                    actionTypeHint.textContent = "该类型当前未注册 handler；触发时会提示 unknown actionType。";
+                    actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.unregistered || "该类型当前未注册 handler；触发时会提示 unknown actionType。";
                     return;
                 }
                 if (!isBuiltinActionType(normalized)) {
-                    actionTypeHint.textContent = "扩展类型：可在下方 data JSON 传递参数。";
+                    actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.extended || "扩展类型：可在下方 data JSON 传递参数。";
                     return;
                 }
                 actionTypeHint.textContent = "";
@@ -4475,11 +4681,12 @@
                         const isBuiltin = isBuiltinActionType(at.value);
                         urlContainer.style.display = (isBuiltin && at.value === 'url') ? 'block' : 'none';
                         selectorContainer.style.display = (isBuiltin && at.value === 'selector') ? 'block' : 'none';
-                        simulateContainer.style.display = (isBuiltin && at.value === 'simulate') ? 'block' : 'none';
-                        customContainer.style.display = (isBuiltin && at.value === 'custom') ? 'block' : 'none';
-                        updateActionTypeHint(at.value);
-                    }
-                });
+	                        simulateContainer.style.display = (isBuiltin && at.value === 'simulate') ? 'block' : 'none';
+	                        customContainer.style.display = (isBuiltin && at.value === 'custom') ? 'block' : 'none';
+	                        updateActionTypeHint(at.value);
+                            applyDataEditorMode({ maybeReplaceValue: true });
+	                    }
+	                });
                 radioLabel.appendChild(radio);
                 radioLabel.appendChild(document.createTextNode(at.text));
                 radioGroup.appendChild(radioLabel);
@@ -4488,7 +4695,13 @@
             formDiv.appendChild(actionTypeDiv);
 
             const urlContainer = document.createElement('div');
-            const urlTextarea = panelCreateInputField(ctx, "目标网址 (URL):", temp.url, "textarea", "例如: https://example.com/search?q=%s");
+            const urlTextarea = panelCreateInputField(
+                ctx,
+                options?.text?.editor?.labels?.url || "目标网址 (URL):",
+                temp.url,
+                "textarea",
+                options?.text?.editor?.placeholders?.url || "例如: https://example.com/search?q=%s"
+            );
             urlContainer.appendChild(urlTextarea.label);
 
             const urlMethodContainer = panelCreateUrlMethodConfigUI(ctx, temp.urlMethod, temp.urlAdvanced);
@@ -4498,13 +4711,19 @@
             actionInputs.url = urlTextarea.input;
 
             const selectorContainer = document.createElement('div');
-            const selectorTextarea = panelCreateInputField(ctx, "目标选择器 (Selector):", temp.selector, "textarea", '例如: label[for="sidebar-visible"]');
+            const selectorTextarea = panelCreateInputField(
+                ctx,
+                options?.text?.editor?.labels?.selector || "目标选择器 (Selector):",
+                temp.selector,
+                "textarea",
+                options?.text?.editor?.placeholders?.selector || '例如: label[for="sidebar-visible"]'
+            );
             selectorContainer.appendChild(selectorTextarea.label);
             formDiv.appendChild(selectorContainer);
             actionInputs.selector = selectorTextarea.input;
 
             const simulateContainer = document.createElement('div');
-            const simulateCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, "模拟按键:", temp.simulateKeys, {
+            const simulateCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.simulate || "模拟按键:", temp.simulateKeys, {
                 placeholder: options.text.hints.simulate,
                 hint: options.text.hints.simulateHelp,
                 methodName: "getSimulateKeys",
@@ -4516,7 +4735,13 @@
             formDiv.appendChild(simulateContainer);
 
             const customContainer = document.createElement('div');
-            const customActionField = panelCreateInputField(ctx, "自定义动作 (customAction):", temp.customAction, "text", "从脚本提供的 customActions 中选择/输入 key");
+            const customActionField = panelCreateInputField(
+                ctx,
+                options?.text?.editor?.labels?.customAction || "自定义动作 (customAction):",
+                temp.customAction,
+                "text",
+                options?.text?.editor?.placeholders?.customAction || "从脚本提供的 customActions 中选择/输入 key"
+            );
             customContainer.appendChild(customActionField.label);
             formDiv.appendChild(customContainer);
             actionInputs.customAction = customActionField.input;
@@ -4534,21 +4759,104 @@
                     customActionField.input.setAttribute("list", datalist.id);
                     customActionField.label.appendChild(datalist);
                 }
-            } catch {}
+	            } catch {}
 
-            const dataField = panelCreateInputField(
-                ctx,
-                "扩展参数 (data JSON，可选):",
-                JSON.stringify(temp.data || {}, null, 2),
-                "textarea",
-                '例如: {"foo":"bar"}'
-            );
-            formDiv.appendChild(dataField.label);
-            const dataTextarea = dataField.input;
+                const defaultDataLabelText = options?.text?.editor?.labels?.data || "扩展参数 (data JSON，可选):";
+                const defaultDataPlaceholder = options?.text?.editor?.placeholders?.data || '例如: {"foo":"bar"}';
 
-            const iconField = panelCreateIconField(ctx, "图标URL:", temp.icon);
-            const { label: iconLabel, input: iconTextarea, preview: iconPreview, destroy: destroyIconField } = iconField;
-            formDiv.appendChild(iconLabel);
+                const customActionDataAdapters = (options?.customActionDataAdapters && typeof options.customActionDataAdapters === "object")
+                    ? options.customActionDataAdapters
+                    : null;
+
+                function isPlainObject(value) {
+                    return !!value && typeof value === "object" && !Array.isArray(value);
+                }
+
+                function formatJsonDataForEditor(data) {
+                    const obj = isPlainObject(data) ? data : {};
+                    if (Object.keys(obj).length === 0) return "";
+                    try {
+                        return JSON.stringify(obj, null, 2);
+                    } catch {
+                        return "";
+                    }
+                }
+
+                function getCustomActionDataAdapter(customActionKey) {
+                    const key = String(customActionKey || "").trim();
+                    if (!key || !customActionDataAdapters) return null;
+                    const adapter = customActionDataAdapters[key];
+                    if (!adapter || typeof adapter !== "object" || Array.isArray(adapter)) return null;
+                    return adapter;
+                }
+
+                function formatCustomActionData(adapter, data) {
+                    if (!adapter) return formatJsonDataForEditor(data);
+                    const formatter = typeof adapter.format === "function" ? adapter.format : null;
+                    if (formatter) {
+                        try {
+                            return String(formatter(data, { shortcut: temp, ctx }) ?? "");
+                        } catch {
+                            return "";
+                        }
+                    }
+                    return formatJsonDataForEditor(data);
+                }
+
+                let lastDataAdapterKey = "";
+
+                function applyDataEditorMode({ maybeReplaceValue = false } = {}) {
+                    if (!dataField || !dataTextarea) return;
+
+                    const customActionKey = String(actionInputs.customAction?.value || temp.customAction || "").trim();
+                    const adapter = (temp.actionType === "custom") ? getCustomActionDataAdapter(customActionKey) : null;
+                    const nextDataAdapterKey = adapter ? customActionKey : "";
+
+                    const labelText = (adapter && typeof adapter.label === "string") ? adapter.label : defaultDataLabelText;
+                    try {
+                        const textNode = dataField.label?.firstChild;
+                        if (textNode && textNode.nodeType === 3) textNode.textContent = labelText;
+                    } catch {}
+
+                    dataTextarea.placeholder = (adapter && typeof adapter.placeholder === "string") ? adapter.placeholder : defaultDataPlaceholder;
+
+                    const adapterChanged = nextDataAdapterKey !== lastDataAdapterKey;
+                    lastDataAdapterKey = nextDataAdapterKey;
+                    if (!maybeReplaceValue || !adapterChanged) return;
+
+                    const current = String(dataTextarea.value || "");
+                    const currentTrim = current.trim();
+                    const baselineJsonTrim = formatJsonDataForEditor(temp.data).trim();
+
+                    const shouldReplaceValue = !currentTrim || currentTrim === "{}" || (baselineJsonTrim && currentTrim === baselineJsonTrim);
+                    if (!shouldReplaceValue) return;
+
+                    dataTextarea.value = adapter ? formatCustomActionData(adapter, temp.data) : formatJsonDataForEditor(temp.data);
+                    try {
+                        if (dataTextarea.tagName === "TEXTAREA") autoResizeTextarea(dataTextarea);
+                    } catch {}
+                }
+
+	                const initialDataAdapter = (temp.actionType === "custom")
+	                    ? getCustomActionDataAdapter(temp.customAction)
+	                    : null;
+                    lastDataAdapterKey = initialDataAdapter ? String(temp.customAction || "").trim() : "";
+
+	            const dataField = panelCreateInputField(
+	                ctx,
+	                (initialDataAdapter && typeof initialDataAdapter.label === "string") ? initialDataAdapter.label : defaultDataLabelText,
+	                initialDataAdapter ? formatCustomActionData(initialDataAdapter, temp.data) : formatJsonDataForEditor(temp.data),
+	                "textarea",
+	                (initialDataAdapter && typeof initialDataAdapter.placeholder === "string") ? initialDataAdapter.placeholder : defaultDataPlaceholder
+	            );
+		            formDiv.appendChild(dataField.label);
+		            const dataTextarea = dataField.input;
+                actionInputs.customAction?.addEventListener?.("input", () => applyDataEditorMode({ maybeReplaceValue: true }));
+                actionInputs.customAction?.addEventListener?.("change", () => applyDataEditorMode({ maybeReplaceValue: true }));
+
+	            const iconField = panelCreateIconField(ctx, options?.text?.editor?.labels?.icon || "图标URL:", temp.icon);
+	            const { label: iconLabel, input: iconTextarea, preview: iconPreview, destroy: destroyIconField } = iconField;
+	            formDiv.appendChild(iconLabel);
 
             setIconImage(iconPreview, temp.icon || "");
             const debouncedPreview = debounce(() => {
@@ -4564,7 +4872,7 @@
             const { container: iconLibraryContainer, destroy: destroyIconLibrary } = iconLibrary;
             formDiv.appendChild(iconLibraryContainer);
 
-            const hotkeyCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, "快捷键:", temp.hotkey, {
+            const hotkeyCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.hotkey || "快捷键:", temp.hotkey, {
                 placeholder: options.text.hints.hotkey,
                 hint: options.text.hints.hotkeyHelp,
                 methodName: "getHotkey"
@@ -4587,48 +4895,61 @@
             });
 
             const confirmBtn = document.createElement("button");
-            confirmBtn.textContent = options.text.buttons.confirm || "确定";
-            confirmBtn.onclick = () => {
-                temp.name = nameInput.input.value.trim();
-                temp.url = actionInputs.url.value.trim();
-                temp.selector = actionInputs.selector.value.trim();
-                temp.simulateKeys = getSimulateKeys().replace(/\s+/g, "");
-                temp.customAction = (actionInputs.customAction?.value || "").trim();
-                temp.icon = iconTextarea.value.trim();
+	            confirmBtn.textContent = options.text.buttons.confirm || "确定";
+	            confirmBtn.onclick = () => {
+	                temp.name = nameInput.input.value.trim();
+	                temp.url = actionInputs.url.value.trim();
+	                temp.selector = actionInputs.selector.value.trim();
+	                temp.simulateKeys = getSimulateKeys().replace(/\s+/g, "");
+	                temp.customAction = (actionInputs.customAction?.value || "").trim();
+	                temp.icon = iconTextarea.value.trim();
 
-                let parsedData = {};
-                const dataText = String(dataTextarea?.value || "").trim();
-                if (dataText) {
-                    try {
-                        parsedData = JSON.parse(dataText);
-                    } catch {
-                        showAlert("data JSON 解析失败，请检查格式。");
-                        return;
-                    }
-                    if (!parsedData || typeof parsedData !== "object" || Array.isArray(parsedData)) {
-                        showAlert("data 必须是 JSON 对象 (例如 {\"foo\":\"bar\"})。");
-                        return;
-                    }
-                }
-                temp.data = parsedData;
+	                let parsedData = {};
+	                const dataTextRaw = String(dataTextarea?.value || "");
+	                const dataText = dataTextRaw.trim();
+                    const adapter = (temp.actionType === "custom") ? getCustomActionDataAdapter(temp.customAction) : null;
+                    if (adapter && typeof adapter.parse === "function") {
+                        try {
+                            parsedData = adapter.parse(dataTextRaw, { shortcut: temp, ctx }) ?? {};
+                        } catch {
+                            showAlert(options?.text?.editor?.validation?.dataParseFailed || "data 解析失败，请检查输入。");
+                            return;
+                        }
+                        if (!isPlainObject(parsedData)) {
+                            showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || "data 必须是 JSON 对象 (例如 {\"foo\":\"bar\"})。");
+                            return;
+                        }
+                    } else if (dataText) {
+	                    try {
+	                        parsedData = JSON.parse(dataText);
+	                    } catch {
+	                        showAlert(options?.text?.editor?.validation?.dataJsonParseFailed || "data JSON 解析失败，请检查格式。");
+	                        return;
+	                    }
+	                    if (!isPlainObject(parsedData)) {
+	                        showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || "data 必须是 JSON 对象 (例如 {\"foo\":\"bar\"})。");
+	                        return;
+	                    }
+	                }
+	                temp.data = parsedData;
 
                 const finalHotkey = getHotkey();
                 const urlMethodConfig = urlMethodContainer.getConfig();
                 temp.urlMethod = urlMethodConfig.method;
                 temp.urlAdvanced = urlMethodConfig.advanced;
 
-                if (!temp.name) { showAlert("请填写名称!"); return; }
+                if (!temp.name) { showAlert(options?.text?.editor?.validation?.nameRequired || "请填写名称!"); return; }
                 const isBuiltinAction = isBuiltinActionType(temp.actionType);
-                if (isBuiltinAction && temp.actionType === 'url' && !temp.url) { showAlert("请填写目标网址!"); return; }
-                if (isBuiltinAction && temp.actionType === 'selector' && !temp.selector) { showAlert("请填写目标选择器!"); return; }
-                if (isBuiltinAction && temp.actionType === 'simulate' && !temp.simulateKeys) { showAlert("请设置模拟按键!"); return; }
-                if (isBuiltinAction && temp.actionType === 'custom' && !temp.customAction) { showAlert("请设置自定义动作 key!"); return; }
-                if (!finalHotkey) { showAlert("请设置快捷键!"); return; }
-                if (finalHotkey.endsWith('+')) { showAlert("快捷键设置不完整 (缺少主键)!"); return; }
+                if (isBuiltinAction && temp.actionType === 'url' && !temp.url) { showAlert(options?.text?.editor?.validation?.urlRequired || "请填写目标网址!"); return; }
+                if (isBuiltinAction && temp.actionType === 'selector' && !temp.selector) { showAlert(options?.text?.editor?.validation?.selectorRequired || "请填写目标选择器!"); return; }
+                if (isBuiltinAction && temp.actionType === 'simulate' && !temp.simulateKeys) { showAlert(options?.text?.editor?.validation?.simulateRequired || "请设置模拟按键!"); return; }
+                if (isBuiltinAction && temp.actionType === 'custom' && !temp.customAction) { showAlert(options?.text?.editor?.validation?.customActionRequired || "请设置自定义动作 key!"); return; }
+                if (!finalHotkey) { showAlert(options?.text?.editor?.validation?.hotkeyRequired || "请设置快捷键!"); return; }
+                if (finalHotkey.endsWith('+')) { showAlert(options?.text?.editor?.validation?.hotkeyIncomplete || "快捷键设置不完整 (缺少主键)!"); return; }
 
                 const normalizedNewHotkey = normalizeHotkey(finalHotkey);
                 if (core.getShortcuts().some((s, i) => normalizeHotkey(s.hotkey) === normalizedNewHotkey && i !== index)) {
-                    showAlert("该快捷键已被其他项使用, 请选择其他组合!");
+                    showAlert(options?.text?.editor?.validation?.hotkeyDuplicate || "该快捷键已被其他项使用, 请选择其他组合!");
                     return;
                 }
                 temp.hotkey = finalHotkey;
@@ -4713,7 +5034,7 @@
         }
 
 	        function panelCreateUrlMethodConfigUI(ctx, currentMethod = "current", currentAdvanced = "href") {
-            const { URL_METHODS, uiShared, state } = ctx;
+            const { URL_METHODS, uiShared, state, options } = ctx;
             const { colors } = uiShared;
             const { getPrimaryColor, getTextColor, getHoverColor, getInputBackgroundColor, getBorderColor } = colors;
 
@@ -4729,13 +5050,13 @@
             });
 
             const title = document.createElement("div");
-            title.textContent = "跳转方式:";
+            title.textContent = options?.text?.editor?.labels?.urlMethod || "跳转方式:";
             Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em" });
             titleRow.appendChild(title);
 
             const expandButton = document.createElement("button");
             expandButton.type = "button";
-            expandButton.title = "展开/折叠高级选项";
+            expandButton.title = options?.text?.editor?.labels?.urlMethodToggleAdvanced || "展开/折叠高级选项";
             Object.assign(expandButton.style, {
                 width: "32px", height: "32px", padding: "0", cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -4806,7 +5127,7 @@
             function updateAdvancedOptions() {
                 advancedContainer.replaceChildren();
                 const advancedTitle = document.createElement("div");
-                advancedTitle.textContent = "高级选项:";
+                advancedTitle.textContent = options?.text?.editor?.labels?.urlMethodAdvanced || "高级选项:";
                 Object.assign(advancedTitle.style, {
                     fontWeight: "bold",
                     fontSize: "0.8em",
@@ -4962,7 +5283,7 @@
         }
 
 	        function panelCreateIconField(ctx, labelText, value) {
-            const { uiShared, state } = ctx;
+            const { uiShared, state, options } = ctx;
             const { theme, colors } = uiShared;
             const { addThemeChangeListener, removeThemeChangeListener } = theme;
             const { getBorderColor, getInputBackgroundColor } = colors;
@@ -4981,7 +5302,7 @@
 
             const textarea = document.createElement("textarea");
             textarea.value = value || "";
-            textarea.placeholder = "在此粘贴URL, 或从下方图库选择";
+            textarea.placeholder = options?.text?.editor?.placeholders?.icon || "在此粘贴URL, 或从下方图库选择";
             textarea.rows = 1;
             Object.assign(textarea.style, {
                 minHeight: "36px",
@@ -5028,7 +5349,7 @@
             container.style.marginTop = "10px";
 
             const title = document.createElement("div");
-            title.textContent = "或从图库选择:";
+            title.textContent = options?.text?.editor?.labels?.iconLibrary || "或从图库选择:";
             Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
             container.appendChild(title);
 
@@ -5059,7 +5380,7 @@
 
             const expandButton = document.createElement("button");
             expandButton.type = "button";
-            expandButton.title = "展开/折叠更多图标";
+            expandButton.title = options?.text?.editor?.iconLibrary?.expandTitle || "展开/折叠更多图标";
             Object.assign(expandButton.style, baseButtonStyle, {
                 border: "1px solid transparent",
                 background: "transparent",
@@ -5079,7 +5400,7 @@
             const addButton = document.createElement("button");
             addButton.type = "button";
             addButton.textContent = "➕";
-            addButton.title = "将输入框中的图标URL添加到图库";
+            addButton.title = options?.text?.editor?.iconLibrary?.addTitle || "将输入框中的图标URL添加到图库";
             Object.assign(addButton.style, baseButtonStyle, {
                 border: "1px solid",
                 borderRadius: "4px",
@@ -5088,9 +5409,9 @@
             });
             addButton.addEventListener('click', () => {
                 const url = targetTextarea.value.trim();
-                if (!url) { showAlert("请输入图标的URL！"); return; }
-                if (userIcons.some(icon => icon.url === url) || options.iconLibrary.some(icon => icon.url === url)) { showAlert("该图标已存在于图库中。"); return; }
-                showPromptDialog("请输入图标的名称：", "", (name) => {
+                if (!url) { showAlert(options?.text?.editor?.iconLibrary?.urlRequired || "请输入图标的URL！"); return; }
+                if (userIcons.some(icon => icon.url === url) || options.iconLibrary.some(icon => icon.url === url)) { showAlert(options?.text?.editor?.iconLibrary?.alreadyExists || "该图标已存在于图库中。"); return; }
+                showPromptDialog(options?.text?.editor?.iconLibrary?.promptName || "请输入图标的名称：", "", (name) => {
                     if (name && name.trim()) {
                         userIcons.push({ name: name.trim(), url: url });
                         safeGMSet(options.storageKeys.userIcons, userIcons);
@@ -5110,7 +5431,7 @@
 
                     const button = document.createElement("button");
                     button.type = "button";
-                    button.title = iconInfo.name + (isUserAdded ? " (长按删除)" : "");
+                    button.title = iconInfo.name + (isUserAdded ? (options?.text?.editor?.iconLibrary?.userAddedHint || " (长按删除)") : "");
                     Object.assign(button.style, {
                         width: "36px", height: "36px", padding: "4px", border: "1px solid", borderRadius: "4px",
                         cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
@@ -5136,7 +5457,8 @@
                         button.addEventListener("mousedown", (e) => {
                             if (e.button !== 0) return;
                             longPressTimer = setTimeout(() => {
-                                showConfirmDialog(`确定要删除自定义图标 "${iconInfo.name}" 吗?`, () => {
+                                const tpl = options?.text?.editor?.iconLibrary?.confirmDelete || '确定要删除自定义图标 "{name}" 吗?';
+                                showConfirmDialog(tpl.replace("{name}", String(iconInfo.name ?? "")), () => {
                                     userIcons = userIcons.filter(icon => icon.url !== iconInfo.url);
                                     safeGMSet(options.storageKeys.userIcons, userIcons);
                                     renderIconGrid();
@@ -5260,10 +5582,12 @@
                 minWidth: "200px"
             });
 
+            const labelForMessage = String(labelText || "").trim().replace(/[:：]\s*$/, "");
+
             const clearButton = document.createElement("button");
             clearButton.type = "button";
             clearButton.textContent = "🗑️";
-            clearButton.title = options.text.buttons.clear || `清除${labelText}`;
+            clearButton.title = options.text.buttons.clear || `清除${labelForMessage}`;
             Object.assign(clearButton.style, {
                 padding: "8px 12px",
                 border: "1px solid",
@@ -5287,14 +5611,28 @@
             const capturedModifiers = new Set();
             let capturedMainKey = "";
 
+            function formatCaptureMessage(template, vars = {}) {
+                let out = String(template ?? "");
+                for (const [key, value] of Object.entries(vars || {})) {
+                    out = out.split(`{${key}}`).join(String(value ?? ""));
+                }
+                return out;
+            }
+
             function startCapture() {
                 if (isCapturing) return;
                 isCapturing = true;
                 capturedModifiers.clear();
                 capturedMainKey = "";
                 mainInput.value = "";
-                mainInput.placeholder = `请按下${labelText}组合...`;
-                statusDiv.textContent = `🎯 正在捕获${labelText}，请按下组合键...`;
+                mainInput.placeholder = formatCaptureMessage(
+                    options?.text?.editor?.capture?.placeholderDuringCapture || "请按下{label}组合...",
+                    { label: labelForMessage }
+                );
+                statusDiv.textContent = formatCaptureMessage(
+                    options?.text?.editor?.capture?.statusCapturing || "🎯 正在捕获{label}，请按下组合键...",
+                    { label: labelForMessage }
+                );
                 mainInput.focus();
                 updateCaptureState();
             }
@@ -5307,9 +5645,15 @@
                 if (finalKeys) {
                     mainInput.value = finalKeys;
                     const displayKeys = core?.hotkeys?.formatForDisplay ? (core.hotkeys.formatForDisplay(finalKeys) || finalKeys) : finalKeys;
-                    statusDiv.textContent = `✅ 已捕获${labelText}: ${displayKeys}`;
+                    statusDiv.textContent = formatCaptureMessage(
+                        options?.text?.editor?.capture?.statusCaptured || "✅ 已捕获{label}: {keys}",
+                        { label: labelForMessage, keys: displayKeys }
+                    );
                 } else {
-                    statusDiv.textContent = `❌ 未捕获到有效的${labelText}`;
+                    statusDiv.textContent = formatCaptureMessage(
+                        options?.text?.editor?.capture?.statusInvalid || "❌ 未捕获到有效的{label}",
+                        { label: labelForMessage }
+                    );
                 }
                 mainInput.blur();
                 updateCaptureState();
@@ -5370,13 +5714,19 @@
 
                     if (captureType === "hotkey" && core?.hotkeys?.isAllowedMainKey && !core.hotkeys.isAllowedMainKey(standardKey)) {
                         const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
-                        statusDiv.textContent = `❌ 不支持的快捷键: ${displayKey}`;
+                        statusDiv.textContent = formatCaptureMessage(
+                            options?.text?.editor?.capture?.statusUnsupportedHotkey || "❌ 不支持的快捷键: {key}",
+                            { key: displayKey }
+                        );
                         return;
                     }
 
                     if (captureType === "simulate" && core?.hotkeys?.isAllowedSimulateMainKey && !core.hotkeys.isAllowedSimulateMainKey(standardKey)) {
                         const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
-                        statusDiv.textContent = `❌ 不支持的模拟按键: ${displayKey}`;
+                        statusDiv.textContent = formatCaptureMessage(
+                            options?.text?.editor?.capture?.statusUnsupportedSimulate || "❌ 不支持的模拟按键: {key}",
+                            { key: displayKey }
+                        );
                         return;
                     }
 
@@ -5419,7 +5769,10 @@
                 mainInput.value = "";
                 capturedModifiers.clear();
                 capturedMainKey = "";
-                statusDiv.textContent = `🗑️ ${labelText}已清除`;
+                statusDiv.textContent = formatCaptureMessage(
+                    options?.text?.editor?.capture?.statusCleared || "🗑️ {label}已清除",
+                    { label: labelForMessage }
+                );
                 if (isCapturing) {
                     stopCapture();
                 }
@@ -5598,8 +5951,8 @@
             copyBtn.textContent = options.text.buttons.copy || "复制";
             copyBtn.onclick = async () => {
                 const ok = await panelTryCopyToClipboard(textarea.value);
-                if (ok) showAlert("已复制到剪贴板。");
-                else showAlert("复制失败，请手动复制。");
+                if (ok) showAlert(options?.text?.io?.copySuccess || "已复制到剪贴板。");
+                else showAlert(options?.text?.io?.copyFail || "复制失败，请手动复制。");
             };
             styleButton(copyBtn, "#2196F3", "#1e88e5");
             btnRow.appendChild(copyBtn);
@@ -5649,12 +6002,12 @@
             box.appendChild(titleEl);
 
             const tip = document.createElement("div");
-            tip.textContent = "支持导入 { shortcuts: [...], userIcons?: [...] } 或直接导入 shortcuts 数组。";
+            tip.textContent = options?.text?.io?.importTip || "支持导入 { shortcuts: [...], userIcons?: [...] } 或直接导入 shortcuts 数组。";
             Object.assign(tip.style, { fontSize: "12px", opacity: "0.75", marginBottom: "8px", lineHeight: "1.4" });
             box.appendChild(tip);
 
             const textarea = document.createElement("textarea");
-            textarea.placeholder = "粘贴 JSON 到这里…";
+            textarea.placeholder = options?.text?.io?.importPlaceholder || "粘贴 JSON 到这里…";
             Object.assign(textarea.style, { height: "360px", resize: "vertical" });
             styleInputField(textarea);
             box.appendChild(textarea);
@@ -5675,7 +6028,7 @@
                 try {
                     parsed = JSON.parse(textarea.value);
                 } catch {
-                    showAlert("JSON 解析失败，请检查格式。");
+                    showAlert(options?.text?.io?.importJsonParseFailed || "JSON 解析失败，请检查格式。");
                     return;
                 }
 
@@ -5683,7 +6036,7 @@
                     ? parsed
                     : (Array.isArray(parsed?.shortcuts) ? parsed.shortcuts : null);
                 if (!Array.isArray(shortcutsRaw)) {
-                    showAlert("导入数据中未找到 shortcuts 数组。");
+                    showAlert(options?.text?.io?.importMissingShortcuts || "导入数据中未找到 shortcuts 数组。");
                     return;
                 }
 
@@ -5701,7 +6054,8 @@
                 }
                 if (duplicates.length > 0) {
                     const lines = duplicates.slice(0, 12).map(([hk, a, b]) => `${hk}: ${a} / ${b}`).join("\n");
-                    showAlert(`导入失败：存在重复快捷键(请先在 JSON 中修复)：\n${lines}${duplicates.length > 12 ? "\n..." : ""}`);
+                    const prefix = options?.text?.io?.importDuplicateHotkeysPrefix || "导入失败：存在重复快捷键(请先在 JSON 中修复)：";
+                    showAlert(`${prefix}\n${lines}${duplicates.length > 12 ? "\n..." : ""}`);
                     return;
                 }
 
@@ -6057,7 +6411,7 @@
  * -------------------------------------------------------------------------- */
 
     global.ShortcutTemplate = Object.freeze({
-        VERSION: '20251226',
+        VERSION: TEMPLATE_VERSION,
         URL_METHODS,
         createShortcutEngine,
         utils: Utils
