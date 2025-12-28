@@ -2,4 +2,4 @@
 
 # [Template] Shortcuts.js
 
-为油猴脚本创建的快捷键管理仓库
+快捷键脚本仓库
