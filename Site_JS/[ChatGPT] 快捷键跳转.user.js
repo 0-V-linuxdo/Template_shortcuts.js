@@ -1,8 +1,9 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20251224] v1.9.0
-// @namespace    0_V userscripts/[ChatGPT] 快捷键跳转
-// @version      [20251224] v1.9.0
-// @update-log   1.9.0: 数据化生成动作映射；收敛 1step 定时编排；移除冗余 Template 默认配置
+// @name         [ChatGPT] 快捷键跳转 [20251226] v1.2.0
+// @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
+// @version      [20251226] v1.2.0
+// @update-log   1.2.0: 精简 normalizeMenuAction token（不再兼容旧 action 别名）
+// @update-log   1.1.2: chatgptMenu action 归一化，减少条件分支冗余
 // @description  为 ChatGPT 添加自定义快捷键管理功能（依赖 Template 模块）。支持URL跳转、元素点击、按键模拟，提供可视化设置面板、图标库、按类型筛选、暗黑模式适配等功能。
 // @match        https://chatgpt.com/*
 // @grant        GM_registerMenuCommand
@@ -11,7 +12,7 @@
 // @grant        GM_xmlhttpRequest
 // @connect      *
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Site_Icon/ChatGPT_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Template_JS/%5BTemplate%5D%20shortcut%20core.js
+// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=1.21
 // ==/UserScript==
 
 (function() {
@@ -54,296 +55,160 @@
     const SELECTORS = {
         composerPlusBtn: "button[data-testid='composer-plus-btn']",
         moreSubmenuItem: "div[role='menuitem']",
-        popupMenuItemRadio: "div[role='menuitemradio']"
+        popupMenuItem: "[role='menuitem'], [role='menuitemradio']"
     };
 
     // ===== ChatGPT 特有功能模块开始：1step Canvas / Web =====
 
-    const POPUP_ACTION_DEFS = [
-        {
-            actionKey: "canvas",
-            textMatch: "Canvas",
-            customActionKeys: { click: "clickCanvas", oneStep: "canvas1step" }
-        },
-        {
-            actionKey: "web",
-            textMatch: "Web",
-            customActionKeys: { oneStep: "web1step" }
-        },
-        {
-            actionKey: "deepResearch",
-            textMatch: "Deep research",
-            customActionKeys: { oneStep: "deepResearch1step" }
-        },
-        {
-            actionKey: "createImage",
-            textMatch: "Create image",
-            customActionKeys: { oneStep: "createImage1step" }
-        },
-        {
-            actionKey: "thinking",
-            textMatch: "Thinking",
-            customActionKeys: { oneStep: "thinking1step" }
-        }
-    ];
+    const TemplateUtils = window.ShortcutTemplate.utils;
+    if (!TemplateUtils?.menu?.createMenuController) {
+        console.error('[ChatGPT Shortcut] Template utils.menu not found (update Template core).');
+        return;
+    }
 
-    const TIMING = {
-        menuOpenDelay: 250,
-        stepDelay: 250
-    };
-
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    async function runSequence(steps, delay = TIMING.stepDelay) {
-        let lastResult = null;
-        for (let i = 0; i < steps.length; i++) {
-            const step = steps[i];
-            try {
-                const res = step();
-                lastResult = (res && typeof res.then === "function") ? await res : res;
-            } catch (e) {
-                console.warn("[ChatGPT Shortcut] sequence step error:", e);
+    const popupMenu = TemplateUtils.menu.createMenuController({
+        trigger: {
+            selectors: [
+                SELECTORS.composerPlusBtn,
+                'button[aria-label="Add files and more"]'
+            ]
+        },
+        root: {
+            type: "ariaControls",
+            requireRole: "menu",
+            requireDataState: "open"
+        },
+        timing: {
+            openDelayMs: 250,
+            stepDelayMs: 250
+        },
+        submenus: {
+            more: {
+                trigger: {
+                    searchRoot: "parentRoot",
+                    action: "hover",
+                    candidates: [
+                        { selector: "div[role='menuitem'][data-has-submenu]" },
+                        { selector: SELECTORS.moreSubmenuItem, textMatch: "More" }
+                    ]
+                },
+                root: {
+                    type: "ariaControls",
+                    requireRole: "menu",
+                    requireDataState: "open"
+                }
             }
-            if (i < steps.length - 1) await sleep(delay);
         }
-        return lastResult;
+    });
+
+    function normalizeMenuToken(value) {
+        return String(value ?? "").trim();
     }
 
-    // 解析事件需要的 view（在 Firefox userscript 沙箱内需使用页面 window）
-    function resolveEventView(element) {
-        try {
-            if (element?.ownerDocument?.defaultView) return element.ownerDocument.defaultView;
-        } catch (e) {}
-        try {
-            if (typeof unsafeWindow !== "undefined") return unsafeWindow;
-        } catch (e) {}
-        return typeof window !== "undefined" ? window : null;
+    function normalizeSubmenuKey(value) {
+        const token = normalizeMenuToken(value).toLowerCase();
+        if (!token) return "";
+        return token;
     }
 
-    function dispatchSyntheticEvent(element, type, Ctor, optionsBuilder) {
-        if (typeof Ctor !== "function") return false;
-        try {
-            const opts = typeof optionsBuilder === "function" ? optionsBuilder() : optionsBuilder;
-            const event = new Ctor(type, opts);
-            return element.dispatchEvent(event);
-        } catch (e) {
-            console.warn(`[ChatGPT Shortcut] dispatch ${type} failed:`, e);
-            return false;
-        }
+    function normalizeMenuAction(value) {
+        const token = normalizeMenuToken(value).toLowerCase();
+        return token || "onestep";
     }
 
-    function createEventOptions(element) {
-        const view = resolveEventView(element);
-        const baseOptions = () => ({ bubbles: true, cancelable: true, composed: true, view: view || null });
-        const pointerOptions = () => ({ ...baseOptions(), pointerId: 1, pointerType: "mouse", isPrimary: true });
-        return { baseOptions, pointerOptions };
-    }
+    function getPopupMenuActionSpec(shortcut) {
+        const data = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : {};
+        const menu = data.menu && typeof data.menu === "object" && !Array.isArray(data.menu) ? data.menu : data;
 
-    function dispatchEventPlans(element, plans) {
-        let dispatched = false;
-        for (const plan of plans) {
-            const ok = dispatchSyntheticEvent(element, plan.type, plan.ctor, plan.opts);
-            dispatched = dispatched || ok;
-        }
-        return dispatched;
-    }
+        const selector = typeof menu.selector === "string" && menu.selector.trim()
+            ? menu.selector.trim()
+            : SELECTORS.popupMenuItem;
 
-    // 模拟真实鼠标点击（包含 pointer 事件，适配 React/Radix UI），并在失败时降级为 element.click()
-    function simulateClick(element) {
-        if (!element) return false;
+        const fallbackToFirst = !!menu.fallbackToFirst;
+        const waitForItem = (menu.waitForItem !== undefined) ? !!menu.waitForItem : true;
+        const allowFirstItem = !!menu.allowFirstItem;
 
-        const { baseOptions, pointerOptions } = createEventOptions(element);
+        let textMatch = menu.textMatch;
 
-        const eventPlans = [
-            typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointerdown", opts: pointerOptions },
-            typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mousedown", opts: baseOptions },
-            typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointerup", opts: pointerOptions },
-            typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mouseup", opts: baseOptions },
-            typeof MouseEvent === "function" && { ctor: MouseEvent, type: "click", opts: baseOptions }
-        ].filter(Boolean);
+        const openSubmenus = [];
+        if (Array.isArray(menu.openSubmenus)) openSubmenus.push(...menu.openSubmenus);
 
-        let dispatched = dispatchEventPlans(element, eventPlans);
-
-        if (!dispatched) {
-            try {
-                element.click();
-                dispatched = true;
-            } catch (e) {
-                console.warn("[ChatGPT Shortcut] native click fallback failed:", e);
+        const path = Array.isArray(menu.path) ? menu.path : null;
+        if (path && path.length) {
+            const parts = path.map(normalizeMenuToken).filter(Boolean);
+            if (parts.length) {
+                const last = parts[parts.length - 1];
+                if ((textMatch === undefined || textMatch === null || textMatch === "") && last) textMatch = last;
+                for (const label of parts.slice(0, -1)) openSubmenus.push(label);
             }
         }
 
-        return dispatched;
-    }
+        const normalizedOpenSubmenus = Array.from(new Set(openSubmenus.map(normalizeSubmenuKey).filter(Boolean)));
 
-    function findElementInRoot(root, selector, textMatch) {
-        if (!root) return null;
-        const elements = root.querySelectorAll(selector);
-        for (const el of elements) {
-            if (!textMatch) return el;
-            const text = (el.textContent || "").trim();
-            if (text.includes(textMatch)) return el;
-        }
-        return null;
-    }
+        const action = normalizeMenuAction(menu.action);
 
-    function getComposerPlusButton() {
-        return document.querySelector(SELECTORS.composerPlusBtn)
-            || document.querySelector('button[aria-label="Add files and more"]');
-    }
+        const submenuKey = normalizeSubmenuKey(menu.submenuKey || (normalizedOpenSubmenus[0] || ""));
 
-    // 查找并点击元素（支持文本匹配）
-    function clickElement(selector, textMatch) {
-        try {
-            const target = findElementInRoot(document, selector, textMatch)
-                || (selector === SELECTORS.composerPlusBtn ? getComposerPlusButton() : null);
-            return target ? simulateClick(target) : false;
-        } catch (e) {
-            console.warn("[ChatGPT Shortcut] clickElement error:", e);
-        }
-        return false;
-    }
-
-    // 模拟 hover，用于触发 Radix 子菜单
-    function simulateHover(element) {
-        if (!element) return false;
-
-        const { baseOptions, pointerOptions } = createEventOptions(element);
-
-        const eventPlans = [
-            typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointerover", opts: pointerOptions },
-            typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointerenter", opts: pointerOptions },
-            typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mouseover", opts: baseOptions },
-            typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mouseenter", opts: baseOptions },
-            typeof PointerEvent === "function" && { ctor: PointerEvent, type: "pointermove", opts: pointerOptions },
-            typeof MouseEvent === "function" && { ctor: MouseEvent, type: "mousemove", opts: baseOptions }
-        ].filter(Boolean);
-
-        return dispatchEventPlans(element, eventPlans);
-    }
-
-    // 查找并 hover 元素（支持文本匹配）
-    function hoverElement(selector, textMatch) {
-        try {
-            const target = findElementInRoot(document, selector, textMatch);
-            return target ? simulateHover(target) : false;
-        } catch (e) {
-            console.warn("[ChatGPT Shortcut] hoverElement error:", e);
-        }
-        return false;
-    }
-
-    function getComposerMenuElement() {
-        try {
-            const btn = getComposerPlusButton();
-            const expanded = (btn?.getAttribute("aria-expanded") || "").toLowerCase();
-            if (expanded && expanded !== "true") return null;
-            const id = btn?.getAttribute("aria-controls");
-            if (!id) return null;
-            const menu = document.getElementById(id);
-            if (!menu || menu.getAttribute("role") !== "menu") return null;
-            const state = (menu.getAttribute("data-state") || "").toLowerCase();
-            if (state && state !== "open") return null;
-            return menu;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function getMoreSubmenuMenuItemElement() {
-        const composerMenu = getComposerMenuElement();
-        if (!composerMenu) return null;
-        try {
-            return composerMenu.querySelector("div[role='menuitem'][data-has-submenu][aria-controls][aria-expanded='true']");
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function getMoreSubmenuMenuElement() {
-        const moreItem = getMoreSubmenuMenuItemElement();
-        const id = moreItem?.getAttribute("aria-controls");
-        if (!id) return null;
-        const menu = document.getElementById(id);
-        if (!menu || menu.getAttribute("role") !== "menu") return null;
-        const state = (menu.getAttribute("data-state") || "").toLowerCase();
-        if (state && state !== "open") return null;
-        return menu;
-    }
-
-    // 执行 Click 弹窗中的按钮（先主弹窗，未命中再查次级弹窗）
-    function execClickPopupMenuItem(textMatch, selector) {
-        const roots = [getComposerMenuElement(), getMoreSubmenuMenuElement()];
-
-        for (const root of roots) {
-            const target = findElementInRoot(root, selector, textMatch);
-            if (target) return simulateClick(target);
-        }
-        return false;
-    }
-
-    const ACTIONS = {
-        openMore: () => clickElement(SELECTORS.composerPlusBtn),
-        hoverMore: () => {
-            const composerMenu = getComposerMenuElement();
-            const moreItem = composerMenu?.querySelector("div[role='menuitem'][data-has-submenu]");
-            if (moreItem) return simulateHover(moreItem);
-            return hoverElement(SELECTORS.moreSubmenuItem, "More");
-        }
-    };
-
-    for (const def of POPUP_ACTION_DEFS) {
-        if (!def?.actionKey) continue;
-        ACTIONS[def.actionKey] = () => execClickPopupMenuItem(def.textMatch, SELECTORS.popupMenuItemRadio);
-    }
-
-    function execAction(actionKey) {
-        const action = ACTIONS[actionKey];
-        return typeof action === "function" ? action() : false;
-    }
-
-    async function exec1stepPopupMenuAction(clickFn) {
-        if (typeof clickFn !== "function") return false;
-
-        const tryClick = async () => {
-            try {
-                const res = clickFn();
-                return (res && typeof res.then === "function") ? await res : res;
-            } catch (e) {
-                console.warn("[ChatGPT Shortcut] 1step click error:", e);
-                return false;
-            }
+        return {
+            action,
+            selector,
+            textMatch,
+            fallbackToFirst,
+            waitForItem,
+            allowFirstItem,
+            openSubmenus: normalizedOpenSubmenus,
+            submenuKey
         };
-
-        if (await tryClick()) return true;
-
-        if (!getComposerMenuElement()) {
-            execAction("openMore");
-            await sleep(TIMING.menuOpenDelay);
-            if (await tryClick()) return true;
-        }
-
-        const clicked = await runSequence([() => execAction("hoverMore"), tryClick], TIMING.stepDelay);
-        return !!clicked;
     }
 
-    function exec1step(actionKey) {
-        if (typeof ACTIONS[actionKey] !== "function") return false;
-        return exec1stepPopupMenuAction(() => execAction(actionKey));
+    function hasValidTextMatch(textMatch) {
+        if (typeof textMatch === "string") return !!textMatch.trim();
+        if (textMatch instanceof RegExp) return true;
+        if (typeof textMatch === "function") return true;
+        if (Array.isArray(textMatch)) return textMatch.some(v => hasValidTextMatch(v));
+        return false;
+    }
+
+    function ensureMenuTextMatch(spec) {
+        if (spec.allowFirstItem || hasValidTextMatch(spec.textMatch)) return true;
+        console.warn("[ChatGPT Shortcut] chatgptMenu: missing menu.textMatch; set data.menu.textMatch (or data.menu.path), or set data.menu.allowFirstItem=true to click the first item.");
+        return false;
     }
 
     const CUSTOM_ACTIONS = {
-        openMore: () => execAction("openMore"),
-        hoverMore: () => execAction("hoverMore")
+        chatgptMenu: ({ shortcut, engine }) => {
+            const spec = getPopupMenuActionSpec(shortcut);
+            switch (spec.action) {
+                case "open": {
+                    return popupMenu.ensureOpen({ engine });
+                }
+                case "submenu": {
+                    if (!spec.submenuKey) return false;
+                    return popupMenu.ensureSubmenuOpen({ engine }, spec.submenuKey);
+                }
+                case "click": {
+                    if (!ensureMenuTextMatch(spec)) return false;
+                    return popupMenu.clickInOpenMenus(
+                        { engine },
+                        { selector: spec.selector, textMatch: spec.textMatch, fallbackToFirst: spec.fallbackToFirst, waitForItem: spec.waitForItem }
+                    );
+                }
+                default: {
+                    if (!ensureMenuTextMatch(spec)) return false;
+                    return popupMenu.oneStepClick(
+                        { engine },
+                        {
+                            selector: spec.selector,
+                            textMatch: spec.textMatch,
+                            openSubmenus: spec.openSubmenus,
+                            fallbackToFirst: spec.fallbackToFirst,
+                            waitForItem: spec.waitForItem
+                        }
+                    );
+                }
+            }
+        }
     };
-
-    for (const def of POPUP_ACTION_DEFS) {
-        const clickKey = def?.customActionKeys?.click;
-        const oneStepKey = def?.customActionKeys?.oneStep;
-
-        if (clickKey) CUSTOM_ACTIONS[clickKey] = () => execAction(def.actionKey);
-        if (oneStepKey) CUSTOM_ACTIONS[oneStepKey] = () => exec1step(def.actionKey);
-    }
     // ===== ChatGPT 特有功能模块结束 =====
 
     // ===== 模版模块配置与初始化（ShortcutTemplate） =====
@@ -361,7 +226,7 @@
 
     // ChatGPT 默认快捷键配置
     const defaultShortcuts = [
-        // --- 无名称分组 ---
+        // === ChatGPT 原生快捷键（simulate）===
         createShortcut({
             name: "New Chat",
             actionType: "simulate",
@@ -374,7 +239,6 @@
             simulateKeys: "CMD+SHIFT+S",
             hotkey: "CTRL+B"
         }),
-        // --- 聊天分组 ---
         createShortcut({
             name: "Copy Last Code Block",
             actionType: "simulate",
@@ -399,19 +263,16 @@
             simulateKeys: "CMD+U",
             hotkey: "CTRL+F"
         }),
-        createShortcut({
-            name: "Create image",
-            actionType: "custom",
-            customAction: "createImage1step",
-            hotkey: "CTRL+I"
-        }),
+
+        // === ChatGPT 页面按钮（selector）===
         createShortcut({
             name: "Temporary Chat",
             actionType: "selector",
             selector: "button[aria-label*='temporary chat']",
             hotkey: "CTRL+SHIFT+I"
         }),
-        // --- 新的URL跳转 ---
+
+        // === URL 跳转（url）===
         createShortcut({
             name: "Model: o3",
             actionType: "url",
@@ -420,48 +281,45 @@
             urlAdvanced: "pushState",
             hotkey: "CTRL+3"
         }),
-        // --- Canvas / Web 功能分组 ---
+
+        // === customAction: "chatgptMenu" ===
+        // --- 顶层项：path = ["..."] ---
         createShortcut({
-            name: "Open More",
+            name: "Create image",
             actionType: "custom",
-            customAction: "openMore",
-            hotkey: "CTRL+SHIFT+M"
-        }),
-        createShortcut({
-            name: "Hover More",
-            actionType: "custom",
-            customAction: "hoverMore",
-            hotkey: "CTRL+M"
-        }),
-        createShortcut({
-            name: "Click Canvas",
-            actionType: "custom",
-            customAction: "clickCanvas",
-            hotkey: "CTRL+SHIFT+C"
-        }),
-        createShortcut({
-            name: "1step Canvas",
-            actionType: "custom",
-            customAction: "canvas1step",
-            hotkey: "CTRL+C"
-        }),
-        createShortcut({
-            name: "1step Web",
-            actionType: "custom",
-            customAction: "web1step",
-            hotkey: "CTRL+W"
+            customAction: "chatgptMenu",
+            data: { menu: { path: ["Create image"] } },
+            hotkey: "CTRL+I"
         }),
         createShortcut({
             name: "Deep research",
             actionType: "custom",
-            customAction: "deepResearch1step",
+            customAction: "chatgptMenu",
+            data: { menu: { path: ["Deep research"] } },
             hotkey: "CTRL+R"
         }),
         createShortcut({
             name: "Thinking",
             actionType: "custom",
-            customAction: "thinking1step",
+            customAction: "chatgptMenu",
+            data: { menu: { path: ["Thinking"] } },
             hotkey: "CTRL+T"
+        }),
+
+        // --- More 子菜单：path = ["More", "..."] ---
+        createShortcut({
+            name: "Canvas",
+            actionType: "custom",
+            customAction: "chatgptMenu",
+            data: { menu: { path: ["More", "Canvas"] } },
+            hotkey: "CTRL+C"
+        }),
+        createShortcut({
+            name: "Web",
+            actionType: "custom",
+            customAction: "chatgptMenu",
+            data: { menu: { path: ["More", "Web"] } },
+            hotkey: "CTRL+W"
         })
     ];
 
@@ -514,8 +372,5 @@
     engine.init();
 
     // ===== 模版模块配置与初始化结束 =====
-
-    // 可选：提供全局访问接口（用于调试或扩展）
-    window.ChatGPTShortcutEngine = engine;
 
 })();
