@@ -1,16 +1,22 @@
 // ==UserScript==
-// @name         [Claude] 快捷键跳转 20250927
-// @namespace    0_V userscripts/[Claude] 快捷键跳转
-// @version      2.0.0
+// @name         [Claude] 快捷键跳转 [20251229] v1.0.1
+// @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。
+//
+// @version      [20251229] v1.0.1
+// @update-log   1.0.1: 移除 clickWeb/web1step，统一为 web；删除旧版兼容代码
+//
 // @match        https://claude.ai/*
+//
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+//
 // @connect      *
+//
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Site_Icon/claude_keycap.svg
-// @require      https://github.com/0-V-linuxdo/-/raw/e17b029d255053ccec15e648156adbcec93924e5/%5BTemplate%5D%20%E5%BF%AB%E6%8D%B7%E9%94%AE%E8%B7%B3%E8%BD%AC%2020250924.js
+// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Template_JS/%5BTemplate%5D%20shortcut%20core.js?refresh=1
 // ==/UserScript==
 
 (function () {
@@ -24,6 +30,12 @@
 
     // Claude默认图标URL
     const defaultIconURL = "https://claude.ai/favicon.ico";
+
+    const STORAGE_KEYS = {
+        shortcuts: "claude_shortcuts_v1",
+        iconCachePrefix: "claude_icon_cache_v1::",
+        userIcons: "claude_user_icons_v1"
+    };
 
     // Claude相关图标库
     const defaultIcons = [
@@ -50,87 +62,211 @@
         "https://claude.ai/images/claude_app_icon.png"
     ];
 
+    // ===== Claude 特有功能模块开始：1step Web =====
+
+    const TIMING = {
+        menuOpenDelay: 250,
+        stepDelay: 250
+    };
+
+    const CLAUDE_WEB_SELECTORS = {
+        moreButton: "button[aria-haspopup='menu'][aria-label='Toggle menu']",
+        dropdownMenu: "div.z-dropdown [role='menu']",
+        menuItem: "[role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']"
+    };
+
+    const TemplateUtils = window.ShortcutTemplate.utils;
+    if (!TemplateUtils?.menu?.createMenuController) {
+        console.error('[Claude Shortcut] Template utils.menu not found (update Template core).');
+        return;
+    }
+
+    const moreMenu = TemplateUtils.menu.createMenuController({
+        trigger: {
+            selector: CLAUDE_WEB_SELECTORS.moreButton,
+            pick: "preferSvgPath",
+            preferSvgPathDIncludes: ["V9.5H16.5", "H3.5"]
+        },
+        root: {
+            type: "ariaLabelledBy",
+            selector: CLAUDE_WEB_SELECTORS.dropdownMenu
+        },
+        timing: {
+            openDelayMs: TIMING.menuOpenDelay,
+            stepDelayMs: TIMING.stepDelay
+        }
+    });
+
+    const DEFAULT_WEB_TEXT_MATCH = ["web search", "web 搜索", "网页搜索", "联网搜索"];
+    const DEFAULT_WEB_FALLBACK_TO_FIRST = true;
+
+    function normalizeMenuToken(value) {
+        return String(value ?? "").trim();
+    }
+
+    function normalizeMenuAction(value, fallback = "onestep") {
+        const token = normalizeMenuToken(value).toLowerCase();
+        return token || fallback;
+    }
+
+    function hasValidTextMatch(textMatch) {
+        if (typeof textMatch === "string") return !!textMatch.trim();
+        if (textMatch instanceof RegExp) return true;
+        if (typeof textMatch === "function") return true;
+        if (Array.isArray(textMatch)) return textMatch.some(v => hasValidTextMatch(v));
+        return false;
+    }
+
+    function getClaudeMenuActionSpec(shortcut, {
+        defaultTextMatch = null,
+        defaultAction = "onestep",
+        defaultSelector = CLAUDE_WEB_SELECTORS.menuItem,
+        defaultFallbackToFirst = false,
+        defaultWaitForItem = true
+    } = {}) {
+        const data = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : {};
+        const rawMenu = data.menu;
+
+        const menu = (rawMenu && typeof rawMenu === "object" && !Array.isArray(rawMenu))
+            ? rawMenu
+            : (rawMenu !== undefined ? { textMatch: rawMenu } : data);
+
+        const selector = typeof menu.selector === "string" && menu.selector.trim()
+            ? menu.selector.trim()
+            : (defaultSelector || "");
+
+        const allowFirstItem = !!menu.allowFirstItem;
+        const fallbackToFirst = (menu.fallbackToFirst !== undefined) ? !!menu.fallbackToFirst : !!defaultFallbackToFirst;
+        const waitForItem = (menu.waitForItem !== undefined) ? !!menu.waitForItem : !!defaultWaitForItem;
+        const action = normalizeMenuAction(menu.action, defaultAction);
+
+        let textMatch = (menu.keyword !== undefined) ? menu.keyword : menu.textMatch;
+        if (textMatch === undefined || textMatch === null || textMatch === "") textMatch = defaultTextMatch;
+
+        if (action !== "open" && !allowFirstItem && !hasValidTextMatch(textMatch)) {
+            console.warn("[Claude Shortcut] menu: missing keyword; set data.menu = \"Web search\" (or set data.menu.textMatch / data.menu.keyword), or set data.menu.allowFirstItem=true to click the first item.");
+            return null;
+        }
+
+        return {
+            action,
+            selector,
+            textMatch: allowFirstItem ? null : textMatch,
+            fallbackToFirst,
+            waitForItem
+        };
+    }
+
+    function createClaudeMenuAction({
+        defaultTextMatch = null,
+        defaultAction = "onestep",
+        defaultSelector = CLAUDE_WEB_SELECTORS.menuItem,
+        defaultFallbackToFirst = false
+    } = {}) {
+        return async function claudeMenuAction({ shortcut, engine }) {
+            const spec = getClaudeMenuActionSpec(shortcut, { defaultTextMatch, defaultAction, defaultSelector, defaultFallbackToFirst });
+            if (!spec) return false;
+
+            switch (spec.action) {
+                case "open": {
+                    return await moreMenu.ensureOpen({ engine });
+                }
+                case "click": {
+                    return await moreMenu.clickInOpenMenus(
+                        { engine },
+                        { selector: spec.selector, textMatch: spec.textMatch, fallbackToFirst: spec.fallbackToFirst, waitForItem: spec.waitForItem }
+                    );
+                }
+                default: {
+                    return await moreMenu.oneStepClick(
+                        { engine },
+                        { selector: spec.selector, textMatch: spec.textMatch, fallbackToFirst: spec.fallbackToFirst, waitForItem: spec.waitForItem }
+                    );
+                }
+            }
+        };
+    }
+
+    const CLAUDE_MENU_DATA_ADAPTER = {
+        label: "菜单关键词（或粘贴 JSON，高级用法）:",
+        placeholder: "例如: Web search / 网页搜索 / 联网搜索",
+        format: (data) => {
+            const raw = (data && typeof data === "object" && !Array.isArray(data)) ? data : {};
+            const keys = Object.keys(raw);
+            if (keys.length === 0) return "";
+
+            const menu = raw.menu;
+            if (typeof menu === "string" && menu.trim()) return menu.trim();
+
+            if (menu && typeof menu === "object" && !Array.isArray(menu)) {
+                const menuKeys = Object.keys(menu);
+                const keyword = (typeof menu.keyword === "string" && menu.keyword.trim())
+                    ? menu.keyword.trim()
+                    : ((typeof menu.textMatch === "string" && menu.textMatch.trim()) ? menu.textMatch.trim() : "");
+                if (keyword && menuKeys.every(k => ["keyword", "textMatch"].includes(k))) return keyword;
+            }
+
+            if (keys.length === 1 && keys[0] === "keyword" && typeof raw.keyword === "string" && raw.keyword.trim()) {
+                return raw.keyword.trim();
+            }
+
+            if (keys.length === 1 && keys[0] === "textMatch" && typeof raw.textMatch === "string" && raw.textMatch.trim()) {
+                return raw.textMatch.trim();
+            }
+
+            try {
+                return JSON.stringify(raw, null, 2);
+            } catch {
+                return "";
+            }
+        },
+        parse: (text) => {
+            const trimmed = String(text ?? "").trim();
+            if (!trimmed) return {};
+            if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                const parsed = JSON.parse(trimmed);
+                if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("data must be an object");
+                return parsed;
+            }
+            return { menu: trimmed };
+        }
+    };
+
+    const CUSTOM_ACTIONS = {
+        openMore: ({ engine }) => moreMenu.activateTrigger({ engine }),
+        claudeMenu: createClaudeMenuAction(),
+        web: createClaudeMenuAction({
+            defaultTextMatch: DEFAULT_WEB_TEXT_MATCH,
+            defaultAction: "onestep",
+            defaultFallbackToFirst: DEFAULT_WEB_FALLBACK_TO_FIRST
+        })
+    };
+
+    // ===== Claude 特有功能模块结束 =====
+
     // Claude默认快捷键配置
+    const baseShortcut = {
+        url: "",
+        urlMethod: "current",
+        urlAdvanced: "href",
+        selector: "",
+        simulateKeys: "",
+        icon: defaultIconURL
+    };
+
+    const createShortcut = (overrides) => ({ ...baseShortcut, ...overrides });
+
     const defaultShortcuts = [
-        // --- Claude 核心功能 ---
-        {
-            name: "Toggle Sidebar",
-            actionType: "simulate",
-            url: "",
-            urlMethod: "current",
-            urlAdvanced: "href",
-            selector: "",
-            simulateKeys: "META+.",
-            hotkey: "CTRL+B",
-            icon: "https://claude.ai/favicon.ico"
-        },
-        {
-            name: "New Conversation",
-            actionType: "url",
-            url: "https://claude.ai/new",
-            urlMethod: "current",
-            urlAdvanced: "href",
-            selector: "",
-            simulateKeys: "",
-            hotkey: "CTRL+N",
-            icon: "https://claude.ai/favicon.ico"
-        },
-        {
-            name: "Recent Conversations",
-            actionType: "url",
-            url: "https://claude.ai/recents",
-            urlMethod: "current",
-            urlAdvanced: "href",
-            selector: "",
-            simulateKeys: "",
-            hotkey: "CTRL+H",
-            icon: "https://claude.ai/favicon.ico"
-        },
-        {
-            name: "Incognito Chat",
-            actionType: "simulate",
-            url: "",
-            urlMethod: "current",
-            urlAdvanced: "href",
-            selector: "",
-            simulateKeys: "SHIFT+META+I",
-            hotkey: "CTRL+I",
-            icon: "https://claude.ai/favicon.ico"
-        },
-        {
-            name: "Stop Claude's Response",
-            actionType: "simulate",
-            url: "",
-            urlMethod: "current",
-            urlAdvanced: "href",
-            selector: "",
-            simulateKeys: "ESC",
-            hotkey: "CTRL+SHIFT+S",
-            icon: "https://claude.ai/favicon.ico"
-        },
-        // --- 其他常用功能 ---
-        {
-            name: "Profile",
-            actionType: "url",
-            url: "https://claude.ai/settings/profile",
-            urlMethod: "current",
-            urlAdvanced: "href",
-            selector: "",
-            simulateKeys: "",
-            hotkey: "CTRL+SHIFT+P",
-            icon: "https://claude.ai/favicon.ico"
-        },
-        {
-            name: "Features",
-            actionType: "url",
-            url: "https://claude.ai/settings/features",
-            urlMethod: "current",
-            urlAdvanced: "href",
-            selector: "",
-            simulateKeys: "",
-            hotkey: "CTRL+SHIFT+F",
-            icon: "https://claude.ai/favicon.ico"
-        },
+        createShortcut({ name: "Toggle Sidebar", actionType: "simulate", simulateKeys: "META+.", hotkey: "CTRL+B" }),
+        createShortcut({ name: "New Conversation", actionType: "url", url: "https://claude.ai/new", hotkey: "CTRL+N" }),
+        createShortcut({ name: "Recent Conversations", actionType: "url", url: "https://claude.ai/recents", hotkey: "CTRL+H" }),
+        createShortcut({ name: "Incognito Chat", actionType: "simulate", simulateKeys: "SHIFT+META+I", hotkey: "CTRL+I" }),
+        createShortcut({ name: "Stop Claude's Response", actionType: "simulate", simulateKeys: "ESC", hotkey: "CTRL+SHIFT+S" }),
+        createShortcut({ name: "Extended thinking", actionType: "simulate", simulateKeys: "SHIFT+META+E", hotkey: "CTRL+T" }),
+        createShortcut({ name: "Open More", actionType: "custom", customAction: "openMore", hotkey: "CTRL+SHIFT+M" }),
+        createShortcut({ name: "web", actionType: "custom", customAction: "web", hotkey: "CTRL+W" }),
+        createShortcut({ name: "Profile", actionType: "url", url: "https://claude.ai/settings/profile", hotkey: "CTRL+SHIFT+P" }),
+        createShortcut({ name: "Features", actionType: "url", url: "https://claude.ai/settings/features", hotkey: "CTRL+SHIFT+F" })
     ];
 
     // 创建快捷键引擎
@@ -140,11 +276,7 @@
         panelTitle: "Claude - 自定义快捷键",
 
         // 存储键配置
-        storageKeys: {
-            shortcuts: "claude_shortcuts_v1",
-            iconCachePrefix: "claude_icon_cache_v1::",
-            userIcons: "claude_user_icons_v1"
-        },
+        storageKeys: STORAGE_KEYS,
 
         // UI配置
         ui: {
@@ -161,8 +293,17 @@
         // 默认快捷键
         defaultShortcuts,
 
-        // 控制台标签
-        consoleTag: "[Claude Shortcut Script]",
+	        // 自定义动作表：将 1step/复杂点击动作纳入引擎
+	        customActions: CUSTOM_ACTIONS,
+
+	        // 自定义动作 data 编辑器适配：让用户直接输入关键词（无需 JSON）
+	        customActionDataAdapters: {
+	            claudeMenu: CLAUDE_MENU_DATA_ADAPTER,
+	            web: CLAUDE_MENU_DATA_ADAPTER
+	        },
+
+	        // 控制台标签
+	        consoleTag: "[Claude Shortcut Script]",
 
         // 主题色配置
         colors: {
@@ -172,85 +313,10 @@
         // Claude特定的图标缓存绕过规则
         shouldBypassIconCache: (url) => {
             return url && url.startsWith('https://claude.ai/');
-        },
-
-        // 搜索词获取函数（Claude通常不需要，但保留以备用）
-        getCurrentSearchTerm: () => {
-            try {
-                const urlParams = new URL(location.href).searchParams;
-                return urlParams.get("q");
-            } catch (err) {
-                console.warn("[Claude Shortcut Script] getCurrentSearchTerm error", err);
-                return null;
-            }
-        },
-
-        // URL模板解析函数
-        resolveUrlTemplate: (targetUrl, { getCurrentSearchTerm, placeholderToken }) => {
-            const placeholder = placeholderToken || '%s';
-            if (!targetUrl.includes(placeholder)) return targetUrl;
-
-            let currentKeyword = null;
-            try {
-                currentKeyword = typeof getCurrentSearchTerm === 'function'
-                    ? getCurrentSearchTerm()
-                    : (new URL(location.href).searchParams.get("q"));
-            } catch (err) {
-                console.warn("[Claude Shortcut Script] resolveUrlTemplate error", err);
-            }
-
-            if (currentKeyword !== null && currentKeyword !== undefined) {
-                return targetUrl.replaceAll(placeholder, encodeURIComponent(currentKeyword));
-            }
-
-            // 如果是搜索模板但没有关键词，返回基础URL
-            if (placeholder === '%s' && targetUrl.includes('?')) {
-                return targetUrl.substring(0, targetUrl.indexOf('?'));
-            }
-
-            return targetUrl.replaceAll(placeholder, '');
-        },
-
-        // 文本配置（中文界面）
-        text: {
-            stats: {
-                total: "总计",
-                url: "URL跳转",
-                selector: "元素点击",
-                simulate: "按键模拟"
-            },
-            buttons: {
-                addShortcut: "添加新快捷键",
-                saveAndClose: "保存并关闭",
-                confirm: "确定",
-                cancel: "取消",
-                delete: "删除",
-                edit: "编辑",
-                clear: "清除"
-            },
-            dialogs: {
-                alert: "提示",
-                confirm: "确认",
-                prompt: "输入"
-            },
-            hints: {
-                hotkey: "点击此处，然后按下快捷键组合",
-                simulate: "点击此处，然后按下要模拟的按键组合",
-                hotkeyHelp: "💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合",
-                simulateHelp: "⚡ 将模拟这个按键组合发送到网页"
-            },
-            menuLabelFallback: "打开Claude快捷键设置"
         }
     });
 
     // 初始化引擎
     engine.init();
-
-    // 为了兼容性，暴露一些方法到全局（如果需要的话）
-    window.ClaudeShortcutEngine = {
-        openSettings: engine.openSettingsPanel,
-        getShortcuts: engine.getShortcuts,
-        setShortcuts: engine.setShortcuts
-    };
 
 })();
