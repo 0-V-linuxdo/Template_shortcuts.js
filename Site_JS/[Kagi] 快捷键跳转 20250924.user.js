@@ -1,7 +1,8 @@
 // ==UserScript==
-// @name         [Kagi] 快捷键跳转 20251008
+// @name         [Kagi] 快捷键跳转 [20251231] v1.0.0
 // @namespace    0_V userscripts/[Kagi] shortcut
-// @version      6.2.0
+// @version      [20251231] v1.0.0
+// @update-log   1.0.0: Sidebar / New Thread 改为模拟官方快捷键；新增 Delete Current Thread（CTRL+BACKSPACE）
 // @description  为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025
 // @match        https://*.kagi.com/*
 // @grant        GM_registerMenuCommand
@@ -10,7 +11,7 @@
 // @grant        GM_xmlhttpRequest
 // @connect      *
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Site_Icon/Kagi_keycap.svg
-// @require      https://github.com/0-V-linuxdo/-/raw/e17b029d255053ccec15e648156adbcec93924e5/%5BTemplate%5D%20%E5%BF%AB%E6%8D%B7%E9%94%AE%E8%B7%B3%E8%BD%AC%2020250924.js
+// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Template_JS/%5BTemplate%5D%20shortcut%20core.js
 // ==/UserScript==
 
 (function () {
@@ -115,24 +116,35 @@
         },
         {
             name: "Toggle Sidebar",
-            actionType: "selector",
-            selector: 'label[for="thread-sidebar-visible"]',
+            actionType: "simulate",
+            selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
-            simulateKeys: "",
+            simulateKeys: "CMD+SHIFT+S",
             hotkey: "CTRL+B",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
             name: "New Thread",
-            actionType: "selector",
-            selector: 'a[href="/assistant"]',
+            actionType: "simulate",
+            selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
-            simulateKeys: "",
+            simulateKeys: "CMD+K",
             hotkey: "CTRL+N",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Delete Current Thread",
+            actionType: "simulate",
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "CMD+SHIFT+BACKSPACE",
+            hotkey: "CTRL+BACKSPACE",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
