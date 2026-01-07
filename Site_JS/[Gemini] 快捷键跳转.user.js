@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Gemini] 快捷键跳转 [20251229] v1.0.0
+// @name         [Gemini] 快捷键跳转 [20260107] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Gemini 添加自定义快捷键管理功能（依赖 Template 模块）。支持 URL 跳转、元素点击、按键模拟，可视化设置面板、暗色模式、自适应布局、图标缓存等功能。
 //
-// @version      [20251229] v1.0.0
-// @update-log   1.0.0: 移除调试导出 window.GeminiShortcutEngine
+// @version      [20260107] v1.0.0
+// @update-log   1.0.0: 新增 Image 默认快捷键（CTRL+I）；移除调试导出 window.GeminiShortcutEngine
 //
 // @match        https://gemini.google.com/*
 //
@@ -16,7 +16,7 @@
 // @connect      *
 //
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Site_Icon/gemini_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Template_JS/%5BTemplate%5D%20shortcut%20core.js?version=1
+// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260107.0.0.1
 // ==/UserScript==
 
 (function () {
@@ -109,6 +109,13 @@
             customAction: "toolsDrawer",
             hotkey: "CTRL+C",
             data: { path: ["Canvas"] }
+        }),
+        createShortcut({
+            name: "Image",
+            actionType: "custom",
+            customAction: "toolsDrawer",
+            hotkey: "CTRL+I",
+            data: { path: ["Image"] }
         }),
         createShortcut({
             name: "Learning",
