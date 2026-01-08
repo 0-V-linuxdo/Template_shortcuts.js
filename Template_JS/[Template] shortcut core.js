@@ -1,7 +1,9 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260108] v1.2.0
+// @name         [Template] 快捷键跳转 [20260108] v1.2.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260108] v1.2.0
+// @version      [20260108] v1.2.2
+// @update-log   1.2.2: QuickInput 可读取动作返回值(ok/false)并在关键步骤失败时中止循环
+// @update-log   1.2.1: customAction 支持返回 Promise（用于 QuickInput 等待异步动作）
 // @update-log   1.2.0: 新增 QuickInput 可复用模块(含 Gemini adapter)，用于“图片+文字+快捷键+循环”一键发送宏面板
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)。
 // @match        *://*/*
@@ -1570,21 +1572,23 @@
             const key = (item && item.customAction) ? String(item.customAction) : "";
             if (!key) {
                 console.warn(`${options.consoleTag} Shortcut "${item?.name || ''}" is type 'custom' but has no customAction defined.`);
-                return;
+                return null;
             }
             const actions = options.customActions && typeof options.customActions === 'object' ? options.customActions : null;
             const fn = actions ? actions[key] : null;
             if (typeof fn !== 'function') {
                 console.warn(`${options.consoleTag} Custom action "${key}" not found or not a function.`);
-                return;
+                return null;
             }
             try {
                 const res = fn({ shortcut: item, event, engine: engineApi });
                 if (res && typeof res.then === 'function') {
                     res.catch(err => console.warn(`${options.consoleTag} Custom action "${key}" rejected:`, err));
                 }
+                return res ?? null;
             } catch (err) {
                 console.warn(`${options.consoleTag} Custom action "${key}" failed:`, err);
+                return null;
             }
         }
 
@@ -1621,7 +1625,7 @@
                 }, { label: options?.text?.stats?.simulate || "按键模拟", shortLabel: "按键", color: "#9C27B0", builtin: true });
 
                 actions.register("custom", ({ shortcut, event }) => {
-                    executeCustomAction(shortcut, event);
+                    return executeCustomAction(shortcut, event);
                 }, { label: options?.text?.stats?.custom || "自定义动作", shortLabel: "自定义", color: "#607D8B", builtin: true });
             }
 
@@ -7125,12 +7129,16 @@
             }
             if (!shortcut) return false;
 
-            try {
-                const res = core?.executeShortcutAction?.(shortcut, null);
-                if (res && typeof res.then === "function") {
-                    try { await res; } catch {}
-                }
-            } catch {}
+            let res = null;
+            try { res = core?.executeShortcutAction?.(shortcut, null); } catch { res = null; }
+            if (res && typeof res.then === "function") {
+                try { res = await res; } catch { res = false; }
+            }
+
+            if (res && typeof res === "object" && Object.prototype.hasOwnProperty.call(res, "ok")) {
+                return !!res.ok;
+            }
+            if (res === false) return false;
             return true;
         }
 
@@ -8278,6 +8286,10 @@
                         ? labels.messages.sendAttempted(okSend)
                         : DEFAULT_LABELS.messages.sendAttempted(okSend);
                     appendLog(sendMsg, { level: okSend ? "ok" : "error" });
+                    if (!okSend) {
+                        cancelRun = true;
+                        break;
+                    }
 
                     if (i < cfg.loopCount - 1) {
                         if (cancelRun) break;
@@ -8288,6 +8300,10 @@
                             ? labels.messages.newChatTriggered(newChatHotkey, okNewChat)
                             : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, okNewChat);
                         appendLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
+                        if (!okNewChat) {
+                            cancelRun = true;
+                            break;
+                        }
                         await sleep(cfg.loopDelayMs);
                     }
                 }
