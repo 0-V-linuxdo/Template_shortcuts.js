@@ -1,10 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260108] v1.2.2
+// @name         [Template] 快捷键跳转 [20260108] v1.2.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260108] v1.2.2
-// @update-log   1.2.2: QuickInput 可读取动作返回值(ok/false)并在关键步骤失败时中止循环
-// @update-log   1.2.1: customAction 支持返回 Promise（用于 QuickInput 等待异步动作）
-// @update-log   1.2.0: 新增 QuickInput 可复用模块(含 Gemini adapter)，用于“图片+文字+快捷键+循环”一键发送宏面板
+// @version      [20260108] v1.2.1
+// @update-log   1.2.1: QuickInput 作为通用模块提供，站点脚本通过 adapter 注入实现图片/发送等适配（核心不再内置站点 adapter）
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -1572,23 +1570,21 @@
             const key = (item && item.customAction) ? String(item.customAction) : "";
             if (!key) {
                 console.warn(`${options.consoleTag} Shortcut "${item?.name || ''}" is type 'custom' but has no customAction defined.`);
-                return null;
+                return;
             }
             const actions = options.customActions && typeof options.customActions === 'object' ? options.customActions : null;
             const fn = actions ? actions[key] : null;
             if (typeof fn !== 'function') {
                 console.warn(`${options.consoleTag} Custom action "${key}" not found or not a function.`);
-                return null;
+                return;
             }
             try {
                 const res = fn({ shortcut: item, event, engine: engineApi });
                 if (res && typeof res.then === 'function') {
                     res.catch(err => console.warn(`${options.consoleTag} Custom action "${key}" rejected:`, err));
                 }
-                return res ?? null;
             } catch (err) {
                 console.warn(`${options.consoleTag} Custom action "${key}" failed:`, err);
-                return null;
             }
         }
 
@@ -1625,7 +1621,7 @@
                 }, { label: options?.text?.stats?.simulate || "按键模拟", shortLabel: "按键", color: "#9C27B0", builtin: true });
 
                 actions.register("custom", ({ shortcut, event }) => {
-                    return executeCustomAction(shortcut, event);
+                    executeCustomAction(shortcut, event);
                 }, { label: options?.text?.stats?.custom || "自定义动作", shortLabel: "自定义", color: "#607D8B", builtin: true });
             }
 
@@ -7129,16 +7125,12 @@
             }
             if (!shortcut) return false;
 
-            let res = null;
-            try { res = core?.executeShortcutAction?.(shortcut, null); } catch { res = null; }
-            if (res && typeof res.then === "function") {
-                try { res = await res; } catch { res = false; }
-            }
-
-            if (res && typeof res === "object" && Object.prototype.hasOwnProperty.call(res, "ok")) {
-                return !!res.ok;
-            }
-            if (res === false) return false;
+            try {
+                const res = core?.executeShortcutAction?.(shortcut, null);
+                if (res && typeof res.then === "function") {
+                    try { await res; } catch {}
+                }
+            } catch {}
             return true;
         }
 
@@ -8286,10 +8278,6 @@
                         ? labels.messages.sendAttempted(okSend)
                         : DEFAULT_LABELS.messages.sendAttempted(okSend);
                     appendLog(sendMsg, { level: okSend ? "ok" : "error" });
-                    if (!okSend) {
-                        cancelRun = true;
-                        break;
-                    }
 
                     if (i < cfg.loopCount - 1) {
                         if (cancelRun) break;
@@ -8300,10 +8288,6 @@
                             ? labels.messages.newChatTriggered(newChatHotkey, okNewChat)
                             : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, okNewChat);
                         appendLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
-                        if (!okNewChat) {
-                            cancelRun = true;
-                            break;
-                        }
                         await sleep(cfg.loopDelayMs);
                     }
                 }
@@ -8698,574 +8682,11 @@
             return Object.freeze({ open, close });
         }
 
-        function createGeminiAdapter({ idPrefix = "gemini" } = {}) {
-            const overlayId = `${String(idPrefix || "").trim() || "gemini"}-quick-input-overlay`;
-
-            function isInsideQuickInputOverlay(el) {
-                if (!el || typeof el.closest !== "function") return false;
-                try { return !!el.closest(`#${overlayId}`); } catch { return false; }
-            }
-
-            function findGeminiDropzone(composerEl) {
-                try {
-                    const direct = composerEl?.closest?.("[xapfileselectordropzone]");
-                    if (direct) return direct;
-                } catch {}
-                try {
-                    const near = composerEl?.closest?.(".text-input-field");
-                    if (near) return near;
-                } catch {}
-
-                const zones = Array.from(global.document?.querySelectorAll?.("[xapfileselectordropzone]") || []);
-                if (!zones.length) return null;
-                if (composerEl) {
-                    const containing = zones.find(z => z && z.contains(composerEl));
-                    if (containing) return containing;
-                }
-
-                let best = null;
-                let bestScore = -Infinity;
-                for (const zone of zones) {
-                    if (!zone) continue;
-                    if (isInsideQuickInputOverlay(zone)) continue;
-                    if (!isElementVisible(zone)) continue;
-                    try {
-                        const rect = zone.getBoundingClientRect();
-                        const score = rect.bottom / Math.max(1, global.innerHeight);
-                        if (score > bestScore) {
-                            bestScore = score;
-                            best = zone;
-                        }
-                    } catch {}
-                }
-                return best || zones[0] || null;
-            }
-
-            function findGeminiComposerContainer(composerEl) {
-                if (!composerEl) return null;
-                try {
-                    const field = composerEl.closest?.(".text-input-field");
-                    if (field) return field;
-                } catch {}
-                try {
-                    const zone = composerEl.closest?.("[xapfileselectordropzone]");
-                    if (zone) return zone;
-                } catch {}
-                return findGeminiDropzone(composerEl) || null;
-            }
-
-            function getGeminiAttachmentSnapshot(containerEl) {
-                const container = containerEl || global.document;
-                const urls = new Set();
-                let cancelCount = 0;
-                let hasFilePreview = false;
-                let imageCount = 0;
-
-                try { hasFilePreview = !!container.classList?.contains?.("with-file-preview"); } catch {}
-
-                try {
-                    const selector = [
-                        "img[data-test-id='image-preview']",
-                        "uploader-file-preview img[aria-label='Image preview']"
-                    ].join(", ");
-                    const imgs = Array.from(container.querySelectorAll(selector));
-                    imageCount = imgs.length;
-                    for (const img of imgs) {
-                        if (!img) continue;
-                        const src = String(img.getAttribute?.("src") || img.currentSrc || img.src || "").trim();
-                        if (!src) continue;
-                        urls.add(src);
-                    }
-                } catch {}
-
-                try {
-                    cancelCount = container.querySelectorAll("button[data-test-id='cancel-button']").length;
-                } catch {}
-
-                const attachmentCount = Math.max(imageCount, cancelCount, hasFilePreview ? 1 : 0);
-                return { urls, imageCount, cancelCount, hasFilePreview, attachmentCount };
-            }
-
-            function hasGeminiAttachmentChange(prev, next) {
-                if (!prev || !next) return false;
-                if ((next.attachmentCount || 0) > (prev.attachmentCount || 0)) return true;
-                if (next.hasFilePreview && !prev.hasFilePreview) return true;
-                if (next.cancelCount > prev.cancelCount) return true;
-                if (next.imageCount > prev.imageCount) return true;
-                for (const url of next.urls) {
-                    if (!prev.urls.has(url)) return true;
-                }
-                return false;
-            }
-
-            async function waitForGeminiAttachmentChange(containerEl, prevSnapshot, { timeoutMs = 9000, intervalMs = 120, shouldCancel = null } = {}) {
-                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
-                const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
-                while (Date.now() < deadline) {
-                    if (cancelFn && cancelFn()) {
-                        const snapshot = getGeminiAttachmentSnapshot(containerEl);
-                        return { ok: false, cancelled: true, snapshot };
-                    }
-                    const next = getGeminiAttachmentSnapshot(containerEl);
-                    if (hasGeminiAttachmentChange(prevSnapshot, next)) return { ok: true, snapshot: next };
-                    await sleep(intervalMs);
-                }
-                const final = getGeminiAttachmentSnapshot(containerEl);
-                return { ok: hasGeminiAttachmentChange(prevSnapshot, final), snapshot: final };
-            }
-
-            function tryAttachImageViaSimulatedPaste(file, composerEl) {
-                if (!composerEl) return false;
-                if (typeof DataTransfer !== "function") return false;
-
-                let dt;
-                try {
-                    dt = new DataTransfer();
-                    dt.items.add(file);
-                    try { dt.effectAllowed = "copy"; } catch {}
-                    try { dt.dropEffect = "copy"; } catch {}
-                } catch {
-                    return false;
-                }
-
-                const targets = [];
-                const dropzone = findGeminiDropzone(composerEl);
-                if (dropzone) targets.push(dropzone);
-                targets.push(composerEl);
-                try {
-                    const rich = composerEl.closest?.("rich-textarea");
-                    if (rich) {
-                        targets.push(rich);
-                        try {
-                            const clipboard = rich.querySelector?.(".ql-clipboard");
-                            if (clipboard) targets.push(clipboard);
-                        } catch {}
-                    }
-                } catch {}
-                try {
-                    const field = composerEl.closest?.(".text-input-field");
-                    if (field) targets.push(field);
-                } catch {}
-                try {
-                    if (global.document?.activeElement) targets.push(global.document.activeElement);
-                } catch {}
-                targets.push(global.document);
-                targets.push(global);
-
-                const uniq = [];
-                const seen = new Set();
-                for (const t of targets) {
-                    if (!t || seen.has(t)) continue;
-                    if (isInsideQuickInputOverlay(t)) continue;
-                    seen.add(t);
-                    uniq.push(t);
-                }
-
-                let fired = false;
-                for (const target of uniq) {
-                    fired = dispatchBeforeInputFromPaste(target, dt) || fired;
-                    fired = dispatchPasteEvent(target, dt) || fired;
-                    fired = dispatchInputFromPaste(target, dt) || fired;
-                }
-                return fired;
-            }
-
-            function tryAttachImageViaDropzone(file, composerEl) {
-                if (!composerEl) return false;
-                if (typeof DataTransfer !== "function") return false;
-
-                let dt;
-                try {
-                    dt = new DataTransfer();
-                    dt.items.add(file);
-                    try { dt.effectAllowed = "copy"; } catch {}
-                    try { dt.dropEffect = "copy"; } catch {}
-                } catch {
-                    return false;
-                }
-
-                const targets = [];
-                const dropzone = findGeminiDropzone(composerEl);
-                if (dropzone) targets.push(dropzone);
-                try {
-                    const field = composerEl.closest?.(".text-input-field");
-                    if (field) targets.push(field);
-                } catch {}
-                targets.push(composerEl);
-                targets.push(global.document);
-                targets.push(global);
-
-                const uniq = [];
-                const seen = new Set();
-                for (const t of targets) {
-                    if (!t || seen.has(t)) continue;
-                    if (isInsideQuickInputOverlay(t)) continue;
-                    seen.add(t);
-                    uniq.push(t);
-                }
-
-                let fired = false;
-                for (const target of uniq) {
-                    fired = dispatchDragEvent(target, "dragenter", dt) || fired;
-                    fired = dispatchDragEvent(target, "dragover", dt) || fired;
-                    fired = dispatchDragEvent(target, "drop", dt) || fired;
-                }
-                return fired;
-            }
-
-            function tryAttachImageViaFileInput(file, composerEl, diagnostics) {
-                if (!composerEl) return false;
-                if (typeof DataTransfer !== "function") return false;
-
-                const container = findGeminiComposerContainer(composerEl);
-                const candidates = [];
-
-                if (container) candidates.push(...collectFileInputs(container, { shouldIgnore: isInsideQuickInputOverlay }));
-                candidates.push(...collectFileInputs(global.document, { shouldIgnore: isInsideQuickInputOverlay }));
-
-                if (candidates.length === 0) {
-                    if (container) candidates.push(...collectFileInputsFromOpenShadows(container, { maxHosts: 1200, shouldIgnore: isInsideQuickInputOverlay }));
-                    candidates.push(...collectFileInputsFromOpenShadows(global.document, { maxHosts: 3500, shouldIgnore: isInsideQuickInputOverlay }));
-                }
-
-                const uniq = [];
-                const seen = new Set();
-                for (const input of candidates) {
-                    if (!input || seen.has(input)) continue;
-                    seen.add(input);
-                    if (isInsideQuickInputOverlay(input)) continue;
-                    uniq.push(input);
-                }
-
-                if (diagnostics && typeof diagnostics === "object") diagnostics.fileInputCandidates = uniq.length;
-
-                const accepted = [];
-                const fallback = [];
-                for (const input of uniq) {
-                    const accept = String(input.getAttribute?.("accept") || input.accept || "").toLowerCase();
-                    if (!accept || accept.includes("image") || accept.includes(".png") || accept.includes(".jpg") || accept.includes(".jpeg") || accept.includes(".webp")) {
-                        accepted.push(input);
-                    } else {
-                        fallback.push(input);
-                    }
-                }
-
-                for (const input of [...accepted, ...fallback]) {
-                    if (trySetFileInputFiles(input, file)) return true;
-                }
-
-                return false;
-            }
-
-            async function attachImageToComposer(file, composerEl, { onDiagnostics, shouldCancel = null } = {}) {
-                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
-
-                if (!file || !(file instanceof File)) return { ok: false, cancelled: false };
-                if (!String(file.type || "").startsWith("image/")) return { ok: false, cancelled: false };
-                if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
-
-                const composer = composerEl || (await focusComposer({ timeoutMs: 4000, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay }));
-                if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
-                const container = findGeminiComposerContainer(composer);
-                if (!container) return { ok: false, cancelled: false };
-
-                const diagnostics = {
-                    attempts: { paste: 0, drop: 0, fileInput: 0 },
-                    fired: { paste: 0, drop: 0, fileInput: 0 },
-                    fileInputCandidates: 0,
-                    finalSnapshot: null
-                };
-
-                const maxAttempts = 3;
-                let prev = getGeminiAttachmentSnapshot(container);
-
-                for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                    if (cancelFn && cancelFn()) {
-                        diagnostics.finalSnapshot = prev;
-                        if (typeof onDiagnostics === "function") {
-                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
-                        }
-                        return { ok: false, cancelled: true };
-                    }
-                    diagnostics.attempts.paste += 1;
-                    if (attempt > 0) await sleep(180);
-                    try { composer.focus?.(); } catch {}
-                    try { Utils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch {}
-                    await sleep(30);
-
-                    const fired = tryAttachImageViaSimulatedPaste(file, composer);
-                    if (fired) diagnostics.fired.paste += 1;
-                    if (!fired) continue;
-
-                    const { ok, cancelled, snapshot } = await waitForGeminiAttachmentChange(container, prev, { timeoutMs: 9000, intervalMs: 120, shouldCancel: cancelFn });
-                    if (cancelled) {
-                        diagnostics.finalSnapshot = snapshot;
-                        if (typeof onDiagnostics === "function") {
-                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
-                        }
-                        return { ok: false, cancelled: true };
-                    }
-                    if (ok) return { ok: true, cancelled: false };
-                    prev = snapshot;
-                }
-
-                for (let attempt = 0; attempt < 2; attempt++) {
-                    if (cancelFn && cancelFn()) {
-                        diagnostics.finalSnapshot = prev;
-                        if (typeof onDiagnostics === "function") {
-                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
-                        }
-                        return { ok: false, cancelled: true };
-                    }
-                    diagnostics.attempts.drop += 1;
-                    await sleep(220);
-                    try { composer.focus?.(); } catch {}
-                    try { Utils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch {}
-                    await sleep(30);
-
-                    const fired = tryAttachImageViaDropzone(file, composer);
-                    if (fired) diagnostics.fired.drop += 1;
-                    if (!fired) continue;
-
-                    const { ok, cancelled, snapshot } = await waitForGeminiAttachmentChange(container, prev, { timeoutMs: 9000, intervalMs: 120, shouldCancel: cancelFn });
-                    if (cancelled) {
-                        diagnostics.finalSnapshot = snapshot;
-                        if (typeof onDiagnostics === "function") {
-                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
-                        }
-                        return { ok: false, cancelled: true };
-                    }
-                    if (ok) return { ok: true, cancelled: false };
-                    prev = snapshot;
-                }
-
-                for (let attempt = 0; attempt < 2; attempt++) {
-                    if (cancelFn && cancelFn()) {
-                        diagnostics.finalSnapshot = prev;
-                        if (typeof onDiagnostics === "function") {
-                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
-                        }
-                        return { ok: false, cancelled: true };
-                    }
-                    diagnostics.attempts.fileInput += 1;
-                    await sleep(220);
-                    try { composer.focus?.(); } catch {}
-                    try { Utils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch {}
-                    await sleep(30);
-
-                    const fired = tryAttachImageViaFileInput(file, composer, diagnostics);
-                    if (fired) diagnostics.fired.fileInput += 1;
-                    if (!fired) continue;
-
-                    const { ok, cancelled, snapshot } = await waitForGeminiAttachmentChange(container, prev, { timeoutMs: 9000, intervalMs: 120, shouldCancel: cancelFn });
-                    if (cancelled) {
-                        diagnostics.finalSnapshot = snapshot;
-                        if (typeof onDiagnostics === "function") {
-                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
-                        }
-                        return { ok: false, cancelled: true };
-                    }
-                    if (ok) return { ok: true, cancelled: false };
-                    prev = snapshot;
-                }
-
-                diagnostics.finalSnapshot = prev;
-                if (typeof onDiagnostics === "function") {
-                    try { onDiagnostics(diagnostics); } catch {}
-                }
-                return { ok: false, cancelled: false };
-            }
-
-            async function attachImagesToComposer(files, composerEl, { onDiagnostics, shouldCancel = null } = {}) {
-                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
-                const list = Array.from(files || []).filter(file => file && (file instanceof File) && String(file.type || "").startsWith("image/"));
-                if (list.length === 0) return { ok: false, cancelled: false, message: "未检测到图片文件。" };
-
-                const composer = composerEl || (await focusComposer({ timeoutMs: 4000, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay }));
-                if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
-
-                for (let i = 0; i < list.length; i++) {
-                    if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
-                    const file = list[i];
-                    const result = await attachImageToComposer(file, composer, {
-                        onDiagnostics: (diag) => {
-                            if (typeof onDiagnostics !== "function") return;
-                            try {
-                                onDiagnostics({
-                                    fileIndex: i,
-                                    fileName: file?.name || "",
-                                    fileSize: Number(file?.size) || 0,
-                                    ...diag
-                                });
-                            } catch {}
-                        },
-                        shouldCancel: cancelFn
-                    });
-                    if (result?.cancelled) return { ok: false, cancelled: true };
-                    if (!result?.ok) return { ok: false, cancelled: false, message: "图片粘贴失败：未检测到输入框内出现图片预览。" };
-                    await sleep(120);
-                }
-
-                return { ok: true, cancelled: false };
-            }
-
-            function findSendButtonNearComposer(composerEl) {
-                const candidates = [];
-                const scopes = [];
-                try {
-                    const form = composerEl?.closest?.("form");
-                    if (form) scopes.push(form);
-                } catch {}
-                scopes.push(global.document);
-
-                const selectors = [
-                    "button[type='submit']",
-                    "button[aria-label*='Send']",
-                    "button[aria-label*='发送']",
-                    "button[data-test-id*='send']"
-                ];
-
-                for (const scope of scopes) {
-                    for (const sel of selectors) {
-                        try {
-                            candidates.push(...Array.from(scope.querySelectorAll(sel)));
-                        } catch {}
-                    }
-                }
-
-                for (const btn of candidates) {
-                    if (!btn) continue;
-                    if (!isElementVisible(btn)) continue;
-                    if (isInsideQuickInputOverlay(btn)) continue;
-                    return btn;
-                }
-                return null;
-            }
-
-            function isAriaDisabled(el) {
-                if (!el || typeof el.getAttribute !== "function") return false;
-                const value = String(el.getAttribute("aria-disabled") || "").trim().toLowerCase();
-                return value === "true";
-            }
-
-            function isGeminiSendButtonDisabled(btn) {
-                if (!btn) return true;
-                if (btn.disabled) return true;
-                if (isAriaDisabled(btn)) return true;
-                return false;
-            }
-
-            function getGeminiAttachmentFingerprint(snapshot) {
-                if (!snapshot) return "";
-                const urls = Array.from(snapshot.urls || []).slice(0, 6).sort().join("|");
-                return `${snapshot.attachmentCount || 0};${snapshot.hasFilePreview ? 1 : 0};${snapshot.cancelCount || 0};${snapshot.imageCount || 0};${urls}`;
-            }
-
-            function hasGeminiUploadInProgress(containerEl) {
-                const container = containerEl || global.document;
-                let scope = container;
-                try { scope = container.querySelector?.(".file-preview-wrapper") || container; } catch {}
-
-                const selectors = [
-                    "[aria-busy='true']",
-                    "[role='progressbar']",
-                    "mat-progress-spinner",
-                    "mat-mdc-progress-spinner",
-                    ".mat-progress-spinner",
-                    ".mat-mdc-progress-spinner",
-                    "mat-progress-bar",
-                    "mat-mdc-progress-bar",
-                    ".mat-progress-bar",
-                    ".mat-mdc-progress-bar",
-                    "progress"
-                ].join(", ");
-
-                try { return !!scope.querySelector(selectors); } catch { return false; }
-            }
-
-            async function waitForGeminiReadyToSend(composerEl, { requireImage = false, minAttachments = 0, timeoutMs = 45000, intervalMs = 160, settleMs = 600, shouldCancel = null } = {}) {
-                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
-                const composer = composerEl || (await focusComposer({ timeoutMs: 4000, intervalMs: 120, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay }));
-                if (!composer) return { ok: false, reason: "no-composer", cancelled: !!(cancelFn && cancelFn()) };
-
-                const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
-                const settle = Math.max(0, Number(settleMs) || 0);
-                let stableSince = Date.now();
-                let lastStateKey = "";
-
-                while (Date.now() < deadline) {
-                    if (cancelFn && cancelFn()) {
-                        const container = findGeminiComposerContainer(composer);
-                        const snapshot = container ? getGeminiAttachmentSnapshot(container) : null;
-                        return { ok: false, reason: "cancelled", cancelled: true, snapshot };
-                    }
-                    const container = findGeminiComposerContainer(composer);
-                    const snapshot = container ? getGeminiAttachmentSnapshot(container) : null;
-                    const sendBtn = findSendButtonNearComposer(composer);
-                    const sendReady = sendBtn && !isGeminiSendButtonDisabled(sendBtn);
-
-                    const attachmentCount = snapshot ? (snapshot.attachmentCount || 0) : 0;
-                    const hasImage = !!(snapshot && (snapshot.hasFilePreview || snapshot.imageCount > 0 || snapshot.cancelCount > 0));
-                    const hasEnoughAttachments = !requireImage || !(Number(minAttachments) > 0) || attachmentCount >= Number(minAttachments);
-                    const uploadBusy = requireImage && container ? hasGeminiUploadInProgress(container) : false;
-
-                    const fingerprint = getGeminiAttachmentFingerprint(snapshot);
-                    const stateKey = `${fingerprint};send=${sendReady ? 1 : 0};busy=${uploadBusy ? 1 : 0};img=${hasImage ? 1 : 0};count=${attachmentCount};min=${Number(minAttachments) || 0}`;
-                    if (stateKey !== lastStateKey) {
-                        lastStateKey = stateKey;
-                        stableSince = Date.now();
-                    }
-
-                    const okNow = sendReady && (!requireImage || (hasImage && hasEnoughAttachments && !uploadBusy));
-                    if (okNow && (Date.now() - stableSince >= settle)) {
-                        return { ok: true, button: sendBtn, snapshot };
-                    }
-
-                    await sleep(intervalMs);
-                }
-
-                const container = findGeminiComposerContainer(composer);
-                const snapshot = container ? getGeminiAttachmentSnapshot(container) : null;
-                const sendBtn = findSendButtonNearComposer(composer);
-                const sendReady = sendBtn && !isGeminiSendButtonDisabled(sendBtn);
-                const attachmentCount = snapshot ? (snapshot.attachmentCount || 0) : 0;
-                const hasImage = !!(snapshot && (snapshot.hasFilePreview || snapshot.imageCount > 0 || snapshot.cancelCount > 0));
-                const hasEnoughAttachments = !requireImage || !(Number(minAttachments) > 0) || attachmentCount >= Number(minAttachments);
-                const uploadBusy = requireImage && container ? hasGeminiUploadInProgress(container) : false;
-                const ok = sendReady && (!requireImage || (hasImage && hasEnoughAttachments && !uploadBusy));
-
-                return { ok, button: sendBtn, snapshot, reason: ok ? "ok" : "timeout", cancelled: false };
-            }
-
-            async function sendGeminiMessage(composerEl) {
-                const composer = composerEl || (await focusComposer({ shouldIgnore: isInsideQuickInputOverlay }));
-                if (!composer) return false;
-
-                const btn = findSendButtonNearComposer(composer);
-                if (btn) {
-                    if (isGeminiSendButtonDisabled(btn)) return false;
-                    try {
-                        return !!Utils?.events?.simulateClick?.(btn, { nativeFallback: true });
-                    } catch {}
-                    try { btn.click(); return true; } catch {}
-                    return false;
-                }
-
-                return simulateKeystroke("ENTER", { target: composer });
-            }
-
-            return Object.freeze({
-                attachImages: attachImagesToComposer,
-                waitForReadyToSend: waitForGeminiReadyToSend,
-                sendMessage: sendGeminiMessage
-            });
-        }
+        
 
         return Object.freeze({
             createController,
-            adapters: Object.freeze({
-                createGeminiAdapter
-            }),
+            adapters: Object.freeze({}),
             storage: Object.freeze({
                 safeGet: safeStoreGet,
                 safeSet: safeStoreSet
