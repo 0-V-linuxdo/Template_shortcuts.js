@@ -1,9 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20251228] v1.1.1
+// @name         [Template] 快捷键跳转 [20260108] v1.2.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20251228] v1.1.1
-// @update-log   1.1.1: 编辑器支持 customAction data 适配（可直接输入关键词/非 JSON）
-// @update-log   1.1.0: 重构核心模块(拆分 hotkeys/ui/icons/builtins)，统一面板筛选与拖拽视图匹配，清理 legacy editor，大幅减少 inline styles 并移除面板 setTrustedHTML 依赖
+// @version      [20260108] v1.2.0
+// @update-log   1.2.0: 新增 QuickInput 可复用模块(含 Gemini adapter)，用于“图片+文字+快捷键+循环”一键发送宏面板
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -39,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20251228";
+    const TEMPLATE_VERSION = "20260108";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -48,7 +47,8 @@
         storageKeys: {
             shortcuts: 'shortcut_engine_shortcuts_v1',
             iconCachePrefix: 'shortcut_engine_icon_cache_v1::',
-            userIcons: 'shortcut_engine_user_icons_v1'
+            userIcons: 'shortcut_engine_user_icons_v1',
+            uiPrefs: ''
         },
         ui: {
             idPrefix: 'shortcut',
@@ -1390,6 +1390,16 @@
 
         const idPrefix = options.ui.idPrefix || 'shortcut';
         const cssPrefix = options.ui.cssPrefix || idPrefix;
+        const storageKeys = options.storageKeys && typeof options.storageKeys === "object" ? options.storageKeys : {};
+        const rawUiPrefsKey = userOptions?.storageKeys?.uiPrefs;
+        const fallbackUiPrefsKeyBase = (typeof storageKeys.shortcuts === "string" && storageKeys.shortcuts.trim())
+            ? storageKeys.shortcuts.trim()
+            : idPrefix;
+        const fallbackUiPrefsKey = `${fallbackUiPrefsKeyBase}::uiPrefs_v1`;
+        storageKeys.uiPrefs = (typeof rawUiPrefsKey === "string" && rawUiPrefsKey.trim())
+            ? rawUiPrefsKey.trim()
+            : fallbackUiPrefsKey;
+        options.storageKeys = storageKeys;
 
         const ids = {
             settingsOverlay: `${idPrefix}-settings-overlay`,
@@ -1421,8 +1431,9 @@
                 originalBodyLeft: '',
                 originalBodyWidth: '',
                 scrollTop: 0,
-                scrollLeft: 0
+	                scrollLeft: 0
             },
+                themeMode: "auto",
 	            isDarkMode: false,
 	            currentFilter: 'all',
 	            searchQuery: '',
@@ -1447,6 +1458,13 @@
 
         /* ------------------ 通用工具函数 ------------------ */
 
+        function normalizeThemeMode(value) {
+            const token = String(value ?? "").trim().toLowerCase();
+            if (token === "dark") return "dark";
+            if (token === "light") return "light";
+            return "auto";
+        }
+
         function safeGMGet(key, fallback) {
             try {
                 if (typeof GM_getValue === 'function') {
@@ -1467,6 +1485,12 @@
 	                console.warn(`${options.consoleTag} GM_setValue error`, err);
 	            }
 	        }
+
+        const uiPrefsRaw = safeGMGet(options.storageKeys.uiPrefs, null);
+        const uiPrefs = (uiPrefsRaw && typeof uiPrefsRaw === "object" && !Array.isArray(uiPrefsRaw)) ? uiPrefsRaw : {};
+        state.themeMode = normalizeThemeMode(uiPrefs.themeMode);
+        if (state.themeMode === "dark") state.isDarkMode = true;
+        if (state.themeMode === "light") state.isDarkMode = false;
 
         function generateShortcutId() {
             try {
@@ -1642,20 +1666,22 @@
             }
 
             function executeShortcutAction(item, event) {
-                if (!item) return;
+                if (!item) return null;
                 const type = String(item.actionType || "").trim();
                 const entry = type ? actions.get(type) : null;
                 if (!entry || typeof entry.handler !== "function") {
                     console.warn(`${options.consoleTag} Shortcut "${item?.name || ""}" has unknown actionType: ${type}`);
-                    return;
+                    return null;
                 }
                 try {
                     const res = entry.handler({ shortcut: item, event, engine: engineApi, core: coreApi, options });
                     if (res && typeof res.then === "function") {
                         res.catch((err) => console.warn(`${options.consoleTag} Action "${type}" rejected:`, err));
                     }
+                    return res;
                 } catch (err) {
                     console.warn(`${options.consoleTag} Action "${type}" failed:`, err);
+                    return null;
                 }
             }
 
@@ -2406,7 +2432,12 @@
                 const htmlEl = document.documentElement;
                 const bodyEl = document.body;
                 let detectedDarkMode = false;
-                if (htmlEl.classList.contains('dark') || bodyEl?.classList?.contains('dark')) {
+                const mode = String(state.themeMode || "auto").trim().toLowerCase();
+                if (mode === "dark") {
+                    detectedDarkMode = true;
+                } else if (mode === "light") {
+                    detectedDarkMode = false;
+                } else if (htmlEl.classList.contains('dark') || bodyEl?.classList?.contains('dark')) {
                     detectedDarkMode = true;
                 } else if (htmlEl.getAttribute('data-theme') === 'dark' || bodyEl?.getAttribute?.('data-theme') === 'dark') {
                     detectedDarkMode = true;
@@ -3057,7 +3088,7 @@
                 debounce
             } = ctx;
             const { theme, colors, style, dialogs, layout } = uiShared;
-            const { addThemeChangeListener, removeThemeChangeListener } = theme;
+            const { addThemeChangeListener, removeThemeChangeListener, detectInitialDarkMode } = theme;
             const {
                 getPrimaryColor,
                 getOverlayBackgroundColor,
@@ -3838,6 +3869,55 @@
                     styleTransparentButton(closeBtn, `var(--${p}-text)`, `var(--${p}-hover-bg)`);
                     closeBtn.style.padding = "6px 8px";
                     closeBtn.style.borderRadius = "6px";
+
+                    const themeRow = document.createElement("div");
+                    Object.assign(themeRow.style, {
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px"
+                    });
+
+                    const themeLabel = document.createElement("div");
+                    themeLabel.textContent = options?.text?.panel?.themeModeLabel || "面板主题";
+                    Object.assign(themeLabel.style, {
+                        fontSize: "14px",
+                        fontWeight: "bold"
+                    });
+
+                    const themeSelect = document.createElement("select");
+                    Object.assign(themeSelect.style, {
+                        flex: "0 0 200px",
+                        maxWidth: "100%"
+                    });
+                    styleInputField(themeSelect);
+
+                    const addThemeOption = (value, label) => {
+                        const opt = document.createElement("option");
+                        opt.value = value;
+                        opt.textContent = label;
+                        themeSelect.appendChild(opt);
+                    };
+
+                    addThemeOption("auto", options?.text?.panel?.themeModeAuto || "自动(跟随页面)");
+                    addThemeOption("light", options?.text?.panel?.themeModeLight || "普通");
+                    addThemeOption("dark", options?.text?.panel?.themeModeDark || "黑暗");
+
+                    themeSelect.value = String(state.themeMode || "auto");
+                    themeSelect.onchange = () => {
+                        state.themeMode = String(themeSelect.value || "auto");
+                        const key = options?.storageKeys?.uiPrefs;
+                        if (key) {
+                            const raw = safeGMGet(key, null);
+                            const prev = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
+                            safeGMSet(key, { ...prev, themeMode: state.themeMode });
+                        }
+                        detectInitialDarkMode();
+                    };
+
+                    themeRow.appendChild(themeLabel);
+                    themeRow.appendChild(themeSelect);
+                    dialog.appendChild(themeRow);
 
 	                const actions = document.createElement("div");
 	                Object.assign(actions.style, {
@@ -6407,6 +6487,2799 @@
             });
         }
 /* -------------------------------------------------------------------------- *
+ * Module 07 · Quick Input (reusable macro panel)
+ * -------------------------------------------------------------------------- */
+
+    const QuickInput = (() => {
+        const sleep = (ms) => (typeof Utils?.sleep === "function" ? Utils.sleep(ms) : new Promise(resolve => setTimeout(resolve, ms)));
+
+        function clampInt(value, { min = 0, max = 9999, fallback = 0 } = {}) {
+            const num = Number.parseInt(String(value ?? ""), 10);
+            if (!Number.isFinite(num)) return fallback;
+            return Math.min(max, Math.max(min, num));
+        }
+
+        function normalizeHotkeyString(raw) {
+            return String(raw ?? "").trim().replace(/\s+/g, "");
+        }
+
+        function normalizeHotkeyFallback(raw) {
+            const cleaned = normalizeHotkeyString(raw).toUpperCase();
+            if (!cleaned) return "";
+            const parts = cleaned.split("+").map(s => s.trim()).filter(Boolean);
+            if (parts.length === 0) return "";
+
+            const modifiers = new Set();
+            let mainKey = "";
+
+            for (const part of parts) {
+                switch (part) {
+                    case "CTRL":
+                    case "CONTROL":
+                        modifiers.add("CTRL");
+                        break;
+                    case "SHIFT":
+                        modifiers.add("SHIFT");
+                        break;
+                    case "ALT":
+                    case "OPTION":
+                    case "OPT":
+                        modifiers.add("ALT");
+                        break;
+                    case "CMD":
+                    case "COMMAND":
+                    case "META":
+                    case "WIN":
+                    case "WINDOWS":
+                        modifiers.add("CMD");
+                        break;
+                    default:
+                        mainKey = part;
+                        break;
+                }
+            }
+
+            if (!mainKey) return "";
+            const ordered = [];
+            for (const mod of ["CTRL", "SHIFT", "ALT", "CMD"]) {
+                if (modifiers.has(mod)) ordered.push(mod);
+            }
+            return ordered.length ? [...ordered, mainKey].join("+") : mainKey;
+        }
+
+        function getKeyEventProps(mainKeyToken) {
+            const token = String(mainKeyToken ?? "").toUpperCase();
+            if (!token) return null;
+
+            if (token.length === 1 && token >= "A" && token <= "Z") {
+                return { key: token.toLowerCase(), code: `Key${token}` };
+            }
+            if (token.length === 1 && token >= "0" && token <= "9") {
+                return { key: token, code: `Digit${token}` };
+            }
+            if (/^F\d{1,2}$/.test(token)) return { key: token, code: token };
+
+            switch (token) {
+                case "ENTER":
+                case "RETURN":
+                    return { key: "Enter", code: "Enter" };
+                case "TAB":
+                    return { key: "Tab", code: "Tab" };
+                case "ESC":
+                case "ESCAPE":
+                    return { key: "Escape", code: "Escape" };
+                case "SPACE":
+                    return { key: " ", code: "Space" };
+                case "BACKSPACE":
+                    return { key: "Backspace", code: "Backspace" };
+                case "DELETE":
+                    return { key: "Delete", code: "Delete" };
+                case "ARROWUP":
+                    return { key: "ArrowUp", code: "ArrowUp" };
+                case "ARROWDOWN":
+                    return { key: "ArrowDown", code: "ArrowDown" };
+                case "ARROWLEFT":
+                    return { key: "ArrowLeft", code: "ArrowLeft" };
+                case "ARROWRIGHT":
+                    return { key: "ArrowRight", code: "ArrowRight" };
+                default:
+                    return null;
+            }
+        }
+
+        function simulateKeystroke(keyString, { target = null } = {}) {
+            const raw = String(keyString ?? "").trim();
+            if (!raw) return false;
+
+            const parts = raw.toUpperCase().split("+").map(s => s.trim()).filter(Boolean);
+            if (parts.length === 0) return false;
+
+            const mainKey = parts.pop();
+            const modifiers = new Set(parts);
+            const props = getKeyEventProps(mainKey);
+            if (!props) return false;
+
+            const targetElement = target || global.document?.activeElement || global.document?.body || null;
+            if (!targetElement) return false;
+
+            const eventInit = {
+                key: props.key,
+                code: props.code,
+                bubbles: true,
+                cancelable: true,
+                ctrlKey: modifiers.has("CTRL") || modifiers.has("CONTROL"),
+                shiftKey: modifiers.has("SHIFT"),
+                altKey: modifiers.has("ALT") || modifiers.has("OPTION") || modifiers.has("OPT"),
+                metaKey: modifiers.has("CMD") || modifiers.has("META") || modifiers.has("COMMAND")
+            };
+
+            try {
+                targetElement.dispatchEvent(new KeyboardEvent("keydown", eventInit));
+                targetElement.dispatchEvent(new KeyboardEvent("keyup", eventInit));
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        function isElementVisible(el) {
+            if (!el) return false;
+            if (el.hidden) return false;
+            try {
+                const rect = el.getBoundingClientRect();
+                if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+                if (rect.bottom < 0 || rect.top > global.innerHeight) return false;
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        function pickBestComposerCandidate(candidates) {
+            let best = null;
+            let bestScore = -Infinity;
+            for (const el of candidates) {
+                if (!el) continue;
+                if (!isElementVisible(el)) continue;
+                const tag = (el.tagName || "").toUpperCase();
+                const isEditable = tag === "TEXTAREA" || tag === "INPUT" || el.isContentEditable;
+                if (!isEditable) continue;
+                try {
+                    const rect = el.getBoundingClientRect();
+                    const bottomScore = rect.bottom / Math.max(1, global.innerHeight);
+                    const widthScore = rect.width / Math.max(1, global.innerWidth);
+                    const areaScore = (rect.width * rect.height) / Math.max(1, global.innerWidth * global.innerHeight);
+                    const score = bottomScore * 2 + widthScore + areaScore * 0.5;
+                    if (score > bestScore) {
+                        best = el;
+                        bestScore = score;
+                    }
+                } catch {}
+            }
+            return best;
+        }
+
+        function setInputValue(el, value) {
+            if (!el) return false;
+            const text = String(value ?? "");
+
+            const tag = (el.tagName || "").toUpperCase();
+            if (tag === "TEXTAREA" || tag === "INPUT") {
+                try {
+                    const proto = tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+                    const desc = Object.getOwnPropertyDescriptor(proto, "value");
+                    if (desc?.set) desc.set.call(el, text);
+                    else el.value = text;
+                } catch {
+                    try { el.value = text; } catch { return false; }
+                }
+                try {
+                    el.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, data: text, inputType: "insertReplacementText" }));
+                } catch {
+                    try { el.dispatchEvent(new Event("input", { bubbles: true, cancelable: true })); } catch {}
+                }
+                try { el.dispatchEvent(new Event("change", { bubbles: true })); } catch {}
+                return true;
+            }
+
+            if (el.isContentEditable) {
+                try {
+                    el.focus();
+                    global.document?.execCommand?.("selectAll", false);
+                    global.document?.execCommand?.("insertText", false, text);
+                } catch {
+                    try { el.textContent = text; } catch { return false; }
+                }
+                try { el.dispatchEvent(new InputEvent("input", { bubbles: true })); } catch {}
+                return true;
+            }
+
+            return false;
+        }
+
+        function clearInputValue(el) {
+            return setInputValue(el, "");
+        }
+
+        function findComposerElement({ shouldIgnore = null } = {}) {
+            const ignore = typeof shouldIgnore === "function" ? shouldIgnore : null;
+            const active = global.document?.activeElement || null;
+            if (active && (!ignore || !ignore(active)) && (active.tagName === "TEXTAREA" || active.tagName === "INPUT" || active.isContentEditable)) return active;
+
+            const selectors = [
+                "textarea[aria-label]",
+                "textarea",
+                "input[type='text']",
+                "[contenteditable='true'][role='textbox']",
+                "[contenteditable='true']"
+            ];
+
+            const candidates = [];
+            for (const sel of selectors) {
+                try {
+                    candidates.push(...Array.from(global.document?.querySelectorAll?.(sel) || []));
+                } catch {}
+            }
+            const filtered = ignore ? candidates.filter(el => !ignore(el)) : candidates;
+            return pickBestComposerCandidate(filtered);
+        }
+
+        async function focusComposer({ timeoutMs = 2500, intervalMs = 120, shouldCancel = null, shouldIgnore = null } = {}) {
+            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            const ignoreFn = typeof shouldIgnore === "function" ? shouldIgnore : null;
+            const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+            let composer = findComposerElement({ shouldIgnore: ignoreFn });
+
+            while (!composer && Date.now() < deadline) {
+                if (cancelFn && cancelFn()) return null;
+                await sleep(intervalMs);
+                composer = findComposerElement({ shouldIgnore: ignoreFn });
+            }
+
+            if (cancelFn && cancelFn()) return null;
+            if (!composer) return null;
+            try { composer.scrollIntoView?.({ block: "center" }); } catch {}
+            try { composer.focus?.(); } catch {}
+            try { Utils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch {}
+            await sleep(20);
+            return composer;
+        }
+
+        function dispatchPasteEvent(target, clipboardData) {
+            if (!target) return false;
+            const init = { bubbles: true, cancelable: true, composed: true };
+            let evt = null;
+            try {
+                if (typeof ClipboardEvent === "function") {
+                    evt = new ClipboardEvent("paste", { ...init, clipboardData });
+                }
+            } catch {}
+            if (!evt) {
+                try { evt = new Event("paste", init); } catch { evt = null; }
+            }
+            if (!evt) return false;
+            if (clipboardData) {
+                try { Object.defineProperty(evt, "clipboardData", { value: clipboardData, configurable: true }); } catch {}
+                try { Object.defineProperty(evt, "dataTransfer", { value: clipboardData, configurable: true }); } catch {}
+            }
+            try { target.dispatchEvent(evt); return true; } catch { return false; }
+        }
+
+        function dispatchBeforeInputFromPaste(target, dataTransfer) {
+            if (!target) return false;
+            const init = { bubbles: true, cancelable: true, composed: true };
+            let evt = null;
+            try {
+                if (typeof InputEvent === "function") {
+                    evt = new InputEvent("beforeinput", { ...init, inputType: "insertFromPaste", dataTransfer });
+                }
+            } catch {}
+            if (!evt) {
+                try { evt = new Event("beforeinput", init); } catch { evt = null; }
+            }
+            if (!evt) return false;
+            try { Object.defineProperty(evt, "inputType", { value: "insertFromPaste", configurable: true }); } catch {}
+            if (dataTransfer) {
+                try { Object.defineProperty(evt, "dataTransfer", { value: dataTransfer, configurable: true }); } catch {}
+                try { Object.defineProperty(evt, "clipboardData", { value: dataTransfer, configurable: true }); } catch {}
+            }
+            try { return target.dispatchEvent(evt); } catch { return false; }
+        }
+
+        function dispatchInputFromPaste(target, dataTransfer) {
+            if (!target) return false;
+            const init = { bubbles: true, cancelable: false, composed: true };
+            let evt = null;
+            try {
+                if (typeof InputEvent === "function") {
+                    evt = new InputEvent("input", { ...init, inputType: "insertFromPaste", dataTransfer });
+                }
+            } catch {}
+            if (!evt) {
+                try { evt = new Event("input", init); } catch { evt = null; }
+            }
+            if (!evt) return false;
+            try { Object.defineProperty(evt, "inputType", { value: "insertFromPaste", configurable: true }); } catch {}
+            if (dataTransfer) {
+                try { Object.defineProperty(evt, "dataTransfer", { value: dataTransfer, configurable: true }); } catch {}
+                try { Object.defineProperty(evt, "clipboardData", { value: dataTransfer, configurable: true }); } catch {}
+            }
+            try { return target.dispatchEvent(evt); } catch { return false; }
+        }
+
+        function dispatchDragEvent(target, type, dataTransfer) {
+            if (!target) return false;
+            const init = { bubbles: true, cancelable: true, composed: true };
+            let clientX = 0;
+            let clientY = 0;
+            try {
+                const rect = target.getBoundingClientRect?.();
+                if (rect) {
+                    clientX = rect.left + rect.width * 0.5;
+                    clientY = rect.top + rect.height * 0.5;
+                }
+            } catch {}
+            try {
+                if (typeof DragEvent === "function") {
+                    const evt = new DragEvent(type, { ...init, dataTransfer, clientX, clientY });
+                    target.dispatchEvent(evt);
+                    return true;
+                }
+            } catch {}
+            try {
+                const evt = new Event(type, init);
+                if (dataTransfer) {
+                    try { Object.defineProperty(evt, "dataTransfer", { value: dataTransfer, configurable: true }); } catch {}
+                }
+                try {
+                    Object.defineProperty(evt, "clientX", { value: clientX, configurable: true });
+                    Object.defineProperty(evt, "clientY", { value: clientY, configurable: true });
+                } catch {}
+                target.dispatchEvent(evt);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        function collectFileInputs(rootEl, { shouldIgnore = null } = {}) {
+            const ignore = typeof shouldIgnore === "function" ? shouldIgnore : null;
+            if (!rootEl || typeof rootEl.querySelectorAll !== "function") return [];
+            try {
+                return Array.from(rootEl.querySelectorAll("input[type='file']")).filter(input => input && (!ignore || !ignore(input)));
+            } catch {
+                return [];
+            }
+        }
+
+        function collectFileInputsFromOpenShadows(rootEl, { maxHosts = 2000, shouldIgnore = null } = {}) {
+            const ignore = typeof shouldIgnore === "function" ? shouldIgnore : null;
+            const results = [];
+            const stack = [];
+            const visited = new Set();
+            if (rootEl) stack.push(rootEl);
+
+            let remainingHosts = Math.max(0, Number(maxHosts) || 0);
+            while (stack.length && remainingHosts > 0) {
+                const node = stack.pop();
+                if (!node || visited.has(node)) continue;
+                visited.add(node);
+                if (ignore && ignore(node)) continue;
+                if (typeof node.querySelectorAll !== "function") continue;
+
+                try {
+                    results.push(...Array.from(node.querySelectorAll("input[type='file']")).filter(input => input && (!ignore || !ignore(input))));
+                } catch {}
+
+                let descendants;
+                try { descendants = node.querySelectorAll("*"); } catch { descendants = null; }
+                if (!descendants) continue;
+
+                for (const el of descendants) {
+                    if (remainingHosts-- <= 0) break;
+                    if (!el) continue;
+                    if (ignore && ignore(el)) continue;
+                    const shadow = el.shadowRoot;
+                    if (shadow && !visited.has(shadow)) stack.push(shadow);
+                }
+            }
+
+            return results;
+        }
+
+        function trySetFileInputFiles(input, file) {
+            if (!input) return false;
+            if (!(input instanceof HTMLInputElement)) return false;
+            if (String(input.type || "").toLowerCase() !== "file") return false;
+            if (input.disabled) return false;
+
+            let dt;
+            try {
+                dt = new DataTransfer();
+                dt.items.add(file);
+            } catch {
+                return false;
+            }
+
+            let assigned = false;
+            try { input.files = dt.files; assigned = true; } catch {}
+            if (!assigned) {
+                try {
+                    Object.defineProperty(input, "files", { value: dt.files, configurable: true });
+                    assigned = true;
+                } catch {}
+            }
+
+            if (!assigned) return false;
+            try {
+                const init = { bubbles: true, cancelable: true, composed: true };
+                input.dispatchEvent(new Event("input", init));
+                input.dispatchEvent(new Event("change", init));
+            } catch {}
+
+            try { return (input.files?.length || 0) > 0; } catch { return true; }
+        }
+
+        function safeStoreGet(key, fallback) {
+            const k = String(key ?? "").trim();
+            if (!k) return fallback;
+            try {
+                if (typeof GM_getValue === "function") return GM_getValue(k, fallback);
+            } catch {}
+            try {
+                const raw = global.localStorage?.getItem?.(k);
+                if (raw == null) return fallback;
+                return JSON.parse(raw);
+            } catch {}
+            return fallback;
+        }
+
+        function safeStoreSet(key, value) {
+            const k = String(key ?? "").trim();
+            if (!k) return;
+            try {
+                if (typeof GM_setValue === "function") return GM_setValue(k, value);
+            } catch {}
+            try {
+                global.localStorage?.setItem?.(k, JSON.stringify(value));
+            } catch {}
+        }
+
+        const DEFAULT_LABELS = Object.freeze({
+            tabs: Object.freeze({ input: "输入", log: "日志" }),
+            fields: Object.freeze({
+                images: "图片：",
+                preview: "预览：",
+                text: "文字：",
+                hotkeys: "调用快捷键(可选)：",
+                loopCount: "循环次数：",
+                newChatHotkey: "新对话快捷键：",
+                stepDelay: "步骤间隔(ms)：",
+                loopDelay: "循环间隔(ms)：",
+                options: "选项："
+            }),
+            buttons: Object.freeze({
+                run: "运行",
+                stop: "停止",
+                addHotkey: "增加快捷键",
+                delete: "删除",
+                clearImages: "清空图片"
+            }),
+            placeholders: Object.freeze({
+                imageDrop: "点击选择 / 粘贴 / 拖拽图片",
+                text: "在这里输入/粘贴要发送的文字…",
+                hotkeyPrimary: "留空则不触发（例如：CTRL+I）",
+                hotkeyExtra: "例如：CTRL+I",
+                newChatHotkey: "例如：CTRL+N"
+            }),
+            hints: Object.freeze({
+                flow: "流程：插入图片 → 输入文字 →（可选）依次触发快捷键（可多条）→ Enter/Send（循环会按「新对话快捷键」新建对话）。"
+            }),
+            options: Object.freeze({
+                clearBeforeRun: "运行前清空输入框"
+            }),
+            aria: Object.freeze({
+                close: "关闭",
+                deleteHotkey: "删除该快捷键",
+                deleteImage: "删除该图片",
+                clearImages: "清空图片"
+            }),
+            messages: Object.freeze({
+                noImagesDetected: "未检测到图片文件。",
+                imagesLoaded: (count, kb) => `已载入图片：${count} 张（约 ${kb} KB）`,
+                imageDeleted: (label, remaining) => `已删除图片${label}（剩余 ${remaining} 张）。`,
+                imagesCleared: "已清除图片。",
+                missingNewChatHotkey: "请填写「新对话快捷键」。",
+                missingInput: "请先输入文字或载入图片。",
+                start: (loopCount, toolHotkeys, newChatHotkey, imageCount) =>
+                    `开始执行：循环 ${loopCount} 次，工具快捷键 ${toolHotkeys.length ? toolHotkeys.join("、") : "(无)"}，新对话快捷键 ${newChatHotkey}，图片 ${imageCount} 张。`,
+                loopMarker: (i, loopCount) => `—— 第 ${i}/${loopCount} 次 ——`,
+                composerNotFound: "未找到输入框：请先点击一次输入框再运行。",
+                textInserted: (ok) => (ok ? "已输入文字。" : "输入文字失败。"),
+                hotkeyTriggered: (hotkey, ok) => (ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}`),
+                waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
+                uploadNotReady: "图片尚未上传完成：已取消发送，避免文字先发。",
+                sendAttempted: (ok) => (ok ? "已尝试发送（Enter/Send）。" : "发送失败。"),
+                newChatTriggered: (hotkey, ok) => (ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`),
+                stopped: "已停止。",
+                finished: "完成。",
+                stopRequested: "收到停止请求，将尽快停止…",
+                missingAttachAdapter: "图片发送未配置：请在 quickInput.adapter.attachImages 中实现图片插入逻辑。"
+            })
+        });
+
+        const DEFAULT_CONFIG = Object.freeze({
+            toolHotkeys: Object.freeze(["CTRL+I"]),
+            toolHotkey: "CTRL+I",
+            newChatHotkey: "CTRL+N",
+            loopCount: 1,
+            stepDelayMs: 120,
+            loopDelayMs: 800,
+            clearBeforeRun: true,
+            panelPos: null
+        });
+
+        function normalizeToolHotkeys(value) {
+            if (Array.isArray(value)) {
+                return value.map(v => String(v ?? "").trim()).filter(Boolean);
+            }
+            if (typeof value === "string") {
+                const trimmed = value.trim();
+                return trimmed ? [trimmed] : [];
+            }
+            return [];
+        }
+
+        function loadConfig(storageKey, defaults) {
+            const stored = safeStoreGet(storageKey, null);
+            const raw = stored && typeof stored === "object" ? stored : {};
+            const base = defaults && typeof defaults === "object" ? defaults : DEFAULT_CONFIG;
+
+            const hasToolHotkeys = Object.prototype.hasOwnProperty.call(raw, "toolHotkeys");
+            const hasToolHotkey = Object.prototype.hasOwnProperty.call(raw, "toolHotkey");
+            const toolHotkeys = (hasToolHotkeys || hasToolHotkey)
+                ? normalizeToolHotkeys(hasToolHotkeys ? raw.toolHotkeys : raw.toolHotkey)
+                : normalizeToolHotkeys(base.toolHotkeys);
+
+            const panelPos = (() => {
+                const pos = raw.panelPos;
+                if (!pos || typeof pos !== "object" || Array.isArray(pos)) return null;
+                const left = Number(pos.left);
+                const top = Number(pos.top);
+                if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+                return { left, top };
+            })();
+
+            return {
+                toolHotkeys,
+                toolHotkey: toolHotkeys[0] || "",
+                newChatHotkey: typeof raw.newChatHotkey === "string" ? raw.newChatHotkey : base.newChatHotkey,
+                loopCount: clampInt(raw.loopCount, { min: 1, max: 999, fallback: clampInt(base.loopCount, { min: 1, max: 999, fallback: 1 }) }),
+                stepDelayMs: clampInt(raw.stepDelayMs, { min: 0, max: 30000, fallback: clampInt(base.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }),
+                loopDelayMs: clampInt(raw.loopDelayMs, { min: 0, max: 300000, fallback: clampInt(base.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }),
+                clearBeforeRun: raw.clearBeforeRun !== false,
+                panelPos
+            };
+        }
+
+        function saveConfig(storageKey, cfg, defaults) {
+            const safe = cfg && typeof cfg === "object" ? cfg : {};
+            const base = defaults && typeof defaults === "object" ? defaults : DEFAULT_CONFIG;
+            const stored = safeStoreGet(storageKey, null);
+            const prev = stored && typeof stored === "object" ? stored : {};
+
+            const readToolHotkeys = (value) => {
+                if (!value || typeof value !== "object") return null;
+                if (Object.prototype.hasOwnProperty.call(value, "toolHotkeys")) return normalizeToolHotkeys(value.toolHotkeys);
+                if (Object.prototype.hasOwnProperty.call(value, "toolHotkey")) return normalizeToolHotkeys(value.toolHotkey);
+                return null;
+            };
+
+            const toolHotkeys = readToolHotkeys(safe) ?? readToolHotkeys(prev) ?? normalizeToolHotkeys(base.toolHotkeys);
+            const toolHotkey = toolHotkeys[0] || "";
+            const newChatHotkey = (typeof safe.newChatHotkey === "string")
+                ? safe.newChatHotkey
+                : (typeof prev.newChatHotkey === "string" ? prev.newChatHotkey : base.newChatHotkey);
+
+            const panelPos = (() => {
+                const src = (safe.panelPos && typeof safe.panelPos === "object" && !Array.isArray(safe.panelPos))
+                    ? safe.panelPos
+                    : prev.panelPos;
+                if (!src || typeof src !== "object" || Array.isArray(src)) return null;
+                const left = Number(src.left);
+                const top = Number(src.top);
+                if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+                return { left, top };
+            })();
+
+            const payload = {
+                toolHotkeys,
+                toolHotkey,
+                newChatHotkey,
+                loopCount: clampInt(safe.loopCount, { min: 1, max: 999, fallback: clampInt(base.loopCount, { min: 1, max: 999, fallback: 1 }) }),
+                stepDelayMs: clampInt(safe.stepDelayMs, { min: 0, max: 30000, fallback: clampInt(base.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }),
+                loopDelayMs: clampInt(safe.loopDelayMs, { min: 0, max: 300000, fallback: clampInt(base.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }),
+                clearBeforeRun: safe.clearBeforeRun !== false
+            };
+            if (panelPos) payload.panelPos = panelPos;
+            safeStoreSet(storageKey, payload);
+        }
+
+        async function executeEngineShortcutByHotkey(engine, hotkey) {
+            const api = engine || null;
+            const core = api?.core || null;
+            const normalize = core?.hotkeys?.normalize || core?.normalizeHotkey || null;
+            const normalizeOne = (value) => {
+                const raw = normalizeHotkeyString(value);
+                return typeof normalize === "function" ? normalize(raw) : normalizeHotkeyFallback(raw);
+            };
+            const norm = normalizeOne(hotkey);
+            if (!norm) return false;
+
+            let shortcut = core?.getShortcutByHotkeyNorm?.(norm) || null;
+            if (!shortcut && typeof api?.getShortcuts === "function") {
+                const list = api.getShortcuts();
+                if (Array.isArray(list)) {
+                    shortcut = list.find(item => item && normalizeOne(item.hotkey) === norm) || null;
+                }
+            }
+            if (!shortcut) return false;
+
+            try {
+                const res = core?.executeShortcutAction?.(shortcut, null);
+                if (res && typeof res.then === "function") {
+                    try { await res; } catch {}
+                }
+            } catch {}
+            return true;
+        }
+
+        function createController(userOptions = {}) {
+            const options = userOptions && typeof userOptions === "object" ? userOptions : {};
+            const engine = options.engine;
+            if (!engine || typeof engine !== "object") throw new Error("[QuickInput] createController: missing engine");
+
+            const idPrefix = String(options.idPrefix || "").trim() || "quick-input";
+            const storageKey = String(options.storageKey || `${idPrefix}_quick_input_v1`).trim() || `${idPrefix}_quick_input_v1`;
+            const titleText = String(options.title || "快捷输入").trim() || "快捷输入";
+            const primaryColor = String(options.primaryColor || "#4285F4").trim() || "#4285F4";
+            const styleId = `${idPrefix}-quick-input-style`;
+            const overlayId = `${idPrefix}-quick-input-overlay`;
+
+            const labels = deepMerge(deepMerge({}, DEFAULT_LABELS), options.labels || {});
+            const defaults = deepMerge(deepMerge({}, DEFAULT_CONFIG), options.defaults || {});
+
+            const rawAdapter = options.adapter && typeof options.adapter === "object" ? options.adapter : {};
+            const adapter = Object.freeze({
+                focusComposer: typeof rawAdapter.focusComposer === "function" ? rawAdapter.focusComposer : (opts) =>
+                    focusComposer({ ...(opts || {}), shouldIgnore: (el) => isInsideOverlay(el) }),
+                setInputValue: typeof rawAdapter.setInputValue === "function" ? rawAdapter.setInputValue : setInputValue,
+                clearComposerValue: typeof rawAdapter.clearComposerValue === "function" ? rawAdapter.clearComposerValue : clearInputValue,
+                attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
+                waitForReadyToSend: typeof rawAdapter.waitForReadyToSend === "function" ? rawAdapter.waitForReadyToSend : null,
+                sendMessage: typeof rawAdapter.sendMessage === "function" ? rawAdapter.sendMessage : async (composerEl) =>
+                    simulateKeystroke("ENTER", { target: composerEl })
+            });
+
+            let overlayEl = null;
+            let panelEl = null;
+            let logEl = null;
+            let fileInputEl = null;
+            let previewRowEl = null;
+            let imagePreviewShellEl = null;
+            let clearAllImagesBtnEl = null;
+            let imagePreviewListEl = null;
+            let imageDropEl = null;
+            let textEl = null;
+            let hotkeyListEl = null;
+            let addHotkeyBtnEl = null;
+            const hotkeyInputs = [];
+            let newChatHotkeyEl = null;
+            let loopEl = null;
+            let stepDelayEl = null;
+            let loopDelayEl = null;
+            let clearBeforeRunEl = null;
+            const runButtons = [];
+            const stopButtons = [];
+            let activeTab = "input";
+            let setActiveTab = null;
+
+            let imageFiles = [];
+            let imageObjectUrls = [];
+            let running = false;
+            let cancelRun = false;
+
+            let dragPointerId = null;
+            let dragOffsetX = 0;
+            let dragOffsetY = 0;
+            let dragWidth = 0;
+            let dragHeight = 0;
+            let dragStartLeft = 0;
+            let dragStartTop = 0;
+            let dragMoved = false;
+            let dragRaf = 0;
+            let dragNextLeft = 0;
+            let dragNextTop = 0;
+            let dragRestore = null;
+
+            let themeAutoTimer = null;
+
+            function isInsideOverlay(el) {
+                if (!el || typeof el.closest !== "function") return false;
+                try { return !!el.closest(`#${overlayId}`); } catch { return false; }
+            }
+
+            function clampPanelHeightPx(value) {
+                const num = Number(value);
+                if (!Number.isFinite(num) || num <= 0) return 0;
+                const max = Math.min(global.innerHeight * 0.86, 860);
+                if (!Number.isFinite(max) || max <= 0) return Math.round(num);
+                return Math.round(Math.min(num, max));
+            }
+
+            function syncPanelMinHeight() {
+                if (!panelEl) return;
+                let rect;
+                try { rect = panelEl.getBoundingClientRect(); } catch { rect = null; }
+                if (!rect) return;
+                const next = clampPanelHeightPx(rect.height);
+                if (!next) return;
+                panelEl.style.minHeight = `${next}px`;
+            }
+
+            function ensureStyle() {
+                let style = global.document?.getElementById?.(styleId) || null;
+                if (!style) {
+                    style = global.document?.createElement?.("style");
+                    if (!style) return;
+                    style.id = styleId;
+                    global.document?.head?.appendChild?.(style);
+                }
+                style.textContent = `
+                #${overlayId} {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0, 0, 0, 0.7);
+                    z-index: 2147483646;
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 18px;
+                    box-sizing: border-box;
+                }
+                #${overlayId}[data-open="1"] { display: flex; }
+                #${overlayId} .qi-panel {
+                    position: fixed;
+                    left: 50%;
+                    top: 50%;
+                    transform: translate(-50%, -50%);
+                    width: min(330px, 96vw);
+                    max-height: min(86vh, 860px);
+                    overflow: hidden;
+                    font-family: sans-serif;
+                    background: #1a1a1a;
+                    color: #ffffff;
+                    border: 1px solid #404040;
+                    border-radius: 14px;
+                    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+                    display: flex;
+                    flex-direction: column;
+                }
+                #${overlayId} .qi-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 10px;
+                    padding: 10px 14px;
+                    border-bottom: 1px solid #404040;
+                    background: #1a1a1a;
+                    cursor: move;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    touch-action: none;
+                }
+                #${overlayId} .qi-title {
+                    font-size: 14px;
+                    font-weight: 700;
+                    letter-spacing: 0.2px;
+                }
+                #${overlayId} .qi-close {
+                    border: none;
+                    background: transparent;
+                    color: rgba(255,255,255,0.75);
+                    font-size: 18px;
+                    cursor: pointer;
+                    padding: 6px 8px;
+                    border-radius: 8px;
+                }
+                #${overlayId} .qi-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
+                #${overlayId} .qi-tabs {
+                    display: flex;
+                    gap: 8px;
+                    flex: 1;
+                    justify-content: center;
+                    padding: 0;
+                }
+                #${overlayId} .qi-tab {
+                    flex: 1;
+                    font-family: inherit;
+                    border: 1px solid #404040;
+                    background: #2d2d2d;
+                    color: rgba(255,255,255,0.85);
+                    padding: 6px 10px;
+                    border-radius: 999px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 650;
+                }
+                #${overlayId} .qi-tab:hover { border-color: ${primaryColor}; }
+                #${overlayId} .qi-tab[data-active="1"] {
+                    background: ${primaryColor};
+                    border-color: ${primaryColor};
+                    color: #fff;
+                }
+                #${overlayId} .qi-content {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    min-height: 0;
+                }
+                #${overlayId} .qi-tab-panel {
+                    flex: 1;
+                    display: none;
+                    flex-direction: column;
+                    overflow: hidden;
+                    min-height: 0;
+                }
+                #${overlayId} .qi-tab-panel[data-active="1"] { display: flex; }
+                #${overlayId} .qi-actions {
+                    padding: 6px 12px;
+                    border-top: 1px solid #404040;
+                    background: #1a1a1a;
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 6px;
+                }
+                #${overlayId} .qi-actions .qi-btn {
+                    padding: 6px 12px;
+                    font-size: 12px;
+                    line-height: 1.2;
+                    border-radius: 999px;
+                }
+                #${overlayId} .qi-body {
+                    padding: 14px;
+                    overflow: auto;
+                    display: grid;
+                    gap: 12px;
+                    flex: 1;
+                    min-height: 0;
+                }
+                #${overlayId} .qi-row {
+                    display: grid;
+                    grid-template-columns: 110px 1fr;
+                    gap: 10px;
+                    align-items: center;
+                }
+                #${overlayId} label { font-size: 14px; font-weight: 650; color: #ffffff; }
+                #${overlayId} input[type="text"], #${overlayId} input[type="number"], #${overlayId} textarea, #${overlayId} select {
+                    width: 100%;
+                    box-sizing: border-box;
+                    padding: 8px 10px;
+                    font-family: inherit;
+                    border-radius: 10px;
+                    border: 1px solid #404040;
+                    background: #2d2d2d;
+                    color: #ffffff;
+                    outline: none;
+                    font-size: 13px;
+                }
+                #${overlayId} .qi-hotkey-item {
+                    position: relative;
+                }
+                #${overlayId} .qi-hotkey-item input[type="text"] {
+                    padding-right: 34px;
+                }
+                #${overlayId} .qi-hotkey-del {
+                    position: absolute;
+                    top: 6px;
+                    right: 6px;
+                    width: 20px;
+                    height: 20px;
+                    padding: 0;
+                    box-sizing: border-box;
+                    border-radius: 999px;
+                    border: 1px solid #404040;
+                    background: rgba(0,0,0,0.55);
+                    color: rgba(255,255,255,0.9);
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 0;
+                    line-height: 0;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    touch-action: manipulation;
+                }
+                #${overlayId} .qi-hotkey-del::before,
+                #${overlayId} .qi-hotkey-del::after {
+                    content: "";
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 12px;
+                    height: 2px;
+                    background: currentColor;
+                    border-radius: 999px;
+                    transform-origin: center;
+                }
+                #${overlayId} .qi-hotkey-del::before { transform: translate(-50%, -50%) rotate(45deg); }
+                #${overlayId} .qi-hotkey-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
+                #${overlayId} .qi-hotkey-del:hover { background: rgba(0,0,0,0.75); }
+                #${overlayId} .qi-hotkey-del:disabled { opacity: 0.55; cursor: not-allowed; }
+                #${overlayId} input[type="text"]:focus, #${overlayId} input[type="number"]:focus, #${overlayId} textarea:focus, #${overlayId} select:focus {
+                    border-color: ${primaryColor};
+                    box-shadow: 0 0 0 1px ${primaryColor};
+                }
+                #${overlayId} textarea { min-height: 3.8em; resize: vertical; }
+                #${overlayId} .qi-label-stack {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                    align-items: flex-start;
+                }
+                #${overlayId} .qi-drop {
+                    border: 1px dashed #404040;
+                    border-radius: 12px;
+                    padding: 12px;
+                    font-size: 12px;
+                    line-height: 1.25;
+                    color: rgba(255,255,255,0.9);
+                    background: #2d2d2d;
+                    cursor: pointer;
+                    user-select: none;
+                }
+                #${overlayId} .qi-drop:hover { border-color: ${primaryColor}; background: rgba(255,255,255,0.08); }
+                #${overlayId} .qi-drop:focus { outline: none; }
+                #${overlayId} .qi-preview-list {
+                    width: 100%;
+                    display: none;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                    padding: 30px 8px 8px 8px;
+                    border-radius: 12px;
+                    border: 1px solid #404040;
+                    background: #2d2d2d;
+                    box-sizing: border-box;
+                }
+                #${overlayId} .qi-preview-list:not(:empty) { display: flex; }
+                #${overlayId} .qi-preview-shell {
+                    width: 100%;
+                    position: relative;
+                }
+                #${overlayId} .qi-preview-clear {
+                    position: absolute;
+                    top: 6px;
+                    right: 6px;
+                    width: 22px;
+                    height: 22px;
+                    padding: 0;
+                    border-radius: 999px;
+                    border: 1px solid rgba(255,255,255,0.18);
+                    background: rgba(239, 68, 68, 0.92);
+                    color: #fff;
+                    cursor: pointer;
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    box-sizing: border-box;
+                    font-size: 0;
+                    line-height: 0;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    touch-action: manipulation;
+                }
+                #${overlayId} .qi-preview-shell[data-has-items="1"] .qi-preview-clear { display: inline-flex; }
+                #${overlayId} .qi-preview-clear::before,
+                #${overlayId} .qi-preview-clear::after {
+                    content: "";
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 12px;
+                    height: 2px;
+                    background: currentColor;
+                    border-radius: 999px;
+                    transform-origin: center;
+                }
+                #${overlayId} .qi-preview-clear::before { transform: translate(-50%, -50%) rotate(45deg); }
+                #${overlayId} .qi-preview-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
+                #${overlayId} .qi-preview-clear:hover { filter: brightness(0.96); }
+                #${overlayId} .qi-preview-clear:disabled { opacity: 0.55; cursor: not-allowed; }
+                #${overlayId} .qi-preview-wrap {
+                    position: relative;
+                    width: 72px;
+                    height: 72px;
+                    flex: 0 0 auto;
+                }
+                #${overlayId} .qi-preview-item {
+                    width: 100%;
+                    height: 100%;
+                    display: block;
+                    object-fit: cover;
+                    border-radius: 10px;
+                    border: 1px solid #404040;
+                }
+                #${overlayId} .qi-preview-del {
+                    position: absolute;
+                    top: 0;
+                    right: -1px;
+                    width: 20px;
+                    height: 20px;
+                    padding: 0;
+                    box-sizing: border-box;
+                    border-radius: 999px;
+                    border: 1px solid #404040;
+                    background: rgba(0,0,0,0.55);
+                    color: rgba(255,255,255,0.9);
+                    cursor: pointer;
+                    display: block;
+                    font-size: 0;
+                    line-height: 0;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    touch-action: manipulation;
+                }
+                #${overlayId} .qi-preview-del::before,
+                #${overlayId} .qi-preview-del::after {
+                    content: "";
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 12px;
+                    height: 2px;
+                    background: currentColor;
+                    border-radius: 999px;
+                    transform-origin: center;
+                }
+                #${overlayId} .qi-preview-del::before { transform: translate(-50%, -50%) rotate(45deg); }
+                #${overlayId} .qi-preview-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
+                #${overlayId} .qi-preview-del:hover { background: rgba(0,0,0,0.75); }
+                #${overlayId} .qi-preview-del:disabled { opacity: 0.55; cursor: not-allowed; }
+                #${overlayId} .qi-btn {
+                    padding: 8px 14px;
+                    border-radius: 10px;
+                    border: 1px solid #404040;
+                    font-family: inherit;
+                    background: #2d2d2d;
+                    color: #ffffff;
+                    cursor: pointer;
+                    font-size: 13px;
+                    font-weight: 650;
+                }
+                #${overlayId} .qi-btn:not(.qi-btn-primary):hover { background: rgba(255,255,255,0.1); }
+                #${overlayId} .qi-btn-primary {
+                    background: ${primaryColor};
+                    border-color: ${primaryColor};
+                    color: #fff;
+                }
+                #${overlayId} .qi-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+                #${overlayId} .qi-hint { font-size: 12px; color: rgba(255,255,255,0.72); }
+                #${overlayId} .qi-log {
+                    padding: 10px 14px;
+                    font-size: 12px;
+                    color: rgba(255,255,255,0.85);
+                    overflow: auto;
+                    flex: 1;
+                    min-height: 0;
+                    white-space: pre-wrap;
+                    line-height: 1.35;
+                }
+                #${overlayId} .qi-log .qi-error { color: #fca5a5; }
+                #${overlayId} .qi-log .qi-ok { color: #86efac; }
+                #${overlayId} .qi-inline {
+                    display: inline-flex;
+                    gap: 10px;
+                    align-items: center;
+                    flex-wrap: wrap;
+                }
+
+                #${overlayId}[data-theme="light"] { background: rgba(0, 0, 0, 0.32); }
+                #${overlayId}[data-theme="light"] .qi-panel {
+                    background: #ffffff;
+                    color: #111827;
+                    border-color: rgba(17, 24, 39, 0.16);
+                }
+                #${overlayId}[data-theme="light"] .qi-header {
+                    background: rgba(17, 24, 39, 0.03);
+                    border-color: rgba(17, 24, 39, 0.12);
+                }
+                #${overlayId}[data-theme="light"] .qi-tab {
+                    border-color: rgba(17, 24, 39, 0.18);
+                    background: rgba(17, 24, 39, 0.06);
+                    color: rgba(17, 24, 39, 0.88);
+                }
+                #${overlayId}[data-theme="light"] .qi-tab:hover { background: rgba(17, 24, 39, 0.08); }
+                #${overlayId}[data-theme="light"] .qi-tab[data-active="1"] {
+                    background: ${primaryColor};
+                    border-color: ${primaryColor};
+                    color: #fff;
+                }
+                #${overlayId}[data-theme="light"] .qi-actions {
+                    background: rgba(17, 24, 39, 0.03);
+                    border-color: rgba(17, 24, 39, 0.12);
+                }
+                #${overlayId}[data-theme="light"] label { color: rgba(17, 24, 39, 0.85); }
+                #${overlayId}[data-theme="light"] .qi-close { color: rgba(17, 24, 39, 0.65); }
+                #${overlayId}[data-theme="light"] .qi-close:hover { background: rgba(17, 24, 39, 0.08); color: #111827; }
+                #${overlayId}[data-theme="light"] input[type="text"],
+                #${overlayId}[data-theme="light"] input[type="number"],
+                #${overlayId}[data-theme="light"] textarea,
+                #${overlayId}[data-theme="light"] select {
+                    border-color: rgba(17, 24, 39, 0.18);
+                    background: rgba(255, 255, 255, 0.95);
+                    color: #111827;
+                }
+                #${overlayId}[data-theme="light"] .qi-drop {
+                    border-color: rgba(17, 24, 39, 0.25);
+                    background: rgba(17, 24, 39, 0.03);
+                    color: rgba(17, 24, 39, 0.9);
+                }
+                #${overlayId}[data-theme="light"] .qi-drop:hover { background: rgba(17, 24, 39, 0.05); }
+                #${overlayId}[data-theme="light"] .qi-hotkey-del {
+                    border-color: rgba(17, 24, 39, 0.18);
+                    background: rgba(255,255,255,0.92);
+                    color: rgba(17,24,39,0.78);
+                }
+                #${overlayId}[data-theme="light"] .qi-hotkey-del:hover { background: rgba(255,255,255,1); }
+                #${overlayId}[data-theme="light"] .qi-preview-list {
+                    border-color: rgba(17, 24, 39, 0.12);
+                    background: rgba(17, 24, 39, 0.03);
+                }
+                #${overlayId}[data-theme="light"] .qi-preview-item {
+                    border-color: rgba(17, 24, 39, 0.12);
+                }
+                #${overlayId}[data-theme="light"] .qi-preview-del {
+                    border-color: rgba(17, 24, 39, 0.18);
+                    background: rgba(255,255,255,0.92);
+                    color: rgba(17,24,39,0.78);
+                }
+                #${overlayId}[data-theme="light"] .qi-preview-del:hover { background: rgba(255,255,255,1); }
+                #${overlayId}[data-theme="light"] .qi-preview-clear {
+                    border-color: rgba(185, 28, 28, 0.35);
+                    background: rgba(239, 68, 68, 0.92);
+                    color: #fff;
+                }
+                #${overlayId}[data-theme="light"] .qi-btn:not(.qi-btn-primary) {
+                    background: rgba(17, 24, 39, 0.06);
+                    border-color: rgba(17, 24, 39, 0.18);
+                    color: #111827;
+                }
+                #${overlayId}[data-theme="light"] .qi-btn:not(.qi-btn-primary):hover {
+                    background: rgba(17, 24, 39, 0.08);
+                }
+                #${overlayId}[data-theme="light"] .qi-btn.qi-btn-primary {
+                    background: ${primaryColor};
+                    border-color: ${primaryColor};
+                    color: #fff;
+                }
+                #${overlayId}[data-theme="light"] .qi-btn.qi-btn-primary:hover {
+                    filter: brightness(0.96);
+                }
+                #${overlayId}[data-theme="light"] .qi-hint { color: rgba(17, 24, 39, 0.65); }
+                #${overlayId}[data-theme="light"] .qi-log { color: rgba(17, 24, 39, 0.78); }
+                #${overlayId}[data-theme="light"] .qi-log .qi-error { color: #b91c1c; }
+                #${overlayId}[data-theme="light"] .qi-log .qi-ok { color: #15803d; }
+                `;
+            }
+
+            function appendLog(text, { level = "info" } = {}) {
+                if (!logEl) return;
+                const now = new Date();
+                const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+                const line = `[${time}] ${String(text ?? "")}`;
+                const span = global.document?.createElement?.("div");
+                if (!span) return;
+                if (level === "error") span.className = "qi-error";
+                if (level === "ok") span.className = "qi-ok";
+                span.textContent = line;
+                logEl.appendChild(span);
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+
+            function clearLog() {
+                if (!logEl) return;
+                logEl.textContent = "";
+            }
+
+            function revokeImageUrls() {
+                for (const url of imageObjectUrls) {
+                    if (!url) continue;
+                    try { URL.revokeObjectURL(url); } catch {}
+                }
+                imageObjectUrls = [];
+            }
+
+            function setImageFiles(nextFiles) {
+                revokeImageUrls();
+                imageFiles = Array.isArray(nextFiles) ? nextFiles.filter(Boolean) : [];
+
+                if (!imagePreviewListEl) return;
+                imagePreviewListEl.textContent = "";
+                let previewCount = 0;
+                imageFiles.forEach((file, index) => {
+                    if (!(file instanceof File)) return;
+                    const url = URL.createObjectURL(file);
+                    imageObjectUrls.push(url);
+                    const wrap = global.document.createElement("div");
+                    wrap.className = "qi-preview-wrap";
+                    wrap.title = file.name || "";
+                    const img = global.document.createElement("img");
+                    img.className = "qi-preview-item";
+                    img.src = url;
+                    img.alt = file.name || "image";
+                    wrap.appendChild(img);
+
+                    const delBtn = global.document.createElement("button");
+                    delBtn.type = "button";
+                    delBtn.className = "qi-preview-del";
+                    delBtn.textContent = "×";
+                    delBtn.title = labels.buttons?.delete || "删除";
+                    delBtn.setAttribute("aria-label", labels.aria?.deleteImage || "删除该图片");
+                    delBtn.disabled = running;
+                    delBtn.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (running) return;
+                        const next = imageFiles.filter((_, i) => i !== index);
+                        setImageFiles(next);
+                        const label = file.name ? `：${file.name}` : ` #${index + 1}`;
+                        appendLog(labels.messages?.imageDeleted ? labels.messages.imageDeleted(label, next.length) : `已删除图片${label}（剩余 ${next.length} 张）。`, { level: "ok" });
+                    });
+                    wrap.appendChild(delBtn);
+
+                    imagePreviewListEl.appendChild(wrap);
+                    previewCount += 1;
+                });
+                const hasItems = previewCount > 0;
+                if (imagePreviewShellEl) imagePreviewShellEl.setAttribute("data-has-items", hasItems ? "1" : "0");
+                if (clearAllImagesBtnEl) {
+                    clearAllImagesBtnEl.disabled = running || !hasItems;
+                }
+                if (previewRowEl) previewRowEl.style.display = hasItems ? "" : "none";
+            }
+
+            function onPickFiles(fileList) {
+                const files = Array.from(fileList || []).filter(Boolean);
+                const images = files.filter(f => String(f?.type || "").startsWith("image/"));
+                if (images.length === 0) {
+                    appendLog(labels.messages?.noImagesDetected || DEFAULT_LABELS.messages.noImagesDetected, { level: "error" });
+                    return;
+                }
+
+                setImageFiles(images);
+                const kb = images.reduce((sum, file) => sum + (Number(file?.size) || 0), 0) / 1024;
+                const msg = labels.messages?.imagesLoaded
+                    ? labels.messages.imagesLoaded(images.length, Math.round(kb))
+                    : DEFAULT_LABELS.messages.imagesLoaded(images.length, Math.round(kb));
+                appendLog(msg, { level: "ok" });
+            }
+
+            function clearImageDropFocus({ focusText = true } = {}) {
+                try { imageDropEl?.blur?.(); } catch {}
+                try { fileInputEl?.blur?.(); } catch {}
+
+                if (!focusText) return;
+                if (activeTab !== "input") return;
+                if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
+                try { textEl?.focus?.(); } catch {}
+            }
+
+            function setRunning(nextRunning) {
+                running = !!nextRunning;
+                for (const btn of runButtons) {
+                    if (btn) btn.disabled = running;
+                }
+                for (const btn of stopButtons) {
+                    if (btn) btn.disabled = !running;
+                }
+                for (const input of hotkeyInputs) {
+                    if (input) input.disabled = running;
+                }
+                if (addHotkeyBtnEl) addHotkeyBtnEl.disabled = running;
+                try {
+                    const delButtons = hotkeyListEl?.querySelectorAll?.("button.qi-hotkey-del") || [];
+                    for (const btn of delButtons) {
+                        if (btn) btn.disabled = running;
+                    }
+                } catch {}
+                if (loopEl) loopEl.disabled = running;
+                if (stepDelayEl) stepDelayEl.disabled = running;
+                if (loopDelayEl) loopDelayEl.disabled = running;
+                if (clearBeforeRunEl) clearBeforeRunEl.disabled = running;
+                if (newChatHotkeyEl) newChatHotkeyEl.disabled = running;
+                if (textEl) textEl.disabled = running;
+                if (imageDropEl) imageDropEl.style.opacity = running ? "0.7" : "1";
+                if (clearAllImagesBtnEl) {
+                    const hasImages = (imageFiles?.length || 0) > 0;
+                    clearAllImagesBtnEl.disabled = running || !hasImages;
+                }
+                try {
+                    const delButtons = imagePreviewListEl?.querySelectorAll?.("button.qi-preview-del") || [];
+                    for (const btn of delButtons) {
+                        if (btn) btn.disabled = running;
+                    }
+                } catch {}
+            }
+
+            function isColorDark(colorStr) {
+                if (!colorStr || colorStr === "transparent") {
+                    return !!(global.matchMedia && global.matchMedia("(prefers-color-scheme: dark)").matches);
+                }
+                try {
+                    let r, g, b, a = 1;
+                    const value = String(colorStr);
+                    if (value.startsWith("rgba")) {
+                        const parts = value.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)\s*$/i);
+                        if (!parts) return false;
+                        [, r, g, b, a] = parts.map(Number);
+                        a = Number.isFinite(a) ? a : 1;
+                        if (a < 0.5) return false;
+                    } else if (value.startsWith("rgb")) {
+                        const parts = value.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*$/i);
+                        if (!parts) return false;
+                        [, r, g, b] = parts.map(Number);
+                    } else if (value.startsWith("#")) {
+                        let hex = value.slice(1);
+                        if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
+                        if (hex.length === 4) hex = hex.split("").map(c => c + c).join("");
+                        if (hex.length === 8) a = parseInt(hex.slice(6, 8), 16) / 255;
+                        if (hex.length !== 6 && hex.length !== 8) return false;
+                        r = parseInt(hex.slice(0, 2), 16);
+                        g = parseInt(hex.slice(2, 4), 16);
+                        b = parseInt(hex.slice(4, 6), 16);
+                        if (a < 0.5) return false;
+                    } else {
+                        return false;
+                    }
+                    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+                    return luminance < 0.5;
+                } catch {
+                    return false;
+                }
+            }
+
+            function detectPageTheme() {
+                const htmlEl = global.document?.documentElement;
+                const bodyEl = global.document?.body;
+                const htmlTheme = htmlEl?.getAttribute?.("data-theme");
+                const bodyTheme = bodyEl?.getAttribute?.("data-theme");
+
+                if (htmlEl?.classList?.contains?.("dark") || bodyEl?.classList?.contains?.("dark")) return "dark";
+                if (htmlTheme === "dark" || bodyTheme === "dark") return "dark";
+                if (htmlEl?.classList?.contains?.("light") || bodyEl?.classList?.contains?.("light")) return "light";
+                if (htmlTheme === "light" || bodyTheme === "light") return "light";
+
+                try {
+                    const bgColor = global.getComputedStyle(bodyEl || htmlEl).backgroundColor;
+                    if (isColorDark(bgColor)) return "dark";
+                    return "light";
+                } catch {}
+
+                return (global.matchMedia && global.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+            }
+
+            function normalizeTheme(value) {
+                return String(value ?? "").trim().toLowerCase() === "light" ? "light" : "dark";
+            }
+
+            function applyTheme(theme) {
+                if (!overlayEl) return;
+                overlayEl.setAttribute("data-theme", normalizeTheme(theme));
+            }
+
+            function stopThemeAutoSync() {
+                if (!themeAutoTimer) return;
+                clearInterval(themeAutoTimer);
+                themeAutoTimer = null;
+            }
+
+            function startThemeAutoSync() {
+                if (themeAutoTimer) return;
+                const tick = () => {
+                    if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
+                    applyTheme(detectPageTheme());
+                };
+                themeAutoTimer = setInterval(tick, 800);
+                tick();
+            }
+
+            function refreshTheme() {
+                applyTheme(detectPageTheme());
+            }
+
+            function clampPanelPos(left, top, width, height) {
+                const margin = 8;
+                const w = Math.max(0, Number(width) || 0);
+                const h = Math.max(0, Number(height) || 0);
+                const maxLeft = Math.max(margin, global.innerWidth - w - margin);
+                const maxTop = Math.max(margin, global.innerHeight - h - margin);
+                return {
+                    left: Math.min(maxLeft, Math.max(margin, left)),
+                    top: Math.min(maxTop, Math.max(margin, top))
+                };
+            }
+
+            function readConfigFromUi() {
+                const toolHotkeys = hotkeyInputs
+                    .map(input => String(input?.value ?? "").trim())
+                    .filter(Boolean);
+                return {
+                    toolHotkeys,
+                    toolHotkey: toolHotkeys[0] || "",
+                    newChatHotkey: String(newChatHotkeyEl?.value ?? ""),
+                    loopCount: clampInt(loopEl?.value, { min: 1, max: 999, fallback: clampInt(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }),
+                    stepDelayMs: clampInt(stepDelayEl?.value, { min: 0, max: 30000, fallback: clampInt(defaults.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }),
+                    loopDelayMs: clampInt(loopDelayEl?.value, { min: 0, max: 300000, fallback: clampInt(defaults.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }),
+                    clearBeforeRun: !!clearBeforeRunEl?.checked
+                };
+            }
+
+            function persistPanelPos(left, top, { force = false } = {}) {
+                const current = loadConfig(storageKey, defaults);
+                const prev = current?.panelPos;
+                const next = { left, top };
+                if (!force && prev && Math.abs(prev.left - left) < 0.5 && Math.abs(prev.top - top) < 0.5) return;
+                saveConfig(storageKey, { ...readConfigFromUi(), panelPos: next }, defaults);
+            }
+
+            function applyStoredPanelPos() {
+                if (!panelEl) return;
+                const cfg = loadConfig(storageKey, defaults);
+                const pos = cfg?.panelPos;
+                if (!pos) {
+                    panelEl.style.left = "";
+                    panelEl.style.top = "";
+                    panelEl.style.transform = "";
+                    return;
+                }
+
+                const rect = panelEl.getBoundingClientRect();
+                const clamped = clampPanelPos(pos.left, pos.top, rect.width, rect.height);
+                panelEl.style.left = `${clamped.left}px`;
+                panelEl.style.top = `${clamped.top}px`;
+                panelEl.style.transform = "none";
+                if (clamped.left !== pos.left || clamped.top !== pos.top) persistPanelPos(clamped.left, clamped.top, { force: true });
+            }
+
+            function stopDrag() {
+                if (dragRaf) {
+                    cancelAnimationFrame(dragRaf);
+                    dragRaf = 0;
+                }
+                if (dragPointerId === null) return;
+                dragPointerId = null;
+                dragMoved = false;
+                global.removeEventListener("pointermove", onDragPointerMove, true);
+                global.removeEventListener("pointerup", onDragPointerUp, true);
+                global.removeEventListener("pointercancel", onDragPointerUp, true);
+                if (dragRestore) {
+                    try { global.document.body.style.userSelect = dragRestore.userSelect; } catch {}
+                    try { global.document.body.style.cursor = dragRestore.cursor; } catch {}
+                    dragRestore = null;
+                }
+            }
+
+            function onHeaderPointerDown(e) {
+                if (!e || dragPointerId !== null) return;
+                if (e.button !== 0) return;
+                if (e.target && typeof e.target.closest === "function" && e.target.closest(".qi-close, .qi-tabs, .qi-tab")) return;
+                if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
+                if (!panelEl) return;
+
+                const rect = panelEl.getBoundingClientRect();
+                dragPointerId = e.pointerId;
+                dragOffsetX = e.clientX - rect.left;
+                dragOffsetY = e.clientY - rect.top;
+                dragWidth = rect.width;
+                dragHeight = rect.height;
+                dragStartLeft = rect.left;
+                dragStartTop = rect.top;
+                dragNextLeft = rect.left;
+                dragNextTop = rect.top;
+                dragMoved = false;
+
+                global.addEventListener("pointermove", onDragPointerMove, true);
+                global.addEventListener("pointerup", onDragPointerUp, true);
+                global.addEventListener("pointercancel", onDragPointerUp, true);
+                try { e.currentTarget?.setPointerCapture?.(e.pointerId); } catch {}
+                try { e.preventDefault(); } catch {}
+            }
+
+            function onDragPointerMove(e) {
+                if (dragPointerId === null || e.pointerId !== dragPointerId) return;
+                if (!panelEl) return;
+
+                const left = e.clientX - dragOffsetX;
+                const top = e.clientY - dragOffsetY;
+
+                if (!dragMoved) {
+                    const dx = Math.abs(left - dragStartLeft);
+                    const dy = Math.abs(top - dragStartTop);
+                    if (dx + dy < 3) return;
+                    dragMoved = true;
+                    dragRestore = { userSelect: global.document.body.style.userSelect, cursor: global.document.body.style.cursor };
+                    try { global.document.body.style.userSelect = "none"; } catch {}
+                    try { global.document.body.style.cursor = "move"; } catch {}
+                    panelEl.style.left = `${dragStartLeft}px`;
+                    panelEl.style.top = `${dragStartTop}px`;
+                    panelEl.style.transform = "none";
+                }
+
+                const clamped = clampPanelPos(left, top, dragWidth, dragHeight);
+                dragNextLeft = clamped.left;
+                dragNextTop = clamped.top;
+                if (dragRaf) return;
+                dragRaf = requestAnimationFrame(() => {
+                    dragRaf = 0;
+                    if (!panelEl) return;
+                    panelEl.style.left = `${dragNextLeft}px`;
+                    panelEl.style.top = `${dragNextTop}px`;
+                });
+            }
+
+            function onDragPointerUp(e) {
+                if (dragPointerId === null || e.pointerId !== dragPointerId) return;
+                const moved = dragMoved;
+                stopDrag();
+                if (!moved || !panelEl) return;
+
+                const rect = panelEl.getBoundingClientRect();
+                const clamped = clampPanelPos(rect.left, rect.top, rect.width, rect.height);
+                panelEl.style.left = `${clamped.left}px`;
+                panelEl.style.top = `${clamped.top}px`;
+                panelEl.style.transform = "none";
+                persistPanelPos(clamped.left, clamped.top, { force: true });
+            }
+
+            function syncHotkeyPlaceholders() {
+                hotkeyInputs.forEach((input, idx) => {
+                    if (!input) return;
+                    input.placeholder = idx === 0
+                        ? (labels.placeholders?.hotkeyPrimary || DEFAULT_LABELS.placeholders.hotkeyPrimary)
+                        : (labels.placeholders?.hotkeyExtra || DEFAULT_LABELS.placeholders.hotkeyExtra);
+                });
+            }
+
+            function createHotkeyInputItem({ value = "" } = {}) {
+                const item = global.document.createElement("div");
+                item.className = "qi-hotkey-item";
+
+                const input = global.document.createElement("input");
+                input.type = "text";
+                input.value = String(value ?? "");
+                input.disabled = running;
+
+                const delBtn = global.document.createElement("button");
+                delBtn.type = "button";
+                delBtn.className = "qi-hotkey-del";
+                delBtn.textContent = "×";
+                delBtn.title = labels.buttons?.delete || "删除";
+                delBtn.setAttribute("aria-label", labels.aria?.deleteHotkey || "删除该快捷键");
+                delBtn.disabled = running;
+                delBtn.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (running) return;
+
+                    const idx = hotkeyInputs.indexOf(input);
+                    if (idx === -1) return;
+
+                    if (hotkeyInputs.length <= 1) {
+                        input.value = "";
+                        syncHotkeyPlaceholders();
+                        saveConfig(storageKey, readConfigFromUi(), defaults);
+                        return;
+                    }
+
+                    hotkeyInputs.splice(idx, 1);
+                    try { item.remove(); } catch {}
+                    syncHotkeyPlaceholders();
+                    saveConfig(storageKey, readConfigFromUi(), defaults);
+                });
+
+                item.appendChild(input);
+                item.appendChild(delBtn);
+
+                return { item, input };
+            }
+
+            function appendHotkeyInput(value) {
+                if (!hotkeyListEl) return null;
+                const { item, input } = createHotkeyInputItem({ value });
+                hotkeyListEl.appendChild(item);
+                hotkeyInputs.push(input);
+                syncHotkeyPlaceholders();
+                return input;
+            }
+
+            function writeConfigToUi(cfg) {
+                if (!cfg) return;
+                const rawToolHotkeys = Array.isArray(cfg.toolHotkeys)
+                    ? cfg.toolHotkeys
+                    : ((typeof cfg.toolHotkey === "string") ? [cfg.toolHotkey] : []);
+                const toolHotkeys = rawToolHotkeys.map(value => String(value ?? "").trim()).filter(Boolean);
+                const desired = toolHotkeys.length ? toolHotkeys : [""];
+
+                if (hotkeyListEl) {
+                    while (hotkeyInputs.length < desired.length) {
+                        appendHotkeyInput("");
+                    }
+                    while (hotkeyInputs.length > desired.length) {
+                        const input = hotkeyInputs.pop();
+                        const item = input?.closest?.(".qi-hotkey-item") || input?.parentElement || input;
+                        try { item?.remove?.(); } catch {}
+                    }
+                    hotkeyInputs.forEach((input, idx) => {
+                        if (!input) return;
+                        input.value = desired[idx] ?? "";
+                    });
+                    syncHotkeyPlaceholders();
+                }
+                if (newChatHotkeyEl) newChatHotkeyEl.value = (typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey;
+                if (loopEl) loopEl.value = String(clampInt(cfg.loopCount, { min: 1, max: 999, fallback: clampInt(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }));
+                if (stepDelayEl) stepDelayEl.value = String(clampInt(cfg.stepDelayMs, { min: 0, max: 30000, fallback: clampInt(defaults.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }));
+                if (loopDelayEl) loopDelayEl.value = String(clampInt(cfg.loopDelayMs, { min: 0, max: 300000, fallback: clampInt(defaults.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }));
+                if (clearBeforeRunEl) clearBeforeRunEl.checked = cfg.clearBeforeRun !== false;
+            }
+
+            async function runMacro() {
+                if (running) return;
+                cancelRun = false;
+                setRunning(true);
+                clearLog();
+
+                const cfg = readConfigFromUi();
+                saveConfig(storageKey, cfg, defaults);
+
+                const promptText = String(textEl?.value ?? "");
+                const images = Array.isArray(imageFiles) ? imageFiles.filter(Boolean) : [];
+                const toolHotkeys = Array.isArray(cfg.toolHotkeys)
+                    ? cfg.toolHotkeys.map(value => String(value ?? "").trim()).filter(Boolean)
+                    : [];
+                const newChatHotkey = String(cfg.newChatHotkey ?? "").trim();
+
+                if (!newChatHotkey) {
+                    appendLog(labels.messages?.missingNewChatHotkey || DEFAULT_LABELS.messages.missingNewChatHotkey, { level: "error" });
+                    setRunning(false);
+                    return;
+                }
+
+                if (images.length === 0 && !promptText.trim()) {
+                    appendLog(labels.messages?.missingInput || DEFAULT_LABELS.messages.missingInput, { level: "error" });
+                    setRunning(false);
+                    return;
+                }
+
+                const shouldCancel = () => cancelRun;
+                setActiveTab?.("log");
+                const startMsg = labels.messages?.start
+                    ? labels.messages.start(cfg.loopCount, toolHotkeys, newChatHotkey, images.length)
+                    : DEFAULT_LABELS.messages.start(cfg.loopCount, toolHotkeys, newChatHotkey, images.length);
+                appendLog(startMsg);
+
+                for (let i = 0; i < cfg.loopCount; i++) {
+                    if (cancelRun) break;
+                    const marker = labels.messages?.loopMarker
+                        ? labels.messages.loopMarker(i + 1, cfg.loopCount)
+                        : DEFAULT_LABELS.messages.loopMarker(i + 1, cfg.loopCount);
+                    appendLog(marker);
+
+                    const composer = await adapter.focusComposer({ timeoutMs: 15000, intervalMs: 160, shouldCancel });
+                    if (!composer) {
+                        if (cancelRun) break;
+                        appendLog(labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound, { level: "error" });
+                        break;
+                    }
+
+                    if (cfg.clearBeforeRun) adapter.clearComposerValue(composer);
+                    await sleep(cfg.stepDelayMs);
+                    if (cancelRun) break;
+
+                    if (images.length) {
+                        if (!adapter.attachImages) {
+                            cancelRun = true;
+                            appendLog(labels.messages?.missingAttachAdapter || DEFAULT_LABELS.messages.missingAttachAdapter, { level: "error" });
+                            break;
+                        }
+
+                        const result = await adapter.attachImages(images, composer, {
+                            shouldCancel,
+                            onDiagnostics: (diag) => {
+                                if (!diag) return;
+                                if (typeof diag === "string") {
+                                    appendLog(diag, { level: "error" });
+                                    return;
+                                }
+                                if (diag && typeof diag === "object") {
+                                    const level = String(diag.level || "").toLowerCase() === "ok" ? "ok" : "error";
+                                    if (typeof diag.message === "string" && diag.message.trim()) {
+                                        appendLog(diag.message, { level });
+                                        return;
+                                    }
+                                    try { appendLog(`诊断: ${JSON.stringify(diag)}`, { level: "error" }); } catch {}
+                                }
+                            }
+                        });
+                        if (result?.cancelled) break;
+                        if (!result?.ok) {
+                            cancelRun = true;
+                            const msg = typeof result?.message === "string" && result.message.trim()
+                                ? result.message.trim()
+                                : "图片插入失败：本轮将中止发送。";
+                            appendLog(msg, { level: "error" });
+                            break;
+                        }
+                        appendLog(`已成功插入图片：${images.length} 张。`, { level: "ok" });
+                        await sleep(cfg.stepDelayMs);
+                        if (cancelRun) break;
+                    }
+
+                    if (promptText.trim()) {
+                        const okText = adapter.setInputValue(composer, promptText);
+                        const msg = labels.messages?.textInserted
+                            ? labels.messages.textInserted(okText)
+                            : DEFAULT_LABELS.messages.textInserted(okText);
+                        appendLog(msg, { level: okText ? "ok" : "error" });
+                        await sleep(cfg.stepDelayMs);
+                        if (cancelRun) break;
+                    }
+
+                    if (toolHotkeys.length) {
+                        for (const hotkey of toolHotkeys) {
+                            if (cancelRun) break;
+                            const okHotkey = await executeEngineShortcutByHotkey(engine, hotkey);
+                            const msg = labels.messages?.hotkeyTriggered
+                                ? labels.messages.hotkeyTriggered(hotkey, okHotkey)
+                                : DEFAULT_LABELS.messages.hotkeyTriggered(hotkey, okHotkey);
+                            appendLog(msg, { level: okHotkey ? "ok" : "error" });
+                            await sleep(cfg.stepDelayMs);
+                        }
+                        if (cancelRun) break;
+                    }
+
+                    if (images.length) {
+                        const waitingMsg = labels.messages?.waitingUploads
+                            ? labels.messages.waitingUploads(images.length)
+                            : DEFAULT_LABELS.messages.waitingUploads(images.length);
+                        appendLog(waitingMsg);
+
+                        if (adapter.waitForReadyToSend) {
+                            const ready = await adapter.waitForReadyToSend(composer, { requireImage: true, minAttachments: images.length, timeoutMs: 45000, intervalMs: 160, settleMs: 600, shouldCancel });
+                            if (ready?.cancelled) break;
+                            if (!ready?.ok) {
+                                cancelRun = true;
+                                appendLog(labels.messages?.uploadNotReady || DEFAULT_LABELS.messages.uploadNotReady, { level: "error" });
+                                break;
+                            }
+                        } else {
+                            await sleep(Math.max(800, cfg.stepDelayMs));
+                        }
+
+                        appendLog("图片已就绪。", { level: "ok" });
+                        await sleep(Math.min(300, cfg.stepDelayMs));
+                        if (cancelRun) break;
+                    }
+
+                    if (cancelRun) break;
+                    const okSend = await adapter.sendMessage(composer);
+                    const sendMsg = labels.messages?.sendAttempted
+                        ? labels.messages.sendAttempted(okSend)
+                        : DEFAULT_LABELS.messages.sendAttempted(okSend);
+                    appendLog(sendMsg, { level: okSend ? "ok" : "error" });
+
+                    if (i < cfg.loopCount - 1) {
+                        if (cancelRun) break;
+                        await sleep(cfg.stepDelayMs);
+                        if (cancelRun) break;
+                        const okNewChat = await executeEngineShortcutByHotkey(engine, newChatHotkey);
+                        const newChatMsg = labels.messages?.newChatTriggered
+                            ? labels.messages.newChatTriggered(newChatHotkey, okNewChat)
+                            : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, okNewChat);
+                        appendLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
+                        await sleep(cfg.loopDelayMs);
+                    }
+                }
+
+                appendLog(cancelRun ? (labels.messages?.stopped || DEFAULT_LABELS.messages.stopped) : (labels.messages?.finished || DEFAULT_LABELS.messages.finished));
+                setRunning(false);
+            }
+
+            function stopMacro() {
+                if (!running) return;
+                cancelRun = true;
+                setActiveTab?.("log");
+                appendLog(labels.messages?.stopRequested || DEFAULT_LABELS.messages.stopRequested);
+            }
+
+            function ensureUi() {
+                if (overlayEl) return;
+                ensureStyle();
+
+                try { global.document?.getElementById?.(overlayId)?.remove?.(); } catch {}
+
+                overlayEl = global.document.createElement("div");
+                overlayEl.id = overlayId;
+                overlayEl.setAttribute("data-open", "0");
+                overlayEl.setAttribute("data-theme", detectPageTheme());
+                overlayEl.addEventListener("click", (e) => {
+                    if (e.target === overlayEl) close();
+                });
+
+                panelEl = global.document.createElement("div");
+                panelEl.className = "qi-panel";
+                panelEl.addEventListener("click", (e) => e.stopPropagation());
+
+                const header = global.document.createElement("div");
+                header.className = "qi-header";
+                header.addEventListener("pointerdown", onHeaderPointerDown);
+                const title = global.document.createElement("div");
+                title.className = "qi-title";
+                title.textContent = titleText;
+                const closeBtn = global.document.createElement("button");
+                closeBtn.className = "qi-close";
+                closeBtn.type = "button";
+                closeBtn.textContent = "×";
+                closeBtn.title = labels.aria?.close || DEFAULT_LABELS.aria.close;
+                closeBtn.setAttribute("aria-label", labels.aria?.close || DEFAULT_LABELS.aria.close);
+                closeBtn.addEventListener("click", () => close());
+                header.appendChild(title);
+                header.appendChild(closeBtn);
+
+                const tabs = global.document.createElement("div");
+                tabs.className = "qi-tabs";
+
+                const tabInputBtn = global.document.createElement("button");
+                tabInputBtn.type = "button";
+                tabInputBtn.className = "qi-tab";
+                tabInputBtn.textContent = labels.tabs?.input || DEFAULT_LABELS.tabs.input;
+                tabInputBtn.setAttribute("data-active", "1");
+
+                const tabLogBtn = global.document.createElement("button");
+                tabLogBtn.type = "button";
+                tabLogBtn.className = "qi-tab";
+                tabLogBtn.textContent = labels.tabs?.log || DEFAULT_LABELS.tabs.log;
+                tabLogBtn.setAttribute("data-active", "0");
+
+                tabs.appendChild(tabInputBtn);
+                tabs.appendChild(tabLogBtn);
+                header.insertBefore(tabs, closeBtn);
+
+                const content = global.document.createElement("div");
+                content.className = "qi-content";
+
+                const inputPanel = global.document.createElement("div");
+                inputPanel.className = "qi-tab-panel";
+                inputPanel.setAttribute("data-active", "1");
+
+                const body = global.document.createElement("div");
+                body.className = "qi-body";
+
+                const imageRow = global.document.createElement("div");
+                imageRow.className = "qi-row";
+                const imageLabelStack = global.document.createElement("div");
+                imageLabelStack.className = "qi-label-stack";
+                const imageLabel = global.document.createElement("label");
+                imageLabel.textContent = labels.fields?.images || DEFAULT_LABELS.fields.images;
+                imageLabelStack.appendChild(imageLabel);
+                const imageBox = global.document.createElement("div");
+                imageBox.className = "qi-inline";
+                imageDropEl = global.document.createElement("div");
+                imageDropEl.className = "qi-drop";
+                imageDropEl.tabIndex = 0;
+                imageDropEl.textContent = labels.placeholders?.imageDrop || DEFAULT_LABELS.placeholders.imageDrop;
+
+                imagePreviewListEl = global.document.createElement("div");
+                imagePreviewListEl.className = "qi-preview-list";
+
+                fileInputEl = global.document.createElement("input");
+                fileInputEl.type = "file";
+                fileInputEl.accept = "image/*";
+                fileInputEl.multiple = true;
+                fileInputEl.style.display = "none";
+                fileInputEl.addEventListener("change", (e) => {
+                    if (e && e.isTrusted === false) return;
+                    onPickFiles(fileInputEl.files);
+                    clearImageDropFocus();
+                    try { fileInputEl.value = ""; } catch {}
+                });
+
+                imageDropEl.addEventListener("click", () => fileInputEl.click());
+                imageDropEl.addEventListener("dragover", (e) => { e.preventDefault(); });
+                imageDropEl.addEventListener("drop", (e) => {
+                    e.preventDefault();
+                    onPickFiles(e.dataTransfer?.files);
+                    clearImageDropFocus();
+                });
+                imageDropEl.addEventListener("paste", (e) => {
+                    const items = Array.from(e.clipboardData?.items || []);
+                    const files = items
+                        .filter(it => it.kind === "file" && String(it.type || "").startsWith("image/"))
+                        .map(it => it.getAsFile())
+                        .filter(Boolean);
+                    if (files.length) {
+                        onPickFiles(files);
+                        clearImageDropFocus();
+                    }
+                });
+
+                imageBox.appendChild(imageDropEl);
+                imageBox.appendChild(fileInputEl);
+
+                imageRow.appendChild(imageLabelStack);
+                imageRow.appendChild(imageBox);
+
+                previewRowEl = global.document.createElement("div");
+                previewRowEl.className = "qi-row";
+                previewRowEl.style.display = "none";
+                const previewLabel = global.document.createElement("label");
+                previewLabel.textContent = labels.fields?.preview || DEFAULT_LABELS.fields.preview;
+                imagePreviewShellEl = global.document.createElement("div");
+                imagePreviewShellEl.className = "qi-preview-shell";
+                imagePreviewShellEl.setAttribute("data-has-items", "0");
+
+                clearAllImagesBtnEl = global.document.createElement("button");
+                clearAllImagesBtnEl.type = "button";
+                clearAllImagesBtnEl.className = "qi-preview-clear";
+                clearAllImagesBtnEl.textContent = "×";
+                clearAllImagesBtnEl.title = labels.buttons?.clearImages || DEFAULT_LABELS.buttons.clearImages;
+                clearAllImagesBtnEl.setAttribute("aria-label", labels.aria?.clearImages || DEFAULT_LABELS.aria.clearImages);
+                clearAllImagesBtnEl.disabled = true;
+                clearAllImagesBtnEl.addEventListener("click", () => {
+                    if (running) return;
+                    setImageFiles([]);
+                    appendLog(labels.messages?.imagesCleared || DEFAULT_LABELS.messages.imagesCleared);
+                });
+                imagePreviewShellEl.appendChild(clearAllImagesBtnEl);
+                imagePreviewShellEl.appendChild(imagePreviewListEl);
+
+                previewRowEl.appendChild(previewLabel);
+                previewRowEl.appendChild(imagePreviewShellEl);
+
+                const textRow = global.document.createElement("div");
+                textRow.className = "qi-row";
+                const textLabel = global.document.createElement("label");
+                textLabel.textContent = labels.fields?.text || DEFAULT_LABELS.fields.text;
+                textEl = global.document.createElement("textarea");
+                textEl.rows = 3;
+                textEl.placeholder = labels.placeholders?.text || DEFAULT_LABELS.placeholders.text;
+                textRow.appendChild(textLabel);
+                textRow.appendChild(textEl);
+
+                const hotkeyRow = global.document.createElement("div");
+                hotkeyRow.className = "qi-row";
+                const hotkeyLabel = global.document.createElement("label");
+                hotkeyLabel.textContent = labels.fields?.hotkeys || DEFAULT_LABELS.fields.hotkeys;
+                const hotkeyStack = global.document.createElement("div");
+                hotkeyStack.style.display = "grid";
+                hotkeyStack.style.gap = "8px";
+
+                hotkeyListEl = global.document.createElement("div");
+                hotkeyListEl.style.display = "grid";
+                hotkeyListEl.style.gap = "8px";
+
+                addHotkeyBtnEl = global.document.createElement("button");
+                addHotkeyBtnEl.type = "button";
+                addHotkeyBtnEl.className = "qi-btn";
+                addHotkeyBtnEl.textContent = labels.buttons?.addHotkey || DEFAULT_LABELS.buttons.addHotkey;
+                addHotkeyBtnEl.addEventListener("click", () => {
+                    if (running) return;
+                    const input = appendHotkeyInput("");
+                    try { input?.focus?.(); } catch {}
+                });
+
+                hotkeyStack.appendChild(hotkeyListEl);
+                hotkeyStack.appendChild(addHotkeyBtnEl);
+
+                hotkeyRow.appendChild(hotkeyLabel);
+                hotkeyRow.appendChild(hotkeyStack);
+
+                const loopRow = global.document.createElement("div");
+                loopRow.className = "qi-row";
+                const loopLabel = global.document.createElement("label");
+                loopLabel.textContent = labels.fields?.loopCount || DEFAULT_LABELS.fields.loopCount;
+                loopEl = global.document.createElement("input");
+                loopEl.type = "number";
+                loopEl.min = "1";
+                loopEl.max = "999";
+
+                loopRow.appendChild(loopLabel);
+                loopRow.appendChild(loopEl);
+
+                const newChatRow = global.document.createElement("div");
+                newChatRow.className = "qi-row";
+                const newChatLabel = global.document.createElement("label");
+                newChatLabel.textContent = labels.fields?.newChatHotkey || DEFAULT_LABELS.fields.newChatHotkey;
+                newChatHotkeyEl = global.document.createElement("input");
+                newChatHotkeyEl.type = "text";
+                newChatHotkeyEl.placeholder = labels.placeholders?.newChatHotkey || DEFAULT_LABELS.placeholders.newChatHotkey;
+                newChatRow.appendChild(newChatLabel);
+                newChatRow.appendChild(newChatHotkeyEl);
+
+                const delayRow = global.document.createElement("div");
+                delayRow.className = "qi-row";
+                const stepDelayLabel = global.document.createElement("label");
+                stepDelayLabel.textContent = labels.fields?.stepDelay || DEFAULT_LABELS.fields.stepDelay;
+                stepDelayEl = global.document.createElement("input");
+                stepDelayEl.type = "number";
+                stepDelayEl.min = "0";
+                stepDelayEl.max = "30000";
+                const loopDelayLabel = global.document.createElement("label");
+                loopDelayLabel.textContent = labels.fields?.loopDelay || DEFAULT_LABELS.fields.loopDelay;
+                loopDelayEl = global.document.createElement("input");
+                loopDelayEl.type = "number";
+                loopDelayEl.min = "0";
+                loopDelayEl.max = "300000";
+
+                delayRow.appendChild(stepDelayLabel);
+                delayRow.appendChild(stepDelayEl);
+                delayRow.appendChild(loopDelayLabel);
+                delayRow.appendChild(loopDelayEl);
+
+                const optionsRow = global.document.createElement("div");
+                optionsRow.className = "qi-row";
+                const optionsLabel = global.document.createElement("label");
+                optionsLabel.textContent = labels.fields?.options || DEFAULT_LABELS.fields.options;
+                const optionsBox = global.document.createElement("div");
+                optionsBox.className = "qi-inline";
+                const cbWrap = global.document.createElement("label");
+                cbWrap.className = "qi-hint";
+                clearBeforeRunEl = global.document.createElement("input");
+                clearBeforeRunEl.type = "checkbox";
+                clearBeforeRunEl.checked = true;
+                cbWrap.appendChild(clearBeforeRunEl);
+                cbWrap.appendChild(global.document.createTextNode(` ${labels.options?.clearBeforeRun || DEFAULT_LABELS.options.clearBeforeRun}`));
+                optionsBox.appendChild(cbWrap);
+
+                clearBeforeRunEl.addEventListener("change", () => {
+                    saveConfig(storageKey, readConfigFromUi(), defaults);
+                });
+                optionsRow.appendChild(optionsLabel);
+                optionsRow.appendChild(optionsBox);
+
+                const hint = global.document.createElement("div");
+                hint.className = "qi-hint";
+                hint.textContent = labels.hints?.flow || DEFAULT_LABELS.hints.flow;
+
+                body.appendChild(imageRow);
+                body.appendChild(previewRowEl);
+                body.appendChild(textRow);
+                body.appendChild(hotkeyRow);
+                body.appendChild(loopRow);
+                body.appendChild(newChatRow);
+                body.appendChild(delayRow);
+                body.appendChild(optionsRow);
+                body.appendChild(hint);
+
+                const inputActions = global.document.createElement("div");
+                inputActions.className = "qi-actions";
+
+                const stopBtnInput = global.document.createElement("button");
+                stopBtnInput.type = "button";
+                stopBtnInput.className = "qi-btn";
+                stopBtnInput.textContent = labels.buttons?.stop || DEFAULT_LABELS.buttons.stop;
+                stopBtnInput.disabled = true;
+                stopBtnInput.addEventListener("click", stopMacro);
+                stopButtons.push(stopBtnInput);
+
+                const runBtnInput = global.document.createElement("button");
+                runBtnInput.type = "button";
+                runBtnInput.className = "qi-btn qi-btn-primary";
+                runBtnInput.textContent = labels.buttons?.run || DEFAULT_LABELS.buttons.run;
+                runBtnInput.addEventListener("click", runMacro);
+                runButtons.push(runBtnInput);
+
+                inputActions.appendChild(stopBtnInput);
+                inputActions.appendChild(runBtnInput);
+
+                inputPanel.appendChild(body);
+                inputPanel.appendChild(inputActions);
+
+                const logPanel = global.document.createElement("div");
+                logPanel.className = "qi-tab-panel";
+                logPanel.setAttribute("data-active", "0");
+
+                logEl = global.document.createElement("div");
+                logEl.className = "qi-log";
+
+                const logActions = global.document.createElement("div");
+                logActions.className = "qi-actions";
+
+                const stopBtnLog = global.document.createElement("button");
+                stopBtnLog.type = "button";
+                stopBtnLog.className = "qi-btn";
+                stopBtnLog.textContent = labels.buttons?.stop || DEFAULT_LABELS.buttons.stop;
+                stopBtnLog.disabled = true;
+                stopBtnLog.addEventListener("click", stopMacro);
+                stopButtons.push(stopBtnLog);
+
+                const runBtnLog = global.document.createElement("button");
+                runBtnLog.type = "button";
+                runBtnLog.className = "qi-btn qi-btn-primary";
+                runBtnLog.textContent = labels.buttons?.run || DEFAULT_LABELS.buttons.run;
+                runBtnLog.addEventListener("click", runMacro);
+                runButtons.push(runBtnLog);
+
+                logActions.appendChild(stopBtnLog);
+                logActions.appendChild(runBtnLog);
+
+                logPanel.appendChild(logEl);
+                logPanel.appendChild(logActions);
+
+                content.appendChild(inputPanel);
+                content.appendChild(logPanel);
+
+                activeTab = "input";
+                setActiveTab = (nextTab) => {
+                    const key = String(nextTab || "").trim().toLowerCase();
+                    const next = (key === "log") ? "log" : "input";
+                    const prev = activeTab;
+                    if (prev === "input" && next === "log") syncPanelMinHeight();
+                    activeTab = next;
+                    const inputActive = next === "input";
+                    tabInputBtn.setAttribute("data-active", inputActive ? "1" : "0");
+                    tabLogBtn.setAttribute("data-active", inputActive ? "0" : "1");
+                    inputPanel.setAttribute("data-active", inputActive ? "1" : "0");
+                    logPanel.setAttribute("data-active", inputActive ? "0" : "1");
+                };
+                tabInputBtn.addEventListener("click", () => setActiveTab?.("input"));
+                tabLogBtn.addEventListener("click", () => setActiveTab?.("log"));
+
+                panelEl.appendChild(header);
+                panelEl.appendChild(content);
+
+                overlayEl.appendChild(panelEl);
+                global.document.body.appendChild(overlayEl);
+
+                global.document.addEventListener("keydown", (e) => {
+                    if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
+                    if (e.key === "Escape") {
+                        e.preventDefault();
+                        close();
+                    }
+                }, true);
+
+                writeConfigToUi(loadConfig(storageKey, defaults));
+            }
+
+            function open() {
+                ensureUi();
+                stopDrag();
+                overlayEl.setAttribute("data-open", "1");
+                refreshTheme();
+                startThemeAutoSync();
+                requestAnimationFrame(() => {
+                    applyStoredPanelPos();
+                    syncPanelMinHeight();
+                });
+                try { if (activeTab === "input") imageDropEl?.focus?.(); } catch {}
+            }
+
+            function close() {
+                if (!overlayEl) return;
+                if (dragPointerId !== null && dragMoved && panelEl) {
+                    const rect = panelEl.getBoundingClientRect();
+                    const clamped = clampPanelPos(rect.left, rect.top, rect.width, rect.height);
+                    persistPanelPos(clamped.left, clamped.top, { force: true });
+                }
+                stopDrag();
+                overlayEl.setAttribute("data-open", "0");
+                stopThemeAutoSync();
+                if (running) stopMacro();
+            }
+
+            return Object.freeze({ open, close });
+        }
+
+        function createGeminiAdapter({ idPrefix = "gemini" } = {}) {
+            const overlayId = `${String(idPrefix || "").trim() || "gemini"}-quick-input-overlay`;
+
+            function isInsideQuickInputOverlay(el) {
+                if (!el || typeof el.closest !== "function") return false;
+                try { return !!el.closest(`#${overlayId}`); } catch { return false; }
+            }
+
+            function findGeminiDropzone(composerEl) {
+                try {
+                    const direct = composerEl?.closest?.("[xapfileselectordropzone]");
+                    if (direct) return direct;
+                } catch {}
+                try {
+                    const near = composerEl?.closest?.(".text-input-field");
+                    if (near) return near;
+                } catch {}
+
+                const zones = Array.from(global.document?.querySelectorAll?.("[xapfileselectordropzone]") || []);
+                if (!zones.length) return null;
+                if (composerEl) {
+                    const containing = zones.find(z => z && z.contains(composerEl));
+                    if (containing) return containing;
+                }
+
+                let best = null;
+                let bestScore = -Infinity;
+                for (const zone of zones) {
+                    if (!zone) continue;
+                    if (isInsideQuickInputOverlay(zone)) continue;
+                    if (!isElementVisible(zone)) continue;
+                    try {
+                        const rect = zone.getBoundingClientRect();
+                        const score = rect.bottom / Math.max(1, global.innerHeight);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            best = zone;
+                        }
+                    } catch {}
+                }
+                return best || zones[0] || null;
+            }
+
+            function findGeminiComposerContainer(composerEl) {
+                if (!composerEl) return null;
+                try {
+                    const field = composerEl.closest?.(".text-input-field");
+                    if (field) return field;
+                } catch {}
+                try {
+                    const zone = composerEl.closest?.("[xapfileselectordropzone]");
+                    if (zone) return zone;
+                } catch {}
+                return findGeminiDropzone(composerEl) || null;
+            }
+
+            function getGeminiAttachmentSnapshot(containerEl) {
+                const container = containerEl || global.document;
+                const urls = new Set();
+                let cancelCount = 0;
+                let hasFilePreview = false;
+                let imageCount = 0;
+
+                try { hasFilePreview = !!container.classList?.contains?.("with-file-preview"); } catch {}
+
+                try {
+                    const selector = [
+                        "img[data-test-id='image-preview']",
+                        "uploader-file-preview img[aria-label='Image preview']"
+                    ].join(", ");
+                    const imgs = Array.from(container.querySelectorAll(selector));
+                    imageCount = imgs.length;
+                    for (const img of imgs) {
+                        if (!img) continue;
+                        const src = String(img.getAttribute?.("src") || img.currentSrc || img.src || "").trim();
+                        if (!src) continue;
+                        urls.add(src);
+                    }
+                } catch {}
+
+                try {
+                    cancelCount = container.querySelectorAll("button[data-test-id='cancel-button']").length;
+                } catch {}
+
+                const attachmentCount = Math.max(imageCount, cancelCount, hasFilePreview ? 1 : 0);
+                return { urls, imageCount, cancelCount, hasFilePreview, attachmentCount };
+            }
+
+            function hasGeminiAttachmentChange(prev, next) {
+                if (!prev || !next) return false;
+                if ((next.attachmentCount || 0) > (prev.attachmentCount || 0)) return true;
+                if (next.hasFilePreview && !prev.hasFilePreview) return true;
+                if (next.cancelCount > prev.cancelCount) return true;
+                if (next.imageCount > prev.imageCount) return true;
+                for (const url of next.urls) {
+                    if (!prev.urls.has(url)) return true;
+                }
+                return false;
+            }
+
+            async function waitForGeminiAttachmentChange(containerEl, prevSnapshot, { timeoutMs = 9000, intervalMs = 120, shouldCancel = null } = {}) {
+                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+                const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+                while (Date.now() < deadline) {
+                    if (cancelFn && cancelFn()) {
+                        const snapshot = getGeminiAttachmentSnapshot(containerEl);
+                        return { ok: false, cancelled: true, snapshot };
+                    }
+                    const next = getGeminiAttachmentSnapshot(containerEl);
+                    if (hasGeminiAttachmentChange(prevSnapshot, next)) return { ok: true, snapshot: next };
+                    await sleep(intervalMs);
+                }
+                const final = getGeminiAttachmentSnapshot(containerEl);
+                return { ok: hasGeminiAttachmentChange(prevSnapshot, final), snapshot: final };
+            }
+
+            function tryAttachImageViaSimulatedPaste(file, composerEl) {
+                if (!composerEl) return false;
+                if (typeof DataTransfer !== "function") return false;
+
+                let dt;
+                try {
+                    dt = new DataTransfer();
+                    dt.items.add(file);
+                    try { dt.effectAllowed = "copy"; } catch {}
+                    try { dt.dropEffect = "copy"; } catch {}
+                } catch {
+                    return false;
+                }
+
+                const targets = [];
+                const dropzone = findGeminiDropzone(composerEl);
+                if (dropzone) targets.push(dropzone);
+                targets.push(composerEl);
+                try {
+                    const rich = composerEl.closest?.("rich-textarea");
+                    if (rich) {
+                        targets.push(rich);
+                        try {
+                            const clipboard = rich.querySelector?.(".ql-clipboard");
+                            if (clipboard) targets.push(clipboard);
+                        } catch {}
+                    }
+                } catch {}
+                try {
+                    const field = composerEl.closest?.(".text-input-field");
+                    if (field) targets.push(field);
+                } catch {}
+                try {
+                    if (global.document?.activeElement) targets.push(global.document.activeElement);
+                } catch {}
+                targets.push(global.document);
+                targets.push(global);
+
+                const uniq = [];
+                const seen = new Set();
+                for (const t of targets) {
+                    if (!t || seen.has(t)) continue;
+                    if (isInsideQuickInputOverlay(t)) continue;
+                    seen.add(t);
+                    uniq.push(t);
+                }
+
+                let fired = false;
+                for (const target of uniq) {
+                    fired = dispatchBeforeInputFromPaste(target, dt) || fired;
+                    fired = dispatchPasteEvent(target, dt) || fired;
+                    fired = dispatchInputFromPaste(target, dt) || fired;
+                }
+                return fired;
+            }
+
+            function tryAttachImageViaDropzone(file, composerEl) {
+                if (!composerEl) return false;
+                if (typeof DataTransfer !== "function") return false;
+
+                let dt;
+                try {
+                    dt = new DataTransfer();
+                    dt.items.add(file);
+                    try { dt.effectAllowed = "copy"; } catch {}
+                    try { dt.dropEffect = "copy"; } catch {}
+                } catch {
+                    return false;
+                }
+
+                const targets = [];
+                const dropzone = findGeminiDropzone(composerEl);
+                if (dropzone) targets.push(dropzone);
+                try {
+                    const field = composerEl.closest?.(".text-input-field");
+                    if (field) targets.push(field);
+                } catch {}
+                targets.push(composerEl);
+                targets.push(global.document);
+                targets.push(global);
+
+                const uniq = [];
+                const seen = new Set();
+                for (const t of targets) {
+                    if (!t || seen.has(t)) continue;
+                    if (isInsideQuickInputOverlay(t)) continue;
+                    seen.add(t);
+                    uniq.push(t);
+                }
+
+                let fired = false;
+                for (const target of uniq) {
+                    fired = dispatchDragEvent(target, "dragenter", dt) || fired;
+                    fired = dispatchDragEvent(target, "dragover", dt) || fired;
+                    fired = dispatchDragEvent(target, "drop", dt) || fired;
+                }
+                return fired;
+            }
+
+            function tryAttachImageViaFileInput(file, composerEl, diagnostics) {
+                if (!composerEl) return false;
+                if (typeof DataTransfer !== "function") return false;
+
+                const container = findGeminiComposerContainer(composerEl);
+                const candidates = [];
+
+                if (container) candidates.push(...collectFileInputs(container, { shouldIgnore: isInsideQuickInputOverlay }));
+                candidates.push(...collectFileInputs(global.document, { shouldIgnore: isInsideQuickInputOverlay }));
+
+                if (candidates.length === 0) {
+                    if (container) candidates.push(...collectFileInputsFromOpenShadows(container, { maxHosts: 1200, shouldIgnore: isInsideQuickInputOverlay }));
+                    candidates.push(...collectFileInputsFromOpenShadows(global.document, { maxHosts: 3500, shouldIgnore: isInsideQuickInputOverlay }));
+                }
+
+                const uniq = [];
+                const seen = new Set();
+                for (const input of candidates) {
+                    if (!input || seen.has(input)) continue;
+                    seen.add(input);
+                    if (isInsideQuickInputOverlay(input)) continue;
+                    uniq.push(input);
+                }
+
+                if (diagnostics && typeof diagnostics === "object") diagnostics.fileInputCandidates = uniq.length;
+
+                const accepted = [];
+                const fallback = [];
+                for (const input of uniq) {
+                    const accept = String(input.getAttribute?.("accept") || input.accept || "").toLowerCase();
+                    if (!accept || accept.includes("image") || accept.includes(".png") || accept.includes(".jpg") || accept.includes(".jpeg") || accept.includes(".webp")) {
+                        accepted.push(input);
+                    } else {
+                        fallback.push(input);
+                    }
+                }
+
+                for (const input of [...accepted, ...fallback]) {
+                    if (trySetFileInputFiles(input, file)) return true;
+                }
+
+                return false;
+            }
+
+            async function attachImageToComposer(file, composerEl, { onDiagnostics, shouldCancel = null } = {}) {
+                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+
+                if (!file || !(file instanceof File)) return { ok: false, cancelled: false };
+                if (!String(file.type || "").startsWith("image/")) return { ok: false, cancelled: false };
+                if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
+
+                const composer = composerEl || (await focusComposer({ timeoutMs: 4000, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay }));
+                if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
+                const container = findGeminiComposerContainer(composer);
+                if (!container) return { ok: false, cancelled: false };
+
+                const diagnostics = {
+                    attempts: { paste: 0, drop: 0, fileInput: 0 },
+                    fired: { paste: 0, drop: 0, fileInput: 0 },
+                    fileInputCandidates: 0,
+                    finalSnapshot: null
+                };
+
+                const maxAttempts = 3;
+                let prev = getGeminiAttachmentSnapshot(container);
+
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                    if (cancelFn && cancelFn()) {
+                        diagnostics.finalSnapshot = prev;
+                        if (typeof onDiagnostics === "function") {
+                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
+                        }
+                        return { ok: false, cancelled: true };
+                    }
+                    diagnostics.attempts.paste += 1;
+                    if (attempt > 0) await sleep(180);
+                    try { composer.focus?.(); } catch {}
+                    try { Utils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch {}
+                    await sleep(30);
+
+                    const fired = tryAttachImageViaSimulatedPaste(file, composer);
+                    if (fired) diagnostics.fired.paste += 1;
+                    if (!fired) continue;
+
+                    const { ok, cancelled, snapshot } = await waitForGeminiAttachmentChange(container, prev, { timeoutMs: 9000, intervalMs: 120, shouldCancel: cancelFn });
+                    if (cancelled) {
+                        diagnostics.finalSnapshot = snapshot;
+                        if (typeof onDiagnostics === "function") {
+                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
+                        }
+                        return { ok: false, cancelled: true };
+                    }
+                    if (ok) return { ok: true, cancelled: false };
+                    prev = snapshot;
+                }
+
+                for (let attempt = 0; attempt < 2; attempt++) {
+                    if (cancelFn && cancelFn()) {
+                        diagnostics.finalSnapshot = prev;
+                        if (typeof onDiagnostics === "function") {
+                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
+                        }
+                        return { ok: false, cancelled: true };
+                    }
+                    diagnostics.attempts.drop += 1;
+                    await sleep(220);
+                    try { composer.focus?.(); } catch {}
+                    try { Utils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch {}
+                    await sleep(30);
+
+                    const fired = tryAttachImageViaDropzone(file, composer);
+                    if (fired) diagnostics.fired.drop += 1;
+                    if (!fired) continue;
+
+                    const { ok, cancelled, snapshot } = await waitForGeminiAttachmentChange(container, prev, { timeoutMs: 9000, intervalMs: 120, shouldCancel: cancelFn });
+                    if (cancelled) {
+                        diagnostics.finalSnapshot = snapshot;
+                        if (typeof onDiagnostics === "function") {
+                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
+                        }
+                        return { ok: false, cancelled: true };
+                    }
+                    if (ok) return { ok: true, cancelled: false };
+                    prev = snapshot;
+                }
+
+                for (let attempt = 0; attempt < 2; attempt++) {
+                    if (cancelFn && cancelFn()) {
+                        diagnostics.finalSnapshot = prev;
+                        if (typeof onDiagnostics === "function") {
+                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
+                        }
+                        return { ok: false, cancelled: true };
+                    }
+                    diagnostics.attempts.fileInput += 1;
+                    await sleep(220);
+                    try { composer.focus?.(); } catch {}
+                    try { Utils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch {}
+                    await sleep(30);
+
+                    const fired = tryAttachImageViaFileInput(file, composer, diagnostics);
+                    if (fired) diagnostics.fired.fileInput += 1;
+                    if (!fired) continue;
+
+                    const { ok, cancelled, snapshot } = await waitForGeminiAttachmentChange(container, prev, { timeoutMs: 9000, intervalMs: 120, shouldCancel: cancelFn });
+                    if (cancelled) {
+                        diagnostics.finalSnapshot = snapshot;
+                        if (typeof onDiagnostics === "function") {
+                            try { onDiagnostics({ ...diagnostics, cancelled: true }); } catch {}
+                        }
+                        return { ok: false, cancelled: true };
+                    }
+                    if (ok) return { ok: true, cancelled: false };
+                    prev = snapshot;
+                }
+
+                diagnostics.finalSnapshot = prev;
+                if (typeof onDiagnostics === "function") {
+                    try { onDiagnostics(diagnostics); } catch {}
+                }
+                return { ok: false, cancelled: false };
+            }
+
+            async function attachImagesToComposer(files, composerEl, { onDiagnostics, shouldCancel = null } = {}) {
+                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+                const list = Array.from(files || []).filter(file => file && (file instanceof File) && String(file.type || "").startsWith("image/"));
+                if (list.length === 0) return { ok: false, cancelled: false, message: "未检测到图片文件。" };
+
+                const composer = composerEl || (await focusComposer({ timeoutMs: 4000, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay }));
+                if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
+
+                for (let i = 0; i < list.length; i++) {
+                    if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
+                    const file = list[i];
+                    const result = await attachImageToComposer(file, composer, {
+                        onDiagnostics: (diag) => {
+                            if (typeof onDiagnostics !== "function") return;
+                            try {
+                                onDiagnostics({
+                                    fileIndex: i,
+                                    fileName: file?.name || "",
+                                    fileSize: Number(file?.size) || 0,
+                                    ...diag
+                                });
+                            } catch {}
+                        },
+                        shouldCancel: cancelFn
+                    });
+                    if (result?.cancelled) return { ok: false, cancelled: true };
+                    if (!result?.ok) return { ok: false, cancelled: false, message: "图片粘贴失败：未检测到输入框内出现图片预览。" };
+                    await sleep(120);
+                }
+
+                return { ok: true, cancelled: false };
+            }
+
+            function findSendButtonNearComposer(composerEl) {
+                const candidates = [];
+                const scopes = [];
+                try {
+                    const form = composerEl?.closest?.("form");
+                    if (form) scopes.push(form);
+                } catch {}
+                scopes.push(global.document);
+
+                const selectors = [
+                    "button[type='submit']",
+                    "button[aria-label*='Send']",
+                    "button[aria-label*='发送']",
+                    "button[data-test-id*='send']"
+                ];
+
+                for (const scope of scopes) {
+                    for (const sel of selectors) {
+                        try {
+                            candidates.push(...Array.from(scope.querySelectorAll(sel)));
+                        } catch {}
+                    }
+                }
+
+                for (const btn of candidates) {
+                    if (!btn) continue;
+                    if (!isElementVisible(btn)) continue;
+                    if (isInsideQuickInputOverlay(btn)) continue;
+                    return btn;
+                }
+                return null;
+            }
+
+            function isAriaDisabled(el) {
+                if (!el || typeof el.getAttribute !== "function") return false;
+                const value = String(el.getAttribute("aria-disabled") || "").trim().toLowerCase();
+                return value === "true";
+            }
+
+            function isGeminiSendButtonDisabled(btn) {
+                if (!btn) return true;
+                if (btn.disabled) return true;
+                if (isAriaDisabled(btn)) return true;
+                return false;
+            }
+
+            function getGeminiAttachmentFingerprint(snapshot) {
+                if (!snapshot) return "";
+                const urls = Array.from(snapshot.urls || []).slice(0, 6).sort().join("|");
+                return `${snapshot.attachmentCount || 0};${snapshot.hasFilePreview ? 1 : 0};${snapshot.cancelCount || 0};${snapshot.imageCount || 0};${urls}`;
+            }
+
+            function hasGeminiUploadInProgress(containerEl) {
+                const container = containerEl || global.document;
+                let scope = container;
+                try { scope = container.querySelector?.(".file-preview-wrapper") || container; } catch {}
+
+                const selectors = [
+                    "[aria-busy='true']",
+                    "[role='progressbar']",
+                    "mat-progress-spinner",
+                    "mat-mdc-progress-spinner",
+                    ".mat-progress-spinner",
+                    ".mat-mdc-progress-spinner",
+                    "mat-progress-bar",
+                    "mat-mdc-progress-bar",
+                    ".mat-progress-bar",
+                    ".mat-mdc-progress-bar",
+                    "progress"
+                ].join(", ");
+
+                try { return !!scope.querySelector(selectors); } catch { return false; }
+            }
+
+            async function waitForGeminiReadyToSend(composerEl, { requireImage = false, minAttachments = 0, timeoutMs = 45000, intervalMs = 160, settleMs = 600, shouldCancel = null } = {}) {
+                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+                const composer = composerEl || (await focusComposer({ timeoutMs: 4000, intervalMs: 120, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay }));
+                if (!composer) return { ok: false, reason: "no-composer", cancelled: !!(cancelFn && cancelFn()) };
+
+                const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+                const settle = Math.max(0, Number(settleMs) || 0);
+                let stableSince = Date.now();
+                let lastStateKey = "";
+
+                while (Date.now() < deadline) {
+                    if (cancelFn && cancelFn()) {
+                        const container = findGeminiComposerContainer(composer);
+                        const snapshot = container ? getGeminiAttachmentSnapshot(container) : null;
+                        return { ok: false, reason: "cancelled", cancelled: true, snapshot };
+                    }
+                    const container = findGeminiComposerContainer(composer);
+                    const snapshot = container ? getGeminiAttachmentSnapshot(container) : null;
+                    const sendBtn = findSendButtonNearComposer(composer);
+                    const sendReady = sendBtn && !isGeminiSendButtonDisabled(sendBtn);
+
+                    const attachmentCount = snapshot ? (snapshot.attachmentCount || 0) : 0;
+                    const hasImage = !!(snapshot && (snapshot.hasFilePreview || snapshot.imageCount > 0 || snapshot.cancelCount > 0));
+                    const hasEnoughAttachments = !requireImage || !(Number(minAttachments) > 0) || attachmentCount >= Number(minAttachments);
+                    const uploadBusy = requireImage && container ? hasGeminiUploadInProgress(container) : false;
+
+                    const fingerprint = getGeminiAttachmentFingerprint(snapshot);
+                    const stateKey = `${fingerprint};send=${sendReady ? 1 : 0};busy=${uploadBusy ? 1 : 0};img=${hasImage ? 1 : 0};count=${attachmentCount};min=${Number(minAttachments) || 0}`;
+                    if (stateKey !== lastStateKey) {
+                        lastStateKey = stateKey;
+                        stableSince = Date.now();
+                    }
+
+                    const okNow = sendReady && (!requireImage || (hasImage && hasEnoughAttachments && !uploadBusy));
+                    if (okNow && (Date.now() - stableSince >= settle)) {
+                        return { ok: true, button: sendBtn, snapshot };
+                    }
+
+                    await sleep(intervalMs);
+                }
+
+                const container = findGeminiComposerContainer(composer);
+                const snapshot = container ? getGeminiAttachmentSnapshot(container) : null;
+                const sendBtn = findSendButtonNearComposer(composer);
+                const sendReady = sendBtn && !isGeminiSendButtonDisabled(sendBtn);
+                const attachmentCount = snapshot ? (snapshot.attachmentCount || 0) : 0;
+                const hasImage = !!(snapshot && (snapshot.hasFilePreview || snapshot.imageCount > 0 || snapshot.cancelCount > 0));
+                const hasEnoughAttachments = !requireImage || !(Number(minAttachments) > 0) || attachmentCount >= Number(minAttachments);
+                const uploadBusy = requireImage && container ? hasGeminiUploadInProgress(container) : false;
+                const ok = sendReady && (!requireImage || (hasImage && hasEnoughAttachments && !uploadBusy));
+
+                return { ok, button: sendBtn, snapshot, reason: ok ? "ok" : "timeout", cancelled: false };
+            }
+
+            async function sendGeminiMessage(composerEl) {
+                const composer = composerEl || (await focusComposer({ shouldIgnore: isInsideQuickInputOverlay }));
+                if (!composer) return false;
+
+                const btn = findSendButtonNearComposer(composer);
+                if (btn) {
+                    if (isGeminiSendButtonDisabled(btn)) return false;
+                    try {
+                        return !!Utils?.events?.simulateClick?.(btn, { nativeFallback: true });
+                    } catch {}
+                    try { btn.click(); return true; } catch {}
+                    return false;
+                }
+
+                return simulateKeystroke("ENTER", { target: composer });
+            }
+
+            return Object.freeze({
+                attachImages: attachImagesToComposer,
+                waitForReadyToSend: waitForGeminiReadyToSend,
+                sendMessage: sendGeminiMessage
+            });
+        }
+
+        return Object.freeze({
+            createController,
+            adapters: Object.freeze({
+                createGeminiAdapter
+            }),
+            storage: Object.freeze({
+                safeGet: safeStoreGet,
+                safeSet: safeStoreSet
+            }),
+            dom: Object.freeze({
+                clampInt,
+                normalizeHotkeyString,
+                normalizeHotkeyFallback,
+                getKeyEventProps,
+                simulateKeystroke,
+                isElementVisible,
+                pickBestComposerCandidate,
+                findComposerElement,
+                focusComposer,
+                setInputValue,
+                clearInputValue,
+                dispatchPasteEvent,
+                dispatchBeforeInputFromPaste,
+                dispatchInputFromPaste,
+                dispatchDragEvent,
+                collectFileInputs,
+                collectFileInputsFromOpenShadows,
+                trySetFileInputFiles
+            }),
+            engine: Object.freeze({
+                executeShortcutByHotkey: executeEngineShortcutByHotkey
+            })
+        });
+    })();
+/* -------------------------------------------------------------------------- *
  * Module 99 · Global export (ShortcutTemplate)
  * -------------------------------------------------------------------------- */
 
@@ -6414,7 +9287,8 @@
         VERSION: TEMPLATE_VERSION,
         URL_METHODS,
         createShortcutEngine,
-        utils: Utils
+        utils: Utils,
+        quickInput: QuickInput
     });
 
 })(typeof window !== 'undefined' ? window : this);
