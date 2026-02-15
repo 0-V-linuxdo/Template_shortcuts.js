@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260215] v1.1.0
+// @name         [Template] 快捷键跳转 [20260215] v1.1.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260215] v1.1.0
-// @update-log   1.1.0: 新增用户提交图标后自动生成并缓存 SVG 普通/黑暗模式适配图标（不改写原图标）
+// @version      [20260215] v1.1.1
+// @update-log   1.1.1: 修复 SVG 主题适配导致 currentColor 图标线条变粗的问题，并升级主题适配缓存版本以强制重建
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -2828,6 +2828,7 @@
             const memoryCache = enableMemoryCache ? new Map() : null; // url -> string | null (null = checked, no cached value)
             const inflightFetches = new Map(); // url -> callbacks[]
             const themeStoreKeyBase = String(opts?.storageKeys?.iconThemeAdapted || "").trim();
+            const themeStoreSchemaVersion = 2;
             const themeAdaptEnabled = themeAdaptOptions.enabled !== false;
             const themeStoreEnabled = !!themeStoreKeyBase;
             const themeLightFillColor = (typeof normalizeSvgCssColorToken === "function")
@@ -2962,7 +2963,7 @@
 
             function getThemeStoreKey(source) {
                 if (!themeStoreEnabled) return "";
-                return `${themeStoreKeyBase}::${hashString(source)}`;
+                return `${themeStoreKeyBase}::v${themeStoreSchemaVersion}::${hashString(source)}`;
             }
 
             function getCachedThemeAdaptiveIconDataURL(source) {
@@ -3205,8 +3206,22 @@
                     : mergeClassNames(root.getAttribute("class"), themeRootClassName);
                 if (themeRootClass) root.setAttribute("class", themeRootClass);
 
+                const rootFill = root.getAttribute("fill");
+                if (rootFill !== null && isConvertiblePaintValue(rootFill)) {
+                    root.setAttribute("fill", "currentColor");
+                }
+                const rootStroke = root.getAttribute("stroke");
+                if (rootStroke !== null && isConvertiblePaintValue(rootStroke)) {
+                    root.setAttribute("stroke", "currentColor");
+                }
+                if (root.hasAttribute("style")) {
+                    const nextRootStyle = normalizeSvgInlineStyleColor(root.getAttribute("style"));
+                    if (nextRootStyle) root.setAttribute("style", nextRootStyle);
+                    else root.removeAttribute("style");
+                }
+
                 const styleEl = doc.createElementNS(root.namespaceURI || "http://www.w3.org/2000/svg", "style");
-                styleEl.textContent = `.${themeRootClassName}{color:${themeLightFillColor};fill:${themeLightFillColor};stroke:${themeLightFillColor};}@media (prefers-color-scheme: dark){.${themeRootClassName}{color:${themeDarkFillColor};fill:${themeDarkFillColor};stroke:${themeDarkFillColor};}}`;
+                styleEl.textContent = `.${themeRootClassName}{color:${themeLightFillColor};}@media (prefers-color-scheme: dark){.${themeRootClassName}{color:${themeDarkFillColor};}}`;
                 root.insertBefore(styleEl, root.firstChild || null);
 
                 const autoFillTags = new Set(["path", "circle", "rect", "ellipse", "line", "polyline", "polygon", "text"]);
