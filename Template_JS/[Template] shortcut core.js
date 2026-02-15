@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260215] v1.0.1
+// @name         [Template] 快捷键跳转 [20260215] v1.1.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260215] v1.0.1
-// @update-log   1.0.1: 新增 buildThemeAdaptivePathsIconDataUrl / buildThemeAdaptivePathIconDataUrl，支持由 core 统一处理 SVG 亮/暗模式填充适配
+// @version      [20260215] v1.1.0
+// @update-log   1.1.0: 新增用户提交图标后自动生成并缓存 SVG 普通/黑暗模式适配图标（不改写原图标）
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -48,7 +48,8 @@
             shortcuts: 'shortcut_engine_shortcuts_v1',
             iconCachePrefix: 'shortcut_engine_icon_cache_v1::',
             userIcons: 'shortcut_engine_user_icons_v1',
-            uiPrefs: ''
+            uiPrefs: '',
+            iconThemeAdapted: ''
         },
         ui: {
             idPrefix: 'shortcut',
@@ -73,6 +74,11 @@
             enableMemoryCache: true,
             memoryMaxEntries: 200,
             maxDataUrlChars: 180000
+        },
+        iconThemeAdapt: {
+            enabled: true,
+            lightFillColor: '#111827',
+            darkFillColor: '#F8FAFC'
         },
         resolveUrlTemplate: null,
         getCurrentSearchTerm: null,
@@ -2046,13 +2052,18 @@
         const cssPrefix = options.ui.cssPrefix || idPrefix;
         const storageKeys = options.storageKeys && typeof options.storageKeys === "object" ? options.storageKeys : {};
         const rawUiPrefsKey = userOptions?.storageKeys?.uiPrefs;
+        const rawIconThemeAdaptedKey = userOptions?.storageKeys?.iconThemeAdapted;
         const fallbackUiPrefsKeyBase = (typeof storageKeys.shortcuts === "string" && storageKeys.shortcuts.trim())
             ? storageKeys.shortcuts.trim()
             : idPrefix;
         const fallbackUiPrefsKey = `${fallbackUiPrefsKeyBase}::uiPrefs_v1`;
+        const fallbackIconThemeAdaptedKey = `${fallbackUiPrefsKeyBase}::iconThemeAdapted_v1`;
         storageKeys.uiPrefs = (typeof rawUiPrefsKey === "string" && rawUiPrefsKey.trim())
             ? rawUiPrefsKey.trim()
             : fallbackUiPrefsKey;
+        storageKeys.iconThemeAdapted = (typeof rawIconThemeAdaptedKey === "string" && rawIconThemeAdaptedKey.trim())
+            ? rawIconThemeAdaptedKey.trim()
+            : fallbackIconThemeAdaptedKey;
         options.storageKeys = storageKeys;
 
         const ids = {
@@ -2410,6 +2421,7 @@
             URL_METHODS,
             getUrlMethodDisplayText: builtinActions.getUrlMethodDisplayText,
             setIconImage: iconManager.setIconImage,
+            ensureThemeAdaptiveIconStored: iconManager.ensureThemeAdaptiveIconStored,
             setTrustedHTML: Utils?.dom?.setTrustedHTML,
             panelFilter: Object.freeze({
                 normalizeActionType: panelNormalizeActionType,
@@ -2805,6 +2817,7 @@
         } = {}) {
             const opts = options && typeof options === "object" ? options : {};
             const cacheOptions = (opts.iconCache && typeof opts.iconCache === "object") ? opts.iconCache : {};
+            const themeAdaptOptions = (opts.iconThemeAdapt && typeof opts.iconThemeAdapt === "object") ? opts.iconThemeAdapt : {};
             const enableMemoryCache = cacheOptions.enableMemoryCache !== false;
             const memoryMaxEntries = Number.isFinite(Number(cacheOptions.memoryMaxEntries))
                 ? Math.max(0, Number(cacheOptions.memoryMaxEntries))
@@ -2814,6 +2827,17 @@
                 : 180000;
             const memoryCache = enableMemoryCache ? new Map() : null; // url -> string | null (null = checked, no cached value)
             const inflightFetches = new Map(); // url -> callbacks[]
+            const themeStoreKeyBase = String(opts?.storageKeys?.iconThemeAdapted || "").trim();
+            const themeAdaptEnabled = themeAdaptOptions.enabled !== false;
+            const themeStoreEnabled = !!themeStoreKeyBase;
+            const themeLightFillColor = (typeof normalizeSvgCssColorToken === "function")
+                ? normalizeSvgCssColorToken(themeAdaptOptions.lightFillColor, "#111827")
+                : (String(themeAdaptOptions.lightFillColor || "").trim() || "#111827");
+            const themeDarkFillColor = (typeof normalizeSvgCssColorToken === "function")
+                ? normalizeSvgCssColorToken(themeAdaptOptions.darkFillColor, "#F8FAFC")
+                : (String(themeAdaptOptions.darkFillColor || "").trim() || "#F8FAFC");
+            const themeMemoryCache = enableMemoryCache ? new Map() : null; // key -> { source, adapted } | null
+            const inflightThemeBuilds = new Map(); // source -> callbacks[]
 
             function getDefaultIconURL() {
                 if (opts.defaultIconURL) return opts.defaultIconURL;
@@ -2828,6 +2852,16 @@
                 if (memoryMaxEntries > 0 && memoryCache.size > memoryMaxEntries) {
                     const firstKey = memoryCache.keys().next().value;
                     if (firstKey) memoryCache.delete(firstKey);
+                }
+            }
+
+            function rememberThemeMemoryCache(key, value) {
+                if (!themeMemoryCache || !key) return;
+                if (themeMemoryCache.has(key)) themeMemoryCache.delete(key);
+                themeMemoryCache.set(key, value);
+                if (memoryMaxEntries > 0 && themeMemoryCache.size > memoryMaxEntries) {
+                    const firstKey = themeMemoryCache.keys().next().value;
+                    if (firstKey) themeMemoryCache.delete(firstKey);
                 }
             }
 
@@ -2917,40 +2951,437 @@
                 return false;
             }
 
-            function setIconImage(imgEl, iconUrl) {
-                const fallback = getDefaultIconURL();
-                if (!imgEl) return;
-                if (!iconUrl) {
-                    imgEl.src = fallback;
+            function hashString(input) {
+                const text = String(input || "");
+                let hash = 5381;
+                for (let i = 0; i < text.length; i++) {
+                    hash = ((hash << 5) + hash + text.charCodeAt(i)) >>> 0;
+                }
+                return `${text.length}_${hash.toString(16)}`;
+            }
+
+            function getThemeStoreKey(source) {
+                if (!themeStoreEnabled) return "";
+                return `${themeStoreKeyBase}::${hashString(source)}`;
+            }
+
+            function getCachedThemeAdaptiveIconDataURL(source) {
+                const input = String(source || "").trim();
+                if (!input || !themeStoreEnabled) return "";
+                const key = getThemeStoreKey(input);
+                if (!key) return "";
+
+                if (themeMemoryCache && themeMemoryCache.has(key)) {
+                    const memoryVal = themeMemoryCache.get(key);
+                    if (!memoryVal) return "";
+                    if (memoryVal && memoryVal.source === input && typeof memoryVal.adapted === "string") {
+                        return memoryVal.adapted;
+                    }
+                    return "";
+                }
+
+                let stored = null;
+                try {
+                    stored = safeGMGet(key, null);
+                } catch {
+                    stored = null;
+                }
+                if (
+                    stored &&
+                    typeof stored === "object" &&
+                    !Array.isArray(stored) &&
+                    stored.source === input &&
+                    typeof stored.adapted === "string" &&
+                    stored.adapted
+                ) {
+                    if (themeMemoryCache) rememberThemeMemoryCache(key, { source: input, adapted: stored.adapted });
+                    return stored.adapted;
+                }
+
+                if (themeMemoryCache) rememberThemeMemoryCache(key, null);
+                return "";
+            }
+
+            function saveThemeAdaptiveIconDataURL(source, adaptedDataURL) {
+                const input = String(source || "").trim();
+                const dataURL = String(adaptedDataURL || "").trim();
+                if (!input || !dataURL || !themeStoreEnabled) return;
+                if (maxDataUrlChars > 0 && dataURL.length > maxDataUrlChars) return;
+                const key = getThemeStoreKey(input);
+                if (!key) return;
+                const payload = {
+                    source: input,
+                    adapted: dataURL,
+                    savedAt: Date.now()
+                };
+                if (themeMemoryCache) rememberThemeMemoryCache(key, { source: input, adapted: dataURL });
+                try {
+                    safeGMSet(key, payload);
+                } catch {}
+            }
+
+            function isLikelySvgUrl(value) {
+                const url = String(value || "").trim();
+                if (!url) return false;
+                return /\.(svg)(\?|#|$)/i.test(url);
+            }
+
+            function decodeBase64Utf8(base64Payload) {
+                const payload = String(base64Payload || "").replace(/\s+/g, "");
+                if (!payload) return "";
+                try {
+                    const binary = atob(payload);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    if (typeof TextDecoder === "function") {
+                        return new TextDecoder("utf-8").decode(bytes);
+                    }
+                    let escaped = "";
+                    for (let i = 0; i < bytes.length; i++) {
+                        escaped += `%${bytes[i].toString(16).padStart(2, "0")}`;
+                    }
+                    return decodeURIComponent(escaped);
+                } catch {
+                    return "";
+                }
+            }
+
+            function decodeSvgDataUrl(dataUrl) {
+                const raw = String(dataUrl || "").trim();
+                if (!raw) return "";
+                const match = raw.match(/^data:image\/svg\+xml(?:;([^,]*))?,([\s\S]*)$/i);
+                if (!match) return "";
+                const meta = String(match[1] || "").toLowerCase();
+                const isBase64 = /(?:^|;)base64(?:;|$)/i.test(meta);
+                const payload = match[2] || "";
+                if (isBase64) return decodeBase64Utf8(payload);
+                try {
+                    return decodeURIComponent(payload);
+                } catch {
+                    return payload;
+                }
+            }
+
+            function fetchSvgText(url, cb) {
+                if (!GMX) {
+                    cb("");
                     return;
                 }
-                if (iconUrl.startsWith("data:") || iconUrl.startsWith("blob:")) {
-                    imgEl.src = iconUrl;
+                GMX({
+                    method: "GET",
+                    url,
+                    onload: function(resp) {
+                        const status = Number(resp?.status || 0);
+                        if (!(status >= 200 && status < 400)) {
+                            cb("");
+                            return;
+                        }
+                        const text = String(resp?.responseText || "").trim();
+                        if (!text) {
+                            cb("");
+                            return;
+                        }
+                        const headers = String(resp?.responseHeaders || "").toLowerCase();
+                        const match = headers.match(/content-type:\s*([^\r\n;]+)/i);
+                        const contentType = match && match[1] ? match[1].trim().toLowerCase() : "";
+                        const isSvgContent = contentType.includes("image/svg+xml") || /<svg[\s>]/i.test(text);
+                        cb(isSvgContent ? text : "");
+                    },
+                    onerror: function() {
+                        cb("");
+                    }
+                });
+            }
+
+            function resolveSvgSource(iconSource, cb) {
+                const source = String(iconSource || "").trim();
+                if (!source) {
+                    cb("");
                     return;
                 }
 
-                if (shouldBypassIconCache(iconUrl)) {
-                    imgEl.src = iconUrl;
+                if (/^<svg[\s>]/i.test(source)) {
+                    cb(source);
+                    return;
+                }
+
+                if (source.startsWith("data:")) {
+                    if (!/^data:image\/svg\+xml/i.test(source)) {
+                        cb("");
+                        return;
+                    }
+                    cb(decodeSvgDataUrl(source));
+                    return;
+                }
+
+                if (source.startsWith("blob:")) {
+                    cb("");
+                    return;
+                }
+
+                if (!isLikelySvgUrl(source)) {
+                    cb("");
+                    return;
+                }
+
+                fetchSvgText(source, cb);
+            }
+
+            function mergeClassNames(baseClassName, appendClassName) {
+                const tokens = `${String(baseClassName || "")} ${String(appendClassName || "")}`
+                    .split(/\s+/)
+                    .map((part) => String(part || "").trim())
+                    .filter(Boolean);
+                if (tokens.length === 0) return "";
+                return Array.from(new Set(tokens)).join(" ");
+            }
+
+            function isConvertiblePaintValue(rawValue) {
+                const value = String(rawValue || "").trim();
+                if (!value) return false;
+                if (/^none$/i.test(value)) return false;
+                if (/^url\s*\(/i.test(value)) return false;
+                if (/^var\s*\(/i.test(value)) return false;
+                if (/^context-(?:fill|stroke)$/i.test(value)) return false;
+                if (/^(?:inherit|initial|unset)$/i.test(value)) return false;
+                return true;
+            }
+
+            function normalizeSvgInlineStyleColor(styleText) {
+                const raw = String(styleText || "").trim();
+                if (!raw) return "";
+                const declarations = raw.split(";");
+                const normalized = [];
+                for (const declarationRaw of declarations) {
+                    const declaration = String(declarationRaw || "").trim();
+                    if (!declaration) continue;
+                    const separatorIndex = declaration.indexOf(":");
+                    if (separatorIndex <= 0) continue;
+                    const name = declaration.slice(0, separatorIndex).trim().toLowerCase();
+                    const value = declaration.slice(separatorIndex + 1).trim();
+                    if (!name || !value) continue;
+
+                    if ((name === "fill" || name === "stroke") && isConvertiblePaintValue(value)) {
+                        normalized.push(`${name}:currentColor`);
+                    } else {
+                        normalized.push(`${name}:${value}`);
+                    }
+                }
+                return normalized.join(";");
+            }
+
+            function buildThemeAdaptiveSvgDataUrl(svgText) {
+                const source = String(svgText || "").trim();
+                if (!source) return "";
+
+                if (/prefers-color-scheme\s*:\s*dark/i.test(source)) {
+                    return `data:image/svg+xml,${encodeURIComponent(source)}`;
+                }
+
+                const DOMParserCtor = global.DOMParser;
+                const XMLSerializerCtor = global.XMLSerializer;
+                if (typeof DOMParserCtor !== "function" || typeof XMLSerializerCtor !== "function") {
+                    return "";
+                }
+
+                let doc = null;
+                try {
+                    doc = new DOMParserCtor().parseFromString(source, "image/svg+xml");
+                } catch {
+                    doc = null;
+                }
+                if (!doc || doc.querySelector("parsererror")) return "";
+
+                const root = doc.documentElement;
+                if (!root || String(root.tagName || "").toLowerCase() !== "svg") return "";
+
+                if (!root.getAttribute("xmlns")) {
+                    root.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+                }
+
+                const themeRootClassName = "st-theme-auto";
+                const themeRootClass = (typeof mergeSvgClassNames === "function")
+                    ? mergeSvgClassNames(root.getAttribute("class"), themeRootClassName)
+                    : mergeClassNames(root.getAttribute("class"), themeRootClassName);
+                if (themeRootClass) root.setAttribute("class", themeRootClass);
+
+                const styleEl = doc.createElementNS(root.namespaceURI || "http://www.w3.org/2000/svg", "style");
+                styleEl.textContent = `.${themeRootClassName}{color:${themeLightFillColor};fill:${themeLightFillColor};stroke:${themeLightFillColor};}@media (prefers-color-scheme: dark){.${themeRootClassName}{color:${themeDarkFillColor};fill:${themeDarkFillColor};stroke:${themeDarkFillColor};}}`;
+                root.insertBefore(styleEl, root.firstChild || null);
+
+                const autoFillTags = new Set(["path", "circle", "rect", "ellipse", "line", "polyline", "polygon", "text"]);
+                const skipTags = new Set([
+                    "defs", "clippath", "mask",
+                    "lineargradient", "radialgradient", "stop",
+                    "pattern", "filter", "image", "foreignobject",
+                    "style", "script", "metadata", "title", "desc",
+                    "symbol", "use"
+                ]);
+
+                const nodes = Array.from(root.querySelectorAll("*"));
+                for (const node of nodes) {
+                    const tag = String(node.tagName || "").toLowerCase();
+                    if (!tag || skipTags.has(tag)) continue;
+                    let blockedByAncestor = false;
+                    try {
+                        const ancestor = node.closest("defs,clipPath,mask,linearGradient,radialGradient,pattern,filter,symbol");
+                        blockedByAncestor = !!ancestor && ancestor !== node;
+                    } catch {}
+                    if (blockedByAncestor) continue;
+
+                    const fill = node.getAttribute("fill");
+                    if (fill !== null && isConvertiblePaintValue(fill)) {
+                        node.setAttribute("fill", "currentColor");
+                    }
+                    const stroke = node.getAttribute("stroke");
+                    if (stroke !== null && isConvertiblePaintValue(stroke)) {
+                        node.setAttribute("stroke", "currentColor");
+                    }
+
+                    if (node.hasAttribute("style")) {
+                        const nextStyle = normalizeSvgInlineStyleColor(node.getAttribute("style"));
+                        if (nextStyle) node.setAttribute("style", nextStyle);
+                        else node.removeAttribute("style");
+                    }
+
+                    const hasPaintAttr = node.hasAttribute("fill") || node.hasAttribute("stroke");
+                    if (!hasPaintAttr && autoFillTags.has(tag)) {
+                        node.setAttribute("fill", "currentColor");
+                    }
+                }
+
+                let markup = "";
+                try {
+                    markup = new XMLSerializerCtor().serializeToString(root);
+                } catch {
+                    markup = "";
+                }
+                if (!markup) return "";
+                return `data:image/svg+xml,${encodeURIComponent(markup)}`;
+            }
+
+            function ensureThemeAdaptiveIconStored(iconSource, cb = null) {
+                const source = String(iconSource || "").trim();
+                const callback = (typeof cb === "function") ? cb : null;
+
+                if (!source || !themeAdaptEnabled) {
+                    if (callback) callback("");
+                    return;
+                }
+
+                const cached = getCachedThemeAdaptiveIconDataURL(source);
+                if (cached) {
+                    if (callback) callback(cached);
+                    return;
+                }
+
+                const pending = inflightThemeBuilds.get(source);
+                if (pending) {
+                    if (callback) pending.push(callback);
+                    return;
+                }
+
+                inflightThemeBuilds.set(source, callback ? [callback] : []);
+
+                resolveSvgSource(source, (svgText) => {
+                    const themedDataUrl = svgText ? buildThemeAdaptiveSvgDataUrl(svgText) : "";
+                    if (themedDataUrl) {
+                        saveThemeAdaptiveIconDataURL(source, themedDataUrl);
+                    } else if (themeMemoryCache && themeStoreEnabled) {
+                        rememberThemeMemoryCache(getThemeStoreKey(source), null);
+                    }
+
+                    const queue = inflightThemeBuilds.get(source) || [];
+                    inflightThemeBuilds.delete(source);
+                    queue.forEach((fn) => {
+                        try { fn(themedDataUrl); } catch {}
+                    });
+                });
+            }
+
+            function markImageSource(imgEl, source) {
+                if (!imgEl) return;
+                const marker = String(source || "");
+                try {
+                    imgEl.dataset.stIconSource = marker;
+                    return;
+                } catch {}
+                try {
+                    imgEl.__stIconSource = marker;
+                } catch {}
+            }
+
+            function isImageSourceCurrent(imgEl, source) {
+                if (!imgEl) return false;
+                const marker = String(source || "");
+                try {
+                    if (imgEl.dataset && imgEl.dataset.stIconSource === marker) return true;
+                } catch {}
+                try {
+                    return imgEl.__stIconSource === marker;
+                } catch {
+                    return false;
+                }
+            }
+
+            function setIconImage(imgEl, iconUrl) {
+                const fallback = getDefaultIconURL();
+                if (!imgEl) return;
+                const source = String(iconUrl || "").trim();
+                markImageSource(imgEl, source);
+
+                if (!source) {
+                    imgEl.src = fallback;
+                    return;
+                }
+
+                const cachedThemeIcon = getCachedThemeAdaptiveIconDataURL(source);
+                if (cachedThemeIcon) {
+                    imgEl.src = cachedThemeIcon;
+                    return;
+                }
+
+                if (source.startsWith("data:") || source.startsWith("blob:")) {
+                    imgEl.src = source;
+                    if (!source.startsWith("blob:")) {
+                        ensureThemeAdaptiveIconStored(source, (themedDataUrl) => {
+                            if (!themedDataUrl || !isImageSourceCurrent(imgEl, source)) return;
+                            imgEl.src = themedDataUrl;
+                        });
+                    }
+                    return;
+                }
+
+                if (shouldBypassIconCache(source)) {
+                    imgEl.src = source;
                     imgEl.onerror = () => {
                         imgEl.onerror = null;
                         imgEl.src = fallback;
                     };
+                    ensureThemeAdaptiveIconStored(source, (themedDataUrl) => {
+                        if (!themedDataUrl || !isImageSourceCurrent(imgEl, source)) return;
+                        imgEl.src = themedDataUrl;
+                    });
                     return;
                 }
 
-                const cached = getCachedIconDataURL(iconUrl);
+                const cached = getCachedIconDataURL(source);
                 if (cached) {
                     imgEl.src = cached;
+                    ensureThemeAdaptiveIconStored(source, (themedDataUrl) => {
+                        if (!themedDataUrl || !isImageSourceCurrent(imgEl, source)) return;
+                        imgEl.src = themedDataUrl;
+                    });
                     return;
                 }
 
-                imgEl.src = iconUrl;
+                imgEl.src = source;
 
                 const onErr = () => {
                     imgEl.removeEventListener('error', onErr);
-                    fetchIconAsDataURLOnce(iconUrl, (dataURL) => {
+                    fetchIconAsDataURLOnce(source, (dataURL) => {
                         if (dataURL) {
-                            saveCachedIconDataURL(iconUrl, dataURL);
+                            saveCachedIconDataURL(source, dataURL);
                             imgEl.src = dataURL;
                         } else {
                             imgEl.src = fallback;
@@ -2958,10 +3389,16 @@
                     });
                 };
                 imgEl.addEventListener('error', onErr, { once: true });
+
+                ensureThemeAdaptiveIconStored(source, (themedDataUrl) => {
+                    if (!themedDataUrl || !isImageSourceCurrent(imgEl, source)) return;
+                    imgEl.src = themedDataUrl;
+                });
             }
 
             return Object.freeze({
-                setIconImage
+                setIconImage,
+                ensureThemeAdaptiveIconStored
             });
         }
 /* -------------------------------------------------------------------------- *
@@ -5250,6 +5687,7 @@
                 ids,
                 URL_METHODS,
                 setIconImage,
+                ensureThemeAdaptiveIconStored,
                 debounce,
             } = ctx;
             const { theme, colors, style, dialogs, layout } = uiShared;
@@ -5700,6 +6138,9 @@
                 }
 
                 const normalized = core.normalizeShortcut(temp);
+                if (normalized.icon && typeof ensureThemeAdaptiveIconStored === "function") {
+                    ensureThemeAdaptiveIconStored(normalized.icon);
+                }
                 core.mutateShortcuts((list) => {
                     if (isNew) {
                         list.push(normalized);
@@ -6069,7 +6510,7 @@
         }
 
 	        function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg) {
-            const { options, uiShared, state, safeGMGet, safeGMSet, setIconImage } = ctx;
+            const { options, uiShared, state, safeGMGet, safeGMSet, setIconImage, ensureThemeAdaptiveIconStored } = ctx;
             const { theme, colors, dialogs } = uiShared;
             const { addThemeChangeListener, removeThemeChangeListener } = theme;
             const { getPrimaryColor, getInputBackgroundColor, getTextColor, getBorderColor, getHoverColor } = colors;
@@ -6149,6 +6590,9 @@
                     if (name && name.trim()) {
                         userIcons.push({ name: name.trim(), url: url });
                         safeGMSet(options.storageKeys.userIcons, userIcons);
+                        if (typeof ensureThemeAdaptiveIconStored === "function") {
+                            ensureThemeAdaptiveIconStored(url);
+                        }
                         renderIconGrid();
                     }
                 });
