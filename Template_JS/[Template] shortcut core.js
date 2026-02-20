@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260220] v1.0.0
+// @name         [Template] 快捷键跳转 [20260220] v1.1.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260220] v1.0.0
-// @update-log   1.0.0: QuickInput 循环间隔计时起点调整为本轮消息发送后
+// @version      [20260220] v1.1.0
+// @update-log   1.1.0: QuickInput 循环间隔日志固定显示配置值（计时仍以发送后为起点）
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9255,11 +9255,11 @@
                 const delayDeadline = (Number.isFinite(sendAt) ? sendAt : Date.now()) + delayMs;
                 const remainMs = Math.max(0, delayDeadline - Date.now());
 
-                if (remainMs > 0) {
+                if (delayMs > 0) {
                     const waitingMsg = labels.messages?.loopDelayBeforeNewChat
-                        ? labels.messages.loopDelayBeforeNewChat(remainMs)
+                        ? labels.messages.loopDelayBeforeNewChat(delayMs)
                         : (DEFAULT_LABELS.messages.loopDelayBeforeNewChat
-                            ? DEFAULT_LABELS.messages.loopDelayBeforeNewChat(remainMs)
+                            ? DEFAULT_LABELS.messages.loopDelayBeforeNewChat(delayMs)
                             : "");
                     if (waitingMsg) appendLog(waitingMsg);
                 }
