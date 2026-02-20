@@ -8098,6 +8098,7 @@
                 waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
                 uploadNotReady: "图片尚未上传完成：已取消发送，避免文字先发。",
                 sendAttempted: (ok) => (ok ? "已尝试发送（Enter/Send）。" : "发送失败。"),
+                loopDelayBeforeNewChat: (ms) => `循环间隔等待中：${ms} ms（发送后 → 新对话前）。`,
                 newChatTriggered: (hotkey, ok) => (ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`),
                 stopped: "已停止。",
                 finished: "完成。",
@@ -8230,6 +8231,21 @@
                 }
             } catch {}
             return true;
+        }
+
+        async function sleepWithCancel(totalMs, { shouldCancel = null, chunkMs = 160 } = {}) {
+            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            let remain = Math.max(0, Number(totalMs) || 0);
+            const chunk = Math.max(20, Number(chunkMs) || 160);
+
+            while (remain > 0) {
+                if (cancelFn && cancelFn()) return false;
+                const waitMs = Math.min(remain, chunk);
+                await sleep(waitMs);
+                remain -= waitMs;
+            }
+
+            return !(cancelFn && cancelFn());
         }
 
         function createController(userOptions = {}) {
@@ -9232,6 +9248,34 @@
                 if (clearBeforeRunEl) clearBeforeRunEl.checked = cfg.clearBeforeRun !== false;
             }
 
+            async function transitionToNextLoop({ loopDelayMs, newChatHotkey, shouldCancel, sendCompletedAtMs }) {
+                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+                const delayMs = Math.max(0, Number(loopDelayMs) || 0);
+                const sendAt = Number(sendCompletedAtMs);
+                const delayDeadline = (Number.isFinite(sendAt) ? sendAt : Date.now()) + delayMs;
+                const remainMs = Math.max(0, delayDeadline - Date.now());
+
+                if (remainMs > 0) {
+                    const waitingMsg = labels.messages?.loopDelayBeforeNewChat
+                        ? labels.messages.loopDelayBeforeNewChat(remainMs)
+                        : (DEFAULT_LABELS.messages.loopDelayBeforeNewChat
+                            ? DEFAULT_LABELS.messages.loopDelayBeforeNewChat(remainMs)
+                            : "");
+                    if (waitingMsg) appendLog(waitingMsg);
+                }
+
+                const waitOk = await sleepWithCancel(remainMs, { shouldCancel: cancelFn, chunkMs: 160 });
+                if (!waitOk) return { cancelled: true, okNewChat: false };
+
+                const okNewChat = await executeEngineShortcutByHotkey(engine, newChatHotkey);
+                const newChatMsg = labels.messages?.newChatTriggered
+                    ? labels.messages.newChatTriggered(newChatHotkey, okNewChat)
+                    : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, okNewChat);
+                appendLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
+
+                return { cancelled: !!(cancelFn && cancelFn()), okNewChat };
+            }
+
             async function runMacro() {
                 if (running) return;
                 cancelRun = false;
@@ -9372,24 +9416,20 @@
 
                     if (cancelRun) break;
                     const okSend = await adapter.sendMessage(composer);
+                    const sendCompletedAtMs = Date.now();
                     const sendMsg = labels.messages?.sendAttempted
                         ? labels.messages.sendAttempted(okSend)
                         : DEFAULT_LABELS.messages.sendAttempted(okSend);
                     appendLog(sendMsg, { level: okSend ? "ok" : "error" });
 
                     if (i < cfg.loopCount - 1) {
-                        const loopDelayStartMs = Date.now();
-                        if (cancelRun) break;
-                        await sleep(cfg.stepDelayMs);
-                        if (cancelRun) break;
-                        const okNewChat = await executeEngineShortcutByHotkey(engine, newChatHotkey);
-                        const newChatMsg = labels.messages?.newChatTriggered
-                            ? labels.messages.newChatTriggered(newChatHotkey, okNewChat)
-                            : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, okNewChat);
-                        appendLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
-                        const elapsed = Date.now() - loopDelayStartMs;
-                        const remainDelay = cfg.loopDelayMs - elapsed;
-                        if (remainDelay > 0) await sleep(remainDelay);
+                        const transition = await transitionToNextLoop({
+                            loopDelayMs: cfg.loopDelayMs,
+                            newChatHotkey,
+                            shouldCancel,
+                            sendCompletedAtMs
+                        });
+                        if (transition.cancelled) break;
                     }
                 }
 
