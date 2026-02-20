@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260215] v1.1.1
+// @name         [Template] 快捷键跳转 [20260220] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260215] v1.1.1
-// @update-log   1.1.1: 修复 SVG 主题适配导致 currentColor 图标线条变粗的问题，并升级主题适配缓存版本以强制重建
+// @version      [20260220] v1.0.0
+// @update-log   1.0.0: QuickInput 循环间隔计时起点调整为本轮消息发送后
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -38,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20260215";
+    const TEMPLATE_VERSION = "20260220";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -2828,7 +2828,6 @@
             const memoryCache = enableMemoryCache ? new Map() : null; // url -> string | null (null = checked, no cached value)
             const inflightFetches = new Map(); // url -> callbacks[]
             const themeStoreKeyBase = String(opts?.storageKeys?.iconThemeAdapted || "").trim();
-            const themeStoreSchemaVersion = 2;
             const themeAdaptEnabled = themeAdaptOptions.enabled !== false;
             const themeStoreEnabled = !!themeStoreKeyBase;
             const themeLightFillColor = (typeof normalizeSvgCssColorToken === "function")
@@ -2963,7 +2962,7 @@
 
             function getThemeStoreKey(source) {
                 if (!themeStoreEnabled) return "";
-                return `${themeStoreKeyBase}::v${themeStoreSchemaVersion}::${hashString(source)}`;
+                return `${themeStoreKeyBase}::${hashString(source)}`;
             }
 
             function getCachedThemeAdaptiveIconDataURL(source) {
@@ -3206,22 +3205,8 @@
                     : mergeClassNames(root.getAttribute("class"), themeRootClassName);
                 if (themeRootClass) root.setAttribute("class", themeRootClass);
 
-                const rootFill = root.getAttribute("fill");
-                if (rootFill !== null && isConvertiblePaintValue(rootFill)) {
-                    root.setAttribute("fill", "currentColor");
-                }
-                const rootStroke = root.getAttribute("stroke");
-                if (rootStroke !== null && isConvertiblePaintValue(rootStroke)) {
-                    root.setAttribute("stroke", "currentColor");
-                }
-                if (root.hasAttribute("style")) {
-                    const nextRootStyle = normalizeSvgInlineStyleColor(root.getAttribute("style"));
-                    if (nextRootStyle) root.setAttribute("style", nextRootStyle);
-                    else root.removeAttribute("style");
-                }
-
                 const styleEl = doc.createElementNS(root.namespaceURI || "http://www.w3.org/2000/svg", "style");
-                styleEl.textContent = `.${themeRootClassName}{color:${themeLightFillColor};}@media (prefers-color-scheme: dark){.${themeRootClassName}{color:${themeDarkFillColor};}}`;
+                styleEl.textContent = `.${themeRootClassName}{color:${themeLightFillColor};fill:${themeLightFillColor};stroke:${themeLightFillColor};}@media (prefers-color-scheme: dark){.${themeRootClassName}{color:${themeDarkFillColor};fill:${themeDarkFillColor};stroke:${themeDarkFillColor};}}`;
                 root.insertBefore(styleEl, root.firstChild || null);
 
                 const autoFillTags = new Set(["path", "circle", "rect", "ellipse", "line", "polyline", "polygon", "text"]);
@@ -9393,6 +9378,7 @@
                     appendLog(sendMsg, { level: okSend ? "ok" : "error" });
 
                     if (i < cfg.loopCount - 1) {
+                        const loopDelayStartMs = Date.now();
                         if (cancelRun) break;
                         await sleep(cfg.stepDelayMs);
                         if (cancelRun) break;
@@ -9401,7 +9387,9 @@
                             ? labels.messages.newChatTriggered(newChatHotkey, okNewChat)
                             : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, okNewChat);
                         appendLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
-                        await sleep(cfg.loopDelayMs);
+                        const elapsed = Date.now() - loopDelayStartMs;
+                        const remainDelay = cfg.loopDelayMs - elapsed;
+                        if (remainDelay > 0) await sleep(remainDelay);
                     }
                 }
 
