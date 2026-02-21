@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.2.2
+// @name         [Template] 快捷键跳转 [20260222] v1.2.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.2.2
-// @update-log   1.2.2: 修复设置面板运行时错误；黑暗模式图标URL存在时隐藏“图标自适应处理”开关，并修复黑暗模式图标预览显示。
+// @version      [20260222] v1.2.3
+// @update-log   1.2.3: 新增黑暗模式图标URL独立预览；优化图标预览逻辑，并在存在黑暗模式图标URL时隐藏“图标自适应处理”开关。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -6213,15 +6213,28 @@
                 input: iconTextarea,
                 darkInput: iconDarkTextarea,
                 preview: iconPreview,
+                darkPreview: iconDarkPreview,
                 destroy: destroyIconField
             } = iconField;
             iconPanel.appendChild(iconLabel);
 
-            setIconImage(iconPreview, temp.icon || "", temp.iconDark || "", temp.iconAdaptive);
-            const debouncedPreview = debounce(() => {
+            const refreshIconPreviews = () => {
                 const lightVal = iconTextarea.value.trim();
                 const darkVal = iconDarkTextarea.value.trim();
                 setIconImage(iconPreview, lightVal || "", darkVal || "", temp.iconAdaptive);
+                if (!iconDarkPreview) return;
+                if (darkVal) {
+                    iconDarkPreview.style.display = "block";
+                    setIconImage(iconDarkPreview, darkVal, "", false);
+                } else {
+                    iconDarkPreview.style.display = "none";
+                    iconDarkPreview.removeAttribute("src");
+                }
+            };
+
+            refreshIconPreviews();
+            const debouncedPreview = debounce(() => {
+                refreshIconPreviews();
             }, 300);
             iconTextarea.addEventListener("input", () => {
                 autoResizeTextarea(iconTextarea);
@@ -6318,7 +6331,7 @@
 
             const toggleIconAdaptiveEnabled = (nextChecked = !temp.iconAdaptive) => {
                 temp.iconAdaptive = !!nextChecked;
-                setIconImage(iconPreview, iconTextarea.value.trim(), iconDarkTextarea.value.trim(), temp.iconAdaptive);
+                refreshIconPreviews();
                 if (typeof renderShortcutsList === "function") renderShortcutsList(state.isDarkMode);
                 applyIconAdaptiveSwitchVisual(state.isDarkMode);
             };
@@ -6841,8 +6854,27 @@
                 boxSizing: "border-box"
             });
 
+            const previewColumn = document.createElement("div");
+            Object.assign(previewColumn.style, {
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "8px",
+                flexShrink: "0"
+            });
+
             const preview = document.createElement("img");
             Object.assign(preview.style, { width: "36px", height: "36px", objectFit: "contain", borderRadius: "4px", flexShrink: "0" });
+
+            const darkPreview = document.createElement("img");
+            Object.assign(darkPreview.style, {
+                width: "36px",
+                height: "36px",
+                objectFit: "contain",
+                borderRadius: "4px",
+                flexShrink: "0",
+                display: "none"
+            });
 
             requestAnimationFrame(() => autoResizeTextarea(textarea));
             requestAnimationFrame(() => autoResizeTextarea(darkTextarea));
@@ -6850,12 +6882,16 @@
             inputsColumn.appendChild(darkLabel);
             inputsColumn.appendChild(darkTextarea);
             wrap.appendChild(inputsColumn);
-            wrap.appendChild(preview);
+            previewColumn.appendChild(preview);
+            previewColumn.appendChild(darkPreview);
+            wrap.appendChild(previewColumn);
             label.appendChild(wrap);
 
             const updatePreviewTheme = (isDark) => {
                 preview.style.border = `1px solid ${getBorderColor(isDark)}`;
                 preview.style.backgroundColor = getInputBackgroundColor(isDark);
+                darkPreview.style.border = `1px solid ${getBorderColor(isDark)}`;
+                darkPreview.style.backgroundColor = getInputBackgroundColor(isDark);
             };
             addThemeChangeListener(updatePreviewTheme);
             updatePreviewTheme(state.isDarkMode);
@@ -6864,7 +6900,7 @@
                 removeThemeChangeListener(updatePreviewTheme);
             };
 
-            return { label, input: textarea, darkInput: darkTextarea, preview, destroy };
+            return { label, input: textarea, darkInput: darkTextarea, preview, darkPreview, destroy };
         }
 
         function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, targetDarkTextarea = null, getAdaptiveEnabled = null) {
