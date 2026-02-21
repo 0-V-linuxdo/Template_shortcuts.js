@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.2.1
+// @name         [Template] 快捷键跳转 [20260222] v1.2.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.2.1
-// @update-log   1.2.1: 修复设置面板无法弹出的运行时错误（图标模块布尔解析函数作用域问题），并稳固图标自适应按快捷键独立配置逻辑。
+// @version      [20260222] v1.2.2
+// @update-log   1.2.2: 修复设置面板运行时错误；黑暗模式图标URL存在时隐藏“图标自适应处理”开关，并修复黑暗模式图标预览显示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -3369,7 +3369,7 @@
                 if (!imgEl) return;
                 const lightSource = String(iconUrl || "").trim();
                 const darkSource = String(iconDarkUrl || "").trim();
-                const source = (darkSource && isDarkModeNow()) ? darkSource : lightSource;
+                const source = (darkSource && (isDarkModeNow() || !lightSource)) ? darkSource : lightSource;
                 const shouldUseThemeAdapt = themeAdaptEnabled && normalizeLocalBoolean(iconAdaptive, false) && !darkSource;
                 const sourceMarker = `${source}::ta=${shouldUseThemeAdapt ? "1" : "0"}`;
                 markImageSource(imgEl, sourceMarker);
@@ -6229,6 +6229,7 @@
             });
             iconDarkTextarea.addEventListener("input", () => {
                 autoResizeTextarea(iconDarkTextarea);
+                refreshIconAdaptiveVisibility();
                 debouncedPreview();
             });
 
@@ -6310,6 +6311,11 @@
                 iconAdaptiveThumb.style.backgroundColor = "#ffffff";
             };
 
+            const refreshIconAdaptiveVisibility = () => {
+                const hasDarkIcon = !!String(iconDarkTextarea.value || "").trim();
+                iconAdaptiveRow.style.display = hasDarkIcon ? "none" : "flex";
+            };
+
             const toggleIconAdaptiveEnabled = (nextChecked = !temp.iconAdaptive) => {
                 temp.iconAdaptive = !!nextChecked;
                 setIconImage(iconPreview, iconTextarea.value.trim(), iconDarkTextarea.value.trim(), temp.iconAdaptive);
@@ -6335,6 +6341,7 @@
             iconAdaptiveRow.appendChild(iconAdaptiveTextWrap);
             iconAdaptiveRow.appendChild(iconAdaptiveSwitch);
             iconPanel.appendChild(iconAdaptiveRow);
+            refreshIconAdaptiveVisibility();
 
             const iconLibrary = panelCreateIconLibraryUI(
                 ctx,
