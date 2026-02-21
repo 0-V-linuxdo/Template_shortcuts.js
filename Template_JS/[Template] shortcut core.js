@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.2.4
+// @name         [Template] 快捷键跳转 [20260222] v1.2.5
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.2.4
-// @update-log   1.2.4: 调整图标预览布局，使黑暗模式预览与黑暗模式图标URL同排显示；修复黑暗模式预览错误使用亮色图标的问题。
+// @version      [20260222] v1.2.5
+// @update-log   1.2.5: 图标自适应处理开关仅在主图标为SVG且未设置黑暗模式图标URL时显示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -141,7 +141,7 @@
                 resetConfirm: '确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)',
                 confirmDeleteShortcut: '确定删除快捷键【{name}】吗?',
                 iconAdaptiveLabel: '图标自适应处理',
-                iconAdaptiveHint: '仅在未设置黑暗模式图标URL时生效',
+                iconAdaptiveHint: '仅在主图标为SVG且未设置黑暗模式图标URL时生效',
                 tableHeaders: {
                     icon: '图标',
                     name: '名称',
@@ -6238,6 +6238,7 @@
             }, 300);
             iconTextarea.addEventListener("input", () => {
                 autoResizeTextarea(iconTextarea);
+                refreshIconAdaptiveVisibility();
                 debouncedPreview();
             });
             iconDarkTextarea.addEventListener("input", () => {
@@ -6277,7 +6278,7 @@
             iconAdaptiveTextWrap.appendChild(iconAdaptiveLabel);
 
             const iconAdaptiveHint = document.createElement("div");
-            iconAdaptiveHint.textContent = options?.text?.panel?.iconAdaptiveHint || "仅在未设置黑暗模式图标URL时生效";
+            iconAdaptiveHint.textContent = options?.text?.panel?.iconAdaptiveHint || "仅在主图标为SVG且未设置黑暗模式图标URL时生效";
             Object.assign(iconAdaptiveHint.style, {
                 fontSize: "0.85em",
                 opacity: "0.75",
@@ -6324,9 +6325,19 @@
                 iconAdaptiveThumb.style.backgroundColor = "#ffffff";
             };
 
+            const isSvgLikeIconSource = (value) => {
+                const source = String(value || "").trim();
+                if (!source) return false;
+                if (/^<svg[\s>]/i.test(source)) return true;
+                if (/^data:image\/svg\+xml(?:;|,)/i.test(source)) return true;
+                if (/\.svg(?:[?#].*)?$/i.test(source)) return true;
+                return false;
+            };
+
             const refreshIconAdaptiveVisibility = () => {
+                const hasSvgMainIcon = isSvgLikeIconSource(iconTextarea.value);
                 const hasDarkIcon = !!String(iconDarkTextarea.value || "").trim();
-                iconAdaptiveRow.style.display = hasDarkIcon ? "none" : "flex";
+                iconAdaptiveRow.style.display = hasSvgMainIcon && !hasDarkIcon ? "flex" : "none";
             };
 
             const toggleIconAdaptiveEnabled = (nextChecked = !temp.iconAdaptive) => {
