@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.2.5
+// @name         [Template] 快捷键跳转 [20260222] v1.3.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.2.5
-// @update-log   1.2.5: 图标自适应处理开关仅在主图标为SVG且未设置黑暗模式图标URL时显示。
+// @version      [20260222] v1.3.0
+// @update-log   1.3.0: 图标自适应处理提示改为鼠标悬浮提示，并优化该组件高度。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -6254,42 +6254,29 @@
                 justifyContent: "space-between",
                 gap: "12px",
                 marginTop: "8px",
-                marginBottom: "12px",
-                padding: "8px 10px",
+                marginBottom: "10px",
+                padding: "6px 10px",
                 border: "1px solid",
                 borderRadius: "6px"
             });
 
-            const iconAdaptiveTextWrap = document.createElement("div");
-            Object.assign(iconAdaptiveTextWrap.style, {
-                display: "flex",
-                flexDirection: "column",
-                gap: "2px",
-                minWidth: "0",
-                flex: "1 1 auto"
-            });
-
+            const iconAdaptiveHintText = options?.text?.panel?.iconAdaptiveHint || "仅在主图标为SVG且未设置黑暗模式图标URL时生效";
             const iconAdaptiveLabel = document.createElement("div");
             iconAdaptiveLabel.textContent = options?.text?.panel?.iconAdaptiveLabel || "图标自适应处理";
+            iconAdaptiveLabel.title = iconAdaptiveHintText;
             Object.assign(iconAdaptiveLabel.style, {
                 fontSize: "0.9em",
-                fontWeight: "bold"
+                fontWeight: "bold",
+                minWidth: "0",
+                flex: "1 1 auto",
+                cursor: "help"
             });
-            iconAdaptiveTextWrap.appendChild(iconAdaptiveLabel);
-
-            const iconAdaptiveHint = document.createElement("div");
-            iconAdaptiveHint.textContent = options?.text?.panel?.iconAdaptiveHint || "仅在主图标为SVG且未设置黑暗模式图标URL时生效";
-            Object.assign(iconAdaptiveHint.style, {
-                fontSize: "0.85em",
-                opacity: "0.75",
-                lineHeight: "1.3"
-            });
-            iconAdaptiveTextWrap.appendChild(iconAdaptiveHint);
 
             const iconAdaptiveSwitch = document.createElement("button");
             iconAdaptiveSwitch.type = "button";
             iconAdaptiveSwitch.setAttribute("role", "switch");
             iconAdaptiveSwitch.setAttribute("aria-label", options?.text?.panel?.iconAdaptiveLabel || "图标自适应处理");
+            iconAdaptiveSwitch.title = iconAdaptiveHintText;
             Object.assign(iconAdaptiveSwitch.style, {
                 width: "42px",
                 minWidth: "42px",
@@ -6362,7 +6349,7 @@
             });
             applyIconAdaptiveSwitchVisual(state.isDarkMode);
 
-            iconAdaptiveRow.appendChild(iconAdaptiveTextWrap);
+            iconAdaptiveRow.appendChild(iconAdaptiveLabel);
             iconAdaptiveRow.appendChild(iconAdaptiveSwitch);
             iconPanel.appendChild(iconAdaptiveRow);
             refreshIconAdaptiveVisibility();
@@ -6517,7 +6504,6 @@
                 iconAdaptiveRow.style.backgroundColor = getInputBackgroundColor(isDark);
                 iconAdaptiveRow.style.borderColor = getBorderColor(isDark);
                 iconAdaptiveLabel.style.color = getTextColor(isDark);
-                iconAdaptiveHint.style.color = getTextColor(isDark);
                 applyIconAdaptiveSwitchVisual(isDark);
                 styleInputField(dataTextarea, isDark);
                 actionTypeHint.style.color = getTextColor(isDark);
