@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.1.3
+// @name         [Template] 快捷键跳转 [20260222] v1.2.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.1.3
-// @update-log   1.1.3: 编辑快捷键弹窗新增“常规/图标”子Tab；图标URL、黑暗模式图标URL、图标自适应处理与图库组件统一迁移至“图标”Tab，优化布局层次与可读性。
+// @version      [20260222] v1.2.0
+// @update-log   1.2.0: 编辑快捷键弹窗新增“常规/图标”子Tab；图标自适应处理改为按快捷键独立配置；修正“黑暗模式图标URL”标签字号一致性，并完成源码模块化迁移与构建同步。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -2106,8 +2106,8 @@
                 scrollTop: 0,
 	                scrollLeft: 0
 	            },
-	                themeMode: "auto",
-                iconAdaptiveEnabled: false,
+                themeMode: "auto",
+                legacyIconAdaptiveEnabled: false,
 	            isDarkMode: false,
 	            currentFilter: 'all',
 	            searchQuery: '',
@@ -2172,7 +2172,7 @@
         const uiPrefsRaw = safeGMGet(options.storageKeys.uiPrefs, null);
         const uiPrefs = (uiPrefsRaw && typeof uiPrefsRaw === "object" && !Array.isArray(uiPrefsRaw)) ? uiPrefsRaw : {};
         state.themeMode = normalizeThemeMode(uiPrefs.themeMode);
-        state.iconAdaptiveEnabled = normalizeBoolean(uiPrefs.iconAdaptiveEnabled, false);
+        state.legacyIconAdaptiveEnabled = normalizeBoolean(uiPrefs.iconAdaptiveEnabled, false);
         if (state.themeMode === "dark") state.isDarkMode = true;
         if (state.themeMode === "light") state.isDarkMode = false;
 
@@ -2223,6 +2223,7 @@
                 hotkey: normalizeHotkey(shortcut.hotkey || ""),
                 icon: shortcut.icon || "",
                 iconDark: shortcut.iconDark || "",
+                iconAdaptive: normalizeBoolean(shortcut.iconAdaptive, state.legacyIconAdaptiveEnabled),
                 data: dataRaw ? clone(dataRaw) : {}
             };
         }
@@ -2875,14 +2876,6 @@
                 return false;
             }
 
-            function isIconAdaptiveProcessingEnabled() {
-                if (!themeAdaptEnabled) return false;
-                if (stateRef && typeof stateRef.iconAdaptiveEnabled === "boolean") {
-                    return stateRef.iconAdaptiveEnabled;
-                }
-                return false;
-            }
-
             function rememberMemoryCache(url, value) {
                 if (!memoryCache || !url) return;
                 if (memoryCache.has(url)) memoryCache.delete(url);
@@ -3362,13 +3355,13 @@
                 }
             }
 
-            function setIconImage(imgEl, iconUrl, iconDarkUrl = "") {
+            function setIconImage(imgEl, iconUrl, iconDarkUrl = "", iconAdaptive = false) {
                 const fallback = getDefaultIconURL();
                 if (!imgEl) return;
                 const lightSource = String(iconUrl || "").trim();
                 const darkSource = String(iconDarkUrl || "").trim();
                 const source = (darkSource && isDarkModeNow()) ? darkSource : lightSource;
-                const shouldUseThemeAdapt = isIconAdaptiveProcessingEnabled() && !darkSource;
+                const shouldUseThemeAdapt = themeAdaptEnabled && normalizeBoolean(iconAdaptive, false) && !darkSource;
                 const sourceMarker = `${source}::ta=${shouldUseThemeAdapt ? "1" : "0"}`;
                 markImageSource(imgEl, sourceMarker);
 
@@ -5304,7 +5297,7 @@
                 tdIcon.style.textAlign = "center";
                 const iconImg = document.createElement("img");
                 Object.assign(iconImg.style, { width: "24px", height: "24px", objectFit: "contain", verticalAlign: "middle" });
-                setIconImage(iconImg, item.icon, item.iconDark);
+                setIconImage(iconImg, item.icon, item.iconDark, item.iconAdaptive);
                 tdIcon.appendChild(iconImg);
 
                 const tdName = document.createElement("td");
@@ -5393,7 +5386,7 @@
                 iconContainer.style.flexShrink = "0";
                 const iconImg = document.createElement("img");
                 Object.assign(iconImg.style, { width: "24px", height: "24px", objectFit: "contain" });
-                setIconImage(iconImg, item.icon, item.iconDark);
+                setIconImage(iconImg, item.icon, item.iconDark, item.iconAdaptive);
                 iconContainer.appendChild(iconImg);
 
                 const nameContainer = document.createElement("div");
@@ -5741,8 +5734,6 @@
                 URL_METHODS,
                 setIconImage,
                 ensureThemeAdaptiveIconStored,
-                safeGMGet,
-                safeGMSet,
                 debounce,
             } = ctx;
             const { theme, colors, style, dialogs, layout } = uiShared;
@@ -5760,13 +5751,6 @@
             const { autoResizeTextarea } = layout;
 
             const normalizeHotkey = core.normalizeHotkey;
-            const persistUiPrefs = (patch = {}) => {
-                const key = options?.storageKeys?.uiPrefs;
-                if (!key || typeof safeGMGet !== "function" || typeof safeGMSet !== "function") return;
-                const raw = safeGMGet(key, null);
-                const prev = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
-                safeGMSet(key, { ...prev, ...patch });
-            };
 
             const isNew = !item;
             const temp = item
@@ -5783,6 +5767,7 @@
                 hotkey: "",
                 icon: "",
                 iconDark: "",
+                iconAdaptive: false,
                 data: {}
             };
             if (item && !item.actionType) {
@@ -5791,6 +5776,7 @@
             if (!temp.customAction) temp.customAction = "";
             if (!temp.urlMethod) temp.urlMethod = "current";
             if (!temp.urlAdvanced) temp.urlAdvanced = "href";
+            temp.iconAdaptive = normalizeBoolean(temp.iconAdaptive, false);
 
             const editOverlay = document.createElement("div");
             editOverlay.id = ids.editOverlay;
@@ -6194,7 +6180,7 @@
 	                "textarea",
 	                (initialDataAdapter && typeof initialDataAdapter.placeholder === "string") ? initialDataAdapter.placeholder : defaultDataPlaceholder
 	            );
-                    generalPanel.appendChild(dataField.label);
+		            generalPanel.appendChild(dataField.label);
 		            const dataTextarea = dataField.input;
                 actionInputs.customAction?.addEventListener?.("input", () => applyDataEditorMode({ maybeReplaceValue: true }));
                 actionInputs.customAction?.addEventListener?.("change", () => applyDataEditorMode({ maybeReplaceValue: true }));
@@ -6214,11 +6200,11 @@
             } = iconField;
             iconPanel.appendChild(iconLabel);
 
-            setIconImage(iconPreview, temp.icon || "", temp.iconDark || "");
+            setIconImage(iconPreview, temp.icon || "", temp.iconDark || "", temp.iconAdaptive);
             const debouncedPreview = debounce(() => {
                 const lightVal = iconTextarea.value.trim();
                 const darkVal = iconDarkTextarea.value.trim();
-                setIconImage(iconPreview, lightVal || "", darkVal || "");
+                setIconImage(iconPreview, lightVal || "", darkVal || "", temp.iconAdaptive);
             }, 300);
             iconTextarea.addEventListener("input", () => {
                 autoResizeTextarea(iconTextarea);
@@ -6298,7 +6284,7 @@
             iconAdaptiveSwitch.appendChild(iconAdaptiveThumb);
 
             const applyIconAdaptiveSwitchVisual = (isDark) => {
-                const checked = !!state.iconAdaptiveEnabled;
+                const checked = !!temp.iconAdaptive;
                 iconAdaptiveSwitch.setAttribute("aria-checked", checked ? "true" : "false");
                 iconAdaptiveSwitch.style.justifyContent = checked ? "flex-end" : "flex-start";
                 iconAdaptiveSwitch.style.backgroundColor = checked ? getPrimaryColor() : getInputBackgroundColor(isDark);
@@ -6307,10 +6293,9 @@
                 iconAdaptiveThumb.style.backgroundColor = "#ffffff";
             };
 
-            const toggleIconAdaptiveEnabled = (nextChecked = !state.iconAdaptiveEnabled) => {
-                state.iconAdaptiveEnabled = !!nextChecked;
-                persistUiPrefs({ iconAdaptiveEnabled: state.iconAdaptiveEnabled });
-                setIconImage(iconPreview, iconTextarea.value.trim(), iconDarkTextarea.value.trim());
+            const toggleIconAdaptiveEnabled = (nextChecked = !temp.iconAdaptive) => {
+                temp.iconAdaptive = !!nextChecked;
+                setIconImage(iconPreview, iconTextarea.value.trim(), iconDarkTextarea.value.trim(), temp.iconAdaptive);
                 if (typeof renderShortcutsList === "function") renderShortcutsList(state.isDarkMode);
                 applyIconAdaptiveSwitchVisual(state.isDarkMode);
             };
@@ -6334,7 +6319,13 @@
             iconAdaptiveRow.appendChild(iconAdaptiveSwitch);
             iconPanel.appendChild(iconAdaptiveRow);
 
-            const iconLibrary = panelCreateIconLibraryUI(ctx, iconTextarea, iconPreview, iconDarkTextarea);
+            const iconLibrary = panelCreateIconLibraryUI(
+                ctx,
+                iconTextarea,
+                iconPreview,
+                iconDarkTextarea,
+                () => !!temp.iconAdaptive
+            );
             const { container: iconLibraryContainer, destroy: destroyIconLibrary } = iconLibrary;
             iconPanel.appendChild(iconLibraryContainer);
 
@@ -6371,6 +6362,7 @@
                 temp.customAction = (actionInputs.customAction?.value || "").trim();
                 temp.icon = iconTextarea.value.trim();
                 temp.iconDark = iconDarkTextarea.value.trim();
+                temp.iconAdaptive = !!temp.iconAdaptive;
 
 	                let parsedData = {};
 	                const dataTextRaw = String(dataTextarea?.value || "");
@@ -6437,7 +6429,7 @@
                 if (
                     normalized.icon &&
                     !normalized.iconDark &&
-                    state.iconAdaptiveEnabled &&
+                    normalized.iconAdaptive &&
                     typeof ensureThemeAdaptiveIconStored === "function"
                 ) {
                     ensureThemeAdaptiveIconStored(normalized.icon);
@@ -6808,9 +6800,9 @@
             darkLabel.textContent = options?.text?.editor?.labels?.iconDark || "黑暗模式图标URL:";
             Object.assign(darkLabel.style, {
                 marginTop: "2px",
-                fontSize: "0.9em",
-                fontWeight: "bold",
-                lineHeight: "1.3"
+                fontSize: "1em",
+                fontWeight: "inherit",
+                lineHeight: "1.4"
             });
 
             const darkTextarea = document.createElement("textarea");
@@ -6851,7 +6843,7 @@
             return { label, input: textarea, darkInput: darkTextarea, preview, destroy };
         }
 
-        function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, targetDarkTextarea = null) {
+        function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, targetDarkTextarea = null, getAdaptiveEnabled = null) {
             const { options, uiShared, state, safeGMGet, safeGMSet, setIconImage, ensureThemeAdaptiveIconStored } = ctx;
             const { theme, colors, dialogs } = uiShared;
             const { addThemeChangeListener, removeThemeChangeListener } = theme;
@@ -6861,6 +6853,13 @@
             let userIcons = safeGMGet(options.storageKeys.userIcons, []);
             let isExpanded = false;
             let longPressTimer = null;
+            const isTargetIconAdaptiveEnabled = () => {
+                try {
+                    return !!(typeof getAdaptiveEnabled === "function" ? getAdaptiveEnabled() : false);
+                } catch {
+                    return false;
+                }
+            };
 
             const container = document.createElement("div");
             container.style.marginTop = "10px";
@@ -6932,7 +6931,7 @@
                     if (name && name.trim()) {
                         userIcons.push({ name: name.trim(), url: url });
                         safeGMSet(options.storageKeys.userIcons, userIcons);
-                        if (state.iconAdaptiveEnabled && typeof ensureThemeAdaptiveIconStored === "function") {
+                        if (isTargetIconAdaptiveEnabled() && typeof ensureThemeAdaptiveIconStored === "function") {
                             ensureThemeAdaptiveIconStored(url);
                         }
                         renderIconGrid();
@@ -6972,7 +6971,7 @@
                         const darkUrl = targetDarkTextarea && targetDarkTextarea.value
                             ? String(targetDarkTextarea.value).trim()
                             : "";
-                        setIconImage(targetPreviewImg, iconInfo.url, darkUrl);
+                        setIconImage(targetPreviewImg, iconInfo.url, darkUrl, isTargetIconAdaptiveEnabled());
                         targetTextarea.dispatchEvent(new Event('input', { bubbles: true }));
                     });
 
