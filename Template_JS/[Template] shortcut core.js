@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260220] v1.1.0
+// @name         [Template] 快捷键跳转 [20260222] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260220] v1.1.0
-// @update-log   1.1.0: QuickInput 循环间隔日志固定显示配置值（计时仍以发送后为起点）
+// @version      [20260222] v1.0.0
+// @update-log   1.0.0: 修复主题自适应 SVG 对描边图标的误填充问题，并升级 iconThemeAdapted 缓存键到 v2 以强制重建。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -38,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20260220";
+    const TEMPLATE_VERSION = "20260222";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -2057,7 +2057,7 @@
             ? storageKeys.shortcuts.trim()
             : idPrefix;
         const fallbackUiPrefsKey = `${fallbackUiPrefsKeyBase}::uiPrefs_v1`;
-        const fallbackIconThemeAdaptedKey = `${fallbackUiPrefsKeyBase}::iconThemeAdapted_v1`;
+        const fallbackIconThemeAdaptedKey = `${fallbackUiPrefsKeyBase}::iconThemeAdapted_v2`;
         storageKeys.uiPrefs = (typeof rawUiPrefsKey === "string" && rawUiPrefsKey.trim())
             ? rawUiPrefsKey.trim()
             : fallbackUiPrefsKey;
@@ -3206,7 +3206,7 @@
                 if (themeRootClass) root.setAttribute("class", themeRootClass);
 
                 const styleEl = doc.createElementNS(root.namespaceURI || "http://www.w3.org/2000/svg", "style");
-                styleEl.textContent = `.${themeRootClassName}{color:${themeLightFillColor};fill:${themeLightFillColor};stroke:${themeLightFillColor};}@media (prefers-color-scheme: dark){.${themeRootClassName}{color:${themeDarkFillColor};fill:${themeDarkFillColor};stroke:${themeDarkFillColor};}}`;
+                styleEl.textContent = `.${themeRootClassName}{color:${themeLightFillColor};}@media (prefers-color-scheme: dark){.${themeRootClassName}{color:${themeDarkFillColor};}}`;
                 root.insertBefore(styleEl, root.firstChild || null);
 
                 const autoFillTags = new Set(["path", "circle", "rect", "ellipse", "line", "polyline", "polygon", "text"]);
