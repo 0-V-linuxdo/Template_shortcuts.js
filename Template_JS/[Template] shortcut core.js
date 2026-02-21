@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.4.0
+// @name         [Template] 快捷键跳转 [20260222] v1.4.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.4.0
-// @update-log   1.4.0: 编辑弹窗新增“扩展参数”子tab，将 data JSON 输入区从“常规”分组迁移至独立分组。
+// @version      [20260222] v1.4.1
+// @update-log   1.4.1: 调整编辑弹窗子tab顺序为“图标/常规/扩展”，并将“扩展参数”tab简化为“扩展”。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -163,7 +163,7 @@
                 },
                 tabs: {
                     general: '常规',
-                    data: '扩展参数',
+                    data: '扩展',
                     icon: '图标'
                 },
                 labels: {
@@ -5975,7 +5975,7 @@
             const dataTabBtn = document.createElement("button");
             dataTabBtn.type = "button";
             dataTabBtn.setAttribute("role", "tab");
-            dataTabBtn.textContent = editorTabsText.data || "扩展参数";
+            dataTabBtn.textContent = editorTabsText.data || "扩展";
             Object.assign(dataTabBtn.style, {
                 border: "1px solid",
                 borderRadius: "999px",
@@ -6013,9 +6013,9 @@
             generalTabBtn.setAttribute("aria-controls", generalPanelId);
             dataTabBtn.setAttribute("aria-controls", dataPanelId);
             iconTabBtn.setAttribute("aria-controls", iconPanelId);
+            tabBar.appendChild(iconTabBtn);
             tabBar.appendChild(generalTabBtn);
             tabBar.appendChild(dataTabBtn);
-            tabBar.appendChild(iconTabBtn);
             formDiv.appendChild(tabBar);
             formDiv.appendChild(generalPanel);
             formDiv.appendChild(dataPanel);
