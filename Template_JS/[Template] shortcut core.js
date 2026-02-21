@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.3.2
+// @name         [Template] 快捷键跳转 [20260222] v1.3.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.3.2
-// @update-log   1.3.2: 图标自适应处理更名为svg自适应处理，并改为可见悬浮提示。
+// @version      [20260222] v1.3.3
+// @update-log   1.3.3: svg自适应处理新增圆形问号提示组件，支持悬浮与点击显示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -6276,6 +6276,40 @@
                 cursor: "default"
             });
 
+            const iconAdaptiveHelpWrap = document.createElement("span");
+            Object.assign(iconAdaptiveHelpWrap.style, {
+                position: "relative",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: "0 0 auto"
+            });
+
+            const iconAdaptiveHelpBtn = document.createElement("button");
+            iconAdaptiveHelpBtn.type = "button";
+            iconAdaptiveHelpBtn.textContent = "?";
+            iconAdaptiveHelpBtn.setAttribute("aria-label", `${iconAdaptiveLabelText}说明`);
+            iconAdaptiveHelpBtn.setAttribute("aria-haspopup", "true");
+            iconAdaptiveHelpBtn.setAttribute("aria-expanded", "false");
+            Object.assign(iconAdaptiveHelpBtn.style, {
+                width: "20px",
+                minWidth: "20px",
+                height: "20px",
+                borderRadius: "999px",
+                border: "1px solid",
+                padding: "0",
+                margin: "0",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "12px",
+                fontWeight: "bold",
+                lineHeight: "1",
+                boxSizing: "border-box",
+                transition: "border-color 0.2s ease, box-shadow 0.2s ease"
+            });
+
             const iconAdaptiveSwitch = document.createElement("button");
             iconAdaptiveSwitch.type = "button";
             iconAdaptiveSwitch.setAttribute("role", "switch");
@@ -6310,9 +6344,10 @@
             Object.assign(iconAdaptiveTooltip.style, {
                 display: "none",
                 position: "absolute",
-                left: "0",
+                left: "50%",
                 bottom: "calc(100% + 6px)",
                 zIndex: "50",
+                transform: "translateX(-50%)",
                 maxWidth: "280px",
                 padding: "6px 8px",
                 borderRadius: "6px",
@@ -6325,8 +6360,16 @@
                 boxShadow: "0 4px 12px rgba(0,0,0,0.28)"
             });
 
+            let iconAdaptiveTooltipPinned = false;
             const setIconAdaptiveTooltipVisible = (visible) => {
-                iconAdaptiveTooltip.style.display = visible ? "block" : "none";
+                const show = !!visible;
+                iconAdaptiveTooltip.style.display = show ? "block" : "none";
+                iconAdaptiveHelpBtn.setAttribute("aria-expanded", show ? "true" : "false");
+            };
+
+            const hideIconAdaptiveTooltip = () => {
+                iconAdaptiveTooltipPinned = false;
+                setIconAdaptiveTooltipVisible(false);
             };
 
             const applyIconAdaptiveSwitchVisual = (isDark) => {
@@ -6352,7 +6395,7 @@
                 const hasSvgMainIcon = isSvgLikeIconSource(iconTextarea.value);
                 const hasDarkIcon = !!String(iconDarkTextarea.value || "").trim();
                 const visible = hasSvgMainIcon && !hasDarkIcon;
-                if (!visible) setIconAdaptiveTooltipVisible(false);
+                if (!visible) hideIconAdaptiveTooltip();
                 iconAdaptiveRow.style.display = visible ? "inline-flex" : "none";
             };
 
@@ -6376,18 +6419,45 @@
             iconAdaptiveSwitch.addEventListener("blur", () => {
                 iconAdaptiveSwitch.style.boxShadow = "none";
             });
-            iconAdaptiveRow.addEventListener("mouseenter", () => setIconAdaptiveTooltipVisible(true));
-            iconAdaptiveRow.addEventListener("mouseleave", () => setIconAdaptiveTooltipVisible(false));
-            iconAdaptiveRow.addEventListener("focusin", () => setIconAdaptiveTooltipVisible(true));
-            iconAdaptiveRow.addEventListener("focusout", (event) => {
-                if (iconAdaptiveRow.contains(event.relatedTarget)) return;
-                setIconAdaptiveTooltipVisible(false);
+
+            iconAdaptiveHelpBtn.addEventListener("mouseenter", () => setIconAdaptiveTooltipVisible(true));
+            iconAdaptiveHelpBtn.addEventListener("mouseleave", () => {
+                if (!iconAdaptiveTooltipPinned) setIconAdaptiveTooltipVisible(false);
             });
+            iconAdaptiveHelpBtn.addEventListener("focus", () => {
+                iconAdaptiveHelpBtn.style.boxShadow = `0 0 0 1px ${getPrimaryColor()}`;
+                setIconAdaptiveTooltipVisible(true);
+            });
+            iconAdaptiveHelpBtn.addEventListener("blur", () => {
+                iconAdaptiveHelpBtn.style.boxShadow = "none";
+                if (!iconAdaptiveTooltipPinned) setIconAdaptiveTooltipVisible(false);
+            });
+            iconAdaptiveHelpBtn.addEventListener("keydown", (event) => {
+                if (event.key === "Escape") {
+                    event.preventDefault();
+                    hideIconAdaptiveTooltip();
+                    iconAdaptiveHelpBtn.blur();
+                }
+            });
+            iconAdaptiveHelpBtn.addEventListener("click", (event) => {
+                event.preventDefault();
+                iconAdaptiveTooltipPinned = !iconAdaptiveTooltipPinned;
+                setIconAdaptiveTooltipVisible(iconAdaptiveTooltipPinned);
+            });
+
+            const handleIconAdaptiveDocPointerDown = (event) => {
+                if (!iconAdaptiveTooltipPinned) return;
+                if (iconAdaptiveHelpWrap.contains(event.target)) return;
+                hideIconAdaptiveTooltip();
+            };
+            document.addEventListener("pointerdown", handleIconAdaptiveDocPointerDown, true);
             applyIconAdaptiveSwitchVisual(state.isDarkMode);
 
+            iconAdaptiveHelpWrap.appendChild(iconAdaptiveHelpBtn);
+            iconAdaptiveHelpWrap.appendChild(iconAdaptiveTooltip);
             iconAdaptiveRow.appendChild(iconAdaptiveLabel);
+            iconAdaptiveRow.appendChild(iconAdaptiveHelpWrap);
             iconAdaptiveRow.appendChild(iconAdaptiveSwitch);
-            iconAdaptiveRow.appendChild(iconAdaptiveTooltip);
             iconPanel.appendChild(iconAdaptiveRow);
             refreshIconAdaptiveVisibility();
 
@@ -6541,6 +6611,9 @@
                 iconAdaptiveRow.style.backgroundColor = getInputBackgroundColor(isDark);
                 iconAdaptiveRow.style.borderColor = getBorderColor(isDark);
                 iconAdaptiveLabel.style.color = getTextColor(isDark);
+                iconAdaptiveHelpBtn.style.color = getTextColor(isDark);
+                iconAdaptiveHelpBtn.style.borderColor = getBorderColor(isDark);
+                iconAdaptiveHelpBtn.style.backgroundColor = getInputBackgroundColor(isDark);
                 iconAdaptiveTooltip.style.color = getTextColor(isDark);
                 iconAdaptiveTooltip.style.backgroundColor = getInputBackgroundColor(isDark);
                 iconAdaptiveTooltip.style.borderColor = getBorderColor(isDark);
@@ -6572,6 +6645,7 @@
             function closeEdit() {
                 state.currentEditCloser = null;
                 removeThemeChangeListener(updateEditPanelTheme);
+                try { document.removeEventListener("pointerdown", handleIconAdaptiveDocPointerDown, true); } catch {}
                 try { if (typeof destroyIconField === "function") destroyIconField(); } catch {}
                 try { if (typeof destroyIconLibrary === "function") destroyIconLibrary(); } catch {}
                 try { if (typeof destroySimulateKeysCapture === "function") destroySimulateKeysCapture(); } catch {}
