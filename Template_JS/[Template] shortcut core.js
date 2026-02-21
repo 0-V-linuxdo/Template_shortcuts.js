@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.1.1
+// @name         [Template] 快捷键跳转 [20260222] v1.1.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.1.1
-// @update-log   1.1.1: 将“图标自适应处理”开关从设置弹窗迁移到快捷键编辑区（位于图标URL编辑区域下方）。
+// @version      [20260222] v1.1.2
+// @update-log   1.1.2: 优化“黑暗模式图标URL”和“图标自适应处理”组件外观，统一编辑区视觉风格（含自定义开关样式）。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -6118,13 +6118,14 @@
             const iconAdaptiveRow = document.createElement("div");
             Object.assign(iconAdaptiveRow.style, {
                 display: "flex",
-                alignItems: "flex-start",
+                alignItems: "center",
                 justifyContent: "space-between",
                 gap: "12px",
+                marginTop: "8px",
                 marginBottom: "12px",
-                padding: "10px",
+                padding: "8px 10px",
                 border: "1px solid",
-                borderRadius: "8px"
+                borderRadius: "6px"
             });
 
             const iconAdaptiveTextWrap = document.createElement("div");
@@ -6139,7 +6140,7 @@
             const iconAdaptiveLabel = document.createElement("div");
             iconAdaptiveLabel.textContent = options?.text?.panel?.iconAdaptiveLabel || "图标自适应处理";
             Object.assign(iconAdaptiveLabel.style, {
-                fontSize: "14px",
+                fontSize: "0.9em",
                 fontWeight: "bold"
             });
             iconAdaptiveTextWrap.appendChild(iconAdaptiveLabel);
@@ -6147,26 +6148,76 @@
             const iconAdaptiveHint = document.createElement("div");
             iconAdaptiveHint.textContent = options?.text?.panel?.iconAdaptiveHint || "仅在未设置黑暗模式图标URL时生效";
             Object.assign(iconAdaptiveHint.style, {
-                fontSize: "12px",
+                fontSize: "0.85em",
                 opacity: "0.75",
                 lineHeight: "1.3"
             });
             iconAdaptiveTextWrap.appendChild(iconAdaptiveHint);
 
-            const iconAdaptiveCheckbox = document.createElement("input");
-            iconAdaptiveCheckbox.type = "checkbox";
-            iconAdaptiveCheckbox.checked = !!state.iconAdaptiveEnabled;
-            iconAdaptiveCheckbox.style.marginTop = "2px";
-            iconAdaptiveCheckbox.style.accentColor = getPrimaryColor();
-            iconAdaptiveCheckbox.onchange = () => {
-                state.iconAdaptiveEnabled = !!iconAdaptiveCheckbox.checked;
+            const iconAdaptiveSwitch = document.createElement("button");
+            iconAdaptiveSwitch.type = "button";
+            iconAdaptiveSwitch.setAttribute("role", "switch");
+            iconAdaptiveSwitch.setAttribute("aria-label", options?.text?.panel?.iconAdaptiveLabel || "图标自适应处理");
+            Object.assign(iconAdaptiveSwitch.style, {
+                width: "42px",
+                minWidth: "42px",
+                height: "24px",
+                borderRadius: "999px",
+                border: "1px solid",
+                padding: "2px",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                transition: "background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
+                boxSizing: "border-box"
+            });
+
+            const iconAdaptiveThumb = document.createElement("span");
+            Object.assign(iconAdaptiveThumb.style, {
+                width: "18px",
+                height: "18px",
+                borderRadius: "999px",
+                backgroundColor: "#ffffff",
+                transition: "transform 0.2s ease, background-color 0.2s ease"
+            });
+            iconAdaptiveSwitch.appendChild(iconAdaptiveThumb);
+
+            const applyIconAdaptiveSwitchVisual = (isDark) => {
+                const checked = !!state.iconAdaptiveEnabled;
+                iconAdaptiveSwitch.setAttribute("aria-checked", checked ? "true" : "false");
+                iconAdaptiveSwitch.style.justifyContent = checked ? "flex-end" : "flex-start";
+                iconAdaptiveSwitch.style.backgroundColor = checked ? getPrimaryColor() : getInputBackgroundColor(isDark);
+                iconAdaptiveSwitch.style.borderColor = checked ? getPrimaryColor() : getBorderColor(isDark);
+                iconAdaptiveSwitch.style.boxShadow = "none";
+                iconAdaptiveThumb.style.backgroundColor = "#ffffff";
+            };
+
+            const toggleIconAdaptiveEnabled = (nextChecked = !state.iconAdaptiveEnabled) => {
+                state.iconAdaptiveEnabled = !!nextChecked;
                 persistUiPrefs({ iconAdaptiveEnabled: state.iconAdaptiveEnabled });
                 setIconImage(iconPreview, iconTextarea.value.trim(), iconDarkTextarea.value.trim());
                 if (typeof renderShortcutsList === "function") renderShortcutsList(state.isDarkMode);
+                applyIconAdaptiveSwitchVisual(state.isDarkMode);
             };
 
+            iconAdaptiveSwitch.addEventListener("click", () => toggleIconAdaptiveEnabled());
+            iconAdaptiveSwitch.addEventListener("keydown", (event) => {
+                if (event.key === " " || event.key === "Enter") {
+                    event.preventDefault();
+                    toggleIconAdaptiveEnabled();
+                }
+            });
+            iconAdaptiveSwitch.addEventListener("focus", () => {
+                iconAdaptiveSwitch.style.boxShadow = `0 0 0 1px ${getPrimaryColor()}`;
+            });
+            iconAdaptiveSwitch.addEventListener("blur", () => {
+                iconAdaptiveSwitch.style.boxShadow = "none";
+            });
+            applyIconAdaptiveSwitchVisual(state.isDarkMode);
+
             iconAdaptiveRow.appendChild(iconAdaptiveTextWrap);
-            iconAdaptiveRow.appendChild(iconAdaptiveCheckbox);
+            iconAdaptiveRow.appendChild(iconAdaptiveSwitch);
             formDiv.appendChild(iconAdaptiveRow);
 
             const iconLibrary = panelCreateIconLibraryUI(ctx, iconTextarea, iconPreview, iconDarkTextarea);
@@ -6312,7 +6363,7 @@
                 iconAdaptiveRow.style.borderColor = getBorderColor(isDark);
                 iconAdaptiveLabel.style.color = getTextColor(isDark);
                 iconAdaptiveHint.style.color = getTextColor(isDark);
-                iconAdaptiveCheckbox.style.accentColor = getPrimaryColor();
+                applyIconAdaptiveSwitchVisual(isDark);
                 styleInputField(dataTextarea, isDark);
                 actionTypeHint.style.color = getTextColor(isDark);
                 actionTypeDiv.querySelectorAll('input[type="radio"]').forEach(rb => rb.style.accentColor = getPrimaryColor());
@@ -6639,7 +6690,12 @@
 
             const darkLabel = document.createElement("div");
             darkLabel.textContent = options?.text?.editor?.labels?.iconDark || "黑暗模式图标URL:";
-            Object.assign(darkLabel.style, { fontSize: "0.85em", fontWeight: "bold", opacity: "0.9" });
+            Object.assign(darkLabel.style, {
+                marginTop: "2px",
+                fontSize: "0.9em",
+                fontWeight: "bold",
+                lineHeight: "1.3"
+            });
 
             const darkTextarea = document.createElement("textarea");
             darkTextarea.value = darkValue || "";
