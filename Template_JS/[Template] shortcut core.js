@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.2.3
+// @name         [Template] 快捷键跳转 [20260222] v1.2.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.2.3
-// @update-log   1.2.3: 新增黑暗模式图标URL独立预览；优化图标预览逻辑，并在存在黑暗模式图标URL时隐藏“图标自适应处理”开关。
+// @version      [20260222] v1.2.4
+// @update-log   1.2.4: 调整图标预览布局，使黑暗模式预览与黑暗模式图标URL同排显示；修复黑暗模式预览错误使用亮色图标的问题。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -6221,11 +6221,11 @@
             const refreshIconPreviews = () => {
                 const lightVal = iconTextarea.value.trim();
                 const darkVal = iconDarkTextarea.value.trim();
-                setIconImage(iconPreview, lightVal || "", darkVal || "", temp.iconAdaptive);
+                setIconImage(iconPreview, lightVal || "", "", temp.iconAdaptive);
                 if (!iconDarkPreview) return;
                 if (darkVal) {
                     iconDarkPreview.style.display = "block";
-                    setIconImage(iconDarkPreview, darkVal, "", false);
+                    setIconImage(iconDarkPreview, "", darkVal, false);
                 } else {
                     iconDarkPreview.style.display = "none";
                     iconDarkPreview.removeAttribute("src");
@@ -6808,17 +6808,17 @@
             const wrap = document.createElement("div");
             Object.assign(wrap.style, {
                 display: "flex",
-                alignItems: "flex-start",
+                flexDirection: "column",
                 gap: "8px"
             });
 
-            const inputsColumn = document.createElement("div");
-            Object.assign(inputsColumn.style, {
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-                flexGrow: "1",
-                minWidth: "200px"
+            const lightRow = document.createElement("div");
+            Object.assign(lightRow.style, {
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) 36px",
+                alignItems: "flex-start",
+                columnGap: "8px",
+                width: "100%"
             });
 
             const textarea = document.createElement("textarea");
@@ -6830,7 +6830,9 @@
                 resize: "vertical",
                 overflowY: "hidden",
                 width: "100%",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                flex: "1 1 auto",
+                minWidth: "0"
             });
 
             const darkLabel = document.createElement("div");
@@ -6851,16 +6853,18 @@
                 resize: "vertical",
                 overflowY: "hidden",
                 width: "100%",
-                boxSizing: "border-box"
+                boxSizing: "border-box",
+                flex: "1 1 auto",
+                minWidth: "0"
             });
 
-            const previewColumn = document.createElement("div");
-            Object.assign(previewColumn.style, {
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "8px",
-                flexShrink: "0"
+            const darkRow = document.createElement("div");
+            Object.assign(darkRow.style, {
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) 36px",
+                alignItems: "flex-start",
+                columnGap: "8px",
+                width: "100%"
             });
 
             const preview = document.createElement("img");
@@ -6878,13 +6882,13 @@
 
             requestAnimationFrame(() => autoResizeTextarea(textarea));
             requestAnimationFrame(() => autoResizeTextarea(darkTextarea));
-            inputsColumn.appendChild(textarea);
-            inputsColumn.appendChild(darkLabel);
-            inputsColumn.appendChild(darkTextarea);
-            wrap.appendChild(inputsColumn);
-            previewColumn.appendChild(preview);
-            previewColumn.appendChild(darkPreview);
-            wrap.appendChild(previewColumn);
+            lightRow.appendChild(textarea);
+            lightRow.appendChild(preview);
+            darkRow.appendChild(darkTextarea);
+            darkRow.appendChild(darkPreview);
+            wrap.appendChild(lightRow);
+            wrap.appendChild(darkLabel);
+            wrap.appendChild(darkRow);
             label.appendChild(wrap);
 
             const updatePreviewTheme = (isDark) => {
@@ -7028,10 +7032,7 @@
 
                     button.addEventListener("click", () => {
                         targetTextarea.value = iconInfo.url;
-                        const darkUrl = targetDarkTextarea && targetDarkTextarea.value
-                            ? String(targetDarkTextarea.value).trim()
-                            : "";
-                        setIconImage(targetPreviewImg, iconInfo.url, darkUrl, isTargetIconAdaptiveEnabled());
+                        setIconImage(targetPreviewImg, iconInfo.url, "", isTargetIconAdaptiveEnabled());
                         targetTextarea.dispatchEvent(new Event('input', { bubbles: true }));
                     });
 
