@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.4.1
+// @name         [Template] 快捷键跳转 [20260222] v1.4.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.4.1
-// @update-log   1.4.1: 调整编辑弹窗子tab顺序为“图标/常规/扩展”，并将“扩展参数”tab简化为“扩展”。
+// @version      [20260222] v1.4.2
+// @update-log   1.4.2: 设置菜单按钮调整为横向排列（重置/导入/导出）并优化配色；“svg自适应处理”提示组件优化为淡粉色；设置按钮改为 SVG 图标。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -4687,16 +4687,52 @@
 		            const settingsBtn = document.createElement("button");
 		            settingsBtn.type = "button";
 		            settingsBtn.title = options.text.buttons.settings || "设置";
-		            settingsBtn.textContent = "⚙️";
+                    settingsBtn.setAttribute("aria-label", options.text.buttons.settings || "设置");
 	            Object.assign(settingsBtn.style, {
 	                width: "32px",
 	                height: "32px",
 	                display: "flex",
 	                alignItems: "center",
 	                justifyContent: "center",
-	                fontSize: "16px",
-	                lineHeight: "1"
+	                padding: "0",
+                    lineHeight: "1"
 	            });
+                    const settingsIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                    settingsIcon.setAttribute("viewBox", "0 0 24 24");
+                    settingsIcon.setAttribute("fill", "none");
+                    settingsIcon.setAttribute("aria-hidden", "true");
+                    Object.assign(settingsIcon.style, {
+                        width: "18px",
+                        height: "18px",
+                        display: "block",
+                        pointerEvents: "none"
+                    });
+                    const iconStrokeAttrs = {
+                        stroke: "currentColor",
+                        "stroke-width": "1.8",
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round"
+                    };
+                    const createIconNode = (tag, attrs = {}) => {
+                        const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+                        Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, String(value)));
+                        return node;
+                    };
+                    settingsIcon.appendChild(createIconNode("circle", { cx: "12", cy: "12", r: "5.2", ...iconStrokeAttrs }));
+                    settingsIcon.appendChild(createIconNode("circle", { cx: "12", cy: "12", r: "1.8", fill: "currentColor" }));
+                    [
+                        "M12 2.75V5.1",
+                        "M12 18.9v2.35",
+                        "M2.75 12H5.1",
+                        "M18.9 12h2.35",
+                        "M5.46 5.46l1.66 1.66",
+                        "M16.88 16.88l1.66 1.66",
+                        "M18.54 5.46l-1.66 1.66",
+                        "M7.12 16.88l-1.66 1.66"
+                    ].forEach((d) => {
+                        settingsIcon.appendChild(createIconNode("path", { d, ...iconStrokeAttrs }));
+                    });
+                    settingsBtn.replaceChildren(settingsIcon);
 
 			            const searchWidget = document.createElement("div");
 			            Object.assign(searchWidget.style, {
@@ -5069,9 +5105,22 @@
 	                const actions = document.createElement("div");
 	                Object.assign(actions.style, {
 	                    display: "flex",
-	                    flexDirection: "column",
+	                    flexDirection: "row",
+                        alignItems: "stretch",
+                        flexWrap: "nowrap",
 	                    gap: "10px"
 	                });
+
+	                const resetActionBtn = document.createElement("button");
+	                resetActionBtn.textContent = options.text.buttons.reset || "重置默认";
+	                resetActionBtn.onclick = () => {
+	                    closeSettingsMenu({ restoreFocus: false });
+	                    showConfirmDialog(options?.text?.panel?.resetConfirm || "确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)", () => {
+	                        resetToDefaults();
+	                    });
+	                };
+	                actions.appendChild(resetActionBtn);
+                    styleButton(resetActionBtn, "#9E9E9E", "#757575");
 
 	                const importActionBtn = document.createElement("button");
 	                importActionBtn.textContent = options.text.buttons.import || "导入";
@@ -5089,18 +5138,12 @@
 	                    openExportDialog();
 	                };
 	                actions.appendChild(exportActionBtn);
-                    styleButton(exportActionBtn, "#607D8B", "#546e7a");
+                    styleButton(exportActionBtn, "#4CAF50", "#45A049");
 
-	                const resetActionBtn = document.createElement("button");
-	                resetActionBtn.textContent = options.text.buttons.reset || "重置默认";
-	                resetActionBtn.onclick = () => {
-	                    closeSettingsMenu({ restoreFocus: false });
-	                    showConfirmDialog(options?.text?.panel?.resetConfirm || "确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)", () => {
-	                        resetToDefaults();
-	                    });
-	                };
-	                actions.appendChild(resetActionBtn);
-                    styleButton(resetActionBtn, "#F44336", "#D32F2F");
+                    [resetActionBtn, importActionBtn, exportActionBtn].forEach(btn => {
+                        btn.style.flex = "1 1 0";
+                        btn.style.minWidth = "0";
+                    });
 
 	                dialog.appendChild(actions);
 	                modal.appendChild(dialog);
@@ -6299,6 +6342,28 @@
 
             const iconAdaptiveLabelText = options?.text?.panel?.iconAdaptiveLabel || "svg自适应处理";
             const iconAdaptiveHintText = options?.text?.panel?.iconAdaptiveHint || "仅在主图标为SVG且未设置黑暗模式图标URL时生效";
+            const iconAdaptiveHintPaletteByTheme = {
+                light: {
+                    helpText: "#9d174d",
+                    helpBg: "#ffe4ee",
+                    helpBgActive: "#ffd6e7",
+                    helpBorder: "#f8a4c7",
+                    tooltipText: "#831843",
+                    tooltipBg: "#fff1f7",
+                    tooltipBorder: "#f9a8d4",
+                    tooltipShadow: "0 10px 24px rgba(190, 24, 93, 0.18)"
+                },
+                dark: {
+                    helpText: "#f9a8d4",
+                    helpBg: "rgba(255, 228, 238, 0.18)",
+                    helpBgActive: "rgba(255, 214, 231, 0.28)",
+                    helpBorder: "rgba(249, 168, 212, 0.62)",
+                    tooltipText: "#831843",
+                    tooltipBg: "rgba(255, 241, 247, 0.98)",
+                    tooltipBorder: "rgba(249, 168, 212, 0.9)",
+                    tooltipShadow: "0 12px 28px rgba(249, 168, 212, 0.26)"
+                }
+            };
             const iconAdaptiveLabel = document.createElement("div");
             iconAdaptiveLabel.textContent = iconAdaptiveLabelText;
             Object.assign(iconAdaptiveLabel.style, {
@@ -6340,7 +6405,7 @@
                 fontWeight: "bold",
                 lineHeight: "1",
                 boxSizing: "border-box",
-                transition: "border-color 0.2s ease, box-shadow 0.2s ease"
+                transition: "background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease"
             });
 
             const iconAdaptiveSwitch = document.createElement("button");
@@ -6397,10 +6462,30 @@
             });
 
             let iconAdaptiveTooltipPinned = false;
+            let iconAdaptiveHelpHover = false;
+            let iconAdaptiveHintPalette = iconAdaptiveHintPaletteByTheme.light;
+            const applyIconAdaptiveHelpBtnVisual = () => {
+                const shouldActive =
+                    iconAdaptiveHelpHover ||
+                    iconAdaptiveTooltipPinned ||
+                    iconAdaptiveTooltip.style.display === "block";
+                iconAdaptiveHelpBtn.style.color = iconAdaptiveHintPalette.helpText;
+                iconAdaptiveHelpBtn.style.borderColor = iconAdaptiveHintPalette.helpBorder;
+                iconAdaptiveHelpBtn.style.backgroundColor = shouldActive
+                    ? iconAdaptiveHintPalette.helpBgActive
+                    : iconAdaptiveHintPalette.helpBg;
+            };
+            const applyIconAdaptiveTooltipVisual = () => {
+                iconAdaptiveTooltip.style.color = iconAdaptiveHintPalette.tooltipText;
+                iconAdaptiveTooltip.style.backgroundColor = iconAdaptiveHintPalette.tooltipBg;
+                iconAdaptiveTooltip.style.borderColor = iconAdaptiveHintPalette.tooltipBorder;
+                iconAdaptiveTooltip.style.boxShadow = iconAdaptiveHintPalette.tooltipShadow;
+            };
             const setIconAdaptiveTooltipVisible = (visible) => {
                 const show = !!visible;
                 iconAdaptiveTooltip.style.display = show ? "block" : "none";
                 iconAdaptiveHelpBtn.setAttribute("aria-expanded", show ? "true" : "false");
+                applyIconAdaptiveHelpBtnVisual();
             };
 
             const hideIconAdaptiveTooltip = () => {
@@ -6456,9 +6541,14 @@
                 iconAdaptiveSwitch.style.boxShadow = "none";
             });
 
-            iconAdaptiveHelpBtn.addEventListener("mouseenter", () => setIconAdaptiveTooltipVisible(true));
+            iconAdaptiveHelpBtn.addEventListener("mouseenter", () => {
+                iconAdaptiveHelpHover = true;
+                setIconAdaptiveTooltipVisible(true);
+            });
             iconAdaptiveHelpBtn.addEventListener("mouseleave", () => {
+                iconAdaptiveHelpHover = false;
                 if (!iconAdaptiveTooltipPinned) setIconAdaptiveTooltipVisible(false);
+                else applyIconAdaptiveHelpBtnVisual();
             });
             iconAdaptiveHelpBtn.addEventListener("focus", () => {
                 iconAdaptiveHelpBtn.style.boxShadow = `0 0 0 1px ${getPrimaryColor()}`;
@@ -6466,7 +6556,9 @@
             });
             iconAdaptiveHelpBtn.addEventListener("blur", () => {
                 iconAdaptiveHelpBtn.style.boxShadow = "none";
+                iconAdaptiveHelpHover = false;
                 if (!iconAdaptiveTooltipPinned) setIconAdaptiveTooltipVisible(false);
+                else applyIconAdaptiveHelpBtnVisual();
             });
             iconAdaptiveHelpBtn.addEventListener("keydown", (event) => {
                 if (event.key === "Escape") {
@@ -6647,12 +6739,9 @@
                 iconAdaptiveRow.style.backgroundColor = getInputBackgroundColor(isDark);
                 iconAdaptiveRow.style.borderColor = getBorderColor(isDark);
                 iconAdaptiveLabel.style.color = getTextColor(isDark);
-                iconAdaptiveHelpBtn.style.color = getTextColor(isDark);
-                iconAdaptiveHelpBtn.style.borderColor = getBorderColor(isDark);
-                iconAdaptiveHelpBtn.style.backgroundColor = getInputBackgroundColor(isDark);
-                iconAdaptiveTooltip.style.color = getTextColor(isDark);
-                iconAdaptiveTooltip.style.backgroundColor = getInputBackgroundColor(isDark);
-                iconAdaptiveTooltip.style.borderColor = getBorderColor(isDark);
+                iconAdaptiveHintPalette = isDark ? iconAdaptiveHintPaletteByTheme.dark : iconAdaptiveHintPaletteByTheme.light;
+                applyIconAdaptiveHelpBtnVisual();
+                applyIconAdaptiveTooltipVisual();
                 applyIconAdaptiveSwitchVisual(isDark);
                 styleInputField(dataTextarea, isDark);
                 actionTypeHint.style.color = getTextColor(isDark);
