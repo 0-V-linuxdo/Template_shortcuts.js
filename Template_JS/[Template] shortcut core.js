@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.3.0
+// @name         [Template] 快捷键跳转 [20260222] v1.3.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.3.0
-// @update-log   1.3.0: 图标自适应处理提示改为鼠标悬浮提示，并优化该组件高度。
+// @version      [20260222] v1.3.1
+// @update-log   1.3.1: 优化图标自适应处理组件宽度，避免占满整行；保留悬浮提示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -6249,10 +6249,13 @@
 
             const iconAdaptiveRow = document.createElement("div");
             Object.assign(iconAdaptiveRow.style, {
-                display: "flex",
+                display: "inline-flex",
+                alignSelf: "flex-start",
+                width: "fit-content",
+                maxWidth: "100%",
                 alignItems: "center",
-                justifyContent: "space-between",
-                gap: "12px",
+                justifyContent: "flex-start",
+                gap: "10px",
                 marginTop: "8px",
                 marginBottom: "10px",
                 padding: "6px 10px",
@@ -6268,7 +6271,7 @@
                 fontSize: "0.9em",
                 fontWeight: "bold",
                 minWidth: "0",
-                flex: "1 1 auto",
+                flex: "0 1 auto",
                 cursor: "help"
             });
 
@@ -6324,7 +6327,7 @@
             const refreshIconAdaptiveVisibility = () => {
                 const hasSvgMainIcon = isSvgLikeIconSource(iconTextarea.value);
                 const hasDarkIcon = !!String(iconDarkTextarea.value || "").trim();
-                iconAdaptiveRow.style.display = hasSvgMainIcon && !hasDarkIcon ? "flex" : "none";
+                iconAdaptiveRow.style.display = hasSvgMainIcon && !hasDarkIcon ? "inline-flex" : "none";
             };
 
             const toggleIconAdaptiveEnabled = (nextChecked = !temp.iconAdaptive) => {
