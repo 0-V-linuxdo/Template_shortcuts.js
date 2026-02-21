@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.2.0
+// @name         [Template] 快捷键跳转 [20260222] v1.2.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.2.0
-// @update-log   1.2.0: 编辑快捷键弹窗新增“常规/图标”子Tab；图标自适应处理改为按快捷键独立配置；修正“黑暗模式图标URL”标签字号一致性，并完成源码模块化迁移与构建同步。
+// @version      [20260222] v1.2.1
+// @update-log   1.2.1: 修复设置面板无法弹出的运行时错误（图标模块布尔解析函数作用域问题），并稳固图标自适应按快捷键独立配置逻辑。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -2876,6 +2876,15 @@
                 return false;
             }
 
+            function normalizeLocalBoolean(value, fallback = false) {
+                if (typeof value === "boolean") return value;
+                const token = String(value ?? "").trim().toLowerCase();
+                if (!token) return fallback;
+                if (["1", "true", "yes", "on"].includes(token)) return true;
+                if (["0", "false", "no", "off"].includes(token)) return false;
+                return fallback;
+            }
+
             function rememberMemoryCache(url, value) {
                 if (!memoryCache || !url) return;
                 if (memoryCache.has(url)) memoryCache.delete(url);
@@ -3361,7 +3370,7 @@
                 const lightSource = String(iconUrl || "").trim();
                 const darkSource = String(iconDarkUrl || "").trim();
                 const source = (darkSource && isDarkModeNow()) ? darkSource : lightSource;
-                const shouldUseThemeAdapt = themeAdaptEnabled && normalizeBoolean(iconAdaptive, false) && !darkSource;
+                const shouldUseThemeAdapt = themeAdaptEnabled && normalizeLocalBoolean(iconAdaptive, false) && !darkSource;
                 const sourceMarker = `${source}::ta=${shouldUseThemeAdapt ? "1" : "0"}`;
                 markImageSource(imgEl, sourceMarker);
 
@@ -5751,6 +5760,14 @@
             const { autoResizeTextarea } = layout;
 
             const normalizeHotkey = core.normalizeHotkey;
+            const normalizeLocalBoolean = (value, fallback = false) => {
+                if (typeof value === "boolean") return value;
+                const token = String(value ?? "").trim().toLowerCase();
+                if (!token) return fallback;
+                if (["1", "true", "yes", "on"].includes(token)) return true;
+                if (["0", "false", "no", "off"].includes(token)) return false;
+                return fallback;
+            };
 
             const isNew = !item;
             const temp = item
@@ -5776,7 +5793,7 @@
             if (!temp.customAction) temp.customAction = "";
             if (!temp.urlMethod) temp.urlMethod = "current";
             if (!temp.urlAdvanced) temp.urlAdvanced = "href";
-            temp.iconAdaptive = normalizeBoolean(temp.iconAdaptive, false);
+            temp.iconAdaptive = normalizeLocalBoolean(temp.iconAdaptive, false);
 
             const editOverlay = document.createElement("div");
             editOverlay.id = ids.editOverlay;
