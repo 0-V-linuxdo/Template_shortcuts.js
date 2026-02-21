@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.3.3
+// @name         [Template] 快捷键跳转 [20260222] v1.3.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.3.3
-// @update-log   1.3.3: svg自适应处理新增圆形问号提示组件，支持悬浮与点击显示。
+// @version      [20260222] v1.3.4
+// @update-log   1.3.4: 修复svg自适应处理问号提示框布局异常，优化提示宽度与换行。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -6348,13 +6348,16 @@
                 bottom: "calc(100% + 6px)",
                 zIndex: "50",
                 transform: "translateX(-50%)",
-                maxWidth: "280px",
+                width: "220px",
+                maxWidth: "min(280px, calc(100vw - 48px))",
                 padding: "6px 8px",
                 borderRadius: "6px",
                 border: "1px solid",
                 fontSize: "12px",
                 lineHeight: "1.35",
                 whiteSpace: "normal",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
                 pointerEvents: "none",
                 boxSizing: "border-box",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.28)"
