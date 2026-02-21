@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.1.2
+// @name         [Template] 快捷键跳转 [20260222] v1.1.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.1.2
-// @update-log   1.1.2: 优化“黑暗模式图标URL”和“图标自适应处理”组件外观，统一编辑区视觉风格（含自定义开关样式）。
+// @version      [20260222] v1.1.3
+// @update-log   1.1.3: 编辑快捷键弹窗新增“常规/图标”子Tab；图标URL、黑暗模式图标URL、图标自适应处理与图库组件统一迁移至“图标”Tab，优化布局层次与可读性。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -160,6 +160,10 @@
                 titles: {
                     add: '添加快捷键',
                     edit: '编辑快捷键'
+                },
+                tabs: {
+                    general: '常规',
+                    icon: '图标'
                 },
                 labels: {
                     name: '名称:',
@@ -5925,6 +5929,116 @@
             actionTypeDiv.appendChild(radioGroup);
             formDiv.appendChild(actionTypeDiv);
 
+            const editorTabsText = options?.text?.editor?.tabs || {};
+            const tabBar = document.createElement("div");
+            tabBar.setAttribute("role", "tablist");
+            Object.assign(tabBar.style, {
+                display: "flex",
+                gap: "8px",
+                margin: "0 0 12px 0",
+                paddingBottom: "10px",
+                borderBottom: "1px solid"
+            });
+
+            const generalTabBtn = document.createElement("button");
+            generalTabBtn.type = "button";
+            generalTabBtn.setAttribute("role", "tab");
+            generalTabBtn.textContent = editorTabsText.general || "常规";
+            Object.assign(generalTabBtn.style, {
+                border: "1px solid",
+                borderRadius: "999px",
+                padding: "6px 14px",
+                fontSize: "13px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                transition: "background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease"
+            });
+
+            const iconTabBtn = document.createElement("button");
+            iconTabBtn.type = "button";
+            iconTabBtn.setAttribute("role", "tab");
+            iconTabBtn.textContent = editorTabsText.icon || "图标";
+            Object.assign(iconTabBtn.style, {
+                border: "1px solid",
+                borderRadius: "999px",
+                padding: "6px 14px",
+                fontSize: "13px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                transition: "background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease"
+            });
+
+            const generalPanel = document.createElement("div");
+            generalPanel.setAttribute("role", "tabpanel");
+            const iconPanel = document.createElement("div");
+            iconPanel.setAttribute("role", "tabpanel");
+            iconPanel.style.display = "none";
+
+            const generalPanelId = `${idPrefix}-editor-tab-panel-general`;
+            const iconPanelId = `${idPrefix}-editor-tab-panel-icon`;
+            const generalTabId = `${idPrefix}-editor-tab-general`;
+            const iconTabId = `${idPrefix}-editor-tab-icon`;
+            generalTabBtn.id = generalTabId;
+            iconTabBtn.id = iconTabId;
+            generalPanel.id = generalPanelId;
+            iconPanel.id = iconPanelId;
+            generalPanel.setAttribute("aria-labelledby", generalTabId);
+            iconPanel.setAttribute("aria-labelledby", iconTabId);
+            generalTabBtn.setAttribute("aria-controls", generalPanelId);
+            iconTabBtn.setAttribute("aria-controls", iconPanelId);
+            tabBar.appendChild(generalTabBtn);
+            tabBar.appendChild(iconTabBtn);
+            formDiv.appendChild(tabBar);
+            formDiv.appendChild(generalPanel);
+            formDiv.appendChild(iconPanel);
+
+            const updateEditorTabsTheme = (isDark) => {
+                const borderColor = getBorderColor(isDark);
+                const inactiveBackground = getInputBackgroundColor(isDark);
+                const inactiveTextColor = getTextColor(isDark);
+                const activeBackground = getPrimaryColor();
+                tabBar.style.borderBottomColor = borderColor;
+
+                [generalTabBtn, iconTabBtn].forEach((btn) => {
+                    const isActive = btn.getAttribute("data-active") === "1";
+                    btn.style.borderColor = isActive ? activeBackground : borderColor;
+                    btn.style.backgroundColor = isActive ? activeBackground : inactiveBackground;
+                    btn.style.color = isActive ? "#ffffff" : inactiveTextColor;
+                    btn.onmouseover = () => {
+                        if (btn.getAttribute("data-active") === "1") return;
+                        btn.style.backgroundColor = getHoverColor(isDark);
+                        btn.style.borderColor = getPrimaryColor();
+                    };
+                    btn.onmouseout = () => {
+                        const activeNow = btn.getAttribute("data-active") === "1";
+                        btn.style.borderColor = activeNow ? activeBackground : borderColor;
+                        btn.style.backgroundColor = activeNow ? activeBackground : inactiveBackground;
+                        btn.style.color = activeNow ? "#ffffff" : inactiveTextColor;
+                    };
+                });
+            };
+
+            const setActiveEditorTab = (nextTab) => {
+                const tab = String(nextTab || "").trim() === "icon" ? "icon" : "general";
+                const isGeneral = tab === "general";
+                generalTabBtn.setAttribute("data-active", isGeneral ? "1" : "0");
+                iconTabBtn.setAttribute("data-active", isGeneral ? "0" : "1");
+                generalTabBtn.setAttribute("aria-selected", isGeneral ? "true" : "false");
+                iconTabBtn.setAttribute("aria-selected", isGeneral ? "false" : "true");
+                generalPanel.style.display = isGeneral ? "block" : "none";
+                iconPanel.style.display = isGeneral ? "none" : "block";
+                updateEditorTabsTheme(state.isDarkMode);
+                requestAnimationFrame(() => {
+                    const activePanel = isGeneral ? generalPanel : iconPanel;
+                    activePanel.querySelectorAll("textarea").forEach((ta) => {
+                        autoResizeTextarea(ta);
+                    });
+                });
+            };
+
+            generalTabBtn.addEventListener("click", () => setActiveEditorTab("general"));
+            iconTabBtn.addEventListener("click", () => setActiveEditorTab("icon"));
+
             const urlContainer = document.createElement('div');
             const urlTextarea = panelCreateInputField(
                 ctx,
@@ -5938,7 +6052,7 @@
             const urlMethodContainer = panelCreateUrlMethodConfigUI(ctx, temp.urlMethod, temp.urlAdvanced);
             urlContainer.appendChild(urlMethodContainer.container);
 
-            formDiv.appendChild(urlContainer);
+            generalPanel.appendChild(urlContainer);
             actionInputs.url = urlTextarea.input;
 
             const selectorContainer = document.createElement('div');
@@ -5950,7 +6064,7 @@
                 options?.text?.editor?.placeholders?.selector || '例如: label[for="sidebar-visible"]'
             );
             selectorContainer.appendChild(selectorTextarea.label);
-            formDiv.appendChild(selectorContainer);
+            generalPanel.appendChild(selectorContainer);
             actionInputs.selector = selectorTextarea.input;
 
             const simulateContainer = document.createElement('div');
@@ -5963,7 +6077,7 @@
             const { container: simulateInputContainer, destroy: destroySimulateKeysCapture } = simulateCapture;
             const getSimulateKeys = simulateCapture.getSimulateKeys;
             simulateContainer.appendChild(simulateInputContainer);
-            formDiv.appendChild(simulateContainer);
+            generalPanel.appendChild(simulateContainer);
 
             const customContainer = document.createElement('div');
             const customActionField = panelCreateInputField(
@@ -5974,7 +6088,7 @@
                 options?.text?.editor?.placeholders?.customAction || "从脚本提供的 customActions 中选择/输入 key"
             );
             customContainer.appendChild(customActionField.label);
-            formDiv.appendChild(customContainer);
+            generalPanel.appendChild(customContainer);
             actionInputs.customAction = customActionField.input;
 
             try {
@@ -6080,7 +6194,7 @@
 	                "textarea",
 	                (initialDataAdapter && typeof initialDataAdapter.placeholder === "string") ? initialDataAdapter.placeholder : defaultDataPlaceholder
 	            );
-		            formDiv.appendChild(dataField.label);
+                    generalPanel.appendChild(dataField.label);
 		            const dataTextarea = dataField.input;
                 actionInputs.customAction?.addEventListener?.("input", () => applyDataEditorMode({ maybeReplaceValue: true }));
                 actionInputs.customAction?.addEventListener?.("change", () => applyDataEditorMode({ maybeReplaceValue: true }));
@@ -6098,7 +6212,7 @@
                 preview: iconPreview,
                 destroy: destroyIconField
             } = iconField;
-            formDiv.appendChild(iconLabel);
+            iconPanel.appendChild(iconLabel);
 
             setIconImage(iconPreview, temp.icon || "", temp.iconDark || "");
             const debouncedPreview = debounce(() => {
@@ -6218,11 +6332,11 @@
 
             iconAdaptiveRow.appendChild(iconAdaptiveTextWrap);
             iconAdaptiveRow.appendChild(iconAdaptiveSwitch);
-            formDiv.appendChild(iconAdaptiveRow);
+            iconPanel.appendChild(iconAdaptiveRow);
 
             const iconLibrary = panelCreateIconLibraryUI(ctx, iconTextarea, iconPreview, iconDarkTextarea);
             const { container: iconLibraryContainer, destroy: destroyIconLibrary } = iconLibrary;
-            formDiv.appendChild(iconLibraryContainer);
+            iconPanel.appendChild(iconLibraryContainer);
 
             const hotkeyCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.hotkey || "快捷键:", temp.hotkey, {
                 placeholder: options.text.hints.hotkey,
@@ -6231,7 +6345,7 @@
             });
             const { container: hotkeyContainer, destroy: destroyHotkeyCapture } = hotkeyCapture;
             const getHotkey = hotkeyCapture.getHotkey;
-            formDiv.appendChild(hotkeyContainer);
+            generalPanel.appendChild(hotkeyContainer);
 
             const initialBuiltin = isBuiltinActionType(temp.actionType);
             urlContainer.style.display = (initialBuiltin && temp.actionType === 'url') ? 'block' : 'none';
@@ -6239,6 +6353,7 @@
             simulateContainer.style.display = (initialBuiltin && temp.actionType === 'simulate') ? 'block' : 'none';
             customContainer.style.display = (initialBuiltin && temp.actionType === 'custom') ? 'block' : 'none';
             updateActionTypeHint(temp.actionType);
+            setActiveEditorTab("general");
 
             const btnRow = document.createElement("div");
             Object.assign(btnRow.style, {
@@ -6368,6 +6483,7 @@
                 actionTypeHint.style.color = getTextColor(isDark);
                 actionTypeDiv.querySelectorAll('input[type="radio"]').forEach(rb => rb.style.accentColor = getPrimaryColor());
                 urlMethodContainer.updateTheme(isDark);
+                updateEditorTabsTheme(isDark);
                 styleButton(confirmBtn, "#2196F3", "#1e88e5");
                 styleButton(cancelBtn, "#9E9E9E", "#757575");
             };
