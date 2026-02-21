@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.3.1
+// @name         [Template] 快捷键跳转 [20260222] v1.3.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.3.1
-// @update-log   1.3.1: 优化图标自适应处理组件宽度，避免占满整行；保留悬浮提示。
+// @version      [20260222] v1.3.2
+// @update-log   1.3.2: 图标自适应处理更名为svg自适应处理，并改为可见悬浮提示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -140,7 +140,7 @@
             panel: {
                 resetConfirm: '确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)',
                 confirmDeleteShortcut: '确定删除快捷键【{name}】吗?',
-                iconAdaptiveLabel: '图标自适应处理',
+                iconAdaptiveLabel: 'svg自适应处理',
                 iconAdaptiveHint: '仅在主图标为SVG且未设置黑暗模式图标URL时生效',
                 tableHeaders: {
                     icon: '图标',
@@ -6253,6 +6253,7 @@
                 alignSelf: "flex-start",
                 width: "fit-content",
                 maxWidth: "100%",
+                position: "relative",
                 alignItems: "center",
                 justifyContent: "flex-start",
                 gap: "10px",
@@ -6263,23 +6264,22 @@
                 borderRadius: "6px"
             });
 
+            const iconAdaptiveLabelText = options?.text?.panel?.iconAdaptiveLabel || "svg自适应处理";
             const iconAdaptiveHintText = options?.text?.panel?.iconAdaptiveHint || "仅在主图标为SVG且未设置黑暗模式图标URL时生效";
             const iconAdaptiveLabel = document.createElement("div");
-            iconAdaptiveLabel.textContent = options?.text?.panel?.iconAdaptiveLabel || "图标自适应处理";
-            iconAdaptiveLabel.title = iconAdaptiveHintText;
+            iconAdaptiveLabel.textContent = iconAdaptiveLabelText;
             Object.assign(iconAdaptiveLabel.style, {
                 fontSize: "0.9em",
                 fontWeight: "bold",
                 minWidth: "0",
                 flex: "0 1 auto",
-                cursor: "help"
+                cursor: "default"
             });
 
             const iconAdaptiveSwitch = document.createElement("button");
             iconAdaptiveSwitch.type = "button";
             iconAdaptiveSwitch.setAttribute("role", "switch");
-            iconAdaptiveSwitch.setAttribute("aria-label", options?.text?.panel?.iconAdaptiveLabel || "图标自适应处理");
-            iconAdaptiveSwitch.title = iconAdaptiveHintText;
+            iconAdaptiveSwitch.setAttribute("aria-label", iconAdaptiveLabelText);
             Object.assign(iconAdaptiveSwitch.style, {
                 width: "42px",
                 minWidth: "42px",
@@ -6305,6 +6305,30 @@
             });
             iconAdaptiveSwitch.appendChild(iconAdaptiveThumb);
 
+            const iconAdaptiveTooltip = document.createElement("div");
+            iconAdaptiveTooltip.textContent = iconAdaptiveHintText;
+            Object.assign(iconAdaptiveTooltip.style, {
+                display: "none",
+                position: "absolute",
+                left: "0",
+                bottom: "calc(100% + 6px)",
+                zIndex: "50",
+                maxWidth: "280px",
+                padding: "6px 8px",
+                borderRadius: "6px",
+                border: "1px solid",
+                fontSize: "12px",
+                lineHeight: "1.35",
+                whiteSpace: "normal",
+                pointerEvents: "none",
+                boxSizing: "border-box",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.28)"
+            });
+
+            const setIconAdaptiveTooltipVisible = (visible) => {
+                iconAdaptiveTooltip.style.display = visible ? "block" : "none";
+            };
+
             const applyIconAdaptiveSwitchVisual = (isDark) => {
                 const checked = !!temp.iconAdaptive;
                 iconAdaptiveSwitch.setAttribute("aria-checked", checked ? "true" : "false");
@@ -6327,7 +6351,9 @@
             const refreshIconAdaptiveVisibility = () => {
                 const hasSvgMainIcon = isSvgLikeIconSource(iconTextarea.value);
                 const hasDarkIcon = !!String(iconDarkTextarea.value || "").trim();
-                iconAdaptiveRow.style.display = hasSvgMainIcon && !hasDarkIcon ? "inline-flex" : "none";
+                const visible = hasSvgMainIcon && !hasDarkIcon;
+                if (!visible) setIconAdaptiveTooltipVisible(false);
+                iconAdaptiveRow.style.display = visible ? "inline-flex" : "none";
             };
 
             const toggleIconAdaptiveEnabled = (nextChecked = !temp.iconAdaptive) => {
@@ -6350,10 +6376,18 @@
             iconAdaptiveSwitch.addEventListener("blur", () => {
                 iconAdaptiveSwitch.style.boxShadow = "none";
             });
+            iconAdaptiveRow.addEventListener("mouseenter", () => setIconAdaptiveTooltipVisible(true));
+            iconAdaptiveRow.addEventListener("mouseleave", () => setIconAdaptiveTooltipVisible(false));
+            iconAdaptiveRow.addEventListener("focusin", () => setIconAdaptiveTooltipVisible(true));
+            iconAdaptiveRow.addEventListener("focusout", (event) => {
+                if (iconAdaptiveRow.contains(event.relatedTarget)) return;
+                setIconAdaptiveTooltipVisible(false);
+            });
             applyIconAdaptiveSwitchVisual(state.isDarkMode);
 
             iconAdaptiveRow.appendChild(iconAdaptiveLabel);
             iconAdaptiveRow.appendChild(iconAdaptiveSwitch);
+            iconAdaptiveRow.appendChild(iconAdaptiveTooltip);
             iconPanel.appendChild(iconAdaptiveRow);
             refreshIconAdaptiveVisibility();
 
@@ -6507,6 +6541,9 @@
                 iconAdaptiveRow.style.backgroundColor = getInputBackgroundColor(isDark);
                 iconAdaptiveRow.style.borderColor = getBorderColor(isDark);
                 iconAdaptiveLabel.style.color = getTextColor(isDark);
+                iconAdaptiveTooltip.style.color = getTextColor(isDark);
+                iconAdaptiveTooltip.style.backgroundColor = getInputBackgroundColor(isDark);
+                iconAdaptiveTooltip.style.borderColor = getBorderColor(isDark);
                 applyIconAdaptiveSwitchVisual(isDark);
                 styleInputField(dataTextarea, isDark);
                 actionTypeHint.style.color = getTextColor(isDark);
