@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.3.4
+// @name         [Template] 快捷键跳转 [20260222] v1.4.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.3.4
-// @update-log   1.3.4: 修复svg自适应处理问号提示框布局异常，优化提示宽度与换行。
+// @version      [20260222] v1.4.0
+// @update-log   1.4.0: 编辑弹窗新增“扩展参数”子tab，将 data JSON 输入区从“常规”分组迁移至独立分组。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -163,6 +163,7 @@
                 },
                 tabs: {
                     general: '常规',
+                    data: '扩展参数',
                     icon: '图标'
                 },
                 labels: {
@@ -5971,28 +5972,53 @@
                 transition: "background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease"
             });
 
+            const dataTabBtn = document.createElement("button");
+            dataTabBtn.type = "button";
+            dataTabBtn.setAttribute("role", "tab");
+            dataTabBtn.textContent = editorTabsText.data || "扩展参数";
+            Object.assign(dataTabBtn.style, {
+                border: "1px solid",
+                borderRadius: "999px",
+                padding: "6px 14px",
+                fontSize: "13px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                transition: "background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease"
+            });
+
             const generalPanel = document.createElement("div");
             generalPanel.setAttribute("role", "tabpanel");
+            const dataPanel = document.createElement("div");
+            dataPanel.setAttribute("role", "tabpanel");
+            dataPanel.style.display = "none";
             const iconPanel = document.createElement("div");
             iconPanel.setAttribute("role", "tabpanel");
             iconPanel.style.display = "none";
 
             const generalPanelId = `${idPrefix}-editor-tab-panel-general`;
+            const dataPanelId = `${idPrefix}-editor-tab-panel-data`;
             const iconPanelId = `${idPrefix}-editor-tab-panel-icon`;
             const generalTabId = `${idPrefix}-editor-tab-general`;
+            const dataTabId = `${idPrefix}-editor-tab-data`;
             const iconTabId = `${idPrefix}-editor-tab-icon`;
             generalTabBtn.id = generalTabId;
+            dataTabBtn.id = dataTabId;
             iconTabBtn.id = iconTabId;
             generalPanel.id = generalPanelId;
+            dataPanel.id = dataPanelId;
             iconPanel.id = iconPanelId;
             generalPanel.setAttribute("aria-labelledby", generalTabId);
+            dataPanel.setAttribute("aria-labelledby", dataTabId);
             iconPanel.setAttribute("aria-labelledby", iconTabId);
             generalTabBtn.setAttribute("aria-controls", generalPanelId);
+            dataTabBtn.setAttribute("aria-controls", dataPanelId);
             iconTabBtn.setAttribute("aria-controls", iconPanelId);
             tabBar.appendChild(generalTabBtn);
+            tabBar.appendChild(dataTabBtn);
             tabBar.appendChild(iconTabBtn);
             formDiv.appendChild(tabBar);
             formDiv.appendChild(generalPanel);
+            formDiv.appendChild(dataPanel);
             formDiv.appendChild(iconPanel);
 
             const updateEditorTabsTheme = (isDark) => {
@@ -6002,7 +6028,7 @@
                 const activeBackground = getPrimaryColor();
                 tabBar.style.borderBottomColor = borderColor;
 
-                [generalTabBtn, iconTabBtn].forEach((btn) => {
+                [generalTabBtn, dataTabBtn, iconTabBtn].forEach((btn) => {
                     const isActive = btn.getAttribute("data-active") === "1";
                     btn.style.borderColor = isActive ? activeBackground : borderColor;
                     btn.style.backgroundColor = isActive ? activeBackground : inactiveBackground;
@@ -6022,17 +6048,23 @@
             };
 
             const setActiveEditorTab = (nextTab) => {
-                const tab = String(nextTab || "").trim() === "icon" ? "icon" : "general";
+                const normalizedTab = String(nextTab || "").trim();
+                const tab = (normalizedTab === "icon" || normalizedTab === "data") ? normalizedTab : "general";
                 const isGeneral = tab === "general";
+                const isData = tab === "data";
+                const isIcon = tab === "icon";
                 generalTabBtn.setAttribute("data-active", isGeneral ? "1" : "0");
-                iconTabBtn.setAttribute("data-active", isGeneral ? "0" : "1");
+                dataTabBtn.setAttribute("data-active", isData ? "1" : "0");
+                iconTabBtn.setAttribute("data-active", isIcon ? "1" : "0");
                 generalTabBtn.setAttribute("aria-selected", isGeneral ? "true" : "false");
-                iconTabBtn.setAttribute("aria-selected", isGeneral ? "false" : "true");
+                dataTabBtn.setAttribute("aria-selected", isData ? "true" : "false");
+                iconTabBtn.setAttribute("aria-selected", isIcon ? "true" : "false");
                 generalPanel.style.display = isGeneral ? "block" : "none";
-                iconPanel.style.display = isGeneral ? "none" : "block";
+                dataPanel.style.display = isData ? "block" : "none";
+                iconPanel.style.display = isIcon ? "block" : "none";
                 updateEditorTabsTheme(state.isDarkMode);
                 requestAnimationFrame(() => {
-                    const activePanel = isGeneral ? generalPanel : iconPanel;
+                    const activePanel = isGeneral ? generalPanel : (isData ? dataPanel : iconPanel);
                     activePanel.querySelectorAll("textarea").forEach((ta) => {
                         autoResizeTextarea(ta);
                     });
@@ -6040,6 +6072,7 @@
             };
 
             generalTabBtn.addEventListener("click", () => setActiveEditorTab("general"));
+            dataTabBtn.addEventListener("click", () => setActiveEditorTab("data"));
             iconTabBtn.addEventListener("click", () => setActiveEditorTab("icon"));
 
             const urlContainer = document.createElement('div');
@@ -6190,15 +6223,15 @@
 	                    : null;
                     lastDataAdapterKey = initialDataAdapter ? String(temp.customAction || "").trim() : "";
 
-	            const dataField = panelCreateInputField(
-	                ctx,
-	                (initialDataAdapter && typeof initialDataAdapter.label === "string") ? initialDataAdapter.label : defaultDataLabelText,
-	                initialDataAdapter ? formatCustomActionData(initialDataAdapter, temp.data) : formatJsonDataForEditor(temp.data),
-	                "textarea",
-	                (initialDataAdapter && typeof initialDataAdapter.placeholder === "string") ? initialDataAdapter.placeholder : defaultDataPlaceholder
-	            );
-		            generalPanel.appendChild(dataField.label);
-		            const dataTextarea = dataField.input;
+            const dataField = panelCreateInputField(
+                ctx,
+                (initialDataAdapter && typeof initialDataAdapter.label === "string") ? initialDataAdapter.label : defaultDataLabelText,
+                initialDataAdapter ? formatCustomActionData(initialDataAdapter, temp.data) : formatJsonDataForEditor(temp.data),
+                "textarea",
+                (initialDataAdapter && typeof initialDataAdapter.placeholder === "string") ? initialDataAdapter.placeholder : defaultDataPlaceholder
+            );
+	            dataPanel.appendChild(dataField.label);
+	            const dataTextarea = dataField.input;
                 actionInputs.customAction?.addEventListener?.("input", () => applyDataEditorMode({ maybeReplaceValue: true }));
                 actionInputs.customAction?.addEventListener?.("change", () => applyDataEditorMode({ maybeReplaceValue: true }));
 
