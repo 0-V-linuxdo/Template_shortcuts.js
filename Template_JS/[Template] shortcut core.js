@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.4.3
+// @name         [Template] 快捷键跳转 [20260222] v1.4.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.4.3
-// @update-log   1.4.3: 修正“svg自适应处理”提示框为原有黑/白主题色（跟随明暗模式），保持问号按钮样式不变。
+// @version      [20260222] v1.4.4
+// @update-log   1.4.4: 新增联动：开启“svg自适应处理”时自动隐藏“黑暗模式图标URL”组件，关闭后恢复显示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -5094,7 +5094,7 @@
                     dialog.appendChild(themeRow);
 
                     const actionsLabel = document.createElement("div");
-                    actionsLabel.textContent = options?.text?.panel?.actionsLabel || "快捷操作";
+                    actionsLabel.textContent = options?.text?.panel?.actionsLabel || "脚本配置";
                     Object.assign(actionsLabel.style, {
                         fontSize: "14px",
                         fontWeight: "bold",
@@ -6288,6 +6288,8 @@
                 label: iconLabel,
                 input: iconTextarea,
                 darkInput: iconDarkTextarea,
+                darkLabel: iconDarkLabel,
+                darkRow: iconDarkRow,
                 preview: iconPreview,
                 darkPreview: iconDarkPreview,
                 destroy: destroyIconField
@@ -6521,9 +6523,16 @@
                 iconAdaptiveRow.style.display = visible ? "inline-flex" : "none";
             };
 
+            const refreshIconDarkFieldVisibility = () => {
+                const visible = !temp.iconAdaptive;
+                if (iconDarkLabel) iconDarkLabel.style.display = visible ? "block" : "none";
+                if (iconDarkRow) iconDarkRow.style.display = visible ? "grid" : "none";
+            };
+
             const toggleIconAdaptiveEnabled = (nextChecked = !temp.iconAdaptive) => {
                 temp.iconAdaptive = !!nextChecked;
                 refreshIconPreviews();
+                refreshIconDarkFieldVisibility();
                 if (typeof renderShortcutsList === "function") renderShortcutsList(state.isDarkMode);
                 applyIconAdaptiveSwitchVisual(state.isDarkMode);
             };
@@ -6589,6 +6598,7 @@
             iconAdaptiveRow.appendChild(iconAdaptiveSwitch);
             iconPanel.appendChild(iconAdaptiveRow);
             refreshIconAdaptiveVisibility();
+            refreshIconDarkFieldVisibility();
 
             const iconLibrary = panelCreateIconLibraryUI(
                 ctx,
@@ -7141,7 +7151,16 @@
                 removeThemeChangeListener(updatePreviewTheme);
             };
 
-            return { label, input: textarea, darkInput: darkTextarea, preview, darkPreview, destroy };
+            return {
+                label,
+                input: textarea,
+                darkInput: darkTextarea,
+                darkLabel,
+                darkRow,
+                preview,
+                darkPreview,
+                destroy
+            };
         }
 
         function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, targetDarkTextarea = null, getAdaptiveEnabled = null) {
