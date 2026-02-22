@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.4.2
+// @name         [Template] 快捷键跳转 [20260222] v1.4.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.4.2
-// @update-log   1.4.2: 设置菜单按钮调整为横向排列（重置/导入/导出）并优化配色；“svg自适应处理”提示组件优化为淡粉色；设置按钮改为 SVG 图标。
+// @version      [20260222] v1.4.3
+// @update-log   1.4.3: 修正“svg自适应处理”提示框为原有黑/白主题色（跟随明暗模式），保持问号按钮样式不变。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -4709,7 +4709,7 @@
                     });
                     const iconStrokeAttrs = {
                         stroke: "currentColor",
-                        "stroke-width": "1.8",
+                        "stroke-width": "1.7",
                         "stroke-linecap": "round",
                         "stroke-linejoin": "round"
                     };
@@ -4718,20 +4718,11 @@
                         Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, String(value)));
                         return node;
                     };
-                    settingsIcon.appendChild(createIconNode("circle", { cx: "12", cy: "12", r: "5.2", ...iconStrokeAttrs }));
-                    settingsIcon.appendChild(createIconNode("circle", { cx: "12", cy: "12", r: "1.8", fill: "currentColor" }));
-                    [
-                        "M12 2.75V5.1",
-                        "M12 18.9v2.35",
-                        "M2.75 12H5.1",
-                        "M18.9 12h2.35",
-                        "M5.46 5.46l1.66 1.66",
-                        "M16.88 16.88l1.66 1.66",
-                        "M18.54 5.46l-1.66 1.66",
-                        "M7.12 16.88l-1.66 1.66"
-                    ].forEach((d) => {
-                        settingsIcon.appendChild(createIconNode("path", { d, ...iconStrokeAttrs }));
-                    });
+                    settingsIcon.appendChild(createIconNode("path", {
+                        d: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.607 2.296.07 2.572-1.065Z",
+                        ...iconStrokeAttrs
+                    }));
+                    settingsIcon.appendChild(createIconNode("circle", { cx: "12", cy: "12", r: "3.2", ...iconStrokeAttrs }));
                     settingsBtn.replaceChildren(settingsIcon);
 
 			            const searchWidget = document.createElement("div");
@@ -5101,6 +5092,15 @@
                     themeRow.appendChild(themeLabel);
                     themeRow.appendChild(themeSelect);
                     dialog.appendChild(themeRow);
+
+                    const actionsLabel = document.createElement("div");
+                    actionsLabel.textContent = options?.text?.panel?.actionsLabel || "快捷操作";
+                    Object.assign(actionsLabel.style, {
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                        marginTop: "2px"
+                    });
+                    dialog.appendChild(actionsLabel);
 
 	                const actions = document.createElement("div");
 	                Object.assign(actions.style, {
@@ -6354,14 +6354,14 @@
                     tooltipShadow: "0 10px 24px rgba(190, 24, 93, 0.18)"
                 },
                 dark: {
-                    helpText: "#f9a8d4",
-                    helpBg: "rgba(255, 228, 238, 0.18)",
-                    helpBgActive: "rgba(255, 214, 231, 0.28)",
-                    helpBorder: "rgba(249, 168, 212, 0.62)",
-                    tooltipText: "#831843",
-                    tooltipBg: "rgba(255, 241, 247, 0.98)",
-                    tooltipBorder: "rgba(249, 168, 212, 0.9)",
-                    tooltipShadow: "0 12px 28px rgba(249, 168, 212, 0.26)"
+                    helpText: "#e7c0d4",
+                    helpBg: "rgba(231, 192, 212, 0.10)",
+                    helpBgActive: "rgba(231, 192, 212, 0.18)",
+                    helpBorder: "rgba(231, 192, 212, 0.38)",
+                    tooltipText: "#f7dce9",
+                    tooltipBg: "rgba(41, 31, 38, 0.96)",
+                    tooltipBorder: "rgba(231, 192, 212, 0.35)",
+                    tooltipShadow: "0 14px 30px rgba(0, 0, 0, 0.45)"
                 }
             };
             const iconAdaptiveLabel = document.createElement("div");
@@ -6476,10 +6476,11 @@
                     : iconAdaptiveHintPalette.helpBg;
             };
             const applyIconAdaptiveTooltipVisual = () => {
-                iconAdaptiveTooltip.style.color = iconAdaptiveHintPalette.tooltipText;
-                iconAdaptiveTooltip.style.backgroundColor = iconAdaptiveHintPalette.tooltipBg;
-                iconAdaptiveTooltip.style.borderColor = iconAdaptiveHintPalette.tooltipBorder;
-                iconAdaptiveTooltip.style.boxShadow = iconAdaptiveHintPalette.tooltipShadow;
+                const isDark = !!state.isDarkMode;
+                iconAdaptiveTooltip.style.color = getTextColor(isDark);
+                iconAdaptiveTooltip.style.backgroundColor = getInputBackgroundColor(isDark);
+                iconAdaptiveTooltip.style.borderColor = getBorderColor(isDark);
+                iconAdaptiveTooltip.style.boxShadow = "0 4px 12px rgba(0,0,0,0.28)";
             };
             const setIconAdaptiveTooltipVisible = (visible) => {
                 const show = !!visible;
