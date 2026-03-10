@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260310] v1.1.0
+// @name         [Template] 快捷键跳转 [20260310] v1.1.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260310] v1.1.0
-// @update-log   1.1.0: quickInput 的自动新建对话统一改为优先走站点原生快捷键；ChatGPT 不再回退到用户配置的 Ctrl+N。
+// @version      [20260310] v1.1.1
+// @update-log   1.1.1: 修复 ChatGPT quickInput 在新对话后沿用旧输入框引用的问题，避免图片已贴好却卡在上传检测；同时补充上传等待失败诊断信息。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10254,6 +10254,10 @@
                             if (!ready?.ok) {
                                 cancelRun = true;
                                 appendLog(labels.messages?.uploadNotReady || DEFAULT_LABELS.messages.uploadNotReady, { level: "error" });
+                                const detail = (ready && typeof ready === "object" && typeof ready.message === "string")
+                                    ? ready.message.trim()
+                                    : "";
+                                if (detail) appendLog(detail, { level: "error" });
                                 break;
                             }
                         } else {
