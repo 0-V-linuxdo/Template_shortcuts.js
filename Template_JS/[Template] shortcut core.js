@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260310] v1.0.4
+// @name         [Template] 快捷键跳转 [20260310] v1.1.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260310] v1.0.4
-// @update-log   1.0.4: quickInput 在输入前若发现仍停留在错误会话，会先自动再触发一次新建对话并重新校验；仅在补救失败后才停止后续循环。
+// @version      [20260310] v1.1.0
+// @update-log   1.1.0: quickInput 的自动新建对话统一改为优先走站点原生快捷键；ChatGPT 不再回退到用户配置的 Ctrl+N。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8946,9 +8946,18 @@
                 attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
                 waitForReadyToSend: typeof rawAdapter.waitForReadyToSend === "function" ? rawAdapter.waitForReadyToSend : null,
                 waitForNewChatReady: typeof rawAdapter.waitForNewChatReady === "function" ? rawAdapter.waitForNewChatReady : null,
+                triggerNewChat: typeof rawAdapter.triggerNewChat === "function"
+                    ? rawAdapter.triggerNewChat
+                    : (typeof rawAdapter.triggerNewChatRetry === "function"
+                        ? rawAdapter.triggerNewChatRetry
+                        : async ({ hotkey }) => executeEngineShortcutByHotkey(engine, hotkey)),
+                newChatLabel: typeof rawAdapter.newChatLabel === "string"
+                    ? rawAdapter.newChatLabel
+                    : (typeof rawAdapter.retryNewChatLabel === "string" ? rawAdapter.retryNewChatLabel : ""),
                 sendMessage: typeof rawAdapter.sendMessage === "function" ? rawAdapter.sendMessage : async (composerEl) =>
                     simulateKeystroke("ENTER", { target: composerEl })
             });
+            const hasCustomNewChatTrigger = typeof rawAdapter.triggerNewChat === "function" || typeof rawAdapter.triggerNewChatRetry === "function";
 
             let overlayEl = null;
             let panelEl = null;
@@ -8996,6 +9005,34 @@
             function isInsideOverlay(el) {
                 if (!el || typeof el.closest !== "function") return false;
                 try { return !!el.closest(`#${overlayId}`); } catch { return false; }
+            }
+
+            function getNewChatTriggerLabel(hotkey) {
+                const label = String(adapter.newChatLabel || "").trim();
+                return label || String(hotkey || "").trim();
+            }
+
+            async function triggerNewChatAction({ hotkey, phase = "primary", attempt = 1, shouldCancel = null } = {}) {
+                const fallbackHotkey = String(hotkey || "").trim();
+                const triggerLabel = getNewChatTriggerLabel(fallbackHotkey);
+                if (!fallbackHotkey && !hasCustomNewChatTrigger) return { ok: false, label: triggerLabel };
+
+                try {
+                    const result = await adapter.triggerNewChat({
+                        hotkey: fallbackHotkey,
+                        phase,
+                        attempt,
+                        shouldCancel,
+                        fallbackTrigger: () => fallbackHotkey ? executeEngineShortcutByHotkey(engine, fallbackHotkey) : false
+                    });
+                    if (result && typeof result === "object") {
+                        const resolvedLabel = String(result.label || "").trim() || triggerLabel;
+                        return { ok: !!result.ok, label: resolvedLabel };
+                    }
+                    return { ok: !!result, label: triggerLabel };
+                } catch {
+                    return { ok: false, label: triggerLabel };
+                }
             }
 
             function clampPanelHeightPx(value) {
@@ -9947,16 +9984,24 @@
                 let okNewChat = false;
                 let verificationMessage = "";
                 let attemptsUsed = 0;
+                let usedNewChatLabel = getNewChatTriggerLabel(newChatHotkey);
 
                 for (let attemptIndex = 0; attemptIndex < totalAttempts; attemptIndex++) {
                     attemptsUsed = attemptIndex + 1;
-                    const hotkeyTriggered = await executeEngineShortcutByHotkey(engine, newChatHotkey);
-                    let attemptOk = !!hotkeyTriggered;
+                    const triggerResult = await triggerNewChatAction({
+                        hotkey: newChatHotkey,
+                        phase: attemptIndex === 0 ? "primary" : "retry",
+                        attempt: attemptIndex + 1,
+                        shouldCancel: cancelFn
+                    });
+                    const triggerLabel = String(triggerResult?.label || newChatHotkey || "").trim() || String(newChatHotkey || "").trim();
+                    usedNewChatLabel = triggerLabel;
+                    let attemptOk = !!triggerResult?.ok;
                     let attemptMessage = "";
 
                     if (attemptOk && adapter.waitForNewChatReady) {
                         const verification = await adapter.waitForNewChatReady({
-                            hotkey: newChatHotkey,
+                            hotkey: triggerLabel,
                             timeoutMs: 12000,
                             intervalMs: 160,
                             shouldCancel: cancelFn
@@ -9981,10 +10026,11 @@
                     verificationMessage = attemptMessage;
                     if (attemptIndex >= totalAttempts - 1) break;
 
+                    const retryNewChatLabel = getNewChatTriggerLabel(newChatHotkey);
                     const retryMsg = labels.messages?.newChatRetrying
-                        ? labels.messages.newChatRetrying(newChatHotkey, attemptIndex + 1, maxNewChatRetries)
+                        ? labels.messages.newChatRetrying(retryNewChatLabel, attemptIndex + 1, maxNewChatRetries)
                         : (DEFAULT_LABELS.messages.newChatRetrying
-                            ? DEFAULT_LABELS.messages.newChatRetrying(newChatHotkey, attemptIndex + 1, maxNewChatRetries)
+                            ? DEFAULT_LABELS.messages.newChatRetrying(retryNewChatLabel, attemptIndex + 1, maxNewChatRetries)
                             : "");
                     if (retryMsg) appendLog(retryMsg);
 
@@ -9993,8 +10039,8 @@
                 }
 
                 const newChatMsg = labels.messages?.newChatTriggered
-                    ? labels.messages.newChatTriggered(newChatHotkey, okNewChat)
-                    : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, okNewChat);
+                    ? labels.messages.newChatTriggered(usedNewChatLabel, okNewChat)
+                    : DEFAULT_LABELS.messages.newChatTriggered(usedNewChatLabel, okNewChat);
                 appendLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
                 if (!okNewChat && verificationMessage) {
                     appendLog(verificationMessage, { level: "error" });
@@ -10018,8 +10064,9 @@
                     ? cfg.toolHotkeys.map(value => String(value ?? "").trim()).filter(Boolean)
                     : [];
                 const newChatHotkey = String(cfg.newChatHotkey ?? "").trim();
+                const newChatDisplayLabel = getNewChatTriggerLabel(newChatHotkey);
 
-                if (!newChatHotkey) {
+                if (!newChatHotkey && !hasCustomNewChatTrigger) {
                     appendLog(labels.messages?.missingNewChatHotkey || DEFAULT_LABELS.messages.missingNewChatHotkey, { level: "error" });
                     setRunning(false);
                     return;
@@ -10034,8 +10081,8 @@
                 const shouldCancel = () => cancelRun;
                 setActiveTab?.("log");
                 const startMsg = labels.messages?.start
-                    ? labels.messages.start(cfg.loopCount, toolHotkeys, newChatHotkey, images.length)
-                    : DEFAULT_LABELS.messages.start(cfg.loopCount, toolHotkeys, newChatHotkey, images.length);
+                    ? labels.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length)
+                    : DEFAULT_LABELS.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length);
                 appendLog(startMsg);
 
                 async function verifyInputUrlReady(stageLabel = "") {
@@ -10053,17 +10100,23 @@
                     let ok = (verification && typeof verification === "object") ? !!verification.ok : !!verification;
                     if (ok) return true;
 
+                    const retryNewChatLabel = getNewChatTriggerLabel(newChatHotkey);
                     const recoveringMsg = labels.messages?.inputUrlRecovering
-                        ? labels.messages.inputUrlRecovering(stageLabel, newChatHotkey)
+                        ? labels.messages.inputUrlRecovering(stageLabel, retryNewChatLabel)
                         : (typeof DEFAULT_LABELS.messages.inputUrlRecovering === "function"
-                            ? DEFAULT_LABELS.messages.inputUrlRecovering(stageLabel, newChatHotkey)
+                            ? DEFAULT_LABELS.messages.inputUrlRecovering(stageLabel, retryNewChatLabel)
                             : DEFAULT_LABELS.messages.inputUrlRecovering);
                     if (recoveringMsg) appendLog(recoveringMsg, { level: "error" });
 
-                    const retriggered = await executeEngineShortcutByHotkey(engine, newChatHotkey);
-                    if (retriggered && adapter.waitForNewChatReady) {
+                    const retryTrigger = await triggerNewChatAction({
+                        hotkey: newChatHotkey,
+                        phase: "retry",
+                        attempt: 1,
+                        shouldCancel
+                    });
+                    if (retryTrigger.ok && adapter.waitForNewChatReady) {
                         verification = await adapter.waitForNewChatReady({
-                            hotkey: newChatHotkey,
+                            hotkey: retryTrigger.label || retryNewChatLabel,
                             timeoutMs: 12000,
                             intervalMs: 160,
                             settleMs: 300,
@@ -10073,8 +10126,8 @@
                         ok = (verification && typeof verification === "object") ? !!verification.ok : !!verification;
                         if (ok) {
                             const recoverOkMsg = labels.messages?.newChatTriggered
-                                ? labels.messages.newChatTriggered(newChatHotkey, true)
-                                : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, true);
+                                ? labels.messages.newChatTriggered(retryTrigger.label || retryNewChatLabel, true)
+                                : DEFAULT_LABELS.messages.newChatTriggered(retryTrigger.label || retryNewChatLabel, true);
                             appendLog(recoverOkMsg, { level: "ok" });
                             return true;
                         }
