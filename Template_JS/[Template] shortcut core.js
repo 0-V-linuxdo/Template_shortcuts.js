@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260310] v1.0.2
+// @name         [Template] 快捷键跳转 [20260310] v1.0.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260310] v1.0.2
-// @update-log   1.0.2: quickInput 在每轮执行任何输入前先校验目标 URL；若未精确进入预期新对话页，则直接停止后续循环，避免误在旧会话继续执行。
+// @version      [20260310] v1.0.3
+// @update-log   1.0.3: quickInput 在每个关键动作前都会再次校验输入上下文；若 URL 未精确命中目标页，则贴图、文字输入、工具触发、发送都会立即终止。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8763,7 +8763,7 @@
                 newChatTriggered: (hotkey, ok) => (ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`),
                 newChatRetrying: (hotkey, attempt, maxRetries) => `新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
                 newChatNotReady: "新对话在自动重试后仍未就绪：已停止后续循环，避免在旧上下文继续执行。",
-                inputUrlNotReady: "输入前 URL 校验失败：已停止后续循环，避免在错误会话继续执行。",
+                inputUrlNotReady: (stage) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：已停止后续循环，避免在错误会话继续执行。`,
                 stopped: "已停止。",
                 finished: "完成。",
                 stopRequested: "收到停止请求，将尽快停止…",
@@ -10037,6 +10037,36 @@
                     : DEFAULT_LABELS.messages.start(cfg.loopCount, toolHotkeys, newChatHotkey, images.length);
                 appendLog(startMsg);
 
+                async function verifyInputUrlReady(stageLabel = "") {
+                    if (!adapter.waitForNewChatReady) return true;
+
+                    const verification = await adapter.waitForNewChatReady({
+                        hotkey: newChatHotkey,
+                        timeoutMs: 240,
+                        intervalMs: 60,
+                        settleMs: 0,
+                        shouldCancel
+                    });
+                    if (verification && typeof verification === "object" && verification.cancelled) return "cancelled";
+
+                    const ok = (verification && typeof verification === "object") ? !!verification.ok : !!verification;
+                    if (ok) return true;
+
+                    cancelRun = true;
+                    const title = labels.messages?.inputUrlNotReady
+                        ? labels.messages.inputUrlNotReady(stageLabel)
+                        : (typeof DEFAULT_LABELS.messages.inputUrlNotReady === "function"
+                            ? DEFAULT_LABELS.messages.inputUrlNotReady(stageLabel)
+                            : DEFAULT_LABELS.messages.inputUrlNotReady);
+                    appendLog(title, { level: "error" });
+
+                    const detail = (verification && typeof verification === "object" && typeof verification.message === "string")
+                        ? verification.message.trim()
+                        : "";
+                    if (detail) appendLog(detail, { level: "error" });
+                    return false;
+                }
+
                 for (let i = 0; i < cfg.loopCount; i++) {
                     if (cancelRun) break;
                     const marker = labels.messages?.loopMarker
@@ -10044,26 +10074,8 @@
                         : DEFAULT_LABELS.messages.loopMarker(i + 1, cfg.loopCount);
                     appendLog(marker);
 
-                    if (adapter.waitForNewChatReady) {
-                        const precheck = await adapter.waitForNewChatReady({
-                            hotkey: newChatHotkey,
-                            timeoutMs: 2000,
-                            intervalMs: 160,
-                            settleMs: 0,
-                            shouldCancel
-                        });
-                        if (precheck && typeof precheck === "object" && precheck.cancelled) break;
-
-                        const inputUrlReady = (precheck && typeof precheck === "object") ? !!precheck.ok : !!precheck;
-                        if (!inputUrlReady) {
-                            cancelRun = true;
-                            const precheckMessage = (precheck && typeof precheck === "object" && typeof precheck.message === "string")
-                                ? precheck.message.trim()
-                                : "";
-                            appendLog(precheckMessage || labels.messages?.inputUrlNotReady || DEFAULT_LABELS.messages.inputUrlNotReady, { level: "error" });
-                            break;
-                        }
-                    }
+                    const loopUrlReady = await verifyInputUrlReady("本轮开始");
+                    if (loopUrlReady !== true) break;
 
                     const composer = await adapter.focusComposer({ timeoutMs: 15000, intervalMs: 160, shouldCancel });
                     if (!composer) {
@@ -10072,11 +10084,17 @@
                         break;
                     }
 
+                    const focusedUrlReady = await verifyInputUrlReady("输入框聚焦后");
+                    if (focusedUrlReady !== true) break;
+
                     if (cfg.clearBeforeRun) adapter.clearComposerValue(composer);
                     await sleep(cfg.stepDelayMs);
                     if (cancelRun) break;
 
                     if (images.length) {
+                        const beforeImagesReady = await verifyInputUrlReady("贴图前");
+                        if (beforeImagesReady !== true) break;
+
                         if (!adapter.attachImages) {
                             cancelRun = true;
                             appendLog(labels.messages?.missingAttachAdapter || DEFAULT_LABELS.messages.missingAttachAdapter, { level: "error" });
@@ -10116,6 +10134,9 @@
                     }
 
                     if (promptText.trim()) {
+                        const beforeTextReady = await verifyInputUrlReady("文字输入前");
+                        if (beforeTextReady !== true) break;
+
                         const okText = adapter.setInputValue(composer, promptText);
                         const msg = labels.messages?.textInserted
                             ? labels.messages.textInserted(okText)
@@ -10128,6 +10149,8 @@
                     if (toolHotkeys.length) {
                         for (const hotkey of toolHotkeys) {
                             if (cancelRun) break;
+                            const beforeToolReady = await verifyInputUrlReady(`工具快捷键前:${hotkey}`);
+                            if (beforeToolReady !== true) break;
                             const okHotkey = await executeEngineShortcutByHotkey(engine, hotkey);
                             const msg = labels.messages?.hotkeyTriggered
                                 ? labels.messages.hotkeyTriggered(hotkey, okHotkey)
@@ -10162,6 +10185,8 @@
                     }
 
                     if (cancelRun) break;
+                    const beforeSendReady = await verifyInputUrlReady("发送前");
+                    if (beforeSendReady !== true) break;
                     const okSend = await adapter.sendMessage(composer);
                     const sendCompletedAtMs = Date.now();
                     const sendMsg = labels.messages?.sendAttempted
