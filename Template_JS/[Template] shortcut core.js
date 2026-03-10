@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260310] v1.0.3
+// @name         [Template] 快捷键跳转 [20260310] v1.0.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260310] v1.0.3
-// @update-log   1.0.3: quickInput 在每个关键动作前都会再次校验输入上下文；若 URL 未精确命中目标页，则贴图、文字输入、工具触发、发送都会立即终止。
+// @version      [20260310] v1.0.4
+// @update-log   1.0.4: quickInput 在输入前若发现仍停留在错误会话，会先自动再触发一次新建对话并重新校验；仅在补救失败后才停止后续循环。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8763,7 +8763,8 @@
                 newChatTriggered: (hotkey, ok) => (ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`),
                 newChatRetrying: (hotkey, attempt, maxRetries) => `新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
                 newChatNotReady: "新对话在自动重试后仍未就绪：已停止后续循环，避免在旧上下文继续执行。",
-                inputUrlNotReady: (stage) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：已停止后续循环，避免在错误会话继续执行。`,
+                inputUrlRecovering: (stage, hotkey) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：准备自动重新触发 ${hotkey} 新建对话。`,
+                inputUrlNotReady: (stage) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：自动补救后仍未恢复，已停止后续循环，避免在错误会话继续执行。`,
                 stopped: "已停止。",
                 finished: "完成。",
                 stopRequested: "收到停止请求，将尽快停止…",
@@ -10040,7 +10041,7 @@
                 async function verifyInputUrlReady(stageLabel = "") {
                     if (!adapter.waitForNewChatReady) return true;
 
-                    const verification = await adapter.waitForNewChatReady({
+                    let verification = await adapter.waitForNewChatReady({
                         hotkey: newChatHotkey,
                         timeoutMs: 240,
                         intervalMs: 60,
@@ -10049,8 +10050,35 @@
                     });
                     if (verification && typeof verification === "object" && verification.cancelled) return "cancelled";
 
-                    const ok = (verification && typeof verification === "object") ? !!verification.ok : !!verification;
+                    let ok = (verification && typeof verification === "object") ? !!verification.ok : !!verification;
                     if (ok) return true;
+
+                    const recoveringMsg = labels.messages?.inputUrlRecovering
+                        ? labels.messages.inputUrlRecovering(stageLabel, newChatHotkey)
+                        : (typeof DEFAULT_LABELS.messages.inputUrlRecovering === "function"
+                            ? DEFAULT_LABELS.messages.inputUrlRecovering(stageLabel, newChatHotkey)
+                            : DEFAULT_LABELS.messages.inputUrlRecovering);
+                    if (recoveringMsg) appendLog(recoveringMsg, { level: "error" });
+
+                    const retriggered = await executeEngineShortcutByHotkey(engine, newChatHotkey);
+                    if (retriggered && adapter.waitForNewChatReady) {
+                        verification = await adapter.waitForNewChatReady({
+                            hotkey: newChatHotkey,
+                            timeoutMs: 12000,
+                            intervalMs: 160,
+                            settleMs: 300,
+                            shouldCancel
+                        });
+                        if (verification && typeof verification === "object" && verification.cancelled) return "cancelled";
+                        ok = (verification && typeof verification === "object") ? !!verification.ok : !!verification;
+                        if (ok) {
+                            const recoverOkMsg = labels.messages?.newChatTriggered
+                                ? labels.messages.newChatTriggered(newChatHotkey, true)
+                                : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, true);
+                            appendLog(recoverOkMsg, { level: "ok" });
+                            return true;
+                        }
+                    }
 
                     cancelRun = true;
                     const title = labels.messages?.inputUrlNotReady
