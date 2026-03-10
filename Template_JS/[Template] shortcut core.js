@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260310] v1.1.1
+// @name         [Template] 快捷键跳转 [20260310] v1.1.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260310] v1.1.1
-// @update-log   1.1.1: 修复 ChatGPT quickInput 在新对话后沿用旧输入框引用的问题，避免图片已贴好却卡在上传检测；同时补充上传等待失败诊断信息。
+// @version      [20260310] v1.1.2
+// @update-log   1.1.2: quickInput 支持将“新对话快捷键”锁定为只读展示；ChatGPT 面板现固定显示原生的 CMD+SHIFT+O，避免误导和误改。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8958,6 +8958,8 @@
                     simulateKeystroke("ENTER", { target: composerEl })
             });
             const hasCustomNewChatTrigger = typeof rawAdapter.triggerNewChat === "function" || typeof rawAdapter.triggerNewChatRetry === "function";
+            const lockNewChatHotkey = !!rawAdapter.lockNewChatHotkey;
+            const lockedNewChatHotkeyDisplay = String(rawAdapter.lockedNewChatHotkeyDisplay || "").trim();
 
             let overlayEl = null;
             let panelEl = null;
@@ -9010,6 +9012,20 @@
             function getNewChatTriggerLabel(hotkey) {
                 const label = String(adapter.newChatLabel || "").trim();
                 return label || String(hotkey || "").trim();
+            }
+
+            function getLockedNewChatHotkeyDisplay(cfg = null) {
+                const value = String(
+                    (cfg && typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey
+                );
+                return lockedNewChatHotkeyDisplay || getNewChatTriggerLabel(value);
+            }
+
+            function getNewChatHotkeyConfigValueFromUi() {
+                if (!lockNewChatHotkey) return String(newChatHotkeyEl?.value ?? "");
+                const cfg = loadConfig(storageKey, defaults);
+                if (cfg && typeof cfg.newChatHotkey === "string") return cfg.newChatHotkey;
+                return typeof defaults.newChatHotkey === "string" ? defaults.newChatHotkey : "";
             }
 
             async function triggerNewChatAction({ hotkey, phase = "primary", attempt = 1, shouldCancel = null } = {}) {
@@ -9744,7 +9760,7 @@
                 return {
                     toolHotkeys,
                     toolHotkey: toolHotkeys[0] || "",
-                    newChatHotkey: String(newChatHotkeyEl?.value ?? ""),
+                    newChatHotkey: getNewChatHotkeyConfigValueFromUi(),
                     loopCount: clampInt(loopEl?.value, { min: 1, max: 999, fallback: clampInt(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }),
                     stepDelayMs: clampInt(stepDelayEl?.value, { min: 0, max: 30000, fallback: clampInt(defaults.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }),
                     loopDelayMs: clampInt(loopDelayEl?.value, { min: 0, max: 300000, fallback: clampInt(defaults.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }),
@@ -9953,7 +9969,11 @@
                     });
                     syncHotkeyPlaceholders();
                 }
-                if (newChatHotkeyEl) newChatHotkeyEl.value = (typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey;
+                if (newChatHotkeyEl) {
+                    newChatHotkeyEl.value = lockNewChatHotkey
+                        ? getLockedNewChatHotkeyDisplay(cfg)
+                        : ((typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey);
+                }
                 if (loopEl) loopEl.value = String(clampInt(cfg.loopCount, { min: 1, max: 999, fallback: clampInt(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }));
                 if (stepDelayEl) stepDelayEl.value = String(clampInt(cfg.stepDelayMs, { min: 0, max: 30000, fallback: clampInt(defaults.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }));
                 if (loopDelayEl) loopDelayEl.value = String(clampInt(cfg.loopDelayMs, { min: 0, max: 300000, fallback: clampInt(defaults.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }));
@@ -10507,6 +10527,13 @@
                 newChatHotkeyEl = global.document.createElement("input");
                 newChatHotkeyEl.type = "text";
                 newChatHotkeyEl.placeholder = labels.placeholders?.newChatHotkey || DEFAULT_LABELS.placeholders.newChatHotkey;
+                if (lockNewChatHotkey) {
+                    newChatHotkeyEl.readOnly = true;
+                    newChatHotkeyEl.setAttribute("aria-readonly", "true");
+                    newChatHotkeyEl.tabIndex = -1;
+                    newChatHotkeyEl.style.cursor = "default";
+                    newChatHotkeyEl.title = getLockedNewChatHotkeyDisplay();
+                }
                 newChatRow.appendChild(newChatLabel);
                 newChatRow.appendChild(newChatHotkeyEl);
 
