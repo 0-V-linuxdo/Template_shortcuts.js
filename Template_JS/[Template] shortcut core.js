@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260310] v1.0.1
+// @name         [Template] 快捷键跳转 [20260310] v1.0.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260310] v1.0.1
-// @update-log   1.0.1: quickInput 在新对话校验失败后默认自动重试 1 次；若仍未通过则停止后续循环，避免误留在旧上下文继续执行。
+// @version      [20260310] v1.0.2
+// @update-log   1.0.2: quickInput 在每轮执行任何输入前先校验目标 URL；若未精确进入预期新对话页，则直接停止后续循环，避免误在旧会话继续执行。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8763,6 +8763,7 @@
                 newChatTriggered: (hotkey, ok) => (ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`),
                 newChatRetrying: (hotkey, attempt, maxRetries) => `新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
                 newChatNotReady: "新对话在自动重试后仍未就绪：已停止后续循环，避免在旧上下文继续执行。",
+                inputUrlNotReady: "输入前 URL 校验失败：已停止后续循环，避免在错误会话继续执行。",
                 stopped: "已停止。",
                 finished: "完成。",
                 stopRequested: "收到停止请求，将尽快停止…",
@@ -10042,6 +10043,27 @@
                         ? labels.messages.loopMarker(i + 1, cfg.loopCount)
                         : DEFAULT_LABELS.messages.loopMarker(i + 1, cfg.loopCount);
                     appendLog(marker);
+
+                    if (adapter.waitForNewChatReady) {
+                        const precheck = await adapter.waitForNewChatReady({
+                            hotkey: newChatHotkey,
+                            timeoutMs: 2000,
+                            intervalMs: 160,
+                            settleMs: 0,
+                            shouldCancel
+                        });
+                        if (precheck && typeof precheck === "object" && precheck.cancelled) break;
+
+                        const inputUrlReady = (precheck && typeof precheck === "object") ? !!precheck.ok : !!precheck;
+                        if (!inputUrlReady) {
+                            cancelRun = true;
+                            const precheckMessage = (precheck && typeof precheck === "object" && typeof precheck.message === "string")
+                                ? precheck.message.trim()
+                                : "";
+                            appendLog(precheckMessage || labels.messages?.inputUrlNotReady || DEFAULT_LABELS.messages.inputUrlNotReady, { level: "error" });
+                            break;
+                        }
+                    }
 
                     const composer = await adapter.focusComposer({ timeoutMs: 15000, intervalMs: 160, shouldCancel });
                     if (!composer) {
