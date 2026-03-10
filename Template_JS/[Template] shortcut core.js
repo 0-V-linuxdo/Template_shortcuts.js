@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260310] v1.0.0
+// @name         [Template] 快捷键跳转 [20260310] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260310] v1.0.0
-// @update-log   1.0.0: quickInput 新增适配器钩子 waitForNewChatReady，支持站点在循环新建对话后执行 URL/状态校验，避免误留在旧上下文继续后续步骤。
+// @version      [20260310] v1.0.1
+// @update-log   1.0.1: quickInput 在新对话校验失败后默认自动重试 1 次；若仍未通过则停止后续循环，避免误留在旧上下文继续执行。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8761,6 +8761,8 @@
                 sendAttempted: (ok) => (ok ? "已尝试发送（Enter/Send）。" : "发送失败。"),
                 loopDelayBeforeNewChat: (ms) => `循环间隔等待中：${ms} ms（发送后 → 新对话前）。`,
                 newChatTriggered: (hotkey, ok) => (ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`),
+                newChatRetrying: (hotkey, attempt, maxRetries) => `新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
+                newChatNotReady: "新对话在自动重试后仍未就绪：已停止后续循环，避免在旧上下文继续执行。",
                 stopped: "已停止。",
                 finished: "完成。",
                 stopRequested: "收到停止请求，将尽快停止…",
@@ -8888,9 +8890,18 @@
             try {
                 const res = core?.executeShortcutAction?.(shortcut, null);
                 if (res && typeof res.then === "function") {
-                    try { await res; } catch {}
+                    try {
+                        const awaited = await res;
+                        if (awaited === false) return false;
+                    } catch {
+                        return false;
+                    }
+                } else if (res === false) {
+                    return false;
                 }
-            } catch {}
+            } catch {
+                return false;
+            }
             return true;
         }
 
@@ -9929,26 +9940,54 @@
                 const waitOk = await sleepWithCancel(remainMs, { shouldCancel: cancelFn, chunkMs: 160 });
                 if (!waitOk) return { cancelled: true, okNewChat: false };
 
-                const hotkeyTriggered = await executeEngineShortcutByHotkey(engine, newChatHotkey);
-                let okNewChat = !!hotkeyTriggered;
+                const maxNewChatRetries = 1;
+                const totalAttempts = maxNewChatRetries + 1;
+                let okNewChat = false;
                 let verificationMessage = "";
+                let attemptsUsed = 0;
 
-                if (okNewChat && adapter.waitForNewChatReady) {
-                    const verification = await adapter.waitForNewChatReady({
-                        hotkey: newChatHotkey,
-                        timeoutMs: 12000,
-                        intervalMs: 160,
-                        shouldCancel: cancelFn
-                    });
-                    if (verification && typeof verification === "object") {
-                        if (verification.cancelled) {
-                            return { cancelled: true, okNewChat: false };
+                for (let attemptIndex = 0; attemptIndex < totalAttempts; attemptIndex++) {
+                    attemptsUsed = attemptIndex + 1;
+                    const hotkeyTriggered = await executeEngineShortcutByHotkey(engine, newChatHotkey);
+                    let attemptOk = !!hotkeyTriggered;
+                    let attemptMessage = "";
+
+                    if (attemptOk && adapter.waitForNewChatReady) {
+                        const verification = await adapter.waitForNewChatReady({
+                            hotkey: newChatHotkey,
+                            timeoutMs: 12000,
+                            intervalMs: 160,
+                            shouldCancel: cancelFn
+                        });
+                        if (verification && typeof verification === "object") {
+                            if (verification.cancelled) {
+                                return { cancelled: true, okNewChat: false };
+                            }
+                            attemptOk = !!verification.ok;
+                            attemptMessage = typeof verification.message === "string" ? verification.message.trim() : "";
+                        } else {
+                            attemptOk = !!verification;
                         }
-                        okNewChat = !!verification.ok;
-                        verificationMessage = typeof verification.message === "string" ? verification.message.trim() : "";
-                    } else {
-                        okNewChat = !!verification;
                     }
+
+                    if (attemptOk) {
+                        okNewChat = true;
+                        verificationMessage = attemptMessage;
+                        break;
+                    }
+
+                    verificationMessage = attemptMessage;
+                    if (attemptIndex >= totalAttempts - 1) break;
+
+                    const retryMsg = labels.messages?.newChatRetrying
+                        ? labels.messages.newChatRetrying(newChatHotkey, attemptIndex + 1, maxNewChatRetries)
+                        : (DEFAULT_LABELS.messages.newChatRetrying
+                            ? DEFAULT_LABELS.messages.newChatRetrying(newChatHotkey, attemptIndex + 1, maxNewChatRetries)
+                            : "");
+                    if (retryMsg) appendLog(retryMsg);
+
+                    const retryWaitOk = await sleepWithCancel(800, { shouldCancel: cancelFn, chunkMs: 160 });
+                    if (!retryWaitOk) return { cancelled: true, okNewChat: false };
                 }
 
                 const newChatMsg = labels.messages?.newChatTriggered
@@ -9959,7 +9998,7 @@
                     appendLog(verificationMessage, { level: "error" });
                 }
 
-                return { cancelled: !!(cancelFn && cancelFn()), okNewChat };
+                return { cancelled: !!(cancelFn && cancelFn()), okNewChat, attemptsUsed };
             }
 
             async function runMacro() {
@@ -10116,6 +10155,11 @@
                             sendCompletedAtMs
                         });
                         if (transition.cancelled) break;
+                        if (!transition.okNewChat) {
+                            cancelRun = true;
+                            appendLog(labels.messages?.newChatNotReady || DEFAULT_LABELS.messages.newChatNotReady, { level: "error" });
+                            break;
+                        }
                     }
                 }
 
