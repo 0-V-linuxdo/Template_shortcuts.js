@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260222] v1.4.4
+// @name         [Template] 快捷键跳转 [20260310] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260222] v1.4.4
-// @update-log   1.4.4: 新增联动：开启“svg自适应处理”时自动隐藏“黑暗模式图标URL”组件，关闭后恢复显示。
+// @version      [20260310] v1.0.0
+// @update-log   1.0.0: quickInput 新增适配器钩子 waitForNewChatReady，支持站点在循环新建对话后执行 URL/状态校验，避免误留在旧上下文继续后续步骤。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -38,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20260222";
+    const TEMPLATE_VERSION = "20260310";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -8932,6 +8932,7 @@
                 clearComposerValue: typeof rawAdapter.clearComposerValue === "function" ? rawAdapter.clearComposerValue : clearInputValue,
                 attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
                 waitForReadyToSend: typeof rawAdapter.waitForReadyToSend === "function" ? rawAdapter.waitForReadyToSend : null,
+                waitForNewChatReady: typeof rawAdapter.waitForNewChatReady === "function" ? rawAdapter.waitForNewChatReady : null,
                 sendMessage: typeof rawAdapter.sendMessage === "function" ? rawAdapter.sendMessage : async (composerEl) =>
                     simulateKeystroke("ENTER", { target: composerEl })
             });
@@ -9928,11 +9929,35 @@
                 const waitOk = await sleepWithCancel(remainMs, { shouldCancel: cancelFn, chunkMs: 160 });
                 if (!waitOk) return { cancelled: true, okNewChat: false };
 
-                const okNewChat = await executeEngineShortcutByHotkey(engine, newChatHotkey);
+                const hotkeyTriggered = await executeEngineShortcutByHotkey(engine, newChatHotkey);
+                let okNewChat = !!hotkeyTriggered;
+                let verificationMessage = "";
+
+                if (okNewChat && adapter.waitForNewChatReady) {
+                    const verification = await adapter.waitForNewChatReady({
+                        hotkey: newChatHotkey,
+                        timeoutMs: 12000,
+                        intervalMs: 160,
+                        shouldCancel: cancelFn
+                    });
+                    if (verification && typeof verification === "object") {
+                        if (verification.cancelled) {
+                            return { cancelled: true, okNewChat: false };
+                        }
+                        okNewChat = !!verification.ok;
+                        verificationMessage = typeof verification.message === "string" ? verification.message.trim() : "";
+                    } else {
+                        okNewChat = !!verification;
+                    }
+                }
+
                 const newChatMsg = labels.messages?.newChatTriggered
                     ? labels.messages.newChatTriggered(newChatHotkey, okNewChat)
                     : DEFAULT_LABELS.messages.newChatTriggered(newChatHotkey, okNewChat);
                 appendLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
+                if (!okNewChat && verificationMessage) {
+                    appendLog(verificationMessage, { level: "error" });
+                }
 
                 return { cancelled: !!(cancelFn && cancelFn()), okNewChat };
             }
