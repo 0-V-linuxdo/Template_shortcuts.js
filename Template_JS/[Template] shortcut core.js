@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260310] v1.1.2
+// @name         [Template] 快捷键跳转 [20260313] v1.0.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260310] v1.1.2
-// @update-log   1.1.2: quickInput 支持将“新对话快捷键”锁定为只读展示；ChatGPT 面板现固定显示原生的 CMD+SHIFT+O，避免误导和误改。
+// @version      [20260313] v1.0.2
+// @update-log   1.0.2: 清理 QuickInput 中已废弃的 legacy Gemini adapter 源码残留，并同步更新构建产物版本号。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -38,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20260310";
+    const TEMPLATE_VERSION = "20260313";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -289,8 +289,6 @@
         }
         return obj;
     }
-
-    function noop() {}
 /* -------------------------------------------------------------------------- *
  * Module 02 · Utils (DOM helpers, events, menu controller, one-step executor)
  * -------------------------------------------------------------------------- */
@@ -4235,18 +4233,14 @@
             const { addThemeChangeListener, removeThemeChangeListener, detectInitialDarkMode } = theme;
             const {
                 getPrimaryColor,
-                getOverlayBackgroundColor,
-                getPanelBackgroundColor,
                 getInputBackgroundColor,
                 getTextColor,
                 getBorderColor,
-                getTableHeaderBackground,
                 getHoverColor
             } = colors;
             const { styleTableHeader, styleTableCell, styleButton, styleTransparentButton, styleInputField } = style;
-            const { showAlert, showConfirmDialog, showPromptDialog } = dialogs;
-	            const { enableScrollLock, disableScrollLock, createResponsiveListener, shouldUseCompactMode, autoResizeTextarea } = layout;
-	            const normalizeHotkey = core.normalizeHotkey;
+            const { showConfirmDialog } = dialogs;
+	            const { enableScrollLock, disableScrollLock, createResponsiveListener, shouldUseCompactMode } = layout;
                 const matchesSearchQuery = panelFilter?.matchesSearchQuery || panelMatchesSearchQuery;
                 const normalizeActionType = panelFilter?.normalizeActionType || panelNormalizeActionType;
 
@@ -5784,7 +5778,6 @@
                 cssPrefix,
                 classes,
                 ids,
-                URL_METHODS,
                 setIconImage,
                 ensureThemeAdaptiveIconStored,
                 debounce,
@@ -5793,7 +5786,6 @@
             const { addThemeChangeListener, removeThemeChangeListener } = theme;
             const {
                 getPrimaryColor,
-                getPanelBackgroundColor,
                 getInputBackgroundColor,
                 getTextColor,
                 getBorderColor,
@@ -7163,7 +7155,7 @@
             };
         }
 
-        function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, targetDarkTextarea = null, getAdaptiveEnabled = null) {
+        function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, getAdaptiveEnabled = null) {
             const { options, uiShared, state, safeGMGet, safeGMSet, setIconImage, ensureThemeAdaptiveIconStored } = ctx;
             const { theme, colors, dialogs } = uiShared;
             const { addThemeChangeListener, removeThemeChangeListener } = theme;
@@ -7946,8 +7938,7 @@
                 uiShared,
                 cssPrefix,
                 ids,
-                classes,
-                URL_METHODS
+                classes
             } = ctx;
 
             const keyboardLayer = createKeyboardLayer(ctx);
@@ -8704,6 +8695,174 @@
             } catch {}
         }
 
+        function safeLocalStorageGet(key, fallback) {
+            const k = String(key ?? "").trim();
+            if (!k) return fallback;
+            try {
+                const raw = global.localStorage?.getItem?.(k);
+                if (raw == null) return fallback;
+                return JSON.parse(raw);
+            } catch {}
+            return fallback;
+        }
+
+        function safeLocalStorageSet(key, value) {
+            const k = String(key ?? "").trim();
+            if (!k) return false;
+            try {
+                global.localStorage?.setItem?.(k, JSON.stringify(value));
+                return true;
+            } catch {}
+            return false;
+        }
+
+        function safeLocalStorageRemove(key) {
+            const k = String(key ?? "").trim();
+            if (!k) return false;
+            try {
+                global.localStorage?.removeItem?.(k);
+                return true;
+            } catch {}
+            return false;
+        }
+
+        const QUICK_INPUT_DRAFT_STORAGE_VERSION = 1;
+
+        function getDraftStorageKey(storageKey) {
+            const base = String(storageKey ?? "").trim() || "quick_input";
+            return `${base}__draft_local_v${QUICK_INPUT_DRAFT_STORAGE_VERSION}`;
+        }
+
+        function inferMimeTypeFromDataUrl(dataUrl) {
+            const match = String(dataUrl ?? "").match(/^data:([^;,]+)/i);
+            return match ? String(match[1] || "").trim().toLowerCase() : "";
+        }
+
+        function inferImageExtension(mime) {
+            const token = String(mime ?? "").trim().toLowerCase();
+            switch (token) {
+                case "image/jpeg": return "jpg";
+                case "image/png": return "png";
+                case "image/webp": return "webp";
+                case "image/gif": return "gif";
+                case "image/bmp": return "bmp";
+                case "image/svg+xml": return "svg";
+                case "image/avif": return "avif";
+                default: {
+                    const tail = token.split("/").pop();
+                    return tail ? (tail.replace(/[^a-z0-9]+/gi, "") || "png") : "png";
+                }
+            }
+        }
+
+        function normalizeDraftImageEntry(value, index = 0) {
+            if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+            const dataUrl = String(value.dataUrl || value.dataURL || "").trim();
+            if (!/^data:image\//i.test(dataUrl)) return null;
+
+            const type = String(value.type || "").trim().toLowerCase() || inferMimeTypeFromDataUrl(dataUrl) || "image/png";
+            const ext = inferImageExtension(type);
+            const name = String(value.name || "").trim() || `quick-input-image-${index + 1}.${ext}`;
+            const size = Math.max(0, Number(value.size) || 0);
+            const lastModifiedRaw = Number(value.lastModified);
+            const lastModified = Number.isFinite(lastModifiedRaw) ? lastModifiedRaw : Date.now();
+
+            return { name, type, size, lastModified, dataUrl };
+        }
+
+        function normalizeDraftImages(value) {
+            if (!Array.isArray(value)) return [];
+            return value
+                .map((entry, index) => normalizeDraftImageEntry(entry, index))
+                .filter(Boolean);
+        }
+
+        function loadDraft(draftStorageKey) {
+            const raw = safeLocalStorageGet(draftStorageKey, null);
+            const stored = raw && typeof raw === "object" ? raw : {};
+            return {
+                text: typeof stored.text === "string" ? stored.text : String(stored.text ?? ""),
+                images: normalizeDraftImages(stored.images)
+            };
+        }
+
+        function saveDraft(draftStorageKey, draft) {
+            const text = typeof draft?.text === "string" ? draft.text : String(draft?.text ?? "");
+            const images = normalizeDraftImages(draft?.images);
+
+            if (!text && images.length === 0) {
+                safeLocalStorageRemove(draftStorageKey);
+                return { ok: true, storedImages: [], truncated: false };
+            }
+
+            for (let count = images.length; count >= 0; count--) {
+                const storedImages = images.slice(0, count);
+                const payload = {
+                    version: QUICK_INPUT_DRAFT_STORAGE_VERSION,
+                    text,
+                    images: storedImages,
+                    savedAt: Date.now()
+                };
+                if (safeLocalStorageSet(draftStorageKey, payload)) {
+                    return { ok: true, storedImages, truncated: storedImages.length !== images.length };
+                }
+            }
+
+            safeLocalStorageRemove(draftStorageKey);
+            return { ok: false, storedImages: [], truncated: images.length > 0 };
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                if (!(file instanceof Blob)) {
+                    reject(new Error("Invalid image file"));
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ""));
+                reader.onerror = () => reject(reader.error || new Error("Failed to read image file"));
+
+                try {
+                    reader.readAsDataURL(file);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        function dataUrlToFile(dataUrl, meta = {}) {
+            const value = String(dataUrl || "").trim();
+            if (!value.startsWith("data:")) return null;
+
+            const commaIndex = value.indexOf(",");
+            if (commaIndex < 0) return null;
+
+            const metaPart = value.slice(5, commaIndex);
+            const payload = value.slice(commaIndex + 1);
+            const mime = String(meta.type || "").trim() || inferMimeTypeFromDataUrl(value) || "image/png";
+            const name = String(meta.name || "").trim() || `quick-input-image.${inferImageExtension(mime)}`;
+            const lastModifiedRaw = Number(meta.lastModified);
+            const lastModified = Number.isFinite(lastModifiedRaw) ? lastModifiedRaw : Date.now();
+
+            try {
+                let bytes;
+                if (/(?:^|;)base64(?:;|$)/i.test(metaPart)) {
+                    const binary = atob(payload);
+                    bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) {
+                        bytes[i] = binary.charCodeAt(i);
+                    }
+                } else {
+                    const decoded = decodeURIComponent(payload);
+                    bytes = new TextEncoder().encode(decoded);
+                }
+                return new File([bytes], name, { type: mime, lastModified });
+            } catch {
+                return null;
+            }
+        }
+
         const DEFAULT_LABELS = Object.freeze({
             tabs: Object.freeze({ input: "输入", log: "日志" }),
             fields: Object.freeze({
@@ -8929,6 +9088,7 @@
 
             const idPrefix = String(options.idPrefix || "").trim() || "quick-input";
             const storageKey = String(options.storageKey || `${idPrefix}_quick_input_v1`).trim() || `${idPrefix}_quick_input_v1`;
+            const draftStorageKey = getDraftStorageKey(storageKey);
             const titleText = String(options.title || "快捷输入").trim() || "快捷输入";
             const primaryColor = String(options.primaryColor || "#4285F4").trim() || "#4285F4";
             const styleId = `${idPrefix}-quick-input-style`;
@@ -8985,9 +9145,11 @@
             let setActiveTab = null;
 
             let imageFiles = [];
+            let draftImageEntries = [];
             let imageObjectUrls = [];
             let running = false;
             let cancelRun = false;
+            let draftPersistToken = 0;
 
             let dragPointerId = null;
             let dragOffsetX = 0;
@@ -9543,53 +9705,144 @@
                 imageObjectUrls = [];
             }
 
-            function setImageFiles(nextFiles) {
+            function persistDraftSnapshot({ text = null, images = null } = {}) {
+                const result = saveDraft(draftStorageKey, {
+                    text: text == null ? String(textEl?.value ?? "") : String(text),
+                    images: Array.isArray(images) ? images : draftImageEntries
+                });
+                draftImageEntries = Array.isArray(result?.storedImages) ? result.storedImages : [];
+                return result;
+            }
+
+            async function persistDraftImagesFromFiles(files) {
+                const token = ++draftPersistToken;
+                const list = Array.from(files || []).filter(file => file && (file instanceof File) && String(file.type || "").startsWith("image/"));
+                const serialized = [];
+
+                for (let index = 0; index < list.length; index++) {
+                    const file = list[index];
+                    let dataUrl = "";
+                    try {
+                        dataUrl = await readFileAsDataUrl(file);
+                    } catch {
+                        dataUrl = "";
+                    }
+                    if (token !== draftPersistToken) return false;
+
+                    const entry = normalizeDraftImageEntry({
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        lastModified: file.lastModified,
+                        dataUrl
+                    }, index);
+                    if (entry) serialized.push(entry);
+                }
+
+                if (token !== draftPersistToken) return false;
+                return !!persistDraftSnapshot({ images: serialized })?.ok;
+            }
+
+            function persistDraftText() {
+                persistDraftSnapshot();
+            }
+
+            function restoreDraftFromStorage() {
+                const storedDraft = loadDraft(draftStorageKey);
+                if (textEl) textEl.value = String(storedDraft.text ?? "");
+
+                if (!storedDraft.images.length) {
+                    draftImageEntries = [];
+                    draftPersistToken += 1;
+                    setImageFiles([], { skipDraftPersist: true });
+                    return;
+                }
+
+                const restoredFiles = [];
+                const restoredEntries = [];
+                storedDraft.images.forEach((entry, index) => {
+                    const normalized = normalizeDraftImageEntry(entry, index);
+                    if (!normalized) return;
+                    const file = dataUrlToFile(normalized.dataUrl, normalized);
+                    if (!file) return;
+                    restoredFiles.push(file);
+                    restoredEntries.push(normalized);
+                });
+
+                draftImageEntries = restoredEntries;
+                draftPersistToken += 1;
+                setImageFiles(restoredFiles, { draftEntries: restoredEntries, skipDraftPersist: true });
+
+                if (restoredEntries.length !== storedDraft.images.length) {
+                    persistDraftSnapshot({ text: String(textEl?.value ?? ""), images: restoredEntries });
+                }
+            }
+
+            function setImageFiles(nextFiles, { draftEntries = null, skipDraftPersist = false } = {}) {
                 revokeImageUrls();
                 imageFiles = Array.isArray(nextFiles) ? nextFiles.filter(Boolean) : [];
+                const normalizedDraftEntries = Array.isArray(draftEntries) ? normalizeDraftImages(draftEntries) : null;
+                if (normalizedDraftEntries) draftImageEntries = normalizedDraftEntries;
 
-                if (!imagePreviewListEl) return;
-                imagePreviewListEl.textContent = "";
-                let previewCount = 0;
-                imageFiles.forEach((file, index) => {
-                    if (!(file instanceof File)) return;
-                    const url = URL.createObjectURL(file);
-                    imageObjectUrls.push(url);
-                    const wrap = global.document.createElement("div");
-                    wrap.className = "qi-preview-wrap";
-                    wrap.title = file.name || "";
-                    const img = global.document.createElement("img");
-                    img.className = "qi-preview-item";
-                    img.src = url;
-                    img.alt = file.name || "image";
-                    wrap.appendChild(img);
+                if (imagePreviewListEl) {
+                    imagePreviewListEl.textContent = "";
+                    let previewCount = 0;
+                    imageFiles.forEach((file, index) => {
+                        if (!(file instanceof File)) return;
+                        const url = URL.createObjectURL(file);
+                        imageObjectUrls.push(url);
+                        const wrap = global.document.createElement("div");
+                        wrap.className = "qi-preview-wrap";
+                        wrap.title = file.name || "";
+                        const img = global.document.createElement("img");
+                        img.className = "qi-preview-item";
+                        img.src = url;
+                        img.alt = file.name || "image";
+                        wrap.appendChild(img);
 
-                    const delBtn = global.document.createElement("button");
-                    delBtn.type = "button";
-                    delBtn.className = "qi-preview-del";
-                    delBtn.textContent = "×";
-                    delBtn.title = labels.buttons?.delete || "删除";
-                    delBtn.setAttribute("aria-label", labels.aria?.deleteImage || "删除该图片");
-                    delBtn.disabled = running;
-                    delBtn.addEventListener("click", (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (running) return;
-                        const next = imageFiles.filter((_, i) => i !== index);
-                        setImageFiles(next);
-                        const label = file.name ? `：${file.name}` : ` #${index + 1}`;
-                        appendLog(labels.messages?.imageDeleted ? labels.messages.imageDeleted(label, next.length) : `已删除图片${label}（剩余 ${next.length} 张）。`, { level: "ok" });
+                        const delBtn = global.document.createElement("button");
+                        delBtn.type = "button";
+                        delBtn.className = "qi-preview-del";
+                        delBtn.textContent = "×";
+                        delBtn.title = labels.buttons?.delete || "删除";
+                        delBtn.setAttribute("aria-label", labels.aria?.deleteImage || "删除该图片");
+                        delBtn.disabled = running;
+                        delBtn.addEventListener("click", (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (running) return;
+                            const next = imageFiles.filter((_, i) => i !== index);
+                            setImageFiles(next);
+                            const label = file.name ? `：${file.name}` : ` #${index + 1}`;
+                            appendLog(labels.messages?.imageDeleted ? labels.messages.imageDeleted(label, next.length) : `已删除图片${label}（剩余 ${next.length} 张）。`, { level: "ok" });
+                        });
+                        wrap.appendChild(delBtn);
+
+                        imagePreviewListEl.appendChild(wrap);
+                        previewCount += 1;
                     });
-                    wrap.appendChild(delBtn);
-
-                    imagePreviewListEl.appendChild(wrap);
-                    previewCount += 1;
-                });
-                const hasItems = previewCount > 0;
-                if (imagePreviewShellEl) imagePreviewShellEl.setAttribute("data-has-items", hasItems ? "1" : "0");
-                if (clearAllImagesBtnEl) {
-                    clearAllImagesBtnEl.disabled = running || !hasItems;
+                    const hasItems = previewCount > 0;
+                    if (imagePreviewShellEl) imagePreviewShellEl.setAttribute("data-has-items", hasItems ? "1" : "0");
+                    if (clearAllImagesBtnEl) {
+                        clearAllImagesBtnEl.disabled = running || !hasItems;
+                    }
+                    if (previewRowEl) previewRowEl.style.display = hasItems ? "" : "none";
                 }
-                if (previewRowEl) previewRowEl.style.display = hasItems ? "" : "none";
+
+                if (skipDraftPersist) return;
+
+                if (normalizedDraftEntries) {
+                    draftPersistToken += 1;
+                    persistDraftSnapshot({ images: normalizedDraftEntries });
+                    return;
+                }
+                if (imageFiles.length === 0) {
+                    draftPersistToken += 1;
+                    draftImageEntries = [];
+                    persistDraftSnapshot({ images: [] });
+                    return;
+                }
+                void persistDraftImagesFromFiles(imageFiles);
             }
 
             function onPickFiles(fileList) {
@@ -10477,6 +10730,8 @@
                 textEl = global.document.createElement("textarea");
                 textEl.rows = 3;
                 textEl.placeholder = labels.placeholders?.text || DEFAULT_LABELS.placeholders.text;
+                textEl.addEventListener("input", persistDraftText);
+                textEl.addEventListener("change", persistDraftText);
                 textRow.appendChild(textLabel);
                 textRow.appendChild(textEl);
 
@@ -10681,6 +10936,7 @@
                 }, true);
 
                 writeConfigToUi(loadConfig(storageKey, defaults));
+                restoreDraftFromStorage();
             }
 
             function open() {
@@ -10704,6 +10960,7 @@
                     persistPanelPos(clamped.left, clamped.top, { force: true });
                 }
                 stopDrag();
+                persistDraftText();
                 overlayEl.setAttribute("data-open", "0");
                 stopThemeAutoSync();
                 if (running) stopMacro();
@@ -10711,8 +10968,6 @@
 
             return Object.freeze({ open, close });
         }
-
-        
 
         return Object.freeze({
             createController,
