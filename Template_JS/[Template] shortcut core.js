@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260313] v1.0.2
+// @name         [Template] 快捷键跳转 [20260316] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260313] v1.0.2
-// @update-log   1.0.2: 清理 QuickInput 中已废弃的 legacy Gemini adapter 源码残留，并同步更新构建产物版本号。
+// @version      [20260316] v1.0.0
+// @update-log   1.0.0: QuickInput 文本框默认改为两行，并固定 textarea 行高/最小高度以统一跨站显示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -38,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20260313";
+    const TEMPLATE_VERSION = "20260316";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -9426,7 +9426,11 @@
                     border-color: ${primaryColor};
                     box-shadow: 0 0 0 1px ${primaryColor};
                 }
-                #${overlayId} textarea { min-height: 3.8em; resize: vertical; }
+                #${overlayId} textarea {
+                    min-height: calc(2.7em + 18px);
+                    line-height: 1.35;
+                    resize: vertical;
+                }
                 #${overlayId} .qi-label-stack {
                     display: flex;
                     flex-direction: column;
@@ -10728,7 +10732,7 @@
                 const textLabel = global.document.createElement("label");
                 textLabel.textContent = labels.fields?.text || DEFAULT_LABELS.fields.text;
                 textEl = global.document.createElement("textarea");
-                textEl.rows = 3;
+                textEl.rows = 2;
                 textEl.placeholder = labels.placeholders?.text || DEFAULT_LABELS.placeholders.text;
                 textEl.addEventListener("input", persistDraftText);
                 textEl.addEventListener("change", persistDraftText);
