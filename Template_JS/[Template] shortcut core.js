@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260316] v1.0.0
+// @name         [Template] 快捷键跳转 [20260316] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260316] v1.0.0
-// @update-log   1.0.0: QuickInput 文本框默认改为两行，并固定 textarea 行高/最小高度以统一跨站显示。
+// @version      [20260316] v1.0.1
+// @update-log   1.0.1: 将 QuickInput 底部流程提示默认文案调整为 ChatGPT 版简写，统一跨站点显示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8891,7 +8891,7 @@
                 newChatHotkey: "例如：CTRL+N"
             }),
             hints: Object.freeze({
-                flow: "流程：插入图片 → 输入文字 →（可选）依次触发快捷键（可多条）→ Enter/Send（循环会按「新对话快捷键」新建对话）。"
+                flow: "流程：插入图片/文字 → (触发快捷键) → 发送 → (循环)"
             }),
             options: Object.freeze({
                 clearBeforeRun: "运行前清空输入框"
