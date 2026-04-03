@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260316] v1.0.1
+// @name         [Template] 快捷键跳转 [20260403] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260316] v1.0.1
-// @update-log   1.0.1: 将 QuickInput 底部流程提示默认文案调整为 ChatGPT 版简写，统一跨站点显示。
+// @version      [20260403] v1.0.0
+// @update-log   1.0.0: QuickInput 支持连续添加图片并自动重命名同名文件，避免图片覆盖与 Gemini 重名报错。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -38,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20260316";
+    const TEMPLATE_VERSION = "20260403";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -8755,6 +8755,74 @@
             }
         }
 
+        function splitImageFileName(name) {
+            const raw = String(name ?? "").trim().replace(/[\\/]+/g, "_");
+            if (!raw) return { stem: "", ext: "" };
+            const dotIndex = raw.lastIndexOf(".");
+            if (dotIndex <= 0) return { stem: raw, ext: "" };
+            return { stem: raw.slice(0, dotIndex) || raw, ext: raw.slice(dotIndex) };
+        }
+
+        function buildDefaultQuickInputImageName(index = 0, type = "") {
+            const ext = inferImageExtension(type);
+            return `quick-input-image-${Math.max(0, Number(index) || 0) + 1}${ext ? `.${ext}` : ""}`;
+        }
+
+        function claimUniqueImageName(rawName, usedNames, index = 0, { type = "" } = {}) {
+            const registry = usedNames instanceof Set ? usedNames : new Set();
+            const fallbackName = buildDefaultQuickInputImageName(index, type);
+            const preferred = String(rawName ?? "").trim().replace(/[\\/]+/g, "_") || fallbackName;
+            const preferredKey = preferred.toLowerCase();
+            if (!registry.has(preferredKey)) {
+                registry.add(preferredKey);
+                return preferred;
+            }
+
+            const { stem, ext } = splitImageFileName(preferred);
+            const fallbackParts = splitImageFileName(fallbackName);
+            const nextStem = stem || fallbackParts.stem || "quick-input-image";
+            const nextExt = ext || fallbackParts.ext;
+
+            let counter = 2;
+            while (true) {
+                const candidate = `${nextStem} (${counter})${nextExt}`;
+                const key = candidate.toLowerCase();
+                if (!registry.has(key)) {
+                    registry.add(key);
+                    return candidate;
+                }
+                counter += 1;
+            }
+        }
+
+        function renameImageFile(file, nextName) {
+            if (!(file instanceof File)) return null;
+            const targetName = String(nextName ?? "").trim() || buildDefaultQuickInputImageName(0, file.type);
+            if (String(file.name || "") === targetName) return file;
+
+            const lastModifiedRaw = Number(file.lastModified);
+            const lastModified = Number.isFinite(lastModifiedRaw) ? lastModifiedRaw : Date.now();
+            try {
+                return new File([file], targetName, {
+                    type: String(file.type || "").trim(),
+                    lastModified
+                });
+            } catch {
+                return file;
+            }
+        }
+
+        function normalizeImageFiles(value) {
+            const usedNames = new Set();
+            return Array.from(value || [])
+                .filter(file => file && (file instanceof File) && String(file.type || "").startsWith("image/"))
+                .map((file, index) => {
+                    const uniqueName = claimUniqueImageName(file.name, usedNames, index, { type: file.type });
+                    return renameImageFile(file, uniqueName);
+                })
+                .filter(Boolean);
+        }
+
         function normalizeDraftImageEntry(value, index = 0) {
             if (!value || typeof value !== "object" || Array.isArray(value)) return null;
             const dataUrl = String(value.dataUrl || value.dataURL || "").trim();
@@ -8772,9 +8840,14 @@
 
         function normalizeDraftImages(value) {
             if (!Array.isArray(value)) return [];
+            const usedNames = new Set();
             return value
                 .map((entry, index) => normalizeDraftImageEntry(entry, index))
-                .filter(Boolean);
+                .filter(Boolean)
+                .map((entry, index) => {
+                    const uniqueName = claimUniqueImageName(entry.name, usedNames, index, { type: entry.type });
+                    return uniqueName === entry.name ? entry : { ...entry, name: uniqueName };
+                });
         }
 
         function loadDraft(draftStorageKey) {
@@ -8904,7 +8977,7 @@
             }),
             messages: Object.freeze({
                 noImagesDetected: "未检测到图片文件。",
-                imagesLoaded: (count, kb) => `已载入图片：${count} 张（约 ${kb} KB）`,
+                imagesLoaded: (count, kb, totalCount = count, renamedCount = 0) => `已添加图片：${count} 张（当前共 ${totalCount} 张，本次约 ${kb} KB${renamedCount > 0 ? `，重名自动改名 ${renamedCount} 张` : ""}）`,
                 imageDeleted: (label, remaining) => `已删除图片${label}（剩余 ${remaining} 张）。`,
                 imagesCleared: "已清除图片。",
                 missingNewChatHotkey: "请填写「新对话快捷键」。",
@@ -9857,11 +9930,21 @@
                     return;
                 }
 
-                setImageFiles(images);
+                const existingImages = Array.isArray(imageFiles) ? imageFiles.filter(Boolean) : [];
+                const nextImages = normalizeImageFiles(existingImages.concat(images));
+                const renamedCount = images.reduce((sum, file, offset) => {
+                    const nextFile = nextImages[existingImages.length + offset];
+                    const originalName = String(file?.name || "").trim();
+                    const nextName = String(nextFile?.name || "").trim();
+                    return sum + (nextName && nextName !== originalName ? 1 : 0);
+                }, 0);
+
+                setImageFiles(nextImages);
                 const kb = images.reduce((sum, file) => sum + (Number(file?.size) || 0), 0) / 1024;
+                const totalCount = nextImages.length;
                 const msg = labels.messages?.imagesLoaded
-                    ? labels.messages.imagesLoaded(images.length, Math.round(kb))
-                    : DEFAULT_LABELS.messages.imagesLoaded(images.length, Math.round(kb));
+                    ? labels.messages.imagesLoaded(images.length, Math.round(kb), totalCount, renamedCount)
+                    : DEFAULT_LABELS.messages.imagesLoaded(images.length, Math.round(kb), totalCount, renamedCount);
                 appendLog(msg, { level: "ok" });
             }
 
