@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260403] v1.0.0
+// @name         [Template] 快捷键跳转 [20260403] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260403] v1.0.0
-// @update-log   1.0.0: QuickInput 支持连续添加图片并自动重命名同名文件，避免图片覆盖与 Gemini 重名报错。
+// @version      [20260403] v1.0.1
+// @update-log   1.0.1: QuickInput 新增缺图自动补齐重试，继续保留连续加图与同名图片自动重命名能力。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8989,6 +8989,8 @@
                 textInserted: (ok) => (ok ? "已输入文字。" : "输入文字失败。"),
                 hotkeyTriggered: (hotkey, ok) => (ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}`),
                 waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
+                repairingImages: (missingCount, currentCount, expectedCount, attempt, maxAttempts) => `检测到图片缺失：当前 ${currentCount} / ${expectedCount} 张，正在自动补齐缺失的 ${missingCount} 张（第 ${attempt}/${maxAttempts} 次）。`,
+                repairedImages: (count, expectedCount) => `已自动补齐图片：${count} 张（目标共 ${expectedCount} 张）。`,
                 uploadNotReady: "图片尚未上传完成：已取消发送，避免文字先发。",
                 sendAttempted: (ok) => (ok ? "已尝试发送（Enter/Send）。" : "发送失败。"),
                 loopDelayBeforeNewChat: (ms) => `循环间隔等待中：${ms} ms（发送后 → 新对话前）。`,
@@ -10508,6 +10510,160 @@
                     return false;
                 }
 
+                function handleImageAttachDiagnostics(diag) {
+                    if (!diag) return;
+                    if (typeof diag === "string") {
+                        appendLog(diag, { level: "error" });
+                        return;
+                    }
+                    if (diag && typeof diag === "object") {
+                        const level = String(diag.level || "").toLowerCase() === "ok" ? "ok" : "error";
+                        if (typeof diag.message === "string" && diag.message.trim()) {
+                            appendLog(diag.message, { level });
+                            return;
+                        }
+                        try { appendLog(`诊断: ${JSON.stringify(diag)}`, { level: "error" }); } catch {}
+                    }
+                }
+
+                async function attachImageFiles(fileList, composerEl) {
+                    return await adapter.attachImages(fileList, composerEl, {
+                        shouldCancel,
+                        onDiagnostics: handleImageAttachDiagnostics
+                    });
+                }
+
+                function getReadyAttachmentCount(readyState) {
+                    const count = Number(readyState?.snapshot?.attachmentCount);
+                    return Number.isFinite(count) && count > 0 ? count : 0;
+                }
+
+                function buildImageReadyFailureDetail(readyState, expectedCount) {
+                    const direct = (readyState && typeof readyState === "object" && typeof readyState.message === "string")
+                        ? readyState.message.trim()
+                        : "";
+                    if (direct) return direct;
+
+                    const expected = Math.max(0, Number(expectedCount) || 0);
+                    const current = getReadyAttachmentCount(readyState);
+                    if (expected > 0 && current < expected) {
+                        return `图片数量未达到预期：当前 ${current} 张，期望至少 ${expected} 张。`;
+                    }
+
+                    const reason = String(readyState?.reason || "").trim().toLowerCase();
+                    if (reason === "no-composer") {
+                        return labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound;
+                    }
+                    if (reason === "timeout") {
+                        return `等待图片上传完成超时：当前识别到 ${current} 张图片。`;
+                    }
+                    return "";
+                }
+
+                function pickImagesForRepair(allImages, currentCount, missingCount) {
+                    const list = Array.isArray(allImages) ? allImages.filter(Boolean) : [];
+                    const need = Math.max(0, Math.min(list.length, Number(missingCount) || 0));
+                    if (need <= 0 || list.length === 0) return [];
+
+                    const safeCurrent = Math.max(0, Math.min(list.length, Number(currentCount) || 0));
+                    const preferred = list.slice(safeCurrent, safeCurrent + need);
+                    if (preferred.length >= need) return preferred;
+
+                    const fallback = list.slice(Math.max(0, list.length - need));
+                    if (fallback.length >= need) return fallback;
+
+                    return list.slice(0, need);
+                }
+
+                async function waitForImagesReadyWithRepair(composerEl, expectedCount) {
+                    const expected = Math.max(0, Number(expectedCount) || 0);
+                    const maxRepairAttempts = 2;
+                    let composerRef = composerEl;
+                    let repairAttempt = 0;
+
+                    while (true) {
+                        const waitingMsg = labels.messages?.waitingUploads
+                            ? labels.messages.waitingUploads(expected)
+                            : DEFAULT_LABELS.messages.waitingUploads(expected);
+                        appendLog(waitingMsg);
+
+                        if (!adapter.waitForReadyToSend) {
+                            await sleep(Math.max(800, cfg.stepDelayMs));
+                            return { ok: true, composer: composerRef };
+                        }
+
+                        const ready = await adapter.waitForReadyToSend(composerRef, {
+                            requireImage: true,
+                            minAttachments: expected,
+                            timeoutMs: 45000,
+                            intervalMs: 160,
+                            settleMs: 600,
+                            shouldCancel
+                        });
+                        if (ready?.cancelled) return { ok: false, cancelled: true, composer: composerRef, ready };
+                        if (ready?.ok) return { ok: true, composer: composerRef, ready };
+
+                        const currentCount = getReadyAttachmentCount(ready);
+                        const missingCount = Math.max(0, expected - currentCount);
+                        if (!(missingCount > 0 && repairAttempt < maxRepairAttempts && adapter.attachImages)) {
+                            return { ok: false, cancelled: false, composer: composerRef, ready };
+                        }
+
+                        repairAttempt += 1;
+                        const repairFiles = pickImagesForRepair(images, currentCount, missingCount);
+                        if (repairFiles.length === 0) {
+                            return { ok: false, cancelled: false, composer: composerRef, ready };
+                        }
+
+                        const repairMsg = labels.messages?.repairingImages
+                            ? labels.messages.repairingImages(missingCount, currentCount, expected, repairAttempt, maxRepairAttempts)
+                            : DEFAULT_LABELS.messages.repairingImages(missingCount, currentCount, expected, repairAttempt, maxRepairAttempts);
+                        appendLog(repairMsg, { level: "error" });
+
+                        const beforeRepairReady = await verifyInputUrlReady(`补图前#${repairAttempt}`);
+                        if (beforeRepairReady === "cancelled") {
+                            return { ok: false, cancelled: true, composer: composerRef, ready };
+                        }
+                        if (beforeRepairReady !== true) {
+                            return { ok: false, cancelled: false, composer: composerRef, ready };
+                        }
+
+                        composerRef = await adapter.focusComposer({ timeoutMs: 6000, intervalMs: 120, shouldCancel }) || composerRef;
+                        if (!composerRef) {
+                            return {
+                                ok: false,
+                                cancelled: !!cancelRun,
+                                composer: composerEl,
+                                ready,
+                                message: labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound
+                            };
+                        }
+
+                        const repairResult = await attachImageFiles(repairFiles, composerRef);
+                        if (repairResult?.cancelled) {
+                            return { ok: false, cancelled: true, composer: composerRef, ready: repairResult };
+                        }
+                        if (!repairResult?.ok) {
+                            return {
+                                ok: false,
+                                cancelled: false,
+                                composer: composerRef,
+                                ready: repairResult,
+                                message: (typeof repairResult?.message === "string" && repairResult.message.trim())
+                                    ? repairResult.message.trim()
+                                    : buildImageReadyFailureDetail(ready, expected)
+                            };
+                        }
+
+                        const repairedMsg = labels.messages?.repairedImages
+                            ? labels.messages.repairedImages(repairFiles.length, expected)
+                            : DEFAULT_LABELS.messages.repairedImages(repairFiles.length, expected);
+                        appendLog(repairedMsg, { level: "ok" });
+                        await sleep(cfg.stepDelayMs);
+                        if (cancelRun) return { ok: false, cancelled: true, composer: composerRef, ready };
+                    }
+                }
+
                 for (let i = 0; i < cfg.loopCount; i++) {
                     if (cancelRun) break;
                     const marker = labels.messages?.loopMarker
@@ -10518,7 +10674,7 @@
                     const loopUrlReady = await verifyInputUrlReady("本轮开始");
                     if (loopUrlReady !== true) break;
 
-                    const composer = await adapter.focusComposer({ timeoutMs: 15000, intervalMs: 160, shouldCancel });
+                    let composer = await adapter.focusComposer({ timeoutMs: 15000, intervalMs: 160, shouldCancel });
                     if (!composer) {
                         if (cancelRun) break;
                         appendLog(labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound, { level: "error" });
@@ -10542,24 +10698,7 @@
                             break;
                         }
 
-                        const result = await adapter.attachImages(images, composer, {
-                            shouldCancel,
-                            onDiagnostics: (diag) => {
-                                if (!diag) return;
-                                if (typeof diag === "string") {
-                                    appendLog(diag, { level: "error" });
-                                    return;
-                                }
-                                if (diag && typeof diag === "object") {
-                                    const level = String(diag.level || "").toLowerCase() === "ok" ? "ok" : "error";
-                                    if (typeof diag.message === "string" && diag.message.trim()) {
-                                        appendLog(diag.message, { level });
-                                        return;
-                                    }
-                                    try { appendLog(`诊断: ${JSON.stringify(diag)}`, { level: "error" }); } catch {}
-                                }
-                            }
-                        });
+                        const result = await attachImageFiles(images, composer);
                         if (result?.cancelled) break;
                         if (!result?.ok) {
                             cancelRun = true;
@@ -10603,25 +10742,17 @@
                     }
 
                     if (images.length) {
-                        const waitingMsg = labels.messages?.waitingUploads
-                            ? labels.messages.waitingUploads(images.length)
-                            : DEFAULT_LABELS.messages.waitingUploads(images.length);
-                        appendLog(waitingMsg);
-
-                        if (adapter.waitForReadyToSend) {
-                            const ready = await adapter.waitForReadyToSend(composer, { requireImage: true, minAttachments: images.length, timeoutMs: 45000, intervalMs: 160, settleMs: 600, shouldCancel });
-                            if (ready?.cancelled) break;
-                            if (!ready?.ok) {
-                                cancelRun = true;
-                                appendLog(labels.messages?.uploadNotReady || DEFAULT_LABELS.messages.uploadNotReady, { level: "error" });
-                                const detail = (ready && typeof ready === "object" && typeof ready.message === "string")
-                                    ? ready.message.trim()
-                                    : "";
-                                if (detail) appendLog(detail, { level: "error" });
-                                break;
-                            }
-                        } else {
-                            await sleep(Math.max(800, cfg.stepDelayMs));
+                        const readyResult = await waitForImagesReadyWithRepair(composer, images.length);
+                        if (readyResult?.composer) composer = readyResult.composer;
+                        if (readyResult?.cancelled) break;
+                        if (!readyResult?.ok) {
+                            cancelRun = true;
+                            appendLog(labels.messages?.uploadNotReady || DEFAULT_LABELS.messages.uploadNotReady, { level: "error" });
+                            const detail = (readyResult && typeof readyResult === "object" && typeof readyResult.message === "string" && readyResult.message.trim())
+                                ? readyResult.message.trim()
+                                : buildImageReadyFailureDetail(readyResult?.ready, images.length);
+                            if (detail) appendLog(detail, { level: "error" });
+                            break;
                         }
 
                         appendLog("图片已就绪。", { level: "ok" });
