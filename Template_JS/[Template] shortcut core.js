@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.4.2
+// @name         [Template] 快捷键跳转 [20260407] v1.4.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.4.2
-// @update-log   1.4.2: 修复 QuickInput 日志中最终状态卡与其他折叠项标题未对齐的问题，统一为居中分隔标题布局。
+// @version      [20260407] v1.4.4
+// @update-log   1.4.4: 统一 QuickInput 最终状态文案标点，将“完成 / 已停止 / 失败”结尾全部调整为感叹号。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9132,9 +9132,9 @@
                 newChatNotReady: "新对话在自动重试后仍未就绪：已停止后续循环，避免在旧上下文继续执行。",
                 inputUrlRecovering: (stage, hotkey) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：准备自动重新触发 ${hotkey} 新建对话。`,
                 inputUrlNotReady: (stage) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：自动补救后仍未恢复，已停止后续循环，避免在错误会话继续执行。`,
-                stopped: "已停止。",
-                failed: "失败。",
-                finished: "完成。",
+                stopped: "已停止！",
+                failed: "失败！",
+                finished: "完成！",
                 stopRequested: "收到停止请求，将尽快停止…",
                 missingAttachAdapter: "图片发送未配置：请在 quickInput.adapter.attachImages 中实现图片插入逻辑。"
             })
