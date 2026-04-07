@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.1.1
+// @name         [Template] 快捷键跳转 [20260407] v1.2.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.1.1
-// @update-log   1.1.1: 修正 QuickInput 删除按钮颜色、字段 label 字重，以及“运行前清空输入框”复选框对齐。
+// @version      [20260407] v1.2.0
+// @update-log   1.2.0: QuickInput 日志新增按轮次分块折叠，当前轮自动展开、旧轮自动折叠。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9343,6 +9343,8 @@
             let backdropEl = null;
             let panelEl = null;
             let logEl = null;
+            let activeLoopLogGroupEl = null;
+            let activeLoopLogBodyEl = null;
             let fileInputEl = null;
             let previewRowEl = null;
             let imagePreviewShellEl = null;
@@ -10056,6 +10058,58 @@
                     min-height: 0;
                     white-space: pre-wrap;
                     line-height: 1.35;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                }
+                ${hostSelector} .qi-log-line {
+                    display: block;
+                }
+                ${hostSelector} .qi-log-group {
+                    margin: 0;
+                    border: 1px solid var(--qi-border);
+                    border-radius: 12px;
+                    background: var(--qi-surface-alt);
+                    overflow: hidden;
+                }
+                ${hostSelector} .qi-log-group-summary {
+                    position: relative;
+                    display: block;
+                    padding: 9px 12px 9px 34px;
+                    cursor: pointer;
+                    list-style: none;
+                    font-weight: 650;
+                    color: var(--qi-text-strong);
+                    user-select: none;
+                    -webkit-user-select: none;
+                    transition: background 120ms ease;
+                }
+                ${hostSelector} .qi-log-group-summary::-webkit-details-marker {
+                    display: none;
+                }
+                ${hostSelector} .qi-log-group-summary::before {
+                    content: "▸";
+                    position: absolute;
+                    left: 12px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    color: var(--qi-text-muted);
+                    transition: transform 120ms ease;
+                }
+                ${hostSelector} .qi-log-group[open] .qi-log-group-summary::before {
+                    transform: translateY(-50%) rotate(90deg);
+                }
+                ${hostSelector} .qi-log-group-summary:hover {
+                    background: var(--qi-hover);
+                }
+                ${hostSelector} .qi-log-group[open] .qi-log-group-summary {
+                    border-bottom: 1px solid var(--qi-border);
+                }
+                ${hostSelector} .qi-log-group-body {
+                    padding: 8px 12px 10px 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
                 }
                 ${hostSelector} .qi-log .qi-error { color: var(--qi-error); }
                 ${hostSelector} .qi-log .qi-ok { color: var(--qi-success); }
@@ -10068,23 +10122,105 @@
                 `;
             }
 
-            function appendLog(text, { level = "info" } = {}) {
+            function getLogTimestamp(date = new Date()) {
+                return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+            }
+
+            function formatLogLine(text, time = getLogTimestamp()) {
+                return `[${time}] ${String(text ?? "")}`;
+            }
+
+            function scrollLogToBottom() {
                 if (!logEl) return;
-                const now = new Date();
-                const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
-                const line = `[${time}] ${String(text ?? "")}`;
-                const span = global.document?.createElement?.("div");
-                if (!span) return;
-                if (level === "error") span.className = "qi-error";
-                if (level === "ok") span.className = "qi-ok";
-                span.textContent = line;
-                logEl.appendChild(span);
                 logEl.scrollTop = logEl.scrollHeight;
+            }
+
+            function clearActiveLoopLogTarget() {
+                activeLoopLogGroupEl = null;
+                activeLoopLogBodyEl = null;
+            }
+
+            function createLogLineElement(text, { level = "info", time = getLogTimestamp() } = {}) {
+                const lineEl = global.document?.createElement?.("div");
+                if (!lineEl) return null;
+                lineEl.className = "qi-log-line";
+                if (level === "error") lineEl.classList.add("qi-error");
+                if (level === "ok") lineEl.classList.add("qi-ok");
+                lineEl.textContent = formatLogLine(text, time);
+                return lineEl;
+            }
+
+            function appendLogToContainer(container, text, { level = "info", time = getLogTimestamp() } = {}) {
+                if (!container) return;
+                const lineEl = createLogLineElement(text, { level, time });
+                if (!lineEl) return;
+                container.appendChild(lineEl);
+                scrollLogToBottom();
+            }
+
+            function collapseOpenLoopLogGroups() {
+                if (!logEl) return;
+                let groups = [];
+                try {
+                    groups = Array.from(logEl.querySelectorAll(".qi-log-group[open]"));
+                } catch {
+                    groups = [];
+                }
+                for (const group of groups) {
+                    try {
+                        group.open = false;
+                    } catch {
+                        try { group.removeAttribute("open"); } catch {}
+                    }
+                }
+            }
+
+            function startLoopLogGroup(title) {
+                if (!logEl) return;
+                collapseOpenLoopLogGroups();
+
+                const groupEl = global.document?.createElement?.("details");
+                const summaryEl = global.document?.createElement?.("summary");
+                const bodyEl = global.document?.createElement?.("div");
+                if (!groupEl || !summaryEl || !bodyEl) return;
+
+                const time = getLogTimestamp();
+                groupEl.className = "qi-log-group";
+                groupEl.open = true;
+
+                summaryEl.className = "qi-log-group-summary";
+                summaryEl.textContent = formatLogLine(title, time);
+
+                bodyEl.className = "qi-log-group-body";
+
+                groupEl.appendChild(summaryEl);
+                groupEl.appendChild(bodyEl);
+                logEl.appendChild(groupEl);
+
+                activeLoopLogGroupEl = groupEl;
+                activeLoopLogBodyEl = bodyEl;
+                scrollLogToBottom();
+            }
+
+            function appendLog(text, { level = "info", scope = "global" } = {}) {
+                const container = (scope === "loop")
+                    ? (activeLoopLogBodyEl || logEl)
+                    : logEl;
+                appendLogToContainer(container, text, { level });
+            }
+
+            function appendGlobalLog(text, options = {}) {
+                appendLog(text, { ...(options || {}), scope: "global" });
+            }
+
+            function appendLoopLog(text, options = {}) {
+                appendLog(text, { ...(options || {}), scope: "loop" });
             }
 
             function clearLog() {
                 if (!logEl) return;
                 logEl.textContent = "";
+                clearActiveLoopLogTarget();
             }
 
             function revokeImageUrls() {
@@ -10204,7 +10340,7 @@
                             const next = imageFiles.filter((_, i) => i !== index);
                             setImageFiles(next);
                             const label = file.name ? `：${file.name}` : ` #${index + 1}`;
-                            appendLog(labels.messages?.imageDeleted ? labels.messages.imageDeleted(label, next.length) : `已删除图片${label}（剩余 ${next.length} 张）。`, { level: "ok" });
+                            appendGlobalLog(labels.messages?.imageDeleted ? labels.messages.imageDeleted(label, next.length) : `已删除图片${label}（剩余 ${next.length} 张）。`, { level: "ok" });
                         });
                         wrap.appendChild(delBtn);
 
@@ -10239,7 +10375,7 @@
                 const files = Array.from(fileList || []).filter(Boolean);
                 const images = files.filter(f => String(f?.type || "").startsWith("image/"));
                 if (images.length === 0) {
-                    appendLog(labels.messages?.noImagesDetected || DEFAULT_LABELS.messages.noImagesDetected, { level: "error" });
+                    appendGlobalLog(labels.messages?.noImagesDetected || DEFAULT_LABELS.messages.noImagesDetected, { level: "error" });
                     return;
                 }
 
@@ -10258,7 +10394,7 @@
                 const msg = labels.messages?.imagesLoaded
                     ? labels.messages.imagesLoaded(images.length, Math.round(kb), totalCount, renamedCount)
                     : DEFAULT_LABELS.messages.imagesLoaded(images.length, Math.round(kb), totalCount, renamedCount);
-                appendLog(msg, { level: "ok" });
+                appendGlobalLog(msg, { level: "ok" });
             }
 
             function clearImageDropFocus({ focusText = true } = {}) {
@@ -10735,7 +10871,7 @@
                         : (DEFAULT_LABELS.messages.loopDelayBeforeNewChat
                             ? DEFAULT_LABELS.messages.loopDelayBeforeNewChat(delayMs, formattedDelay)
                             : "");
-                    if (waitingMsg) appendLog(waitingMsg);
+                    if (waitingMsg) appendLoopLog(waitingMsg);
                 }
 
                 const waitOk = await sleepWithCancel(remainMs, { shouldCancel: cancelFn, chunkMs: 160 });
@@ -10794,7 +10930,7 @@
                         : (DEFAULT_LABELS.messages.newChatRetrying
                             ? DEFAULT_LABELS.messages.newChatRetrying(retryNewChatLabel, attemptIndex + 1, maxNewChatRetries)
                             : "");
-                    if (retryMsg) appendLog(retryMsg);
+                    if (retryMsg) appendLoopLog(retryMsg);
 
                     const retryWaitOk = await sleepWithCancel(800, { shouldCancel: cancelFn, chunkMs: 160 });
                     if (!retryWaitOk) return { cancelled: true, okNewChat: false };
@@ -10803,9 +10939,9 @@
                 const newChatMsg = labels.messages?.newChatTriggered
                     ? labels.messages.newChatTriggered(usedNewChatLabel, okNewChat)
                     : DEFAULT_LABELS.messages.newChatTriggered(usedNewChatLabel, okNewChat);
-                appendLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
+                appendLoopLog(newChatMsg, { level: okNewChat ? "ok" : "error" });
                 if (!okNewChat && verificationMessage) {
-                    appendLog(verificationMessage, { level: "error" });
+                    appendLoopLog(verificationMessage, { level: "error" });
                 }
 
                 return { cancelled: !!(cancelFn && cancelFn()), okNewChat, attemptsUsed };
@@ -10829,13 +10965,13 @@
                 const newChatDisplayLabel = getNewChatTriggerLabel(newChatHotkey);
 
                 if (!newChatHotkey && !hasCustomNewChatTrigger) {
-                    appendLog(labels.messages?.missingNewChatHotkey || DEFAULT_LABELS.messages.missingNewChatHotkey, { level: "error" });
+                    appendGlobalLog(labels.messages?.missingNewChatHotkey || DEFAULT_LABELS.messages.missingNewChatHotkey, { level: "error" });
                     setRunning(false);
                     return;
                 }
 
                 if (images.length === 0 && !promptText.trim()) {
-                    appendLog(labels.messages?.missingInput || DEFAULT_LABELS.messages.missingInput, { level: "error" });
+                    appendGlobalLog(labels.messages?.missingInput || DEFAULT_LABELS.messages.missingInput, { level: "error" });
                     setRunning(false);
                     return;
                 }
@@ -10845,7 +10981,7 @@
                 const startMsg = labels.messages?.start
                     ? labels.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length)
                     : DEFAULT_LABELS.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length);
-                appendLog(startMsg);
+                appendGlobalLog(startMsg);
 
                 async function verifyInputUrlReady(stageLabel = "") {
                     if (!adapter.waitForNewChatReady) return true;
@@ -10868,7 +11004,7 @@
                         : (typeof DEFAULT_LABELS.messages.inputUrlRecovering === "function"
                             ? DEFAULT_LABELS.messages.inputUrlRecovering(stageLabel, retryNewChatLabel)
                             : DEFAULT_LABELS.messages.inputUrlRecovering);
-                    if (recoveringMsg) appendLog(recoveringMsg, { level: "error" });
+                    if (recoveringMsg) appendLoopLog(recoveringMsg, { level: "error" });
 
                     const retryTrigger = await triggerNewChatAction({
                         hotkey: newChatHotkey,
@@ -10890,7 +11026,7 @@
                             const recoverOkMsg = labels.messages?.newChatTriggered
                                 ? labels.messages.newChatTriggered(retryTrigger.label || retryNewChatLabel, true)
                                 : DEFAULT_LABELS.messages.newChatTriggered(retryTrigger.label || retryNewChatLabel, true);
-                            appendLog(recoverOkMsg, { level: "ok" });
+                            appendLoopLog(recoverOkMsg, { level: "ok" });
                             return true;
                         }
                     }
@@ -10901,28 +11037,28 @@
                         : (typeof DEFAULT_LABELS.messages.inputUrlNotReady === "function"
                             ? DEFAULT_LABELS.messages.inputUrlNotReady(stageLabel)
                             : DEFAULT_LABELS.messages.inputUrlNotReady);
-                    appendLog(title, { level: "error" });
+                    appendLoopLog(title, { level: "error" });
 
                     const detail = (verification && typeof verification === "object" && typeof verification.message === "string")
                         ? verification.message.trim()
                         : "";
-                    if (detail) appendLog(detail, { level: "error" });
+                    if (detail) appendLoopLog(detail, { level: "error" });
                     return false;
                 }
 
                 function handleImageAttachDiagnostics(diag) {
                     if (!diag) return;
                     if (typeof diag === "string") {
-                        appendLog(diag, { level: "error" });
+                        appendLoopLog(diag, { level: "error" });
                         return;
                     }
                     if (diag && typeof diag === "object") {
                         const level = String(diag.level || "").toLowerCase() === "ok" ? "ok" : "error";
                         if (typeof diag.message === "string" && diag.message.trim()) {
-                            appendLog(diag.message, { level });
+                            appendLoopLog(diag.message, { level });
                             return;
                         }
-                        try { appendLog(`诊断: ${JSON.stringify(diag)}`, { level: "error" }); } catch {}
+                        try { appendLoopLog(`诊断: ${JSON.stringify(diag)}`, { level: "error" }); } catch {}
                     }
                 }
 
@@ -10985,7 +11121,7 @@
                         const waitingMsg = labels.messages?.waitingUploads
                             ? labels.messages.waitingUploads(expected)
                             : DEFAULT_LABELS.messages.waitingUploads(expected);
-                        appendLog(waitingMsg);
+                        appendLoopLog(waitingMsg);
 
                         if (!adapter.waitForReadyToSend) {
                             await sleep(Math.max(800, cfg.stepDelayMs));
@@ -11018,7 +11154,7 @@
                         const repairMsg = labels.messages?.repairingImages
                             ? labels.messages.repairingImages(missingCount, currentCount, expected, repairAttempt, maxRepairAttempts)
                             : DEFAULT_LABELS.messages.repairingImages(missingCount, currentCount, expected, repairAttempt, maxRepairAttempts);
-                        appendLog(repairMsg, { level: "error" });
+                        appendLoopLog(repairMsg, { level: "error" });
 
                         const beforeRepairReady = await verifyInputUrlReady(`补图前#${repairAttempt}`);
                         if (beforeRepairReady === "cancelled") {
@@ -11058,7 +11194,7 @@
                         const repairedMsg = labels.messages?.repairedImages
                             ? labels.messages.repairedImages(repairFiles.length, expected)
                             : DEFAULT_LABELS.messages.repairedImages(repairFiles.length, expected);
-                        appendLog(repairedMsg, { level: "ok" });
+                        appendLoopLog(repairedMsg, { level: "ok" });
                         await sleep(cfg.stepDelayMs);
                         if (cancelRun) return { ok: false, cancelled: true, composer: composerRef, ready };
                     }
@@ -11069,7 +11205,7 @@
                     const marker = labels.messages?.loopMarker
                         ? labels.messages.loopMarker(i + 1, cfg.loopCount)
                         : DEFAULT_LABELS.messages.loopMarker(i + 1, cfg.loopCount);
-                    appendLog(marker);
+                    startLoopLogGroup(marker);
 
                     const loopUrlReady = await verifyInputUrlReady("本轮开始");
                     if (loopUrlReady !== true) break;
@@ -11077,7 +11213,7 @@
                     let composer = await adapter.focusComposer({ timeoutMs: 15000, intervalMs: 160, shouldCancel });
                     if (!composer) {
                         if (cancelRun) break;
-                        appendLog(labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound, { level: "error" });
+                        appendLoopLog(labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound, { level: "error" });
                         break;
                     }
 
@@ -11094,7 +11230,7 @@
 
                         if (!adapter.attachImages) {
                             cancelRun = true;
-                            appendLog(labels.messages?.missingAttachAdapter || DEFAULT_LABELS.messages.missingAttachAdapter, { level: "error" });
+                            appendLoopLog(labels.messages?.missingAttachAdapter || DEFAULT_LABELS.messages.missingAttachAdapter, { level: "error" });
                             break;
                         }
 
@@ -11105,10 +11241,10 @@
                             const msg = typeof result?.message === "string" && result.message.trim()
                                 ? result.message.trim()
                                 : "图片插入失败：本轮将中止发送。";
-                            appendLog(msg, { level: "error" });
+                            appendLoopLog(msg, { level: "error" });
                             break;
                         }
-                        appendLog(`已成功插入图片：${images.length} 张。`, { level: "ok" });
+                        appendLoopLog(`已成功插入图片：${images.length} 张。`, { level: "ok" });
                         await sleep(cfg.stepDelayMs);
                         if (cancelRun) break;
                     }
@@ -11121,7 +11257,7 @@
                         const msg = labels.messages?.textInserted
                             ? labels.messages.textInserted(okText)
                             : DEFAULT_LABELS.messages.textInserted(okText);
-                        appendLog(msg, { level: okText ? "ok" : "error" });
+                        appendLoopLog(msg, { level: okText ? "ok" : "error" });
                         await sleep(cfg.stepDelayMs);
                         if (cancelRun) break;
                     }
@@ -11135,7 +11271,7 @@
                             const msg = labels.messages?.hotkeyTriggered
                                 ? labels.messages.hotkeyTriggered(hotkey, okHotkey)
                                 : DEFAULT_LABELS.messages.hotkeyTriggered(hotkey, okHotkey);
-                            appendLog(msg, { level: okHotkey ? "ok" : "error" });
+                            appendLoopLog(msg, { level: okHotkey ? "ok" : "error" });
                             await sleep(cfg.stepDelayMs);
                         }
                         if (cancelRun) break;
@@ -11147,15 +11283,15 @@
                         if (readyResult?.cancelled) break;
                         if (!readyResult?.ok) {
                             cancelRun = true;
-                            appendLog(labels.messages?.uploadNotReady || DEFAULT_LABELS.messages.uploadNotReady, { level: "error" });
+                            appendLoopLog(labels.messages?.uploadNotReady || DEFAULT_LABELS.messages.uploadNotReady, { level: "error" });
                             const detail = (readyResult && typeof readyResult === "object" && typeof readyResult.message === "string" && readyResult.message.trim())
                                 ? readyResult.message.trim()
                                 : buildImageReadyFailureDetail(readyResult?.ready, images.length);
-                            if (detail) appendLog(detail, { level: "error" });
+                            if (detail) appendLoopLog(detail, { level: "error" });
                             break;
                         }
 
-                        appendLog("图片已就绪。", { level: "ok" });
+                        appendLoopLog("图片已就绪。", { level: "ok" });
                         await sleep(Math.min(300, cfg.stepDelayMs));
                         if (cancelRun) break;
                     }
@@ -11168,7 +11304,7 @@
                     const sendMsg = labels.messages?.sendAttempted
                         ? labels.messages.sendAttempted(okSend)
                         : DEFAULT_LABELS.messages.sendAttempted(okSend);
-                    appendLog(sendMsg, { level: okSend ? "ok" : "error" });
+                    appendLoopLog(sendMsg, { level: okSend ? "ok" : "error" });
 
                     if (i < cfg.loopCount - 1) {
                         const transition = await transitionToNextLoop({
@@ -11181,13 +11317,14 @@
                         if (transition.cancelled) break;
                         if (!transition.okNewChat) {
                             cancelRun = true;
-                            appendLog(labels.messages?.newChatNotReady || DEFAULT_LABELS.messages.newChatNotReady, { level: "error" });
+                            appendLoopLog(labels.messages?.newChatNotReady || DEFAULT_LABELS.messages.newChatNotReady, { level: "error" });
                             break;
                         }
                     }
                 }
 
-                appendLog(cancelRun ? (labels.messages?.stopped || DEFAULT_LABELS.messages.stopped) : (labels.messages?.finished || DEFAULT_LABELS.messages.finished));
+                clearActiveLoopLogTarget();
+                appendGlobalLog(cancelRun ? (labels.messages?.stopped || DEFAULT_LABELS.messages.stopped) : (labels.messages?.finished || DEFAULT_LABELS.messages.finished));
                 setRunning(false);
             }
 
@@ -11195,7 +11332,7 @@
                 if (!running) return;
                 cancelRun = true;
                 setActiveTab?.("log");
-                appendLog(labels.messages?.stopRequested || DEFAULT_LABELS.messages.stopRequested);
+                appendGlobalLog(labels.messages?.stopRequested || DEFAULT_LABELS.messages.stopRequested);
             }
 
             function ensureUi() {
@@ -11348,7 +11485,7 @@
                 clearAllImagesBtnEl.addEventListener("click", () => {
                     if (running) return;
                     setImageFiles([]);
-                    appendLog(labels.messages?.imagesCleared || DEFAULT_LABELS.messages.imagesCleared);
+                    appendGlobalLog(labels.messages?.imagesCleared || DEFAULT_LABELS.messages.imagesCleared);
                 });
                 imagePreviewShellEl.appendChild(clearAllImagesBtnEl);
                 imagePreviewShellEl.appendChild(imagePreviewListEl);
