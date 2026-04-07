@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.4.0
+// @name         [Template] 快捷键跳转 [20260407] v1.4.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.4.0
-// @update-log   1.4.0: 精简 QuickInput 日志卡片的边缘指示元素，移除日志组三角与状态卡箭头，仅保留最终状态点，并保持整行折叠交互。
+// @version      [20260407] v1.4.1
+// @update-log   1.4.1: 进一步精简 QuickInput 日志卡片，移除最终状态点，统一为无边缘指示元素的整行折叠样式。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10129,7 +10129,7 @@
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    padding: 9px 16px 9px 34px;
+                    padding: 9px 16px;
                     cursor: pointer;
                     list-style: none;
                     font-weight: 650;
@@ -10285,11 +10285,11 @@
                 }
                 ${hostSelector} .qi-log-status-card:not(.qi-log-status-collapsible) {
                     display: grid;
-                    grid-template-columns: auto max-content minmax(0, 1fr);
+                    grid-template-columns: max-content minmax(0, 1fr);
                     align-items: start;
                     column-gap: 10px;
                     row-gap: 4px;
-                    padding: 10px 12px;
+                    padding: 10px 16px;
                 }
                 ${hostSelector} .qi-log-status-card.qi-log-status-collapsible {
                     overflow: hidden;
@@ -10299,7 +10299,7 @@
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    padding: 9px 16px 9px 34px;
+                    padding: 9px 16px;
                     cursor: pointer;
                     list-style: none;
                     user-select: none;
@@ -10330,17 +10330,6 @@
                     background: currentColor;
                     opacity: 0.42;
                 }
-                ${hostSelector} .qi-log-status-dot {
-                    position: absolute;
-                    left: 16px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    width: 10px;
-                    height: 10px;
-                    border-radius: 999px;
-                    background: currentColor;
-                    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
-                }
                 ${hostSelector} .qi-log-status-time {
                     flex: 0 0 auto;
                     white-space: nowrap;
@@ -10364,10 +10353,10 @@
                 }
                 ${hostSelector} .qi-log-status-body {
                     display: block;
-                    padding: 0 16px 12px 34px;
+                    padding: 0 16px 12px 16px;
                 }
                 ${hostSelector} .qi-log-status-detail {
-                    grid-column: 2 / 4;
+                    grid-column: 2 / 3;
                     min-width: 0;
                     white-space: pre-wrap;
                     word-break: break-word;
@@ -10471,10 +10460,9 @@
                 const detailText = String(detail ?? "").trim();
                 const useCollapsible = !!(collapsible && detailText);
                 const lineEl = global.document?.createElement?.(useCollapsible ? "details" : "div");
-                const dotEl = global.document?.createElement?.("span");
                 const timeEl = global.document?.createElement?.("span");
                 const messageEl = global.document?.createElement?.("span");
-                if (!lineEl || !dotEl || !timeEl || !messageEl) return null;
+                if (!lineEl || !timeEl || !messageEl) return null;
 
                 const normalized = normalizeLogStatus(level);
                 lineEl.className = `qi-log-status-card qi-log-status-${normalized}`;
@@ -10482,7 +10470,6 @@
                     lineEl.classList.add("qi-log-status-collapsible");
                     lineEl.open = !!open;
                 }
-                dotEl.className = "qi-log-status-dot";
                 timeEl.className = "qi-log-status-time";
                 timeEl.textContent = `[${time}]`;
                 messageEl.className = "qi-log-status-message";
@@ -10502,7 +10489,6 @@
                     detailEl.textContent = detailText;
                     messageEl.className = "qi-log-status-divider-label";
 
-                    summaryEl.appendChild(dotEl);
                     summaryEl.appendChild(timeEl);
                     dividerEl.appendChild(messageEl);
                     summaryEl.appendChild(dividerEl);
@@ -10512,7 +10498,6 @@
                     return lineEl;
                 }
 
-                lineEl.appendChild(dotEl);
                 lineEl.appendChild(timeEl);
                 lineEl.appendChild(messageEl);
 
