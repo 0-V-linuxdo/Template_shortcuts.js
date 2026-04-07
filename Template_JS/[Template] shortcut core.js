@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.2.3
+// @name         [Template] 快捷键跳转 [20260407] v1.3.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.2.3
-// @update-log   1.2.3: 优化 QuickInput 日志时间列对齐，并在输出结束后自动折叠最后一组日志。
+// @version      [20260407] v1.3.0
+// @update-log   1.3.0: 优化 QuickInput 首尾日志样式；首项“执行配置”支持折叠与状态色，末项完成/失败/取消改为状态卡显示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9106,6 +9106,7 @@
                 missingInput: "请先输入文字或载入图片。",
                 start: (loopCount, toolHotkeys, newChatHotkey, imageCount) =>
                     `开始执行：循环 ${loopCount} 次，工具快捷键 ${toolHotkeys.length ? toolHotkeys.join("、") : "(无)"}，新对话快捷键 ${newChatHotkey}，图片 ${imageCount} 张。`,
+                startSummary: "执行配置",
                 loopMarker: (i, loopCount) => `—— 第 ${i}/${loopCount} 次 ——`,
                 composerNotFound: "未找到输入框：请先点击一次输入框再运行。",
                 textInserted: (ok) => (ok ? "已输入文字。" : "输入文字失败。"),
@@ -9122,6 +9123,7 @@
                 inputUrlRecovering: (stage, hotkey) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：准备自动重新触发 ${hotkey} 新建对话。`,
                 inputUrlNotReady: (stage) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：自动补救后仍未恢复，已停止后续循环，避免在错误会话继续执行。`,
                 stopped: "已停止。",
+                failed: "失败。",
                 finished: "完成。",
                 stopRequested: "收到停止请求，将尽快停止…",
                 missingAttachAdapter: "图片发送未配置：请在 quickInput.adapter.attachImages 中实现图片插入逻辑。"
@@ -9343,6 +9345,7 @@
             let backdropEl = null;
             let panelEl = null;
             let logEl = null;
+            let runConfigGroupEl = null;
             let activeLoopLogGroupEl = null;
             let activeLoopLogBodyEl = null;
             let fileInputEl = null;
@@ -9372,6 +9375,7 @@
             let imageObjectUrls = [];
             let running = false;
             let cancelRun = false;
+            let runFinalStatus = "idle";
             let draftPersistToken = 0;
 
             let dragPointerId = null;
@@ -9574,6 +9578,7 @@
                     --qi-hover: rgba(255,255,255,0.08);
                     --qi-error: #fca5a5;
                     --qi-success: #86efac;
+                    --qi-warn: #fdba74;
                     --qi-danger-bg: rgba(239, 68, 68, 0.92);
                     --qi-danger-border: rgba(255,255,255,0.18);
                     --qi-icon-btn-bg: rgba(255,255,255,0.08);
@@ -9606,6 +9611,7 @@
                     --qi-hover: rgba(17, 24, 39, 0.08);
                     --qi-error: #b91c1c;
                     --qi-success: #15803d;
+                    --qi-warn: #c2410c;
                     --qi-danger-border: rgba(185, 28, 28, 0.35);
                     --qi-icon-btn-bg: rgba(17,24,39,0.08);
                     --qi-icon-btn-hover: rgba(17,24,39,0.14);
@@ -10085,6 +10091,28 @@
                     background: var(--qi-surface-alt);
                     overflow: hidden;
                 }
+                ${hostSelector} .qi-log-group.qi-log-group-config {
+                    border-color: var(--qi-border);
+                    border-color: color-mix(in srgb, ${primaryColor} 32%, var(--qi-border));
+                    background: var(--qi-surface-alt);
+                    background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-info {
+                    border-color: color-mix(in srgb, ${primaryColor} 32%, var(--qi-border));
+                    background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-ok {
+                    border-color: color-mix(in srgb, var(--qi-success) 32%, var(--qi-border));
+                    background: color-mix(in srgb, var(--qi-success) 9%, var(--qi-surface-alt));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-error {
+                    border-color: color-mix(in srgb, var(--qi-error) 30%, var(--qi-border));
+                    background: color-mix(in srgb, var(--qi-error) 8%, var(--qi-surface-alt));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-warn {
+                    border-color: color-mix(in srgb, var(--qi-warn) 34%, var(--qi-border));
+                    background: color-mix(in srgb, var(--qi-warn) 10%, var(--qi-surface-alt));
+                }
                 ${hostSelector} .qi-log-group-summary {
                     position: relative;
                     display: flex;
@@ -10098,6 +10126,32 @@
                     user-select: none;
                     -webkit-user-select: none;
                     transition: background 120ms ease;
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-summary {
+                    color: ${primaryColor};
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-summary {
+                    color: ${primaryColor};
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-summary {
+                    color: var(--qi-success);
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-error .qi-log-group-summary {
+                    color: var(--qi-error);
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-warn .qi-log-group-summary {
+                    color: var(--qi-warn);
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-summary::before {
+                    color: ${primaryColor};
+                    opacity: 0.72;
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-summary::before,
+                ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-summary::before,
+                ${hostSelector} .qi-log-group.qi-log-group-status-error .qi-log-group-summary::before,
+                ${hostSelector} .qi-log-group.qi-log-group-status-warn .qi-log-group-summary::before {
+                    color: currentColor;
+                    opacity: 0.72;
                 }
                 ${hostSelector} .qi-log-group-summary::-webkit-details-marker {
                     display: none;
@@ -10116,6 +10170,22 @@
                 }
                 ${hostSelector} .qi-log-group-summary:hover {
                     background: var(--qi-hover);
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-summary:hover {
+                    background: var(--qi-hover);
+                    background: color-mix(in srgb, ${primaryColor} 10%, var(--qi-hover));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-summary:hover {
+                    background: color-mix(in srgb, ${primaryColor} 10%, var(--qi-hover));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-summary:hover {
+                    background: color-mix(in srgb, var(--qi-success) 10%, var(--qi-hover));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-error .qi-log-group-summary:hover {
+                    background: color-mix(in srgb, var(--qi-error) 10%, var(--qi-hover));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-warn .qi-log-group-summary:hover {
+                    background: color-mix(in srgb, var(--qi-warn) 12%, var(--qi-hover));
                 }
                 ${hostSelector} .qi-log-group-time {
                     flex: 0 0 auto;
@@ -10149,11 +10219,110 @@
                 ${hostSelector} .qi-log-group[open] .qi-log-group-summary {
                     border-bottom: 1px solid var(--qi-border);
                 }
+                ${hostSelector} .qi-log-group.qi-log-group-config[open] .qi-log-group-summary {
+                    border-bottom-color: color-mix(in srgb, ${primaryColor} 28%, var(--qi-border));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-info[open] .qi-log-group-summary {
+                    border-bottom-color: color-mix(in srgb, ${primaryColor} 28%, var(--qi-border));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-ok[open] .qi-log-group-summary {
+                    border-bottom-color: color-mix(in srgb, var(--qi-success) 28%, var(--qi-border));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-error[open] .qi-log-group-summary {
+                    border-bottom-color: color-mix(in srgb, var(--qi-error) 24%, var(--qi-border));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-warn[open] .qi-log-group-summary {
+                    border-bottom-color: color-mix(in srgb, var(--qi-warn) 28%, var(--qi-border));
+                }
                 ${hostSelector} .qi-log-group-body {
                     padding: 8px 12px 10px 20px;
                     display: flex;
                     flex-direction: column;
                     gap: 4px;
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-body {
+                    padding: 10px 12px 12px 16px;
+                    background: var(--qi-surface);
+                    background: color-mix(in srgb, ${primaryColor} 4%, var(--qi-surface));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-body {
+                    background: color-mix(in srgb, ${primaryColor} 4%, var(--qi-surface));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-body {
+                    background: color-mix(in srgb, var(--qi-success) 4%, var(--qi-surface));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-error .qi-log-group-body {
+                    background: color-mix(in srgb, var(--qi-error) 4%, var(--qi-surface));
+                }
+                ${hostSelector} .qi-log-group.qi-log-group-status-warn .qi-log-group-body {
+                    background: color-mix(in srgb, var(--qi-warn) 5%, var(--qi-surface));
+                }
+                ${hostSelector} .qi-log-group-status-tag {
+                    flex: 0 0 auto;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 2px 9px;
+                    border-radius: 999px;
+                    border: 1px solid currentColor;
+                    font-size: 11px;
+                    font-weight: 700;
+                    letter-spacing: 0.2px;
+                    line-height: 1.2;
+                    opacity: 0.9;
+                }
+                ${hostSelector} .qi-log-group-detail {
+                    min-width: 0;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                    line-height: 1.45;
+                    color: var(--qi-text);
+                }
+                ${hostSelector} .qi-log-group-detail.qi-error { color: var(--qi-error); }
+                ${hostSelector} .qi-log-group-detail.qi-ok { color: var(--qi-success); }
+                ${hostSelector} .qi-log-status-card {
+                    display: grid;
+                    grid-template-columns: auto max-content minmax(0, 1fr);
+                    align-items: center;
+                    column-gap: 10px;
+                    padding: 10px 12px;
+                    border-radius: 12px;
+                    border: 1px solid var(--qi-border);
+                    background: var(--qi-surface-alt);
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-log-status-dot {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 999px;
+                    background: currentColor;
+                    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+                }
+                ${hostSelector} .qi-log-status-time {
+                    white-space: nowrap;
+                    font-variant-numeric: tabular-nums;
+                    font-weight: 700;
+                }
+                ${hostSelector} .qi-log-status-message {
+                    min-width: 0;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                    font-weight: 650;
+                }
+                ${hostSelector} .qi-log-status-card.qi-log-status-ok {
+                    color: var(--qi-success);
+                    border-color: color-mix(in srgb, var(--qi-success) 32%, var(--qi-border));
+                    background: color-mix(in srgb, var(--qi-success) 9%, var(--qi-surface-alt));
+                }
+                ${hostSelector} .qi-log-status-card.qi-log-status-error {
+                    color: var(--qi-error);
+                    border-color: color-mix(in srgb, var(--qi-error) 30%, var(--qi-border));
+                    background: color-mix(in srgb, var(--qi-error) 8%, var(--qi-surface-alt));
+                }
+                ${hostSelector} .qi-log-status-card.qi-log-status-warn {
+                    color: var(--qi-warn);
+                    border-color: color-mix(in srgb, var(--qi-warn) 34%, var(--qi-border));
+                    background: color-mix(in srgb, var(--qi-warn) 10%, var(--qi-surface-alt));
                 }
                 ${hostSelector} .qi-log .qi-error { color: var(--qi-error); }
                 ${hostSelector} .qi-log .qi-ok { color: var(--qi-success); }
@@ -10178,6 +10347,47 @@
             function clearActiveLoopLogTarget() {
                 activeLoopLogGroupEl = null;
                 activeLoopLogBodyEl = null;
+            }
+
+            function normalizeLogStatus(status) {
+                const token = String(status ?? "").trim().toLowerCase();
+                if (token === "ok" || token === "success" || token === "finished") return "ok";
+                if (token === "error" || token === "failed" || token === "failure") return "error";
+                if (token === "warn" || token === "warning" || token === "cancelled" || token === "canceled" || token === "stopped") return "warn";
+                return "info";
+            }
+
+            function getLogStatusText(status) {
+                const normalized = normalizeLogStatus(status);
+                if (normalized === "ok") return "成功";
+                if (normalized === "error") return "失败";
+                if (normalized === "warn") return "取消";
+                return "进行中";
+            }
+
+            function setLogGroupStatus(groupEl, status, { tagText = "" } = {}) {
+                if (!groupEl) return;
+                const normalized = normalizeLogStatus(status);
+                groupEl.classList.remove("qi-log-group-status-info", "qi-log-group-status-ok", "qi-log-group-status-error", "qi-log-group-status-warn");
+                groupEl.classList.add(`qi-log-group-status-${normalized}`);
+
+                const summaryEl = groupEl.querySelector?.(".qi-log-group-summary");
+                if (!summaryEl) return;
+
+                let tagEl = summaryEl.querySelector?.(".qi-log-group-status-tag") || null;
+                const text = String(tagText || getLogStatusText(normalized)).trim();
+                if (!text) {
+                    try { tagEl?.remove?.(); } catch {}
+                    return;
+                }
+
+                if (!tagEl) {
+                    tagEl = global.document?.createElement?.("span");
+                    if (!tagEl) return;
+                    tagEl.className = "qi-log-group-status-tag";
+                    summaryEl.appendChild(tagEl);
+                }
+                tagEl.textContent = text;
             }
 
             function createLogLineElement(text, { level = "info", time = getLogTimestamp() } = {}) {
@@ -10205,11 +10415,40 @@
                 scrollLogToBottom();
             }
 
+            function createStatusLogElement(text, { level = "info", time = getLogTimestamp() } = {}) {
+                const lineEl = global.document?.createElement?.("div");
+                const dotEl = global.document?.createElement?.("span");
+                const timeEl = global.document?.createElement?.("span");
+                const messageEl = global.document?.createElement?.("span");
+                if (!lineEl || !dotEl || !timeEl || !messageEl) return null;
+
+                const normalized = normalizeLogStatus(level);
+                lineEl.className = `qi-log-status-card qi-log-status-${normalized}`;
+                dotEl.className = "qi-log-status-dot";
+                timeEl.className = "qi-log-status-time";
+                timeEl.textContent = `[${time}]`;
+                messageEl.className = "qi-log-status-message";
+                messageEl.textContent = String(text ?? "");
+
+                lineEl.appendChild(dotEl);
+                lineEl.appendChild(timeEl);
+                lineEl.appendChild(messageEl);
+                return lineEl;
+            }
+
+            function appendStatusLog(text, { level = "info", time = getLogTimestamp() } = {}) {
+                if (!logEl) return;
+                const lineEl = createStatusLogElement(text, { level, time });
+                if (!lineEl) return;
+                logEl.appendChild(lineEl);
+                scrollLogToBottom();
+            }
+
             function collapseOpenLoopLogGroups() {
                 if (!logEl) return;
                 let groups = [];
                 try {
-                    groups = Array.from(logEl.querySelectorAll(".qi-log-group[open]"));
+                    groups = Array.from(logEl.querySelectorAll(".qi-log-group-loop[open]"));
                 } catch {
                     groups = [];
                 }
@@ -10222,7 +10461,7 @@
                 }
             }
 
-            function normalizeLoopLogGroupLabel(title) {
+            function normalizeLogGroupLabel(title) {
                 const raw = String(title ?? "").trim();
                 if (!raw) return "";
                 const stripped = raw
@@ -10232,21 +10471,18 @@
                 return stripped || raw;
             }
 
-            function startLoopLogGroup(title) {
-                if (!logEl) return;
-                collapseOpenLoopLogGroups();
-
+            function createLogGroup(title, { variant = "", open = false } = {}) {
                 const groupEl = global.document?.createElement?.("details");
                 const summaryEl = global.document?.createElement?.("summary");
                 const timeEl = global.document?.createElement?.("span");
                 const dividerEl = global.document?.createElement?.("span");
                 const labelEl = global.document?.createElement?.("span");
                 const bodyEl = global.document?.createElement?.("div");
-                if (!groupEl || !summaryEl || !timeEl || !dividerEl || !labelEl || !bodyEl) return;
+                if (!groupEl || !summaryEl || !timeEl || !dividerEl || !labelEl || !bodyEl) return null;
 
                 const time = getLogTimestamp();
-                groupEl.className = "qi-log-group";
-                groupEl.open = true;
+                groupEl.className = `qi-log-group${variant ? ` qi-log-group-${variant}` : ""}`;
+                groupEl.open = !!open;
 
                 summaryEl.className = "qi-log-group-summary";
                 timeEl.className = "qi-log-group-time";
@@ -10254,7 +10490,7 @@
 
                 dividerEl.className = "qi-log-group-divider";
                 labelEl.className = "qi-log-group-divider-label";
-                labelEl.textContent = normalizeLoopLogGroupLabel(title);
+                labelEl.textContent = normalizeLogGroupLabel(title);
                 dividerEl.appendChild(labelEl);
 
                 bodyEl.className = "qi-log-group-body";
@@ -10263,10 +10499,42 @@
                 summaryEl.appendChild(dividerEl);
                 groupEl.appendChild(summaryEl);
                 groupEl.appendChild(bodyEl);
-                logEl.appendChild(groupEl);
+                return { groupEl, bodyEl, time };
+            }
 
-                activeLoopLogGroupEl = groupEl;
-                activeLoopLogBodyEl = bodyEl;
+            function createLogGroupDetailElement(text, { level = "info" } = {}) {
+                const detailEl = global.document?.createElement?.("div");
+                if (!detailEl) return null;
+                detailEl.className = "qi-log-group-detail";
+                if (level === "error") detailEl.classList.add("qi-error");
+                if (level === "ok") detailEl.classList.add("qi-ok");
+                detailEl.textContent = String(text ?? "");
+                return detailEl;
+            }
+
+            function appendConfigLogGroup(title, text, { level = "info", open = false } = {}) {
+                if (!logEl) return;
+                const group = createLogGroup(title, { variant: "config", open });
+                if (!group?.groupEl || !group?.bodyEl) return;
+                const detailEl = createLogGroupDetailElement(text, { level });
+                if (detailEl) group.bodyEl.appendChild(detailEl);
+                setLogGroupStatus(group.groupEl, "info");
+                logEl.appendChild(group.groupEl);
+                scrollLogToBottom();
+                return group.groupEl;
+            }
+
+            function startLoopLogGroup(title) {
+                if (!logEl) return;
+                collapseOpenLoopLogGroups();
+
+                const group = createLogGroup(title, { variant: "loop", open: true });
+                if (!group?.groupEl || !group?.bodyEl) return;
+
+                logEl.appendChild(group.groupEl);
+
+                activeLoopLogGroupEl = group.groupEl;
+                activeLoopLogBodyEl = group.bodyEl;
                 scrollLogToBottom();
             }
 
@@ -10288,6 +10556,7 @@
             function clearLog() {
                 if (!logEl) return;
                 logEl.textContent = "";
+                runConfigGroupEl = null;
                 clearActiveLoopLogTarget();
             }
 
@@ -11018,6 +11287,7 @@
             async function runMacro() {
                 if (running) return;
                 cancelRun = false;
+                runFinalStatus = "running";
                 setRunning(true);
                 clearLog();
 
@@ -11049,7 +11319,26 @@
                 const startMsg = labels.messages?.start
                     ? labels.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length)
                     : DEFAULT_LABELS.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length);
-                appendGlobalLog(startMsg);
+                const startSummary = (() => {
+                    if (typeof labels.messages?.startSummary === "string" && labels.messages.startSummary.trim()) {
+                        return labels.messages.startSummary.trim();
+                    }
+                    if (typeof DEFAULT_LABELS.messages.startSummary === "string" && DEFAULT_LABELS.messages.startSummary.trim()) {
+                        return DEFAULT_LABELS.messages.startSummary.trim();
+                    }
+                    return "执行配置";
+                })();
+                runConfigGroupEl = appendConfigLogGroup(startSummary, startMsg);
+
+                const markRunFailed = () => {
+                    if (runFinalStatus === "cancelled") return;
+                    runFinalStatus = "failed";
+                };
+
+                const markRunCancelled = () => {
+                    if (runFinalStatus === "failed") return;
+                    runFinalStatus = "cancelled";
+                };
 
                 async function verifyInputUrlReady(stageLabel = "") {
                     if (!adapter.waitForNewChatReady) return true;
@@ -11100,6 +11389,7 @@
                     }
 
                     cancelRun = true;
+                    markRunFailed();
                     const title = labels.messages?.inputUrlNotReady
                         ? labels.messages.inputUrlNotReady(stageLabel)
                         : (typeof DEFAULT_LABELS.messages.inputUrlNotReady === "function"
@@ -11276,17 +11566,24 @@
                     startLoopLogGroup(marker);
 
                     const loopUrlReady = await verifyInputUrlReady("本轮开始");
-                    if (loopUrlReady !== true) break;
+                    if (loopUrlReady !== true) {
+                        if (loopUrlReady === "cancelled") markRunCancelled();
+                        break;
+                    }
 
                     let composer = await adapter.focusComposer({ timeoutMs: 15000, intervalMs: 160, shouldCancel });
                     if (!composer) {
                         if (cancelRun) break;
+                        markRunFailed();
                         appendLoopLog(labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound, { level: "error" });
                         break;
                     }
 
                     const focusedUrlReady = await verifyInputUrlReady("输入框聚焦后");
-                    if (focusedUrlReady !== true) break;
+                    if (focusedUrlReady !== true) {
+                        if (focusedUrlReady === "cancelled") markRunCancelled();
+                        break;
+                    }
 
                     if (cfg.clearBeforeRun) adapter.clearComposerValue(composer);
                     await sleep(cfg.stepDelayMs);
@@ -11294,17 +11591,25 @@
 
                     if (images.length) {
                         const beforeImagesReady = await verifyInputUrlReady("贴图前");
-                        if (beforeImagesReady !== true) break;
+                        if (beforeImagesReady !== true) {
+                            if (beforeImagesReady === "cancelled") markRunCancelled();
+                            break;
+                        }
 
                         if (!adapter.attachImages) {
+                            markRunFailed();
                             cancelRun = true;
                             appendLoopLog(labels.messages?.missingAttachAdapter || DEFAULT_LABELS.messages.missingAttachAdapter, { level: "error" });
                             break;
                         }
 
                         const result = await attachImageFiles(images, composer);
-                        if (result?.cancelled) break;
+                        if (result?.cancelled) {
+                            markRunCancelled();
+                            break;
+                        }
                         if (!result?.ok) {
+                            markRunFailed();
                             cancelRun = true;
                             const msg = typeof result?.message === "string" && result.message.trim()
                                 ? result.message.trim()
@@ -11319,7 +11624,10 @@
 
                     if (promptText.trim()) {
                         const beforeTextReady = await verifyInputUrlReady("文字输入前");
-                        if (beforeTextReady !== true) break;
+                        if (beforeTextReady !== true) {
+                            if (beforeTextReady === "cancelled") markRunCancelled();
+                            break;
+                        }
 
                         const okText = adapter.setInputValue(composer, promptText);
                         const msg = labels.messages?.textInserted
@@ -11334,7 +11642,10 @@
                         for (const hotkey of toolHotkeys) {
                             if (cancelRun) break;
                             const beforeToolReady = await verifyInputUrlReady(`工具快捷键前:${hotkey}`);
-                            if (beforeToolReady !== true) break;
+                            if (beforeToolReady !== true) {
+                                if (beforeToolReady === "cancelled") markRunCancelled();
+                                break;
+                            }
                             const okHotkey = await executeEngineShortcutByHotkey(engine, hotkey);
                             const msg = labels.messages?.hotkeyTriggered
                                 ? labels.messages.hotkeyTriggered(hotkey, okHotkey)
@@ -11348,8 +11659,12 @@
                     if (images.length) {
                         const readyResult = await waitForImagesReadyWithRepair(composer, images.length);
                         if (readyResult?.composer) composer = readyResult.composer;
-                        if (readyResult?.cancelled) break;
+                        if (readyResult?.cancelled) {
+                            markRunCancelled();
+                            break;
+                        }
                         if (!readyResult?.ok) {
+                            markRunFailed();
                             cancelRun = true;
                             appendLoopLog(labels.messages?.uploadNotReady || DEFAULT_LABELS.messages.uploadNotReady, { level: "error" });
                             const detail = (readyResult && typeof readyResult === "object" && typeof readyResult.message === "string" && readyResult.message.trim())
@@ -11366,7 +11681,10 @@
 
                     if (cancelRun) break;
                     const beforeSendReady = await verifyInputUrlReady("发送前");
-                    if (beforeSendReady !== true) break;
+                    if (beforeSendReady !== true) {
+                        if (beforeSendReady === "cancelled") markRunCancelled();
+                        break;
+                    }
                     const okSend = await adapter.sendMessage(composer);
                     const sendCompletedAtMs = Date.now();
                     const sendMsg = labels.messages?.sendAttempted
@@ -11382,8 +11700,12 @@
                             shouldCancel,
                             sendCompletedAtMs
                         });
-                        if (transition.cancelled) break;
+                        if (transition.cancelled) {
+                            markRunCancelled();
+                            break;
+                        }
                         if (!transition.okNewChat) {
+                            markRunFailed();
                             cancelRun = true;
                             appendLoopLog(labels.messages?.newChatNotReady || DEFAULT_LABELS.messages.newChatNotReady, { level: "error" });
                             break;
@@ -11393,12 +11715,23 @@
 
                 collapseOpenLoopLogGroups();
                 clearActiveLoopLogTarget();
-                appendGlobalLog(cancelRun ? (labels.messages?.stopped || DEFAULT_LABELS.messages.stopped) : (labels.messages?.finished || DEFAULT_LABELS.messages.finished));
+                const finalLevel = (runFinalStatus === "failed")
+                    ? "error"
+                    : ((runFinalStatus === "cancelled" || cancelRun) ? "warn" : "ok");
+                const finalMessage = (finalLevel === "error")
+                    ? (labels.messages?.failed || DEFAULT_LABELS.messages.failed)
+                    : ((finalLevel === "warn")
+                        ? (labels.messages?.stopped || DEFAULT_LABELS.messages.stopped)
+                        : (labels.messages?.finished || DEFAULT_LABELS.messages.finished));
+                if (runConfigGroupEl) setLogGroupStatus(runConfigGroupEl, finalLevel);
+                appendStatusLog(finalMessage, { level: finalLevel });
+                runFinalStatus = "idle";
                 setRunning(false);
             }
 
             function stopMacro() {
                 if (!running) return;
+                if (runFinalStatus !== "failed") runFinalStatus = "cancelled";
                 cancelRun = true;
                 setActiveTab?.("log");
                 appendGlobalLog(labels.messages?.stopRequested || DEFAULT_LABELS.messages.stopRequested);
