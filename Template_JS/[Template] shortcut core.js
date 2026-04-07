@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.3.4
+// @name         [Template] 快捷键跳转 [20260407] v1.3.5
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.3.4
-// @update-log   1.3.4: 对齐 QuickInput 底部折叠状态卡标题文字，使其与上方日志组居中对齐。
+// @version      [20260407] v1.3.5
+// @update-log   1.3.5: 对齐 QuickInput 底部折叠状态卡标题文字，使其与上方日志组居中对齐。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10318,14 +10318,15 @@
                     overflow: hidden;
                 }
                 ${hostSelector} .qi-log-status-summary {
-                    display: grid;
-                    grid-template-columns: auto max-content minmax(0, 1fr) auto;
+                    position: relative;
+                    display: flex;
                     align-items: center;
-                    column-gap: 10px;
-                    row-gap: 4px;
-                    padding: 10px 12px;
+                    gap: 10px;
+                    padding: 9px 34px 9px 34px;
                     cursor: pointer;
                     list-style: none;
+                    user-select: none;
+                    -webkit-user-select: none;
                 }
                 ${hostSelector} .qi-log-status-summary::-webkit-details-marker {
                     display: none;
@@ -10338,6 +10339,7 @@
                 }
                 ${hostSelector} .qi-log-status-divider {
                     min-width: 0;
+                    flex: 1 1 auto;
                     display: flex;
                     align-items: center;
                     gap: 12px;
@@ -10352,14 +10354,18 @@
                     opacity: 0.42;
                 }
                 ${hostSelector} .qi-log-status-dot {
+                    position: absolute;
+                    left: 16px;
+                    top: 50%;
+                    transform: translateY(-50%);
                     width: 10px;
                     height: 10px;
                     border-radius: 999px;
                     background: currentColor;
                     box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
-                    align-self: center;
                 }
                 ${hostSelector} .qi-log-status-time {
+                    flex: 0 0 auto;
                     white-space: nowrap;
                     font-variant-numeric: tabular-nums;
                     font-weight: 700;
@@ -10380,21 +10386,24 @@
                     font-weight: 650;
                 }
                 ${hostSelector} .qi-log-status-toggle {
+                    position: absolute;
+                    right: 14px;
+                    top: 50%;
                     font-size: 16px;
                     line-height: 1;
                     opacity: 0.72;
-                    transform: rotate(0deg);
+                    transform: translateY(-50%) rotate(0deg);
                     transition: transform 120ms ease;
                     user-select: none;
                 }
                 ${hostSelector} .qi-log-status-card[open] .qi-log-status-toggle {
-                    transform: rotate(90deg);
+                    transform: translateY(-50%) rotate(90deg);
                 }
                 ${hostSelector} .qi-log-status-body {
                     display: grid;
                     grid-template-columns: auto max-content minmax(0, 1fr) auto;
                     column-gap: 10px;
-                    padding: 0 12px 12px;
+                    padding: 0 34px 12px;
                 }
                 ${hostSelector} .qi-log-status-detail {
                     grid-column: 2 / 4;
