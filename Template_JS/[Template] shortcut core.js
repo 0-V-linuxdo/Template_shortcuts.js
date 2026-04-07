@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.2.1
+// @name         [Template] 快捷键跳转 [20260407] v1.2.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.2.1
-// @update-log   1.2.1: 优化 QuickInput 日志折叠标题布局，分隔线内容可铺满右侧宽度。
+// @version      [20260407] v1.2.3
+// @update-log   1.2.3: 优化 QuickInput 日志时间列对齐，并在输出结束后自动折叠最后一组日志。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10063,7 +10063,20 @@
                     gap: 6px;
                 }
                 ${hostSelector} .qi-log-line {
-                    display: block;
+                    display: grid;
+                    grid-template-columns: max-content minmax(0, 1fr);
+                    column-gap: 10px;
+                    align-items: start;
+                    white-space: normal;
+                }
+                ${hostSelector} .qi-log-time {
+                    white-space: nowrap;
+                    font-variant-numeric: tabular-nums;
+                }
+                ${hostSelector} .qi-log-message {
+                    min-width: 0;
+                    white-space: pre-wrap;
+                    word-break: break-word;
                 }
                 ${hostSelector} .qi-log-group {
                     margin: 0;
@@ -10157,10 +10170,6 @@
                 return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
             }
 
-            function formatLogLine(text, time = getLogTimestamp()) {
-                return `[${time}] ${String(text ?? "")}`;
-            }
-
             function scrollLogToBottom() {
                 if (!logEl) return;
                 logEl.scrollTop = logEl.scrollHeight;
@@ -10173,11 +10182,18 @@
 
             function createLogLineElement(text, { level = "info", time = getLogTimestamp() } = {}) {
                 const lineEl = global.document?.createElement?.("div");
-                if (!lineEl) return null;
+                const timeEl = global.document?.createElement?.("span");
+                const messageEl = global.document?.createElement?.("span");
+                if (!lineEl || !timeEl || !messageEl) return null;
                 lineEl.className = "qi-log-line";
                 if (level === "error") lineEl.classList.add("qi-error");
                 if (level === "ok") lineEl.classList.add("qi-ok");
-                lineEl.textContent = formatLogLine(text, time);
+                timeEl.className = "qi-log-time";
+                timeEl.textContent = `[${time}]`;
+                messageEl.className = "qi-log-message";
+                messageEl.textContent = String(text ?? "");
+                lineEl.appendChild(timeEl);
+                lineEl.appendChild(messageEl);
                 return lineEl;
             }
 
@@ -11375,6 +11391,7 @@
                     }
                 }
 
+                collapseOpenLoopLogGroups();
                 clearActiveLoopLogTarget();
                 appendGlobalLog(cancelRun ? (labels.messages?.stopped || DEFAULT_LABELS.messages.stopped) : (labels.messages?.finished || DEFAULT_LABELS.messages.finished));
                 setRunning(false);
