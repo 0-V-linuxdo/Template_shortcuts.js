@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.3.2
+// @name         [Template] 快捷键跳转 [20260407] v1.3.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.3.2
-// @update-log   1.3.2: 对齐 QuickInput“执行配置”的标签列与内容列；将“收到停止请求，将尽快停止…”并入底部状态卡。
+// @version      [20260407] v1.3.3
+// @update-log   1.3.3: 停止后底部状态卡默认折叠；保持 QuickInput“执行配置”标签列与内容列对齐。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10301,16 +10301,40 @@
                 ${hostSelector} .qi-log-group-detail.qi-error { color: var(--qi-error); }
                 ${hostSelector} .qi-log-group-detail.qi-ok { color: var(--qi-success); }
                 ${hostSelector} .qi-log-status-card {
+                    border-radius: 12px;
+                    border: 1px solid var(--qi-border);
+                    background: var(--qi-surface-alt);
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-log-status-card:not(.qi-log-status-collapsible) {
                     display: grid;
                     grid-template-columns: auto max-content minmax(0, 1fr);
                     align-items: start;
                     column-gap: 10px;
                     row-gap: 4px;
                     padding: 10px 12px;
-                    border-radius: 12px;
-                    border: 1px solid var(--qi-border);
-                    background: var(--qi-surface-alt);
-                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-log-status-card.qi-log-status-collapsible {
+                    overflow: hidden;
+                }
+                ${hostSelector} .qi-log-status-summary {
+                    display: grid;
+                    grid-template-columns: auto max-content minmax(0, 1fr) auto;
+                    align-items: center;
+                    column-gap: 10px;
+                    row-gap: 4px;
+                    padding: 10px 12px;
+                    cursor: pointer;
+                    list-style: none;
+                }
+                ${hostSelector} .qi-log-status-summary::-webkit-details-marker {
+                    display: none;
+                }
+                ${hostSelector} .qi-log-status-summary::marker {
+                    content: "";
+                }
+                ${hostSelector} .qi-log-status-summary:hover {
+                    background: var(--qi-hover);
                 }
                 ${hostSelector} .qi-log-status-dot {
                     width: 10px;
@@ -10330,6 +10354,23 @@
                     white-space: pre-wrap;
                     word-break: break-word;
                     font-weight: 650;
+                }
+                ${hostSelector} .qi-log-status-toggle {
+                    font-size: 16px;
+                    line-height: 1;
+                    opacity: 0.72;
+                    transform: rotate(0deg);
+                    transition: transform 120ms ease;
+                    user-select: none;
+                }
+                ${hostSelector} .qi-log-status-card[open] .qi-log-status-toggle {
+                    transform: rotate(90deg);
+                }
+                ${hostSelector} .qi-log-status-body {
+                    display: grid;
+                    grid-template-columns: auto max-content minmax(0, 1fr) auto;
+                    column-gap: 10px;
+                    padding: 0 12px 12px;
                 }
                 ${hostSelector} .qi-log-status-detail {
                     grid-column: 2 / 4;
@@ -10353,6 +10394,15 @@
                     color: var(--qi-warn);
                     border-color: color-mix(in srgb, var(--qi-warn) 34%, var(--qi-border));
                     background: color-mix(in srgb, var(--qi-warn) 10%, var(--qi-surface-alt));
+                }
+                ${hostSelector} .qi-log-status-card.qi-log-status-ok .qi-log-status-summary:hover {
+                    background: color-mix(in srgb, var(--qi-success) 13%, var(--qi-hover));
+                }
+                ${hostSelector} .qi-log-status-card.qi-log-status-error .qi-log-status-summary:hover {
+                    background: color-mix(in srgb, var(--qi-error) 11%, var(--qi-hover));
+                }
+                ${hostSelector} .qi-log-status-card.qi-log-status-warn .qi-log-status-summary:hover {
+                    background: color-mix(in srgb, var(--qi-warn) 14%, var(--qi-hover));
                 }
                 ${hostSelector} .qi-log .qi-error { color: var(--qi-error); }
                 ${hostSelector} .qi-log .qi-ok { color: var(--qi-success); }
@@ -10423,8 +10473,10 @@
                 scrollLogToBottom();
             }
 
-            function createStatusLogElement(text, { level = "info", time = getLogTimestamp(), detail = "" } = {}) {
-                const lineEl = global.document?.createElement?.("div");
+            function createStatusLogElement(text, { level = "info", time = getLogTimestamp(), detail = "", collapsible = false, open = true } = {}) {
+                const detailText = String(detail ?? "").trim();
+                const useCollapsible = !!(collapsible && detailText);
+                const lineEl = global.document?.createElement?.(useCollapsible ? "details" : "div");
                 const dotEl = global.document?.createElement?.("span");
                 const timeEl = global.document?.createElement?.("span");
                 const messageEl = global.document?.createElement?.("span");
@@ -10432,17 +10484,44 @@
 
                 const normalized = normalizeLogStatus(level);
                 lineEl.className = `qi-log-status-card qi-log-status-${normalized}`;
+                if (useCollapsible) {
+                    lineEl.classList.add("qi-log-status-collapsible");
+                    lineEl.open = !!open;
+                }
                 dotEl.className = "qi-log-status-dot";
                 timeEl.className = "qi-log-status-time";
                 timeEl.textContent = `[${time}]`;
                 messageEl.className = "qi-log-status-message";
                 messageEl.textContent = String(text ?? "");
 
+                if (useCollapsible) {
+                    const summaryEl = global.document?.createElement?.("summary");
+                    const toggleEl = global.document?.createElement?.("span");
+                    const bodyEl = global.document?.createElement?.("div");
+                    const detailEl = global.document?.createElement?.("div");
+                    if (!summaryEl || !toggleEl || !bodyEl || !detailEl) return null;
+
+                    summaryEl.className = "qi-log-status-summary";
+                    toggleEl.className = "qi-log-status-toggle";
+                    toggleEl.textContent = "›";
+                    bodyEl.className = "qi-log-status-body";
+                    detailEl.className = "qi-log-status-detail";
+                    detailEl.textContent = detailText;
+
+                    summaryEl.appendChild(dotEl);
+                    summaryEl.appendChild(timeEl);
+                    summaryEl.appendChild(messageEl);
+                    summaryEl.appendChild(toggleEl);
+                    bodyEl.appendChild(detailEl);
+                    lineEl.appendChild(summaryEl);
+                    lineEl.appendChild(bodyEl);
+                    return lineEl;
+                }
+
                 lineEl.appendChild(dotEl);
                 lineEl.appendChild(timeEl);
                 lineEl.appendChild(messageEl);
 
-                const detailText = String(detail ?? "").trim();
                 if (detailText) {
                     const detailEl = global.document?.createElement?.("div");
                     if (detailEl) {
@@ -10451,13 +10530,12 @@
                         lineEl.appendChild(detailEl);
                     }
                 }
-
                 return lineEl;
             }
 
-            function appendStatusLog(text, { level = "info", time = getLogTimestamp(), detail = "" } = {}) {
+            function appendStatusLog(text, { level = "info", time = getLogTimestamp(), detail = "", collapsible = false, open = true } = {}) {
                 if (!logEl) return;
-                const lineEl = createStatusLogElement(text, { level, time, detail });
+                const lineEl = createStatusLogElement(text, { level, time, detail, collapsible, open });
                 if (!lineEl) return;
                 logEl.appendChild(lineEl);
                 scrollLogToBottom();
@@ -11790,7 +11868,12 @@
                     ? String(pendingFinalStatusDetail || "").trim()
                     : "";
                 if (runConfigGroupEl) setLogGroupStatus(runConfigGroupEl, finalLevel);
-                appendStatusLog(finalMessage, { level: finalLevel, detail: finalDetail });
+                appendStatusLog(finalMessage, {
+                    level: finalLevel,
+                    detail: finalDetail,
+                    collapsible: finalLevel === "warn" && !!finalDetail,
+                    open: !(finalLevel === "warn" && !!finalDetail)
+                });
                 pendingFinalStatusDetail = "";
                 runFinalStatus = "idle";
                 setRunning(false);
