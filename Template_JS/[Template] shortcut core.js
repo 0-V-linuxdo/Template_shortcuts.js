@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.4.1
+// @name         [Template] 快捷键跳转 [20260407] v1.4.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.4.1
-// @update-log   1.4.1: 进一步精简 QuickInput 日志卡片，移除最终状态点，统一为无边缘指示元素的整行折叠样式。
+// @version      [20260407] v1.4.2
+// @update-log   1.4.2: 修复 QuickInput 日志中最终状态卡与其他折叠项标题未对齐的问题，统一为居中分隔标题布局。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10284,26 +10284,24 @@
                     color: var(--qi-text-strong);
                 }
                 ${hostSelector} .qi-log-status-card:not(.qi-log-status-collapsible) {
-                    display: grid;
-                    grid-template-columns: max-content minmax(0, 1fr);
-                    align-items: start;
-                    column-gap: 10px;
-                    row-gap: 4px;
-                    padding: 10px 16px;
+                    overflow: hidden;
                 }
                 ${hostSelector} .qi-log-status-card.qi-log-status-collapsible {
                     overflow: hidden;
                 }
+                ${hostSelector} .qi-log-status-header,
                 ${hostSelector} .qi-log-status-summary {
                     position: relative;
                     display: flex;
                     align-items: center;
                     gap: 10px;
                     padding: 9px 16px;
-                    cursor: pointer;
                     list-style: none;
                     user-select: none;
                     -webkit-user-select: none;
+                }
+                ${hostSelector} .qi-log-status-summary {
+                    cursor: pointer;
                 }
                 ${hostSelector} .qi-log-status-summary::-webkit-details-marker {
                     display: none;
@@ -10336,12 +10334,6 @@
                     font-variant-numeric: tabular-nums;
                     font-weight: 700;
                 }
-                ${hostSelector} .qi-log-status-message {
-                    min-width: 0;
-                    white-space: pre-wrap;
-                    word-break: break-word;
-                    font-weight: 650;
-                }
                 ${hostSelector} .qi-log-status-divider-label {
                     flex: 0 1 auto;
                     min-width: 0;
@@ -10356,7 +10348,6 @@
                     padding: 0 16px 12px 16px;
                 }
                 ${hostSelector} .qi-log-status-detail {
-                    grid-column: 2 / 3;
                     min-width: 0;
                     white-space: pre-wrap;
                     word-break: break-word;
@@ -10460,9 +10451,11 @@
                 const detailText = String(detail ?? "").trim();
                 const useCollapsible = !!(collapsible && detailText);
                 const lineEl = global.document?.createElement?.(useCollapsible ? "details" : "div");
+                const headerEl = global.document?.createElement?.(useCollapsible ? "summary" : "div");
                 const timeEl = global.document?.createElement?.("span");
+                const dividerEl = global.document?.createElement?.("span");
                 const messageEl = global.document?.createElement?.("span");
-                if (!lineEl || !timeEl || !messageEl) return null;
+                if (!lineEl || !headerEl || !timeEl || !dividerEl || !messageEl) return null;
 
                 const normalized = normalizeLogStatus(level);
                 lineEl.className = `qi-log-status-card qi-log-status-${normalized}`;
@@ -10470,43 +10463,41 @@
                     lineEl.classList.add("qi-log-status-collapsible");
                     lineEl.open = !!open;
                 }
+                headerEl.className = useCollapsible ? "qi-log-status-summary" : "qi-log-status-header";
                 timeEl.className = "qi-log-status-time";
                 timeEl.textContent = `[${time}]`;
-                messageEl.className = "qi-log-status-message";
+                dividerEl.className = "qi-log-status-divider";
+                messageEl.className = "qi-log-status-divider-label";
                 messageEl.textContent = String(text ?? "");
+                dividerEl.appendChild(messageEl);
+                headerEl.appendChild(timeEl);
+                headerEl.appendChild(dividerEl);
 
                 if (useCollapsible) {
-                    const summaryEl = global.document?.createElement?.("summary");
-                    const dividerEl = global.document?.createElement?.("span");
                     const bodyEl = global.document?.createElement?.("div");
                     const detailEl = global.document?.createElement?.("div");
-                    if (!summaryEl || !dividerEl || !bodyEl || !detailEl) return null;
+                    if (!bodyEl || !detailEl) return null;
 
-                    summaryEl.className = "qi-log-status-summary";
-                    dividerEl.className = "qi-log-status-divider";
                     bodyEl.className = "qi-log-status-body";
                     detailEl.className = "qi-log-status-detail";
                     detailEl.textContent = detailText;
-                    messageEl.className = "qi-log-status-divider-label";
-
-                    summaryEl.appendChild(timeEl);
-                    dividerEl.appendChild(messageEl);
-                    summaryEl.appendChild(dividerEl);
                     bodyEl.appendChild(detailEl);
-                    lineEl.appendChild(summaryEl);
+                    lineEl.appendChild(headerEl);
                     lineEl.appendChild(bodyEl);
                     return lineEl;
                 }
 
-                lineEl.appendChild(timeEl);
-                lineEl.appendChild(messageEl);
+                lineEl.appendChild(headerEl);
 
                 if (detailText) {
+                    const bodyEl = global.document?.createElement?.("div");
                     const detailEl = global.document?.createElement?.("div");
-                    if (detailEl) {
+                    if (bodyEl && detailEl) {
+                        bodyEl.className = "qi-log-status-body";
                         detailEl.className = "qi-log-status-detail";
                         detailEl.textContent = detailText;
-                        lineEl.appendChild(detailEl);
+                        bodyEl.appendChild(detailEl);
+                        lineEl.appendChild(bodyEl);
                     }
                 }
                 return lineEl;
