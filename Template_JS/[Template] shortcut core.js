@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.3.1
+// @name         [Template] 快捷键跳转 [20260407] v1.3.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.3.1
-// @update-log   1.3.1: 优化 QuickInput“执行配置”展开内容为分行展示；移除顶部冗余状态，仅保留底部状态卡。
+// @version      [20260407] v1.3.2
+// @update-log   1.3.2: 对齐 QuickInput“执行配置”的标签列与内容列；将“收到停止请求，将尽快停止…”并入底部状态卡。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9104,6 +9104,12 @@
                 imagesCleared: "已清除图片。",
                 missingNewChatHotkey: "请填写「新对话快捷键」。",
                 missingInput: "请先输入文字或载入图片。",
+                startRows: (loopCount, toolHotkeys, newChatHotkey, imageCount) => [
+                    { label: "循环次数：", value: `${loopCount} 次` },
+                    { label: "工具快捷键：", value: toolHotkeys.length ? toolHotkeys.join("、") : "(无)" },
+                    { label: "新对话快捷键：", value: newChatHotkey },
+                    { label: "图片数量：", value: `${imageCount} 张` }
+                ],
                 start: (loopCount, toolHotkeys, newChatHotkey, imageCount) => [
                     `循环次数：${loopCount} 次`,
                     `工具快捷键：${toolHotkeys.length ? toolHotkeys.join("、") : "(无)"}`,
@@ -9380,6 +9386,7 @@
             let running = false;
             let cancelRun = false;
             let runFinalStatus = "idle";
+            let pendingFinalStatusDetail = "";
             let draftPersistToken = 0;
 
             let dragPointerId = null;
@@ -10268,13 +10275,37 @@
                     line-height: 1.45;
                     color: var(--qi-text);
                 }
+                ${hostSelector} .qi-log-group-detail.qi-log-group-detail-rows {
+                    display: grid;
+                    grid-template-columns: max-content minmax(0, 1fr);
+                    align-items: start;
+                    justify-items: start;
+                    column-gap: 10px;
+                    row-gap: 6px;
+                    white-space: normal;
+                }
+                ${hostSelector} .qi-log-group-detail-row {
+                    display: contents;
+                }
+                ${hostSelector} .qi-log-group-detail-label {
+                    white-space: nowrap;
+                    font-weight: 650;
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-log-group-detail-value {
+                    min-width: 0;
+                    text-align: left;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                }
                 ${hostSelector} .qi-log-group-detail.qi-error { color: var(--qi-error); }
                 ${hostSelector} .qi-log-group-detail.qi-ok { color: var(--qi-success); }
                 ${hostSelector} .qi-log-status-card {
                     display: grid;
                     grid-template-columns: auto max-content minmax(0, 1fr);
-                    align-items: center;
+                    align-items: start;
                     column-gap: 10px;
+                    row-gap: 4px;
                     padding: 10px 12px;
                     border-radius: 12px;
                     border: 1px solid var(--qi-border);
@@ -10287,6 +10318,7 @@
                     border-radius: 999px;
                     background: currentColor;
                     box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+                    align-self: center;
                 }
                 ${hostSelector} .qi-log-status-time {
                     white-space: nowrap;
@@ -10298,6 +10330,14 @@
                     white-space: pre-wrap;
                     word-break: break-word;
                     font-weight: 650;
+                }
+                ${hostSelector} .qi-log-status-detail {
+                    grid-column: 2 / 4;
+                    min-width: 0;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                    font-weight: 500;
+                    color: color-mix(in srgb, currentColor 82%, var(--qi-text));
                 }
                 ${hostSelector} .qi-log-status-card.qi-log-status-ok {
                     color: var(--qi-success);
@@ -10383,7 +10423,7 @@
                 scrollLogToBottom();
             }
 
-            function createStatusLogElement(text, { level = "info", time = getLogTimestamp() } = {}) {
+            function createStatusLogElement(text, { level = "info", time = getLogTimestamp(), detail = "" } = {}) {
                 const lineEl = global.document?.createElement?.("div");
                 const dotEl = global.document?.createElement?.("span");
                 const timeEl = global.document?.createElement?.("span");
@@ -10401,12 +10441,23 @@
                 lineEl.appendChild(dotEl);
                 lineEl.appendChild(timeEl);
                 lineEl.appendChild(messageEl);
+
+                const detailText = String(detail ?? "").trim();
+                if (detailText) {
+                    const detailEl = global.document?.createElement?.("div");
+                    if (detailEl) {
+                        detailEl.className = "qi-log-status-detail";
+                        detailEl.textContent = detailText;
+                        lineEl.appendChild(detailEl);
+                    }
+                }
+
                 return lineEl;
             }
 
-            function appendStatusLog(text, { level = "info", time = getLogTimestamp() } = {}) {
+            function appendStatusLog(text, { level = "info", time = getLogTimestamp(), detail = "" } = {}) {
                 if (!logEl) return;
-                const lineEl = createStatusLogElement(text, { level, time });
+                const lineEl = createStatusLogElement(text, { level, time, detail });
                 if (!lineEl) return;
                 logEl.appendChild(lineEl);
                 scrollLogToBottom();
@@ -10480,11 +10531,48 @@
                 return detailEl;
             }
 
-            function appendConfigLogGroup(title, text, { level = "info", open = false } = {}) {
+            function createLogGroupDetailRowsElement(rows, { level = "info" } = {}) {
+                const detailEl = global.document?.createElement?.("div");
+                if (!detailEl) return null;
+                detailEl.className = "qi-log-group-detail qi-log-group-detail-rows";
+                if (level === "error") detailEl.classList.add("qi-error");
+                if (level === "ok") detailEl.classList.add("qi-ok");
+
+                const list = Array.isArray(rows) ? rows : [];
+                for (const item of list) {
+                    if (!item) continue;
+                    const rowEl = global.document?.createElement?.("div");
+                    const labelEl = global.document?.createElement?.("span");
+                    const valueEl = global.document?.createElement?.("span");
+                    if (!rowEl || !labelEl || !valueEl) continue;
+
+                    const label = (item && typeof item === "object")
+                        ? String(item.label ?? "")
+                        : "";
+                    const value = (item && typeof item === "object")
+                        ? String(item.value ?? "")
+                        : String(item ?? "");
+
+                    rowEl.className = "qi-log-group-detail-row";
+                    labelEl.className = "qi-log-group-detail-label";
+                    valueEl.className = "qi-log-group-detail-value";
+                    labelEl.textContent = label;
+                    valueEl.textContent = value;
+                    rowEl.appendChild(labelEl);
+                    rowEl.appendChild(valueEl);
+                    detailEl.appendChild(rowEl);
+                }
+
+                return detailEl;
+            }
+
+            function appendConfigLogGroup(title, textOrRows, { level = "info", open = false } = {}) {
                 if (!logEl) return;
                 const group = createLogGroup(title, { variant: "config", open });
                 if (!group?.groupEl || !group?.bodyEl) return;
-                const detailEl = createLogGroupDetailElement(text, { level });
+                const detailEl = Array.isArray(textOrRows)
+                    ? createLogGroupDetailRowsElement(textOrRows, { level })
+                    : createLogGroupDetailElement(textOrRows, { level });
                 if (detailEl) group.bodyEl.appendChild(detailEl);
                 setLogGroupStatus(group.groupEl, "info");
                 logEl.appendChild(group.groupEl);
@@ -10525,6 +10613,7 @@
                 if (!logEl) return;
                 logEl.textContent = "";
                 runConfigGroupEl = null;
+                pendingFinalStatusDetail = "";
                 clearActiveLoopLogTarget();
             }
 
@@ -11284,6 +11373,9 @@
 
                 const shouldCancel = () => cancelRun;
                 setActiveTab?.("log");
+                const startRows = labels.messages?.startRows
+                    ? labels.messages.startRows(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length)
+                    : DEFAULT_LABELS.messages.startRows(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length);
                 const startMsg = labels.messages?.start
                     ? labels.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length)
                     : DEFAULT_LABELS.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length);
@@ -11296,7 +11388,10 @@
                     }
                     return "执行配置";
                 })();
-                runConfigGroupEl = appendConfigLogGroup(startSummary, startMsg);
+                runConfigGroupEl = appendConfigLogGroup(
+                    startSummary,
+                    Array.isArray(startRows) && startRows.length ? startRows : startMsg
+                );
 
                 const markRunFailed = () => {
                     if (runFinalStatus === "cancelled") return;
@@ -11691,8 +11786,12 @@
                     : ((finalLevel === "warn")
                         ? (labels.messages?.stopped || DEFAULT_LABELS.messages.stopped)
                         : (labels.messages?.finished || DEFAULT_LABELS.messages.finished));
+                const finalDetail = (finalLevel === "warn")
+                    ? String(pendingFinalStatusDetail || "").trim()
+                    : "";
                 if (runConfigGroupEl) setLogGroupStatus(runConfigGroupEl, finalLevel);
-                appendStatusLog(finalMessage, { level: finalLevel });
+                appendStatusLog(finalMessage, { level: finalLevel, detail: finalDetail });
+                pendingFinalStatusDetail = "";
                 runFinalStatus = "idle";
                 setRunning(false);
             }
@@ -11702,7 +11801,7 @@
                 if (runFinalStatus !== "failed") runFinalStatus = "cancelled";
                 cancelRun = true;
                 setActiveTab?.("log");
-                appendGlobalLog(labels.messages?.stopRequested || DEFAULT_LABELS.messages.stopRequested);
+                pendingFinalStatusDetail = labels.messages?.stopRequested || DEFAULT_LABELS.messages.stopRequested;
             }
 
             function ensureUi() {
