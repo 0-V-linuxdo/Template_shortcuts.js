@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.3.3
+// @name         [Template] 快捷键跳转 [20260407] v1.3.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.3.3
-// @update-log   1.3.3: 停止后底部状态卡默认折叠；保持 QuickInput“执行配置”标签列与内容列对齐。
+// @version      [20260407] v1.3.4
+// @update-log   1.3.4: 对齐 QuickInput 底部折叠状态卡标题文字，使其与上方日志组居中对齐。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10336,6 +10336,21 @@
                 ${hostSelector} .qi-log-status-summary:hover {
                     background: var(--qi-hover);
                 }
+                ${hostSelector} .qi-log-status-divider {
+                    min-width: 0;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+                ${hostSelector} .qi-log-status-divider::before,
+                ${hostSelector} .qi-log-status-divider::after {
+                    content: "";
+                    flex: 1 1 0;
+                    min-width: 18px;
+                    height: 1px;
+                    background: currentColor;
+                    opacity: 0.42;
+                }
                 ${hostSelector} .qi-log-status-dot {
                     width: 10px;
                     height: 10px;
@@ -10353,6 +10368,15 @@
                     min-width: 0;
                     white-space: pre-wrap;
                     word-break: break-word;
+                    font-weight: 650;
+                }
+                ${hostSelector} .qi-log-status-divider-label {
+                    flex: 0 1 auto;
+                    min-width: 0;
+                    text-align: center;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                     font-weight: 650;
                 }
                 ${hostSelector} .qi-log-status-toggle {
@@ -10497,20 +10521,24 @@
                 if (useCollapsible) {
                     const summaryEl = global.document?.createElement?.("summary");
                     const toggleEl = global.document?.createElement?.("span");
+                    const dividerEl = global.document?.createElement?.("span");
                     const bodyEl = global.document?.createElement?.("div");
                     const detailEl = global.document?.createElement?.("div");
-                    if (!summaryEl || !toggleEl || !bodyEl || !detailEl) return null;
+                    if (!summaryEl || !toggleEl || !dividerEl || !bodyEl || !detailEl) return null;
 
                     summaryEl.className = "qi-log-status-summary";
                     toggleEl.className = "qi-log-status-toggle";
                     toggleEl.textContent = "›";
+                    dividerEl.className = "qi-log-status-divider";
                     bodyEl.className = "qi-log-status-body";
                     detailEl.className = "qi-log-status-detail";
                     detailEl.textContent = detailText;
+                    messageEl.className = "qi-log-status-divider-label";
 
                     summaryEl.appendChild(dotEl);
                     summaryEl.appendChild(timeEl);
-                    summaryEl.appendChild(messageEl);
+                    dividerEl.appendChild(messageEl);
+                    summaryEl.appendChild(dividerEl);
                     summaryEl.appendChild(toggleEl);
                     bodyEl.appendChild(detailEl);
                     lineEl.appendChild(summaryEl);
