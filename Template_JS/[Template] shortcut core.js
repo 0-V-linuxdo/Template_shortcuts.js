@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.2.0
+// @name         [Template] 快捷键跳转 [20260407] v1.2.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.2.0
-// @update-log   1.2.0: QuickInput 日志新增按轮次分块折叠，当前轮自动展开、旧轮自动折叠。
+// @version      [20260407] v1.2.1
+// @update-log   1.2.1: 优化 QuickInput 日志折叠标题布局，分隔线内容可铺满右侧宽度。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10074,7 +10074,9 @@
                 }
                 ${hostSelector} .qi-log-group-summary {
                     position: relative;
-                    display: block;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
                     padding: 9px 12px 9px 34px;
                     cursor: pointer;
                     list-style: none;
@@ -10101,6 +10103,35 @@
                 }
                 ${hostSelector} .qi-log-group-summary:hover {
                     background: var(--qi-hover);
+                }
+                ${hostSelector} .qi-log-group-time {
+                    flex: 0 0 auto;
+                    white-space: nowrap;
+                    font-variant-numeric: tabular-nums;
+                }
+                ${hostSelector} .qi-log-group-divider {
+                    min-width: 0;
+                    flex: 1 1 auto;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+                ${hostSelector} .qi-log-group-divider::before,
+                ${hostSelector} .qi-log-group-divider::after {
+                    content: "";
+                    flex: 1 1 0;
+                    min-width: 18px;
+                    height: 1px;
+                    background: currentColor;
+                    opacity: 0.42;
+                }
+                ${hostSelector} .qi-log-group-divider-label {
+                    flex: 0 1 auto;
+                    min-width: 0;
+                    text-align: center;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
                 ${hostSelector} .qi-log-group[open] .qi-log-group-summary {
                     border-bottom: 1px solid var(--qi-border);
@@ -10175,24 +10206,45 @@
                 }
             }
 
+            function normalizeLoopLogGroupLabel(title) {
+                const raw = String(title ?? "").trim();
+                if (!raw) return "";
+                const stripped = raw
+                    .replace(/^[\s\-–—_·•|]+/, "")
+                    .replace(/[\s\-–—_·•|]+$/, "")
+                    .trim();
+                return stripped || raw;
+            }
+
             function startLoopLogGroup(title) {
                 if (!logEl) return;
                 collapseOpenLoopLogGroups();
 
                 const groupEl = global.document?.createElement?.("details");
                 const summaryEl = global.document?.createElement?.("summary");
+                const timeEl = global.document?.createElement?.("span");
+                const dividerEl = global.document?.createElement?.("span");
+                const labelEl = global.document?.createElement?.("span");
                 const bodyEl = global.document?.createElement?.("div");
-                if (!groupEl || !summaryEl || !bodyEl) return;
+                if (!groupEl || !summaryEl || !timeEl || !dividerEl || !labelEl || !bodyEl) return;
 
                 const time = getLogTimestamp();
                 groupEl.className = "qi-log-group";
                 groupEl.open = true;
 
                 summaryEl.className = "qi-log-group-summary";
-                summaryEl.textContent = formatLogLine(title, time);
+                timeEl.className = "qi-log-group-time";
+                timeEl.textContent = `[${time}]`;
+
+                dividerEl.className = "qi-log-group-divider";
+                labelEl.className = "qi-log-group-divider-label";
+                labelEl.textContent = normalizeLoopLogGroupLabel(title);
+                dividerEl.appendChild(labelEl);
 
                 bodyEl.className = "qi-log-group-body";
 
+                summaryEl.appendChild(timeEl);
+                summaryEl.appendChild(dividerEl);
                 groupEl.appendChild(summaryEl);
                 groupEl.appendChild(bodyEl);
                 logEl.appendChild(groupEl);
