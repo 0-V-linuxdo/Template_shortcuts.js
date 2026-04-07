@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.3.6
+// @name         [Template] 快捷键跳转 [20260407] v1.4.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.3.6
-// @update-log   1.3.6: 统一 QuickInput 日志组与底部折叠状态卡的标题栏内边距，修正折叠状态标题受右侧箭头预留宽度影响而偏移的问题。
+// @version      [20260407] v1.4.0
+// @update-log   1.4.0: 精简 QuickInput 日志卡片的边缘指示元素，移除日志组三角与状态卡箭头，仅保留最终状态点，并保持整行折叠交互。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10129,7 +10129,7 @@
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    padding: 9px 34px 9px 34px;
+                    padding: 9px 16px 9px 34px;
                     cursor: pointer;
                     list-style: none;
                     font-weight: 650;
@@ -10153,31 +10153,8 @@
                 ${hostSelector} .qi-log-group.qi-log-group-status-warn .qi-log-group-summary {
                     color: var(--qi-warn);
                 }
-                ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-summary::before {
-                    color: ${primaryColor};
-                    opacity: 0.72;
-                }
-                ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-summary::before,
-                ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-summary::before,
-                ${hostSelector} .qi-log-group.qi-log-group-status-error .qi-log-group-summary::before,
-                ${hostSelector} .qi-log-group.qi-log-group-status-warn .qi-log-group-summary::before {
-                    color: currentColor;
-                    opacity: 0.72;
-                }
                 ${hostSelector} .qi-log-group-summary::-webkit-details-marker {
                     display: none;
-                }
-                ${hostSelector} .qi-log-group-summary::before {
-                    content: "▸";
-                    position: absolute;
-                    left: 12px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: var(--qi-text-muted);
-                    transition: transform 120ms ease;
-                }
-                ${hostSelector} .qi-log-group[open] .qi-log-group-summary::before {
-                    transform: translateY(-50%) rotate(90deg);
                 }
                 ${hostSelector} .qi-log-group-summary:hover {
                     background: var(--qi-hover);
@@ -10322,7 +10299,7 @@
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    padding: 9px 34px 9px 34px;
+                    padding: 9px 16px 9px 34px;
                     cursor: pointer;
                     list-style: none;
                     user-select: none;
@@ -10385,25 +10362,9 @@
                     text-overflow: ellipsis;
                     font-weight: 650;
                 }
-                ${hostSelector} .qi-log-status-toggle {
-                    position: absolute;
-                    right: 14px;
-                    top: 50%;
-                    font-size: 16px;
-                    line-height: 1;
-                    opacity: 0.72;
-                    transform: translateY(-50%) rotate(0deg);
-                    transition: transform 120ms ease;
-                    user-select: none;
-                }
-                ${hostSelector} .qi-log-status-card[open] .qi-log-status-toggle {
-                    transform: translateY(-50%) rotate(90deg);
-                }
                 ${hostSelector} .qi-log-status-body {
-                    display: grid;
-                    grid-template-columns: auto max-content minmax(0, 1fr) auto;
-                    column-gap: 10px;
-                    padding: 0 34px 12px;
+                    display: block;
+                    padding: 0 16px 12px 34px;
                 }
                 ${hostSelector} .qi-log-status-detail {
                     grid-column: 2 / 4;
@@ -10529,15 +10490,12 @@
 
                 if (useCollapsible) {
                     const summaryEl = global.document?.createElement?.("summary");
-                    const toggleEl = global.document?.createElement?.("span");
                     const dividerEl = global.document?.createElement?.("span");
                     const bodyEl = global.document?.createElement?.("div");
                     const detailEl = global.document?.createElement?.("div");
-                    if (!summaryEl || !toggleEl || !dividerEl || !bodyEl || !detailEl) return null;
+                    if (!summaryEl || !dividerEl || !bodyEl || !detailEl) return null;
 
                     summaryEl.className = "qi-log-status-summary";
-                    toggleEl.className = "qi-log-status-toggle";
-                    toggleEl.textContent = "›";
                     dividerEl.className = "qi-log-status-divider";
                     bodyEl.className = "qi-log-status-body";
                     detailEl.className = "qi-log-status-detail";
@@ -10548,7 +10506,6 @@
                     summaryEl.appendChild(timeEl);
                     dividerEl.appendChild(messageEl);
                     summaryEl.appendChild(dividerEl);
-                    summaryEl.appendChild(toggleEl);
                     bodyEl.appendChild(detailEl);
                     lineEl.appendChild(summaryEl);
                     lineEl.appendChild(bodyEl);
