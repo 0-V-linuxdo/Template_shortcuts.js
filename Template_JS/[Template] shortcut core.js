@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.1.0
+// @name         [Template] 快捷键跳转 [20260407] v1.1.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.1.0
-// @update-log   1.1.0: QuickInput 改用 Shadow DOM 隔离样式，默认跟随系统主题，并新增 overlay shadow-tree 边界判断 helper。
+// @version      [20260407] v1.1.1
+// @update-log   1.1.1: 修正 QuickInput 删除按钮颜色、字段 label 字重，以及“运行前清空输入框”复选框对齐。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9574,6 +9574,14 @@
                     --qi-success: #86efac;
                     --qi-danger-bg: rgba(239, 68, 68, 0.92);
                     --qi-danger-border: rgba(255,255,255,0.18);
+                    --qi-icon-btn-bg: rgba(255,255,255,0.08);
+                    --qi-icon-btn-hover: rgba(255,255,255,0.16);
+                    --qi-icon-btn-border: rgba(255,255,255,0.16);
+                    --qi-icon-btn-color: rgba(255,255,255,0.76);
+                    --qi-icon-btn-danger-bg: rgba(239,68,68,0.18);
+                    --qi-icon-btn-danger-hover: rgba(239,68,68,0.26);
+                    --qi-icon-btn-danger-border: rgba(248,113,113,0.34);
+                    --qi-icon-btn-danger-color: #fecaca;
                     box-sizing: border-box;
                     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
                     font-size: 13px;
@@ -9597,6 +9605,14 @@
                     --qi-error: #b91c1c;
                     --qi-success: #15803d;
                     --qi-danger-border: rgba(185, 28, 28, 0.35);
+                    --qi-icon-btn-bg: rgba(17,24,39,0.08);
+                    --qi-icon-btn-hover: rgba(17,24,39,0.14);
+                    --qi-icon-btn-border: rgba(17,24,39,0.14);
+                    --qi-icon-btn-color: rgba(17,24,39,0.72);
+                    --qi-icon-btn-danger-bg: rgba(220,38,38,0.08);
+                    --qi-icon-btn-danger-hover: rgba(220,38,38,0.14);
+                    --qi-icon-btn-danger-border: rgba(220,38,38,0.2);
+                    --qi-icon-btn-danger-color: #b91c1c;
                     color-scheme: light;
                 }
                 ${hostSelector},
@@ -9741,9 +9757,11 @@
                     gap: 10px;
                     align-items: center;
                 }
-                ${hostSelector} label {
+                ${hostSelector} .qi-row > label,
+                ${hostSelector} .qi-label-stack > label {
                     font-size: 14px;
-                    font-weight: 650;
+                    font-weight: 600;
+                    line-height: 1.35;
                     color: var(--qi-text-strong);
                 }
                 ${hostSelector} input[type="text"],
@@ -9823,9 +9841,9 @@
                     height: 20px;
                     padding: 0;
                     border-radius: 999px;
-                    border: 1px solid var(--qi-border);
-                    background: rgba(0,0,0,0.55);
-                    color: var(--qi-text);
+                    border: 1px solid var(--qi-icon-btn-border);
+                    background: var(--qi-icon-btn-bg);
+                    color: var(--qi-icon-btn-color);
                     cursor: pointer;
                     display: inline-flex;
                     align-items: center;
@@ -9850,7 +9868,7 @@
                 }
                 ${hostSelector} .qi-hotkey-del::before { transform: translate(-50%, -50%) rotate(45deg); }
                 ${hostSelector} .qi-hotkey-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                ${hostSelector} .qi-hotkey-del:hover { background: rgba(0,0,0,0.75); }
+                ${hostSelector} .qi-hotkey-del:hover { background: var(--qi-icon-btn-hover); }
                 ${hostSelector} .qi-hotkey-del:disabled { opacity: 0.55; cursor: not-allowed; }
                 ${hostSelector} input[type="text"]:focus,
                 ${hostSelector} input[type="number"]:focus,
@@ -9906,9 +9924,9 @@
                     height: 22px;
                     padding: 0;
                     border-radius: 999px;
-                    border: 1px solid var(--qi-danger-border);
-                    background: var(--qi-danger-bg);
-                    color: #fff;
+                    border: 1px solid var(--qi-icon-btn-danger-border);
+                    background: var(--qi-icon-btn-danger-bg);
+                    color: var(--qi-icon-btn-danger-color);
                     cursor: pointer;
                     display: none;
                     align-items: center;
@@ -9934,7 +9952,7 @@
                 }
                 ${hostSelector} .qi-preview-clear::before { transform: translate(-50%, -50%) rotate(45deg); }
                 ${hostSelector} .qi-preview-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                ${hostSelector} .qi-preview-clear:hover { filter: brightness(0.96); }
+                ${hostSelector} .qi-preview-clear:hover { background: var(--qi-icon-btn-danger-hover); }
                 ${hostSelector} .qi-preview-clear:disabled { opacity: 0.55; cursor: not-allowed; }
                 ${hostSelector} .qi-preview-wrap {
                     position: relative;
@@ -9958,9 +9976,9 @@
                     height: 20px;
                     padding: 0;
                     border-radius: 999px;
-                    border: 1px solid var(--qi-border);
-                    background: rgba(0,0,0,0.55);
-                    color: var(--qi-text);
+                    border: 1px solid var(--qi-icon-btn-border);
+                    background: var(--qi-icon-btn-bg);
+                    color: var(--qi-icon-btn-color);
                     cursor: pointer;
                     display: block;
                     font-size: 0;
@@ -9983,7 +10001,7 @@
                 }
                 ${hostSelector} .qi-preview-del::before { transform: translate(-50%, -50%) rotate(45deg); }
                 ${hostSelector} .qi-preview-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                ${hostSelector} .qi-preview-del:hover { background: rgba(0,0,0,0.75); }
+                ${hostSelector} .qi-preview-del:hover { background: var(--qi-icon-btn-hover); }
                 ${hostSelector} .qi-preview-del:disabled { opacity: 0.55; cursor: not-allowed; }
                 ${hostSelector} .qi-btn {
                     padding: 8px 14px;
@@ -10002,7 +10020,33 @@
                     color: #fff;
                 }
                 ${hostSelector} .qi-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-                ${hostSelector} .qi-hint { font-size: 12px; color: var(--qi-text-muted); }
+                ${hostSelector} .qi-hint {
+                    font-size: 12px;
+                    font-weight: 500;
+                    line-height: 1.4;
+                    color: var(--qi-text-muted);
+                }
+                ${hostSelector} .qi-option-check {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    line-height: 1.25;
+                    color: var(--qi-text);
+                }
+                ${hostSelector} .qi-option-check input[type="checkbox"] {
+                    width: 16px;
+                    height: 16px;
+                    margin: 0;
+                    flex: 0 0 auto;
+                    display: block;
+                    vertical-align: middle;
+                    accent-color: ${primaryColor};
+                }
+                ${hostSelector} .qi-option-check span {
+                    display: block;
+                }
                 ${hostSelector} .qi-log {
                     padding: 10px 14px;
                     font-size: 12px;
@@ -11459,12 +11503,14 @@
                 const optionsBox = global.document.createElement("div");
                 optionsBox.className = "qi-inline";
                 const cbWrap = global.document.createElement("label");
-                cbWrap.className = "qi-hint";
+                cbWrap.className = "qi-option-check";
                 clearBeforeRunEl = global.document.createElement("input");
                 clearBeforeRunEl.type = "checkbox";
                 clearBeforeRunEl.checked = true;
+                const cbText = global.document.createElement("span");
+                cbText.textContent = labels.options?.clearBeforeRun || DEFAULT_LABELS.options.clearBeforeRun;
                 cbWrap.appendChild(clearBeforeRunEl);
-                cbWrap.appendChild(global.document.createTextNode(` ${labels.options?.clearBeforeRun || DEFAULT_LABELS.options.clearBeforeRun}`));
+                cbWrap.appendChild(cbText);
                 optionsBox.appendChild(cbWrap);
 
                 clearBeforeRunEl.addEventListener("change", () => {
