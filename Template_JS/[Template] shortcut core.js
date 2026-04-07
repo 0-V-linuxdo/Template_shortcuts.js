@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.0.2
+// @name         [Template] 快捷键跳转 [20260407] v1.1.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.0.2
-// @update-log   1.0.2: 修复 QuickInput 延迟单位下拉箭头样式异常，改为独立 caret 结构并缩小箭头尺寸。
+// @version      [20260407] v1.1.0
+// @update-log   1.1.0: QuickInput 改用 Shadow DOM 隔离样式，默认跟随系统主题，并新增 overlay shadow-tree 边界判断 helper。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8670,6 +8670,46 @@
             try { return (input.files?.length || 0) > 0; } catch { return true; }
         }
 
+        function isInsideOverlayTree(target, overlayId) {
+            const targetId = String(overlayId ?? "").trim();
+            if (!target || !targetId) return false;
+
+            let node = target;
+            const visited = new Set();
+            while (node && !visited.has(node)) {
+                visited.add(node);
+                if (node.nodeType === 1 && String(node.id || "") === targetId) return true;
+
+                let current = node;
+                const chainVisited = new Set();
+                while (current && !chainVisited.has(current)) {
+                    chainVisited.add(current);
+                    if (current.nodeType === 1 && String(current.id || "") === targetId) return true;
+                    const parent = current.parentElement || current.parentNode || null;
+                    if (!parent || parent === current) break;
+                    current = parent;
+                }
+
+                const host = node.host || null;
+                if (host && host !== node) {
+                    node = host;
+                    continue;
+                }
+
+                let root = null;
+                try { root = typeof node.getRootNode === "function" ? node.getRootNode() : null; } catch {}
+                const rootHost = root && root !== node ? (root.host || null) : null;
+                if (rootHost && rootHost !== node) {
+                    node = rootHost;
+                    continue;
+                }
+
+                break;
+            }
+
+            return false;
+        }
+
         function safeStoreGet(key, fallback) {
             const k = String(key ?? "").trim();
             if (!k) return fallback;
@@ -9268,8 +9308,8 @@
             const draftStorageKey = getDraftStorageKey(storageKey);
             const titleText = String(options.title || "快捷输入").trim() || "快捷输入";
             const primaryColor = String(options.primaryColor || "#4285F4").trim() || "#4285F4";
-            const styleId = `${idPrefix}-quick-input-style`;
             const overlayId = `${idPrefix}-quick-input-overlay`;
+            const themeMode = normalizeThemeMode(options.themeMode);
 
             const labels = deepMerge(deepMerge({}, DEFAULT_LABELS), options.labels || {});
             const defaults = deepMerge(deepMerge({}, DEFAULT_CONFIG), options.defaults || {});
@@ -9299,6 +9339,8 @@
             const lockedNewChatHotkeyDisplay = String(rawAdapter.lockedNewChatHotkeyDisplay || "").trim();
 
             let overlayEl = null;
+            let overlayRootEl = null;
+            let backdropEl = null;
             let panelEl = null;
             let logEl = null;
             let fileInputEl = null;
@@ -9343,11 +9385,17 @@
             let dragNextTop = 0;
             let dragRestore = null;
 
-            let themeAutoTimer = null;
+            let usesShadowUi = false;
+            let themeSyncCleanup = null;
 
             function isInsideOverlay(el) {
-                if (!el || typeof el.closest !== "function") return false;
-                try { return !!el.closest(`#${overlayId}`); } catch { return false; }
+                return isInsideOverlayTree(el, overlayId);
+            }
+
+            function normalizeThemeMode(value) {
+                const token = String(value ?? "").trim().toLowerCase();
+                if (token === "dark" || token === "light" || token === "page") return token;
+                return "system";
             }
 
             function getNewChatTriggerLabel(hotkey) {
@@ -9469,28 +9517,118 @@
                 panelEl.style.minHeight = `${next}px`;
             }
 
+            function setImportantStyle(el, name, value) {
+                if (!el?.style?.setProperty) return;
+                try { el.style.setProperty(name, value, "important"); } catch {}
+            }
+
+            function applyOverlayHostBaseStyles() {
+                if (!overlayEl) return;
+                setImportantStyle(overlayEl, "all", "initial");
+                setImportantStyle(overlayEl, "position", "fixed");
+                setImportantStyle(overlayEl, "inset", "0");
+                setImportantStyle(overlayEl, "z-index", "2147483646");
+                setImportantStyle(overlayEl, "display", "none");
+                setImportantStyle(overlayEl, "margin", "0");
+                setImportantStyle(overlayEl, "padding", "0");
+                setImportantStyle(overlayEl, "border", "0");
+                setImportantStyle(overlayEl, "background", "transparent");
+                setImportantStyle(overlayEl, "pointer-events", "auto");
+                setImportantStyle(overlayEl, "font-family", 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif');
+                setImportantStyle(overlayEl, "font-size", "13px");
+                setImportantStyle(overlayEl, "line-height", "1.4");
+                setImportantStyle(overlayEl, "-webkit-text-size-adjust", "100%");
+                setImportantStyle(overlayEl, "text-size-adjust", "100%");
+            }
+
+            function setOverlayVisibility(isOpen) {
+                if (!overlayEl) return;
+                overlayEl.setAttribute("data-open", isOpen ? "1" : "0");
+                setImportantStyle(overlayEl, "display", isOpen ? "block" : "none");
+            }
+
             function ensureStyle() {
-                let style = global.document?.getElementById?.(styleId) || null;
+                if (!overlayRootEl) return;
+                let style = overlayRootEl.querySelector?.("style[data-quick-input-style='1']") || null;
                 if (!style) {
                     style = global.document?.createElement?.("style");
                     if (!style) return;
-                    style.id = styleId;
-                    global.document?.head?.appendChild?.(style);
+                    style.setAttribute("data-quick-input-style", "1");
+                    overlayRootEl.appendChild(style);
                 }
+                const hostSelector = usesShadowUi ? ":host" : `#${overlayId}`;
+                const lightSelector = usesShadowUi ? ":host([data-theme='light'])" : `#${overlayId}[data-theme='light']`;
                 style.textContent = `
-                #${overlayId} {
+                ${hostSelector} {
+                    --qi-surface: #1a1a1a;
+                    --qi-surface-alt: #2d2d2d;
+                    --qi-header-bg: #1a1a1a;
+                    --qi-actions-bg: #1a1a1a;
+                    --qi-border: #404040;
+                    --qi-text: rgba(255,255,255,0.85);
+                    --qi-text-strong: #ffffff;
+                    --qi-text-muted: rgba(255,255,255,0.72);
+                    --qi-overlay: rgba(0, 0, 0, 0.7);
+                    --qi-hover: rgba(255,255,255,0.08);
+                    --qi-error: #fca5a5;
+                    --qi-success: #86efac;
+                    --qi-danger-bg: rgba(239, 68, 68, 0.92);
+                    --qi-danger-border: rgba(255,255,255,0.18);
+                    box-sizing: border-box;
+                    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                    font-size: 13px;
+                    line-height: 1.4;
+                    color-scheme: dark;
+                    color: var(--qi-text);
+                    -webkit-text-size-adjust: 100%;
+                    text-size-adjust: 100%;
+                }
+                ${lightSelector} {
+                    --qi-surface: #ffffff;
+                    --qi-surface-alt: rgba(17, 24, 39, 0.06);
+                    --qi-header-bg: rgba(17, 24, 39, 0.03);
+                    --qi-actions-bg: rgba(17, 24, 39, 0.03);
+                    --qi-border: rgba(17, 24, 39, 0.16);
+                    --qi-text: rgba(17, 24, 39, 0.78);
+                    --qi-text-strong: rgba(17, 24, 39, 0.85);
+                    --qi-text-muted: rgba(17, 24, 39, 0.65);
+                    --qi-overlay: rgba(0, 0, 0, 0.32);
+                    --qi-hover: rgba(17, 24, 39, 0.08);
+                    --qi-error: #b91c1c;
+                    --qi-success: #15803d;
+                    --qi-danger-border: rgba(185, 28, 28, 0.35);
+                    color-scheme: light;
+                }
+                ${hostSelector},
+                ${hostSelector} *,
+                ${hostSelector} *::before,
+                ${hostSelector} *::after {
+                    box-sizing: border-box;
+                }
+                ${hostSelector} button,
+                ${hostSelector} input,
+                ${hostSelector} textarea,
+                ${hostSelector} select {
+                    margin: 0;
+                    font: inherit;
+                    color: inherit;
+                    letter-spacing: inherit;
+                }
+                ${hostSelector} button {
+                    -webkit-appearance: none;
+                    appearance: none;
+                }
+                ${hostSelector} .qi-backdrop {
                     position: fixed;
                     inset: 0;
-                    background: rgba(0, 0, 0, 0.7);
-                    z-index: 2147483646;
-                    display: none;
+                    background: var(--qi-overlay);
+                    display: flex;
                     align-items: center;
                     justify-content: center;
                     padding: 18px;
                     box-sizing: border-box;
                 }
-                #${overlayId}[data-open="1"] { display: flex; }
-                #${overlayId} .qi-panel {
+                ${hostSelector} .qi-panel {
                     position: fixed;
                     left: 50%;
                     top: 50%;
@@ -9498,98 +9636,98 @@
                     width: min(330px, 96vw);
                     max-height: min(86vh, 860px);
                     overflow: hidden;
-                    font-family: sans-serif;
-                    background: #1a1a1a;
-                    color: #ffffff;
-                    border: 1px solid #404040;
+                    background: var(--qi-surface);
+                    color: var(--qi-text-strong);
+                    border: 1px solid var(--qi-border);
                     border-radius: 14px;
                     box-shadow: 0 18px 60px rgba(0,0,0,0.55);
                     display: flex;
                     flex-direction: column;
                 }
-                #${overlayId} .qi-header {
+                ${hostSelector} .qi-header {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
                     gap: 10px;
                     padding: 10px 14px;
-                    border-bottom: 1px solid #404040;
-                    background: #1a1a1a;
+                    border-bottom: 1px solid var(--qi-border);
+                    background: var(--qi-header-bg);
                     cursor: move;
                     user-select: none;
                     -webkit-user-select: none;
                     touch-action: none;
                 }
-                #${overlayId} .qi-title {
+                ${hostSelector} .qi-title {
                     font-size: 14px;
                     font-weight: 700;
                     letter-spacing: 0.2px;
+                    color: var(--qi-text-strong);
                 }
-                #${overlayId} .qi-close {
+                ${hostSelector} .qi-close {
                     border: none;
                     background: transparent;
-                    color: rgba(255,255,255,0.75);
+                    color: var(--qi-text);
                     font-size: 18px;
+                    line-height: 1;
                     cursor: pointer;
                     padding: 6px 8px;
                     border-radius: 8px;
                 }
-                #${overlayId} .qi-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
-                #${overlayId} .qi-tabs {
+                ${hostSelector} .qi-close:hover { background: var(--qi-hover); color: var(--qi-text-strong); }
+                ${hostSelector} .qi-tabs {
                     display: flex;
                     gap: 8px;
                     flex: 1;
                     justify-content: center;
                     padding: 0;
                 }
-                #${overlayId} .qi-tab {
+                ${hostSelector} .qi-tab {
                     flex: 1;
-                    font-family: inherit;
-                    border: 1px solid #404040;
-                    background: #2d2d2d;
-                    color: rgba(255,255,255,0.85);
+                    border: 1px solid var(--qi-border);
+                    background: var(--qi-surface-alt);
+                    color: var(--qi-text);
                     padding: 6px 10px;
                     border-radius: 999px;
                     cursor: pointer;
                     font-size: 12px;
                     font-weight: 650;
                 }
-                #${overlayId} .qi-tab:hover { border-color: ${primaryColor}; }
-                #${overlayId} .qi-tab[data-active="1"] {
+                ${hostSelector} .qi-tab:hover { border-color: ${primaryColor}; }
+                ${hostSelector} .qi-tab[data-active="1"] {
                     background: ${primaryColor};
                     border-color: ${primaryColor};
                     color: #fff;
                 }
-                #${overlayId} .qi-content {
+                ${hostSelector} .qi-content {
                     flex: 1;
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
                     min-height: 0;
                 }
-                #${overlayId} .qi-tab-panel {
+                ${hostSelector} .qi-tab-panel {
                     flex: 1;
                     display: none;
                     flex-direction: column;
                     overflow: hidden;
                     min-height: 0;
                 }
-                #${overlayId} .qi-tab-panel[data-active="1"] { display: flex; }
-                #${overlayId} .qi-actions {
+                ${hostSelector} .qi-tab-panel[data-active="1"] { display: flex; }
+                ${hostSelector} .qi-actions {
                     padding: 6px 12px;
-                    border-top: 1px solid #404040;
-                    background: #1a1a1a;
+                    border-top: 1px solid var(--qi-border);
+                    background: var(--qi-actions-bg);
                     display: flex;
                     justify-content: flex-end;
                     gap: 6px;
                 }
-                #${overlayId} .qi-actions .qi-btn {
+                ${hostSelector} .qi-actions .qi-btn {
                     padding: 6px 12px;
                     font-size: 12px;
                     line-height: 1.2;
                     border-radius: 999px;
                 }
-                #${overlayId} .qi-body {
+                ${hostSelector} .qi-body {
                     padding: 14px;
                     overflow: auto;
                     display: grid;
@@ -9597,50 +9735,55 @@
                     flex: 1;
                     min-height: 0;
                 }
-                #${overlayId} .qi-row {
+                ${hostSelector} .qi-row {
                     display: grid;
                     grid-template-columns: 110px 1fr;
                     gap: 10px;
                     align-items: center;
                 }
-                #${overlayId} label { font-size: 14px; font-weight: 650; color: #ffffff; }
-                #${overlayId} input[type="text"], #${overlayId} input[type="number"], #${overlayId} textarea, #${overlayId} select {
+                ${hostSelector} label {
+                    font-size: 14px;
+                    font-weight: 650;
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} input[type="text"],
+                ${hostSelector} input[type="number"],
+                ${hostSelector} textarea,
+                ${hostSelector} select {
                     width: 100%;
-                    box-sizing: border-box;
                     padding: 8px 10px;
-                    font-family: inherit;
                     border-radius: 10px;
-                    border: 1px solid #404040;
-                    background: #2d2d2d;
-                    color: #ffffff;
+                    border: 1px solid var(--qi-border);
+                    background: var(--qi-surface-alt);
+                    color: var(--qi-text-strong);
                     outline: none;
                     font-size: 13px;
                 }
-                #${overlayId} input[type="number"],
-                #${overlayId} .qi-number-input {
+                ${hostSelector} input[type="number"],
+                ${hostSelector} .qi-number-input {
                     -webkit-appearance: textfield;
                     -moz-appearance: textfield;
                     appearance: textfield;
                 }
-                #${overlayId} input[type="number"]::-webkit-outer-spin-button,
-                #${overlayId} input[type="number"]::-webkit-inner-spin-button,
-                #${overlayId} .qi-number-input::-webkit-outer-spin-button,
-                #${overlayId} .qi-number-input::-webkit-inner-spin-button {
+                ${hostSelector} input[type="number"]::-webkit-outer-spin-button,
+                ${hostSelector} input[type="number"]::-webkit-inner-spin-button,
+                ${hostSelector} .qi-number-input::-webkit-outer-spin-button,
+                ${hostSelector} .qi-number-input::-webkit-inner-spin-button {
                     -webkit-appearance: none;
                     margin: 0;
                 }
-                #${overlayId} .qi-delay-control {
+                ${hostSelector} .qi-delay-control {
                     display: grid;
                     grid-template-columns: minmax(0, 1fr) auto;
                     gap: 8px;
                     align-items: center;
                 }
-                #${overlayId} .qi-select-wrap {
+                ${hostSelector} .qi-select-wrap {
                     position: relative;
                     min-width: 76px;
                     width: auto;
                 }
-                #${overlayId} .qi-select-wrap select {
+                ${hostSelector} .qi-select-wrap select {
                     display: block;
                     -webkit-appearance: none !important;
                     -moz-appearance: none !important;
@@ -9650,40 +9793,39 @@
                     width: 100%;
                     min-width: 76px;
                 }
-                #${overlayId} .qi-select-wrap select::-ms-expand {
+                ${hostSelector} .qi-select-wrap select::-ms-expand {
                     display: none;
                 }
-                #${overlayId} .qi-select-caret {
+                ${hostSelector} .qi-select-caret {
                     position: absolute;
                     right: 11px;
                     top: 50%;
-                    width: 10px;
-                    height: 10px;
-                    transform: translateY(-50%);
+                    width: 0;
+                    height: 0;
+                    transform: translateY(-30%);
                     pointer-events: none;
-                    background-repeat: no-repeat;
-                    background-position: center;
-                    background-size: 10px 10px;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23FFFFFF' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+                    border-left: 4px solid transparent;
+                    border-right: 4px solid transparent;
+                    border-top: 5px solid currentColor;
+                    color: var(--qi-text-strong);
                 }
-                #${overlayId} .qi-hotkey-item {
+                ${hostSelector} .qi-hotkey-item {
                     position: relative;
                 }
-                #${overlayId} .qi-hotkey-item input[type="text"] {
+                ${hostSelector} .qi-hotkey-item input[type="text"] {
                     padding-right: 34px;
                 }
-                #${overlayId} .qi-hotkey-del {
+                ${hostSelector} .qi-hotkey-del {
                     position: absolute;
                     top: 6px;
                     right: 6px;
                     width: 20px;
                     height: 20px;
                     padding: 0;
-                    box-sizing: border-box;
                     border-radius: 999px;
-                    border: 1px solid #404040;
+                    border: 1px solid var(--qi-border);
                     background: rgba(0,0,0,0.55);
-                    color: rgba(255,255,255,0.9);
+                    color: var(--qi-text);
                     cursor: pointer;
                     display: inline-flex;
                     align-items: center;
@@ -9694,8 +9836,8 @@
                     -webkit-user-select: none;
                     touch-action: manipulation;
                 }
-                #${overlayId} .qi-hotkey-del::before,
-                #${overlayId} .qi-hotkey-del::after {
+                ${hostSelector} .qi-hotkey-del::before,
+                ${hostSelector} .qi-hotkey-del::after {
                     content: "";
                     position: absolute;
                     top: 50%;
@@ -9706,55 +9848,57 @@
                     border-radius: 999px;
                     transform-origin: center;
                 }
-                #${overlayId} .qi-hotkey-del::before { transform: translate(-50%, -50%) rotate(45deg); }
-                #${overlayId} .qi-hotkey-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                #${overlayId} .qi-hotkey-del:hover { background: rgba(0,0,0,0.75); }
-                #${overlayId} .qi-hotkey-del:disabled { opacity: 0.55; cursor: not-allowed; }
-                #${overlayId} input[type="text"]:focus, #${overlayId} input[type="number"]:focus, #${overlayId} textarea:focus, #${overlayId} select:focus {
+                ${hostSelector} .qi-hotkey-del::before { transform: translate(-50%, -50%) rotate(45deg); }
+                ${hostSelector} .qi-hotkey-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
+                ${hostSelector} .qi-hotkey-del:hover { background: rgba(0,0,0,0.75); }
+                ${hostSelector} .qi-hotkey-del:disabled { opacity: 0.55; cursor: not-allowed; }
+                ${hostSelector} input[type="text"]:focus,
+                ${hostSelector} input[type="number"]:focus,
+                ${hostSelector} textarea:focus,
+                ${hostSelector} select:focus {
                     border-color: ${primaryColor};
                     box-shadow: 0 0 0 1px ${primaryColor};
                 }
-                #${overlayId} textarea {
+                ${hostSelector} textarea {
                     min-height: calc(2.7em + 18px);
                     line-height: 1.35;
                     resize: vertical;
                 }
-                #${overlayId} .qi-label-stack {
+                ${hostSelector} .qi-label-stack {
                     display: flex;
                     flex-direction: column;
                     gap: 4px;
                     align-items: flex-start;
                 }
-                #${overlayId} .qi-drop {
-                    border: 1px dashed #404040;
+                ${hostSelector} .qi-drop {
+                    border: 1px dashed var(--qi-border);
                     border-radius: 12px;
                     padding: 12px;
                     font-size: 12px;
                     line-height: 1.25;
-                    color: rgba(255,255,255,0.9);
-                    background: #2d2d2d;
+                    color: var(--qi-text);
+                    background: var(--qi-surface-alt);
                     cursor: pointer;
                     user-select: none;
                 }
-                #${overlayId} .qi-drop:hover { border-color: ${primaryColor}; background: rgba(255,255,255,0.08); }
-                #${overlayId} .qi-drop:focus { outline: none; }
-                #${overlayId} .qi-preview-list {
+                ${hostSelector} .qi-drop:hover { border-color: ${primaryColor}; background: var(--qi-hover); }
+                ${hostSelector} .qi-drop:focus { outline: none; }
+                ${hostSelector} .qi-preview-list {
                     width: 100%;
                     display: none;
                     flex-wrap: wrap;
                     gap: 8px;
                     padding: 30px 8px 8px 8px;
                     border-radius: 12px;
-                    border: 1px solid #404040;
-                    background: #2d2d2d;
-                    box-sizing: border-box;
+                    border: 1px solid var(--qi-border);
+                    background: var(--qi-surface-alt);
                 }
-                #${overlayId} .qi-preview-list:not(:empty) { display: flex; }
-                #${overlayId} .qi-preview-shell {
+                ${hostSelector} .qi-preview-list:not(:empty) { display: flex; }
+                ${hostSelector} .qi-preview-shell {
                     width: 100%;
                     position: relative;
                 }
-                #${overlayId} .qi-preview-clear {
+                ${hostSelector} .qi-preview-clear {
                     position: absolute;
                     top: 6px;
                     right: 6px;
@@ -9762,23 +9906,22 @@
                     height: 22px;
                     padding: 0;
                     border-radius: 999px;
-                    border: 1px solid rgba(255,255,255,0.18);
-                    background: rgba(239, 68, 68, 0.92);
+                    border: 1px solid var(--qi-danger-border);
+                    background: var(--qi-danger-bg);
                     color: #fff;
                     cursor: pointer;
                     display: none;
                     align-items: center;
                     justify-content: center;
-                    box-sizing: border-box;
                     font-size: 0;
                     line-height: 0;
                     user-select: none;
                     -webkit-user-select: none;
                     touch-action: manipulation;
                 }
-                #${overlayId} .qi-preview-shell[data-has-items="1"] .qi-preview-clear { display: inline-flex; }
-                #${overlayId} .qi-preview-clear::before,
-                #${overlayId} .qi-preview-clear::after {
+                ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-clear { display: inline-flex; }
+                ${hostSelector} .qi-preview-clear::before,
+                ${hostSelector} .qi-preview-clear::after {
                     content: "";
                     position: absolute;
                     top: 50%;
@@ -9789,36 +9932,35 @@
                     border-radius: 999px;
                     transform-origin: center;
                 }
-                #${overlayId} .qi-preview-clear::before { transform: translate(-50%, -50%) rotate(45deg); }
-                #${overlayId} .qi-preview-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                #${overlayId} .qi-preview-clear:hover { filter: brightness(0.96); }
-                #${overlayId} .qi-preview-clear:disabled { opacity: 0.55; cursor: not-allowed; }
-                #${overlayId} .qi-preview-wrap {
+                ${hostSelector} .qi-preview-clear::before { transform: translate(-50%, -50%) rotate(45deg); }
+                ${hostSelector} .qi-preview-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
+                ${hostSelector} .qi-preview-clear:hover { filter: brightness(0.96); }
+                ${hostSelector} .qi-preview-clear:disabled { opacity: 0.55; cursor: not-allowed; }
+                ${hostSelector} .qi-preview-wrap {
                     position: relative;
                     width: 72px;
                     height: 72px;
                     flex: 0 0 auto;
                 }
-                #${overlayId} .qi-preview-item {
+                ${hostSelector} .qi-preview-item {
                     width: 100%;
                     height: 100%;
                     display: block;
                     object-fit: cover;
                     border-radius: 10px;
-                    border: 1px solid #404040;
+                    border: 1px solid var(--qi-border);
                 }
-                #${overlayId} .qi-preview-del {
+                ${hostSelector} .qi-preview-del {
                     position: absolute;
                     top: 0;
                     right: -1px;
                     width: 20px;
                     height: 20px;
                     padding: 0;
-                    box-sizing: border-box;
                     border-radius: 999px;
-                    border: 1px solid #404040;
+                    border: 1px solid var(--qi-border);
                     background: rgba(0,0,0,0.55);
-                    color: rgba(255,255,255,0.9);
+                    color: var(--qi-text);
                     cursor: pointer;
                     display: block;
                     font-size: 0;
@@ -9827,8 +9969,8 @@
                     -webkit-user-select: none;
                     touch-action: manipulation;
                 }
-                #${overlayId} .qi-preview-del::before,
-                #${overlayId} .qi-preview-del::after {
+                ${hostSelector} .qi-preview-del::before,
+                ${hostSelector} .qi-preview-del::after {
                     content: "";
                     position: absolute;
                     top: 50%;
@@ -9839,137 +9981,46 @@
                     border-radius: 999px;
                     transform-origin: center;
                 }
-                #${overlayId} .qi-preview-del::before { transform: translate(-50%, -50%) rotate(45deg); }
-                #${overlayId} .qi-preview-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                #${overlayId} .qi-preview-del:hover { background: rgba(0,0,0,0.75); }
-                #${overlayId} .qi-preview-del:disabled { opacity: 0.55; cursor: not-allowed; }
-                #${overlayId} .qi-btn {
+                ${hostSelector} .qi-preview-del::before { transform: translate(-50%, -50%) rotate(45deg); }
+                ${hostSelector} .qi-preview-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
+                ${hostSelector} .qi-preview-del:hover { background: rgba(0,0,0,0.75); }
+                ${hostSelector} .qi-preview-del:disabled { opacity: 0.55; cursor: not-allowed; }
+                ${hostSelector} .qi-btn {
                     padding: 8px 14px;
                     border-radius: 10px;
-                    border: 1px solid #404040;
-                    font-family: inherit;
-                    background: #2d2d2d;
-                    color: #ffffff;
+                    border: 1px solid var(--qi-border);
+                    background: var(--qi-surface-alt);
+                    color: var(--qi-text-strong);
                     cursor: pointer;
                     font-size: 13px;
                     font-weight: 650;
                 }
-                #${overlayId} .qi-btn:not(.qi-btn-primary):hover { background: rgba(255,255,255,0.1); }
-                #${overlayId} .qi-btn-primary {
+                ${hostSelector} .qi-btn:not(.qi-btn-primary):hover { background: var(--qi-hover); }
+                ${hostSelector} .qi-btn-primary {
                     background: ${primaryColor};
                     border-color: ${primaryColor};
                     color: #fff;
                 }
-                #${overlayId} .qi-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-                #${overlayId} .qi-hint { font-size: 12px; color: rgba(255,255,255,0.72); }
-                #${overlayId} .qi-log {
+                ${hostSelector} .qi-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+                ${hostSelector} .qi-hint { font-size: 12px; color: var(--qi-text-muted); }
+                ${hostSelector} .qi-log {
                     padding: 10px 14px;
                     font-size: 12px;
-                    color: rgba(255,255,255,0.85);
+                    color: var(--qi-text);
                     overflow: auto;
                     flex: 1;
                     min-height: 0;
                     white-space: pre-wrap;
                     line-height: 1.35;
                 }
-                #${overlayId} .qi-log .qi-error { color: #fca5a5; }
-                #${overlayId} .qi-log .qi-ok { color: #86efac; }
-                #${overlayId} .qi-inline {
+                ${hostSelector} .qi-log .qi-error { color: var(--qi-error); }
+                ${hostSelector} .qi-log .qi-ok { color: var(--qi-success); }
+                ${hostSelector} .qi-inline {
                     display: inline-flex;
                     gap: 10px;
                     align-items: center;
                     flex-wrap: wrap;
                 }
-
-                #${overlayId}[data-theme="light"] { background: rgba(0, 0, 0, 0.32); }
-                #${overlayId}[data-theme="light"] .qi-panel {
-                    background: #ffffff;
-                    color: #111827;
-                    border-color: rgba(17, 24, 39, 0.16);
-                }
-                #${overlayId}[data-theme="light"] .qi-header {
-                    background: rgba(17, 24, 39, 0.03);
-                    border-color: rgba(17, 24, 39, 0.12);
-                }
-                #${overlayId}[data-theme="light"] .qi-tab {
-                    border-color: rgba(17, 24, 39, 0.18);
-                    background: rgba(17, 24, 39, 0.06);
-                    color: rgba(17, 24, 39, 0.88);
-                }
-                #${overlayId}[data-theme="light"] .qi-tab:hover { background: rgba(17, 24, 39, 0.08); }
-                #${overlayId}[data-theme="light"] .qi-tab[data-active="1"] {
-                    background: ${primaryColor};
-                    border-color: ${primaryColor};
-                    color: #fff;
-                }
-                #${overlayId}[data-theme="light"] .qi-actions {
-                    background: rgba(17, 24, 39, 0.03);
-                    border-color: rgba(17, 24, 39, 0.12);
-                }
-                #${overlayId}[data-theme="light"] label { color: rgba(17, 24, 39, 0.85); }
-                #${overlayId}[data-theme="light"] .qi-close { color: rgba(17, 24, 39, 0.65); }
-                #${overlayId}[data-theme="light"] .qi-close:hover { background: rgba(17, 24, 39, 0.08); color: #111827; }
-                #${overlayId}[data-theme="light"] input[type="text"],
-                #${overlayId}[data-theme="light"] input[type="number"],
-                #${overlayId}[data-theme="light"] textarea,
-                #${overlayId}[data-theme="light"] select {
-                    border-color: rgba(17, 24, 39, 0.18);
-                    background: rgba(255, 255, 255, 0.95);
-                    color: #111827;
-                }
-                #${overlayId}[data-theme="light"] .qi-select-caret {
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23111827' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-                }
-                #${overlayId}[data-theme="light"] .qi-drop {
-                    border-color: rgba(17, 24, 39, 0.25);
-                    background: rgba(17, 24, 39, 0.03);
-                    color: rgba(17, 24, 39, 0.9);
-                }
-                #${overlayId}[data-theme="light"] .qi-drop:hover { background: rgba(17, 24, 39, 0.05); }
-                #${overlayId}[data-theme="light"] .qi-hotkey-del {
-                    border-color: rgba(17, 24, 39, 0.18);
-                    background: rgba(255,255,255,0.92);
-                    color: rgba(17,24,39,0.78);
-                }
-                #${overlayId}[data-theme="light"] .qi-hotkey-del:hover { background: rgba(255,255,255,1); }
-                #${overlayId}[data-theme="light"] .qi-preview-list {
-                    border-color: rgba(17, 24, 39, 0.12);
-                    background: rgba(17, 24, 39, 0.03);
-                }
-                #${overlayId}[data-theme="light"] .qi-preview-item {
-                    border-color: rgba(17, 24, 39, 0.12);
-                }
-                #${overlayId}[data-theme="light"] .qi-preview-del {
-                    border-color: rgba(17, 24, 39, 0.18);
-                    background: rgba(255,255,255,0.92);
-                    color: rgba(17,24,39,0.78);
-                }
-                #${overlayId}[data-theme="light"] .qi-preview-del:hover { background: rgba(255,255,255,1); }
-                #${overlayId}[data-theme="light"] .qi-preview-clear {
-                    border-color: rgba(185, 28, 28, 0.35);
-                    background: rgba(239, 68, 68, 0.92);
-                    color: #fff;
-                }
-                #${overlayId}[data-theme="light"] .qi-btn:not(.qi-btn-primary) {
-                    background: rgba(17, 24, 39, 0.06);
-                    border-color: rgba(17, 24, 39, 0.18);
-                    color: #111827;
-                }
-                #${overlayId}[data-theme="light"] .qi-btn:not(.qi-btn-primary):hover {
-                    background: rgba(17, 24, 39, 0.08);
-                }
-                #${overlayId}[data-theme="light"] .qi-btn.qi-btn-primary {
-                    background: ${primaryColor};
-                    border-color: ${primaryColor};
-                    color: #fff;
-                }
-                #${overlayId}[data-theme="light"] .qi-btn.qi-btn-primary:hover {
-                    filter: brightness(0.96);
-                }
-                #${overlayId}[data-theme="light"] .qi-hint { color: rgba(17, 24, 39, 0.65); }
-                #${overlayId}[data-theme="light"] .qi-log { color: rgba(17, 24, 39, 0.78); }
-                #${overlayId}[data-theme="light"] .qi-log .qi-error { color: #b91c1c; }
-                #${overlayId}[data-theme="light"] .qi-log .qi-ok { color: #15803d; }
                 `;
             }
 
@@ -10276,29 +10327,70 @@
                 return String(value ?? "").trim().toLowerCase() === "light" ? "light" : "dark";
             }
 
+            function getSystemTheme() {
+                return (global.matchMedia && global.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+            }
+
+            function getConfiguredTheme() {
+                if (themeMode === "page") return detectPageTheme();
+                if (themeMode === "light" || themeMode === "dark") return themeMode;
+                return getSystemTheme();
+            }
+
             function applyTheme(theme) {
                 if (!overlayEl) return;
-                overlayEl.setAttribute("data-theme", normalizeTheme(theme));
+                const normalized = normalizeTheme(theme);
+                overlayEl.setAttribute("data-theme", normalized);
+                setImportantStyle(overlayEl, "color-scheme", normalized);
             }
 
             function stopThemeAutoSync() {
-                if (!themeAutoTimer) return;
-                clearInterval(themeAutoTimer);
-                themeAutoTimer = null;
+                const cleanup = themeSyncCleanup;
+                themeSyncCleanup = null;
+                if (typeof cleanup !== "function") return;
+                try { cleanup(); } catch {}
             }
 
             function startThemeAutoSync() {
-                if (themeAutoTimer) return;
-                const tick = () => {
+                stopThemeAutoSync();
+                refreshTheme();
+                if (!overlayEl) return;
+                if (themeMode === "light" || themeMode === "dark") return;
+
+                if (themeMode === "system") {
+                    const media = global.matchMedia?.("(prefers-color-scheme: dark)");
+                    if (!media) return;
+                    const handleChange = () => {
+                        if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
+                        refreshTheme();
+                    };
+                    if (typeof media.addEventListener === "function") {
+                        media.addEventListener("change", handleChange);
+                        themeSyncCleanup = () => {
+                            try { media.removeEventListener("change", handleChange); } catch {}
+                        };
+                        return;
+                    }
+                    if (typeof media.addListener === "function") {
+                        media.addListener(handleChange);
+                        themeSyncCleanup = () => {
+                            try { media.removeListener(handleChange); } catch {}
+                        };
+                    }
+                    return;
+                }
+
+                const timerId = global.setInterval(() => {
                     if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
-                    applyTheme(detectPageTheme());
+                    refreshTheme();
+                }, 800);
+                themeSyncCleanup = () => {
+                    try { global.clearInterval(timerId); } catch {}
                 };
-                themeAutoTimer = setInterval(tick, 800);
-                tick();
             }
 
             function refreshTheme() {
-                applyTheme(detectPageTheme());
+                applyTheme(getConfiguredTheme());
             }
 
             function clampPanelPos(left, top, width, height) {
@@ -11064,16 +11156,30 @@
 
             function ensureUi() {
                 if (overlayEl) return;
-                ensureStyle();
-
                 try { global.document?.getElementById?.(overlayId)?.remove?.(); } catch {}
 
                 overlayEl = global.document.createElement("div");
                 overlayEl.id = overlayId;
-                overlayEl.setAttribute("data-open", "0");
-                overlayEl.setAttribute("data-theme", detectPageTheme());
-                overlayEl.addEventListener("click", (e) => {
-                    if (e.target === overlayEl) close();
+                usesShadowUi = typeof overlayEl.attachShadow === "function";
+                if (usesShadowUi) {
+                    try {
+                        overlayRootEl = overlayEl.attachShadow({ mode: "open" });
+                    } catch {
+                        usesShadowUi = false;
+                        overlayRootEl = overlayEl;
+                    }
+                } else {
+                    overlayRootEl = overlayEl;
+                }
+                applyOverlayHostBaseStyles();
+                setOverlayVisibility(false);
+                ensureStyle();
+                refreshTheme();
+
+                backdropEl = global.document.createElement("div");
+                backdropEl.className = "qi-backdrop";
+                backdropEl.addEventListener("click", (e) => {
+                    if (e.target === backdropEl) close();
                 });
 
                 panelEl = global.document.createElement("div");
@@ -11458,7 +11564,8 @@
                 panelEl.appendChild(header);
                 panelEl.appendChild(content);
 
-                overlayEl.appendChild(panelEl);
+                backdropEl.appendChild(panelEl);
+                overlayRootEl.appendChild(backdropEl);
                 global.document.body.appendChild(overlayEl);
 
                 global.document.addEventListener("keydown", (e) => {
@@ -11476,8 +11583,7 @@
             function open() {
                 ensureUi();
                 stopDrag();
-                overlayEl.setAttribute("data-open", "1");
-                refreshTheme();
+                setOverlayVisibility(true);
                 startThemeAutoSync();
                 requestAnimationFrame(() => {
                     applyStoredPanelPos();
@@ -11495,8 +11601,8 @@
                 }
                 stopDrag();
                 persistDraftText();
-                overlayEl.setAttribute("data-open", "0");
                 stopThemeAutoSync();
+                setOverlayVisibility(false);
                 if (running) stopMacro();
             }
 
@@ -11528,7 +11634,8 @@
                 dispatchDragEvent,
                 collectFileInputs,
                 collectFileInputsFromOpenShadows,
-                trySetFileInputFiles
+                trySetFileInputFiles,
+                isInsideOverlayTree
             }),
             engine: Object.freeze({
                 executeShortcutByHotkey: executeEngineShortcutByHotkey
