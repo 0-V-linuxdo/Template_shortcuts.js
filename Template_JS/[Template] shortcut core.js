@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.0.0
+// @name         [Template] 快捷键跳转 [20260407] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.0.0
-// @update-log   1.0.0: QuickInput 延迟字段支持毫秒 / 秒 / 分钟单位切换，并优化循环等待日志显示。
+// @version      [20260407] v1.0.1
+// @update-log   1.0.1: QuickInput 统一数字输入框无 spinner 样式，修复 ChatGPT / Gemini 间外观不一致。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9616,6 +9616,29 @@
                     outline: none;
                     font-size: 13px;
                 }
+                #${overlayId} input[type="number"],
+                #${overlayId} .qi-number-input {
+                    -webkit-appearance: textfield;
+                    -moz-appearance: textfield;
+                    appearance: textfield;
+                }
+                #${overlayId} input[type="number"]::-webkit-outer-spin-button,
+                #${overlayId} input[type="number"]::-webkit-inner-spin-button,
+                #${overlayId} .qi-number-input::-webkit-outer-spin-button,
+                #${overlayId} .qi-number-input::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+                #${overlayId} select {
+                    -webkit-appearance: none;
+                    -moz-appearance: none;
+                    appearance: none;
+                    padding-right: 32px;
+                    background-repeat: no-repeat;
+                    background-position: right 11px center;
+                    background-size: 12px 12px;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23FFFFFF' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+                }
                 #${overlayId} .qi-delay-control {
                     display: grid;
                     grid-template-columns: minmax(0, 1fr) auto;
@@ -9876,6 +9899,9 @@
                     border-color: rgba(17, 24, 39, 0.18);
                     background: rgba(255, 255, 255, 0.95);
                     color: #111827;
+                }
+                #${overlayId}[data-theme="light"] select {
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23111827' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
                 }
                 #${overlayId}[data-theme="light"] .qi-drop {
                     border-color: rgba(17, 24, 39, 0.25);
@@ -11201,9 +11227,12 @@
                 const loopLabel = global.document.createElement("label");
                 loopLabel.textContent = labels.fields?.loopCount || DEFAULT_LABELS.fields.loopCount;
                 loopEl = global.document.createElement("input");
+                loopEl.className = "qi-number-input";
                 loopEl.type = "number";
                 loopEl.min = "1";
                 loopEl.max = "999";
+                loopEl.step = "1";
+                loopEl.inputMode = "numeric";
 
                 loopRow.appendChild(loopLabel);
                 loopRow.appendChild(loopEl);
@@ -11232,6 +11261,7 @@
                 const stepDelayControl = global.document.createElement("div");
                 stepDelayControl.className = "qi-delay-control";
                 stepDelayEl = global.document.createElement("input");
+                stepDelayEl.className = "qi-number-input";
                 stepDelayEl.type = "number";
                 stepDelayEl.min = "0";
                 stepDelayEl.step = "any";
@@ -11244,6 +11274,7 @@
                 const loopDelayControl = global.document.createElement("div");
                 loopDelayControl.className = "qi-delay-control";
                 loopDelayEl = global.document.createElement("input");
+                loopDelayEl.className = "qi-number-input";
                 loopDelayEl.type = "number";
                 loopDelayEl.min = "0";
                 loopDelayEl.step = "any";
