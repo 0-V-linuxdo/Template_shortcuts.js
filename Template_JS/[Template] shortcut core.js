@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260403] v1.0.1
+// @name         [Template] 快捷键跳转 [20260407] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260403] v1.0.1
-// @update-log   1.0.1: QuickInput 新增缺图自动补齐重试，继续保留连续加图与同名图片自动重命名能力。
+// @version      [20260407] v1.0.0
+// @update-log   1.0.0: QuickInput 延迟字段支持毫秒 / 秒 / 分钟单位切换，并优化循环等待日志显示。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -38,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20260403";
+    const TEMPLATE_VERSION = "20260407";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -8936,6 +8936,83 @@
             }
         }
 
+        const STEP_DELAY_MAX_MS = 30000;
+        const LOOP_DELAY_MAX_MS = 300000;
+
+        const DELAY_UNIT_FACTORS = Object.freeze({
+            ms: 1,
+            s: 1000,
+            m: 60000
+        });
+
+        function normalizeDelayUnit(value) {
+            const raw = String(value ?? "").trim().toLowerCase();
+            if (!raw) return "";
+            if (["ms", "millisecond", "milliseconds", "毫秒"].includes(raw)) return "ms";
+            if (["s", "sec", "secs", "second", "seconds", "秒"].includes(raw)) return "s";
+            if (["m", "min", "mins", "minute", "minutes", "分钟"].includes(raw)) return "m";
+            return "";
+        }
+
+        function inferDelayUnitFromMs(value) {
+            const ms = Math.max(0, Number(value) || 0);
+            if (ms >= DELAY_UNIT_FACTORS.m) return "m";
+            if (ms >= DELAY_UNIT_FACTORS.s) return "s";
+            return "ms";
+        }
+
+        function getDelayUnitFactor(unit) {
+            return DELAY_UNIT_FACTORS[normalizeDelayUnit(unit)] || DELAY_UNIT_FACTORS.ms;
+        }
+
+        function formatDelayNumber(value) {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return "0";
+            const rounded = Math.round(num * 10000) / 10000;
+            if (Object.is(rounded, -0)) return "0";
+            return Number.isInteger(rounded)
+                ? String(rounded)
+                : rounded.toFixed(4).replace(/\.?0+$/, "");
+        }
+
+        function convertDelayMsToDisplayValue(ms, unit) {
+            return Math.max(0, Number(ms) || 0) / getDelayUnitFactor(unit);
+        }
+
+        function convertDelayInputToMs(value, unit) {
+            const num = Number.parseFloat(String(value ?? "").trim());
+            if (!Number.isFinite(num)) return NaN;
+            return Math.max(0, num) * getDelayUnitFactor(unit);
+        }
+
+        function clampDelayMs(value, maxMs, fallbackMs) {
+            const safeMax = Math.max(0, Number(maxMs) || 0);
+            const safeFallback = clampInt(fallbackMs, { min: 0, max: safeMax, fallback: 0 });
+            const rounded = Number.isFinite(value) ? Math.round(value) : safeFallback;
+            return clampInt(rounded, { min: 0, max: safeMax, fallback: safeFallback });
+        }
+
+        function formatDelayInputValue(ms, unit) {
+            return formatDelayNumber(convertDelayMsToDisplayValue(ms, unit));
+        }
+
+        function formatDelayWithUnit(ms, unit, unitLabels = null) {
+            const normalizedUnit = normalizeDelayUnit(unit) || inferDelayUnitFromMs(ms);
+            const labels = unitLabels && typeof unitLabels === "object" ? unitLabels : null;
+            const unitLabel = String(
+                labels?.[normalizedUnit]
+                || DELAY_UNIT_LABELS[normalizedUnit]
+                || DELAY_UNIT_LABELS.ms
+            );
+            return `${formatDelayInputValue(ms, normalizedUnit)} ${unitLabel}`;
+        }
+
+        const DELAY_UNIT_LABELS = Object.freeze({
+            ms: "毫秒",
+            s: "秒",
+            m: "分钟"
+        });
+
         const DEFAULT_LABELS = Object.freeze({
             tabs: Object.freeze({ input: "输入", log: "日志" }),
             fields: Object.freeze({
@@ -8945,8 +9022,8 @@
                 hotkeys: "调用快捷键(可选)：",
                 loopCount: "循环次数：",
                 newChatHotkey: "新对话快捷键：",
-                stepDelay: "步骤间隔(ms)：",
-                loopDelay: "循环间隔(ms)：",
+                stepDelay: "步骤间隔：",
+                loopDelay: "循环间隔：",
                 options: "选项："
             }),
             buttons: Object.freeze({
@@ -8968,6 +9045,11 @@
             }),
             options: Object.freeze({
                 clearBeforeRun: "运行前清空输入框"
+            }),
+            delayUnits: Object.freeze({
+                ms: "毫秒",
+                s: "秒",
+                m: "分钟"
             }),
             aria: Object.freeze({
                 close: "关闭",
@@ -8993,7 +9075,7 @@
                 repairedImages: (count, expectedCount) => `已自动补齐图片：${count} 张（目标共 ${expectedCount} 张）。`,
                 uploadNotReady: "图片尚未上传完成：已取消发送，避免文字先发。",
                 sendAttempted: (ok) => (ok ? "已尝试发送（Enter/Send）。" : "发送失败。"),
-                loopDelayBeforeNewChat: (ms) => `循环间隔等待中：${ms} ms（发送后 → 新对话前）。`,
+                loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), DELAY_UNIT_LABELS)) => `循环间隔等待中：${formattedDelay}（发送后 → 新对话前）。`,
                 newChatTriggered: (hotkey, ok) => (ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`),
                 newChatRetrying: (hotkey, attempt, maxRetries) => `新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
                 newChatNotReady: "新对话在自动重试后仍未就绪：已停止后续循环，避免在旧上下文继续执行。",
@@ -9048,13 +9130,22 @@
                 return { left, top };
             })();
 
+            const stepDelayMs = clampInt(raw.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 }) });
+            const loopDelayMs = clampInt(raw.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 }) });
+
             return {
                 toolHotkeys,
                 toolHotkey: toolHotkeys[0] || "",
                 newChatHotkey: typeof raw.newChatHotkey === "string" ? raw.newChatHotkey : base.newChatHotkey,
                 loopCount: clampInt(raw.loopCount, { min: 1, max: 999, fallback: clampInt(base.loopCount, { min: 1, max: 999, fallback: 1 }) }),
-                stepDelayMs: clampInt(raw.stepDelayMs, { min: 0, max: 30000, fallback: clampInt(base.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }),
-                loopDelayMs: clampInt(raw.loopDelayMs, { min: 0, max: 300000, fallback: clampInt(base.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }),
+                stepDelayMs,
+                stepDelayUnit: normalizeDelayUnit(raw.stepDelayUnit)
+                    || normalizeDelayUnit(base.stepDelayUnit)
+                    || inferDelayUnitFromMs(stepDelayMs),
+                loopDelayMs,
+                loopDelayUnit: normalizeDelayUnit(raw.loopDelayUnit)
+                    || normalizeDelayUnit(base.loopDelayUnit)
+                    || inferDelayUnitFromMs(loopDelayMs),
                 clearBeforeRun: raw.clearBeforeRun !== false,
                 panelPos
             };
@@ -9090,13 +9181,24 @@
                 return { left, top };
             })();
 
+            const stepDelayMs = clampInt(safe.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 }) });
+            const loopDelayMs = clampInt(safe.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 }) });
+
             const payload = {
                 toolHotkeys,
                 toolHotkey,
                 newChatHotkey,
                 loopCount: clampInt(safe.loopCount, { min: 1, max: 999, fallback: clampInt(base.loopCount, { min: 1, max: 999, fallback: 1 }) }),
-                stepDelayMs: clampInt(safe.stepDelayMs, { min: 0, max: 30000, fallback: clampInt(base.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }),
-                loopDelayMs: clampInt(safe.loopDelayMs, { min: 0, max: 300000, fallback: clampInt(base.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }),
+                stepDelayMs,
+                stepDelayUnit: normalizeDelayUnit(safe.stepDelayUnit)
+                    || normalizeDelayUnit(prev.stepDelayUnit)
+                    || normalizeDelayUnit(base.stepDelayUnit)
+                    || inferDelayUnitFromMs(stepDelayMs),
+                loopDelayMs,
+                loopDelayUnit: normalizeDelayUnit(safe.loopDelayUnit)
+                    || normalizeDelayUnit(prev.loopDelayUnit)
+                    || normalizeDelayUnit(base.loopDelayUnit)
+                    || inferDelayUnitFromMs(loopDelayMs),
                 clearBeforeRun: safe.clearBeforeRun !== false
             };
             if (panelPos) payload.panelPos = panelPos;
@@ -9212,7 +9314,9 @@
             let newChatHotkeyEl = null;
             let loopEl = null;
             let stepDelayEl = null;
+            let stepDelayUnitEl = null;
             let loopDelayEl = null;
+            let loopDelayUnitEl = null;
             let clearBeforeRunEl = null;
             const runButtons = [];
             const stopButtons = [];
@@ -9256,6 +9360,65 @@
                     (cfg && typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey
                 );
                 return lockedNewChatHotkeyDisplay || getNewChatTriggerLabel(value);
+            }
+
+            function getDelayUnitLabels() {
+                return (labels.delayUnits && typeof labels.delayUnits === "object")
+                    ? { ...DELAY_UNIT_LABELS, ...labels.delayUnits }
+                    : DELAY_UNIT_LABELS;
+            }
+
+            function getDelayFallbackUnit(unit, fallbackMs) {
+                return normalizeDelayUnit(unit) || inferDelayUnitFromMs(fallbackMs);
+            }
+
+            function syncDelayInputConstraints(inputEl, unitEl, maxMs) {
+                if (!inputEl) return;
+                const unit = normalizeDelayUnit(unitEl?.value) || inferDelayUnitFromMs(maxMs);
+                inputEl.min = "0";
+                inputEl.step = "any";
+                inputEl.max = formatDelayInputValue(maxMs, unit);
+                inputEl.title = `最大 ${formatDelayWithUnit(maxMs, unit, getDelayUnitLabels())}`;
+            }
+
+            function setDelayControlValue(inputEl, unitEl, delayMs, unit, maxMs) {
+                if (!inputEl || !unitEl) return;
+                const normalizedUnit = normalizeDelayUnit(unit) || inferDelayUnitFromMs(delayMs);
+                unitEl.value = normalizedUnit;
+                unitEl.dataset.prevUnit = normalizedUnit;
+                syncDelayInputConstraints(inputEl, unitEl, maxMs);
+                inputEl.value = formatDelayInputValue(delayMs, normalizedUnit);
+            }
+
+            function readDelayControlValue(inputEl, unitEl, { fallbackMs = 0, fallbackUnit = "", maxMs = 0 } = {}) {
+                const safeFallbackMs = clampDelayMs(fallbackMs, maxMs, fallbackMs);
+                const unit = normalizeDelayUnit(unitEl?.value) || getDelayFallbackUnit(fallbackUnit, safeFallbackMs);
+                const rawMs = convertDelayInputToMs(inputEl?.value, unit);
+                return {
+                    ms: clampDelayMs(rawMs, maxMs, safeFallbackMs),
+                    unit
+                };
+            }
+
+            function persistDelayControls() {
+                saveConfig(storageKey, readConfigFromUi(), defaults);
+            }
+
+            function handleDelayInputChange({ inputEl, unitEl, fallbackMs, fallbackUnit, maxMs }) {
+                const next = readDelayControlValue(inputEl, unitEl, { fallbackMs, fallbackUnit, maxMs });
+                setDelayControlValue(inputEl, unitEl, next.ms, next.unit, maxMs);
+                persistDelayControls();
+            }
+
+            function handleDelayUnitChange({ inputEl, unitEl, fallbackMs, fallbackUnit, maxMs }) {
+                if (!unitEl) return;
+                const safeFallbackMs = clampDelayMs(fallbackMs, maxMs, fallbackMs);
+                const prevUnit = normalizeDelayUnit(unitEl.dataset.prevUnit) || getDelayFallbackUnit(fallbackUnit, safeFallbackMs);
+                const nextUnit = normalizeDelayUnit(unitEl.value) || prevUnit;
+                const rawMs = convertDelayInputToMs(inputEl?.value, prevUnit);
+                const nextMs = clampDelayMs(rawMs, maxMs, safeFallbackMs);
+                setDelayControlValue(inputEl, unitEl, nextMs, nextUnit, maxMs);
+                persistDelayControls();
             }
 
             function getNewChatHotkeyConfigValueFromUi() {
@@ -9452,6 +9615,16 @@
                     color: #ffffff;
                     outline: none;
                     font-size: 13px;
+                }
+                #${overlayId} .qi-delay-control {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1fr) auto;
+                    gap: 8px;
+                    align-items: center;
+                }
+                #${overlayId} .qi-delay-control select {
+                    width: auto;
+                    min-width: 76px;
                 }
                 #${overlayId} .qi-hotkey-item {
                     position: relative;
@@ -9980,7 +10153,9 @@
                 } catch {}
                 if (loopEl) loopEl.disabled = running;
                 if (stepDelayEl) stepDelayEl.disabled = running;
+                if (stepDelayUnitEl) stepDelayUnitEl.disabled = running;
                 if (loopDelayEl) loopDelayEl.disabled = running;
+                if (loopDelayUnitEl) loopDelayUnitEl.disabled = running;
                 if (clearBeforeRunEl) clearBeforeRunEl.disabled = running;
                 if (newChatHotkeyEl) newChatHotkeyEl.disabled = running;
                 if (textEl) textEl.disabled = running;
@@ -10096,6 +10271,18 @@
             }
 
             function readConfigFromUi() {
+                const defaultStepDelayMs = clampInt(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 });
+                const defaultLoopDelayMs = clampInt(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 });
+                const stepDelay = readDelayControlValue(stepDelayEl, stepDelayUnitEl, {
+                    fallbackMs: defaultStepDelayMs,
+                    fallbackUnit: defaults.stepDelayUnit,
+                    maxMs: STEP_DELAY_MAX_MS
+                });
+                const loopDelay = readDelayControlValue(loopDelayEl, loopDelayUnitEl, {
+                    fallbackMs: defaultLoopDelayMs,
+                    fallbackUnit: defaults.loopDelayUnit,
+                    maxMs: LOOP_DELAY_MAX_MS
+                });
                 const toolHotkeys = hotkeyInputs
                     .map(input => String(input?.value ?? "").trim())
                     .filter(Boolean);
@@ -10104,8 +10291,10 @@
                     toolHotkey: toolHotkeys[0] || "",
                     newChatHotkey: getNewChatHotkeyConfigValueFromUi(),
                     loopCount: clampInt(loopEl?.value, { min: 1, max: 999, fallback: clampInt(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }),
-                    stepDelayMs: clampInt(stepDelayEl?.value, { min: 0, max: 30000, fallback: clampInt(defaults.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }),
-                    loopDelayMs: clampInt(loopDelayEl?.value, { min: 0, max: 300000, fallback: clampInt(defaults.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }),
+                    stepDelayMs: stepDelay.ms,
+                    stepDelayUnit: stepDelay.unit,
+                    loopDelayMs: loopDelay.ms,
+                    loopDelayUnit: loopDelay.unit,
                     clearBeforeRun: !!clearBeforeRunEl?.checked
                 };
             }
@@ -10288,6 +10477,18 @@
                 return input;
             }
 
+            function createDelayUnitSelect() {
+                const select = global.document.createElement("select");
+                const unitLabels = getDelayUnitLabels();
+                for (const unit of Object.keys(DELAY_UNIT_FACTORS)) {
+                    const option = global.document.createElement("option");
+                    option.value = unit;
+                    option.textContent = unitLabels[unit] || DELAY_UNIT_LABELS[unit] || unit;
+                    select.appendChild(option);
+                }
+                return select;
+            }
+
             function writeConfigToUi(cfg) {
                 if (!cfg) return;
                 const rawToolHotkeys = Array.isArray(cfg.toolHotkeys)
@@ -10317,12 +10518,24 @@
                         : ((typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey);
                 }
                 if (loopEl) loopEl.value = String(clampInt(cfg.loopCount, { min: 1, max: 999, fallback: clampInt(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }));
-                if (stepDelayEl) stepDelayEl.value = String(clampInt(cfg.stepDelayMs, { min: 0, max: 30000, fallback: clampInt(defaults.stepDelayMs, { min: 0, max: 30000, fallback: 120 }) }));
-                if (loopDelayEl) loopDelayEl.value = String(clampInt(cfg.loopDelayMs, { min: 0, max: 300000, fallback: clampInt(defaults.loopDelayMs, { min: 0, max: 300000, fallback: 800 }) }));
+                setDelayControlValue(
+                    stepDelayEl,
+                    stepDelayUnitEl,
+                    clampInt(cfg.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 }) }),
+                    cfg.stepDelayUnit || defaults.stepDelayUnit,
+                    STEP_DELAY_MAX_MS
+                );
+                setDelayControlValue(
+                    loopDelayEl,
+                    loopDelayUnitEl,
+                    clampInt(cfg.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 }) }),
+                    cfg.loopDelayUnit || defaults.loopDelayUnit,
+                    LOOP_DELAY_MAX_MS
+                );
                 if (clearBeforeRunEl) clearBeforeRunEl.checked = cfg.clearBeforeRun !== false;
             }
 
-            async function transitionToNextLoop({ loopDelayMs, newChatHotkey, shouldCancel, sendCompletedAtMs }) {
+            async function transitionToNextLoop({ loopDelayMs, loopDelayUnit, newChatHotkey, shouldCancel, sendCompletedAtMs }) {
                 const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
                 const delayMs = Math.max(0, Number(loopDelayMs) || 0);
                 const sendAt = Number(sendCompletedAtMs);
@@ -10330,10 +10543,11 @@
                 const remainMs = Math.max(0, delayDeadline - Date.now());
 
                 if (delayMs > 0) {
+                    const formattedDelay = formatDelayWithUnit(delayMs, loopDelayUnit, getDelayUnitLabels());
                     const waitingMsg = labels.messages?.loopDelayBeforeNewChat
-                        ? labels.messages.loopDelayBeforeNewChat(delayMs)
+                        ? labels.messages.loopDelayBeforeNewChat(delayMs, formattedDelay)
                         : (DEFAULT_LABELS.messages.loopDelayBeforeNewChat
-                            ? DEFAULT_LABELS.messages.loopDelayBeforeNewChat(delayMs)
+                            ? DEFAULT_LABELS.messages.loopDelayBeforeNewChat(delayMs, formattedDelay)
                             : "");
                     if (waitingMsg) appendLog(waitingMsg);
                 }
@@ -10773,6 +10987,7 @@
                     if (i < cfg.loopCount - 1) {
                         const transition = await transitionToNextLoop({
                             loopDelayMs: cfg.loopDelayMs,
+                            loopDelayUnit: cfg.loopDelayUnit,
                             newChatHotkey,
                             shouldCancel,
                             sendCompletedAtMs
@@ -11014,21 +11229,65 @@
                 delayRow.className = "qi-row";
                 const stepDelayLabel = global.document.createElement("label");
                 stepDelayLabel.textContent = labels.fields?.stepDelay || DEFAULT_LABELS.fields.stepDelay;
+                const stepDelayControl = global.document.createElement("div");
+                stepDelayControl.className = "qi-delay-control";
                 stepDelayEl = global.document.createElement("input");
                 stepDelayEl.type = "number";
                 stepDelayEl.min = "0";
-                stepDelayEl.max = "30000";
+                stepDelayEl.step = "any";
+                stepDelayEl.inputMode = "decimal";
+                stepDelayUnitEl = createDelayUnitSelect();
+                stepDelayControl.appendChild(stepDelayEl);
+                stepDelayControl.appendChild(stepDelayUnitEl);
                 const loopDelayLabel = global.document.createElement("label");
                 loopDelayLabel.textContent = labels.fields?.loopDelay || DEFAULT_LABELS.fields.loopDelay;
+                const loopDelayControl = global.document.createElement("div");
+                loopDelayControl.className = "qi-delay-control";
                 loopDelayEl = global.document.createElement("input");
                 loopDelayEl.type = "number";
                 loopDelayEl.min = "0";
-                loopDelayEl.max = "300000";
+                loopDelayEl.step = "any";
+                loopDelayEl.inputMode = "decimal";
+                loopDelayUnitEl = createDelayUnitSelect();
+                loopDelayControl.appendChild(loopDelayEl);
+                loopDelayControl.appendChild(loopDelayUnitEl);
 
                 delayRow.appendChild(stepDelayLabel);
-                delayRow.appendChild(stepDelayEl);
+                delayRow.appendChild(stepDelayControl);
                 delayRow.appendChild(loopDelayLabel);
-                delayRow.appendChild(loopDelayEl);
+                delayRow.appendChild(loopDelayControl);
+
+                stepDelayEl.addEventListener("input", persistDelayControls);
+                stepDelayEl.addEventListener("change", () => handleDelayInputChange({
+                    inputEl: stepDelayEl,
+                    unitEl: stepDelayUnitEl,
+                    fallbackMs: defaults.stepDelayMs,
+                    fallbackUnit: defaults.stepDelayUnit,
+                    maxMs: STEP_DELAY_MAX_MS
+                }));
+                stepDelayUnitEl.addEventListener("change", () => handleDelayUnitChange({
+                    inputEl: stepDelayEl,
+                    unitEl: stepDelayUnitEl,
+                    fallbackMs: defaults.stepDelayMs,
+                    fallbackUnit: defaults.stepDelayUnit,
+                    maxMs: STEP_DELAY_MAX_MS
+                }));
+
+                loopDelayEl.addEventListener("input", persistDelayControls);
+                loopDelayEl.addEventListener("change", () => handleDelayInputChange({
+                    inputEl: loopDelayEl,
+                    unitEl: loopDelayUnitEl,
+                    fallbackMs: defaults.loopDelayMs,
+                    fallbackUnit: defaults.loopDelayUnit,
+                    maxMs: LOOP_DELAY_MAX_MS
+                }));
+                loopDelayUnitEl.addEventListener("change", () => handleDelayUnitChange({
+                    inputEl: loopDelayEl,
+                    unitEl: loopDelayUnitEl,
+                    fallbackMs: defaults.loopDelayMs,
+                    fallbackUnit: defaults.loopDelayUnit,
+                    maxMs: LOOP_DELAY_MAX_MS
+                }));
 
                 const optionsRow = global.document.createElement("div");
                 optionsRow.className = "qi-row";
