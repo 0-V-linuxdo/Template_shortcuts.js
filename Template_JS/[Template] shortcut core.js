@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.3.0
+// @name         [Template] 快捷键跳转 [20260407] v1.3.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.3.0
-// @update-log   1.3.0: 优化 QuickInput 首尾日志样式；首项“执行配置”支持折叠与状态色，末项完成/失败/取消改为状态卡显示。
+// @version      [20260407] v1.3.1
+// @update-log   1.3.1: 优化 QuickInput“执行配置”展开内容为分行展示；移除顶部冗余状态，仅保留底部状态卡。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9104,8 +9104,12 @@
                 imagesCleared: "已清除图片。",
                 missingNewChatHotkey: "请填写「新对话快捷键」。",
                 missingInput: "请先输入文字或载入图片。",
-                start: (loopCount, toolHotkeys, newChatHotkey, imageCount) =>
-                    `开始执行：循环 ${loopCount} 次，工具快捷键 ${toolHotkeys.length ? toolHotkeys.join("、") : "(无)"}，新对话快捷键 ${newChatHotkey}，图片 ${imageCount} 张。`,
+                start: (loopCount, toolHotkeys, newChatHotkey, imageCount) => [
+                    `循环次数：${loopCount} 次`,
+                    `工具快捷键：${toolHotkeys.length ? toolHotkeys.join("、") : "(无)"}`,
+                    `新对话快捷键：${newChatHotkey}`,
+                    `图片数量：${imageCount} 张`
+                ].join("\n"),
                 startSummary: "执行配置",
                 loopMarker: (i, loopCount) => `—— 第 ${i}/${loopCount} 次 ——`,
                 composerNotFound: "未找到输入框：请先点击一次输入框再运行。",
@@ -10257,20 +10261,6 @@
                 ${hostSelector} .qi-log-group.qi-log-group-status-warn .qi-log-group-body {
                     background: color-mix(in srgb, var(--qi-warn) 5%, var(--qi-surface));
                 }
-                ${hostSelector} .qi-log-group-status-tag {
-                    flex: 0 0 auto;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 2px 9px;
-                    border-radius: 999px;
-                    border: 1px solid currentColor;
-                    font-size: 11px;
-                    font-weight: 700;
-                    letter-spacing: 0.2px;
-                    line-height: 1.2;
-                    opacity: 0.9;
-                }
                 ${hostSelector} .qi-log-group-detail {
                     min-width: 0;
                     white-space: pre-wrap;
@@ -10357,37 +10347,15 @@
                 return "info";
             }
 
-            function getLogStatusText(status) {
-                const normalized = normalizeLogStatus(status);
-                if (normalized === "ok") return "成功";
-                if (normalized === "error") return "失败";
-                if (normalized === "warn") return "取消";
-                return "进行中";
-            }
-
-            function setLogGroupStatus(groupEl, status, { tagText = "" } = {}) {
+            function setLogGroupStatus(groupEl, status) {
                 if (!groupEl) return;
                 const normalized = normalizeLogStatus(status);
                 groupEl.classList.remove("qi-log-group-status-info", "qi-log-group-status-ok", "qi-log-group-status-error", "qi-log-group-status-warn");
                 groupEl.classList.add(`qi-log-group-status-${normalized}`);
 
                 const summaryEl = groupEl.querySelector?.(".qi-log-group-summary");
-                if (!summaryEl) return;
-
-                let tagEl = summaryEl.querySelector?.(".qi-log-group-status-tag") || null;
-                const text = String(tagText || getLogStatusText(normalized)).trim();
-                if (!text) {
-                    try { tagEl?.remove?.(); } catch {}
-                    return;
-                }
-
-                if (!tagEl) {
-                    tagEl = global.document?.createElement?.("span");
-                    if (!tagEl) return;
-                    tagEl.className = "qi-log-group-status-tag";
-                    summaryEl.appendChild(tagEl);
-                }
-                tagEl.textContent = text;
+                const tagEl = summaryEl?.querySelector?.(".qi-log-group-status-tag") || null;
+                try { tagEl?.remove?.(); } catch {}
             }
 
             function createLogLineElement(text, { level = "info", time = getLogTimestamp() } = {}) {
