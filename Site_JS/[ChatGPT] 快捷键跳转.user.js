@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260407] v1.0.2
+// @name         [ChatGPT] 快捷键跳转 [20260407] v1.4.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 //
-// @version      [20260407] v1.0.2
-// @update-log   1.0.2: 同步 Template v1.0.2 依赖；修复 QuickInput 延迟单位下拉箭头样式异常。
+// @version      [20260407] v1.4.4
+// @update-log   1.4.4: 同步 Template v1.4.4 依赖；统一 QuickInput 最终状态文案标点，将“完成 / 已停止 / 失败”结尾调整为感叹号。
 //
 // @match        https://chatgpt.com/*
 //
@@ -16,7 +16,7 @@
 // @connect      *
 //
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Site_Icon/ChatGPT_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260407.1.0.2
+// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260407.1.4.4
 // ==/UserScript==
 
 (function() {
@@ -140,10 +140,34 @@
         const overlayId = `${String(idPrefix || "").trim() || "chatgpt"}-quick-input-overlay`;
         const CHATGPT_ROOT_URL = "https://chatgpt.com/";
         const NATIVE_NEW_CHAT_LABEL = "CMD+SHIFT+O (原生)";
+        const isInsideOverlayTree = typeof dom?.isInsideOverlayTree === "function"
+            ? dom.isInsideOverlayTree
+            : (target, targetOverlayId) => {
+                if (!target || !targetOverlayId) return false;
+                let node = target;
+                while (node) {
+                    if (node.nodeType === 1) {
+                        if (node.id === targetOverlayId) return true;
+                        try {
+                            if (typeof node.closest === "function" && node.closest(`#${targetOverlayId}`)) return true;
+                        } catch {}
+                    }
+                    let next = null;
+                    try { next = node.parentNode || null; } catch {}
+                    if (!next && typeof node.getRootNode === "function") {
+                        try {
+                            const root = node.getRootNode();
+                            next = root?.host || null;
+                        } catch {}
+                    }
+                    if (!next || next === node) break;
+                    node = next;
+                }
+                return false;
+            };
 
         function isInsideQuickInputOverlay(el) {
-            if (!el || typeof el.closest !== "function") return false;
-            try { return !!el.closest(`#${overlayId}`); } catch { return false; }
+            return isInsideOverlayTree(el, overlayId);
         }
 
         function getCurrentChatGPTUrl() {
@@ -1404,8 +1428,8 @@
 
         return Object.freeze({
             // focusComposer 默认检测输出状态，如果正在输出则自动新建对话
-            focusComposer: (opts) => focusComposer({
-                ...(opts || {}),
+            focusComposer: (opts) => focusComposer({ 
+                ...(opts || {}), 
                 checkStreaming: true  // 循环模式下自动检测并处理输出状态
             }),
             setInputValue: setChatGPTInputValue,
@@ -1441,6 +1465,7 @@
             storageKey: QUICK_INPUT_STORAGE_KEY,
             title: "ChatGPT - 快捷输入",
             primaryColor: "#5D5CDE",
+            themeMode: "system",
             defaults: {
                 loopCount: 5,
                 stepDelayMs: 1000,
