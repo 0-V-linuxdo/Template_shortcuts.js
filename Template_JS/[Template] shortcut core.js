@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.0.1
+// @name         [Template] 快捷键跳转 [20260407] v1.0.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.0.1
-// @update-log   1.0.1: QuickInput 统一数字输入框无 spinner 样式，修复 ChatGPT / Gemini 间外观不一致。
+// @version      [20260407] v1.0.2
+// @update-log   1.0.2: 修复 QuickInput 延迟单位下拉箭头样式异常，改为独立 caret 结构并缩小箭头尺寸。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9629,25 +9629,42 @@
                     -webkit-appearance: none;
                     margin: 0;
                 }
-                #${overlayId} select {
-                    -webkit-appearance: none;
-                    -moz-appearance: none;
-                    appearance: none;
-                    padding-right: 32px;
-                    background-repeat: no-repeat;
-                    background-position: right 11px center;
-                    background-size: 12px 12px;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23FFFFFF' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-                }
                 #${overlayId} .qi-delay-control {
                     display: grid;
                     grid-template-columns: minmax(0, 1fr) auto;
                     gap: 8px;
                     align-items: center;
                 }
-                #${overlayId} .qi-delay-control select {
-                    width: auto;
+                #${overlayId} .qi-select-wrap {
+                    position: relative;
                     min-width: 76px;
+                    width: auto;
+                }
+                #${overlayId} .qi-select-wrap select {
+                    display: block;
+                    -webkit-appearance: none !important;
+                    -moz-appearance: none !important;
+                    appearance: none !important;
+                    padding-right: 28px;
+                    background-image: none !important;
+                    width: 100%;
+                    min-width: 76px;
+                }
+                #${overlayId} .qi-select-wrap select::-ms-expand {
+                    display: none;
+                }
+                #${overlayId} .qi-select-caret {
+                    position: absolute;
+                    right: 11px;
+                    top: 50%;
+                    width: 10px;
+                    height: 10px;
+                    transform: translateY(-50%);
+                    pointer-events: none;
+                    background-repeat: no-repeat;
+                    background-position: center;
+                    background-size: 10px 10px;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23FFFFFF' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
                 }
                 #${overlayId} .qi-hotkey-item {
                     position: relative;
@@ -9900,7 +9917,7 @@
                     background: rgba(255, 255, 255, 0.95);
                     color: #111827;
                 }
-                #${overlayId}[data-theme="light"] select {
+                #${overlayId}[data-theme="light"] .qi-select-caret {
                     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23111827' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
                 }
                 #${overlayId}[data-theme="light"] .qi-drop {
@@ -10503,7 +10520,9 @@
                 return input;
             }
 
-            function createDelayUnitSelect() {
+            function createDelayUnitSelectControl() {
+                const wrap = global.document.createElement("div");
+                wrap.className = "qi-select-wrap";
                 const select = global.document.createElement("select");
                 const unitLabels = getDelayUnitLabels();
                 for (const unit of Object.keys(DELAY_UNIT_FACTORS)) {
@@ -10512,7 +10531,12 @@
                     option.textContent = unitLabels[unit] || DELAY_UNIT_LABELS[unit] || unit;
                     select.appendChild(option);
                 }
-                return select;
+                const caret = global.document.createElement("span");
+                caret.className = "qi-select-caret";
+                caret.setAttribute("aria-hidden", "true");
+                wrap.appendChild(select);
+                wrap.appendChild(caret);
+                return { wrap, select };
             }
 
             function writeConfigToUi(cfg) {
@@ -11266,9 +11290,10 @@
                 stepDelayEl.min = "0";
                 stepDelayEl.step = "any";
                 stepDelayEl.inputMode = "decimal";
-                stepDelayUnitEl = createDelayUnitSelect();
+                const stepDelayUnitControl = createDelayUnitSelectControl();
+                stepDelayUnitEl = stepDelayUnitControl.select;
                 stepDelayControl.appendChild(stepDelayEl);
-                stepDelayControl.appendChild(stepDelayUnitEl);
+                stepDelayControl.appendChild(stepDelayUnitControl.wrap);
                 const loopDelayLabel = global.document.createElement("label");
                 loopDelayLabel.textContent = labels.fields?.loopDelay || DEFAULT_LABELS.fields.loopDelay;
                 const loopDelayControl = global.document.createElement("div");
@@ -11279,9 +11304,10 @@
                 loopDelayEl.min = "0";
                 loopDelayEl.step = "any";
                 loopDelayEl.inputMode = "decimal";
-                loopDelayUnitEl = createDelayUnitSelect();
+                const loopDelayUnitControl = createDelayUnitSelectControl();
+                loopDelayUnitEl = loopDelayUnitControl.select;
                 loopDelayControl.appendChild(loopDelayEl);
-                loopDelayControl.appendChild(loopDelayUnitEl);
+                loopDelayControl.appendChild(loopDelayUnitControl.wrap);
 
                 delayRow.appendChild(stepDelayLabel);
                 delayRow.appendChild(stepDelayControl);
