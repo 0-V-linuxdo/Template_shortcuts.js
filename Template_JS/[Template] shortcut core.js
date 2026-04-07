@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.3.5
+// @name         [Template] 快捷键跳转 [20260407] v1.3.6
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.3.5
-// @update-log   1.3.5: 对齐 QuickInput 底部折叠状态卡标题文字，使其与上方日志组居中对齐。
+// @version      [20260407] v1.3.6
+// @update-log   1.3.6: 统一 QuickInput 日志组与底部折叠状态卡的标题栏内边距，修正折叠状态标题受右侧箭头预留宽度影响而偏移的问题。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10129,7 +10129,7 @@
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    padding: 9px 12px 9px 34px;
+                    padding: 9px 34px 9px 34px;
                     cursor: pointer;
                     list-style: none;
                     font-weight: 650;
