@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260408] v1.0.0
+// @name         [Template] 快捷键跳转 [20260409] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260408] v1.0.0
-// @update-log   1.0.0: QuickInput 新增暂停/继续，暂停时冻结步骤/循环/上传/新对话校验等待并支持继续后无损恢复。
+// @version      [20260409] v1.0.0
+// @update-log   1.0.0: QuickInput 新增暂停/继续，并将关闭弹窗改为暂停当前任务；暂停时冻结步骤/循环/上传/新对话校验等待并支持继续后无损恢复。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -38,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20260408";
+    const TEMPLATE_VERSION = "20260409";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -12511,11 +12511,11 @@
                     const clamped = clampPanelPos(rect.left, rect.top, rect.width, rect.height);
                     persistPanelPos(clamped.left, clamped.top, { force: true });
                 }
+                if (running && !cancelRun && !paused) pauseRun();
                 stopDrag();
                 persistDraftText();
                 stopThemeAutoSync();
                 setOverlayVisibility(false);
-                if (running) stopMacro();
             }
 
             return Object.freeze({ open, close });
