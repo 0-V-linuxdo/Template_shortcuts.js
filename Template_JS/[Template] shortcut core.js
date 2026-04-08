@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260407] v1.4.4
+// @name         [Template] 快捷键跳转 [20260408] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260407] v1.4.4
-// @update-log   1.4.4: 统一 QuickInput 最终状态文案标点，将“完成 / 已停止 / 失败”结尾全部调整为感叹号。
+// @version      [20260408] v1.0.0
+// @update-log   1.0.0: QuickInput 新增暂停/继续，暂停时冻结步骤/循环/上传/新对话校验等待并支持继续后无损恢复。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -38,7 +38,7 @@
      * 1. 常量定义 & 工具函数
      * ------------------------------------------------------------------ */
 
-    const TEMPLATE_VERSION = "20260407";
+    const TEMPLATE_VERSION = "20260408";
 
     const DEFAULT_OPTIONS = {
         version: TEMPLATE_VERSION,
@@ -8474,15 +8474,29 @@
             return pickBestComposerCandidate(filtered);
         }
 
-        async function focusComposer({ timeoutMs = 2500, intervalMs = 120, shouldCancel = null, shouldIgnore = null } = {}) {
+        async function focusComposer({ timeoutMs = 2500, intervalMs = 120, shouldCancel = null, shouldIgnore = null, runtime = null } = {}) {
             const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
             const ignoreFn = typeof shouldIgnore === "function" ? shouldIgnore : null;
-            const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+            const runtimeApi = runtime && typeof runtime === "object" ? runtime : null;
+            const now = typeof runtimeApi?.now === "function"
+                ? () => runtimeApi.now()
+                : () => Date.now();
+            const waitIfPaused = typeof runtimeApi?.waitIfPaused === "function"
+                ? runtimeApi.waitIfPaused.bind(runtimeApi)
+                : null;
+            const deadline = now() + Math.max(0, Number(timeoutMs) || 0);
             let composer = findComposerElement({ shouldIgnore: ignoreFn });
 
-            while (!composer && Date.now() < deadline) {
+            while (!composer && now() < deadline) {
                 if (cancelFn && cancelFn()) return null;
-                await sleep(intervalMs);
+                if (waitIfPaused) {
+                    const pauseOk = await waitIfPaused();
+                    if (pauseOk === false) return null;
+                }
+                const waitMs = Math.min(Math.max(0, deadline - now()), Math.max(0, Number(intervalMs) || 0));
+                if (waitMs <= 0) break;
+                const waitOk = await sleepWithCancel(waitMs, { shouldCancel: cancelFn, runtime: runtimeApi, chunkMs: intervalMs });
+                if (!waitOk) return null;
                 composer = findComposerElement({ shouldIgnore: ignoreFn });
             }
 
@@ -8491,7 +8505,8 @@
             try { composer.scrollIntoView?.({ block: "center" }); } catch {}
             try { composer.focus?.(); } catch {}
             try { Utils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch {}
-            await sleep(20);
+            const settleOk = await sleepWithCancel(20, { shouldCancel: cancelFn, runtime: runtimeApi, chunkMs: 20 });
+            if (!settleOk) return null;
             return composer;
         }
 
@@ -9069,6 +9084,8 @@
             buttons: Object.freeze({
                 run: "运行",
                 stop: "停止",
+                pause: "暂停",
+                resume: "继续",
                 addHotkey: "增加快捷键",
                 delete: "删除",
                 clearImages: "清空图片"
@@ -9132,6 +9149,8 @@
                 newChatNotReady: "新对话在自动重试后仍未就绪：已停止后续循环，避免在旧上下文继续执行。",
                 inputUrlRecovering: (stage, hotkey) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：准备自动重新触发 ${hotkey} 新建对话。`,
                 inputUrlNotReady: (stage) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：自动补救后仍未恢复，已停止后续循环，避免在错误会话继续执行。`,
+                paused: "已暂停。",
+                resumed: "已继续。",
                 stopped: "已停止！",
                 failed: "失败！",
                 finished: "完成！",
@@ -9295,18 +9314,35 @@
             return true;
         }
 
-        async function sleepWithCancel(totalMs, { shouldCancel = null, chunkMs = 160 } = {}) {
+        async function sleepWithCancel(totalMs, { shouldCancel = null, chunkMs = 160, runtime = null } = {}) {
             const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            const runtimeApi = runtime && typeof runtime === "object" ? runtime : null;
+            const now = typeof runtimeApi?.now === "function"
+                ? () => runtimeApi.now()
+                : () => Date.now();
+            const waitIfPaused = typeof runtimeApi?.waitIfPaused === "function"
+                ? runtimeApi.waitIfPaused.bind(runtimeApi)
+                : null;
             let remain = Math.max(0, Number(totalMs) || 0);
             const chunk = Math.max(20, Number(chunkMs) || 160);
 
             while (remain > 0) {
                 if (cancelFn && cancelFn()) return false;
+                if (waitIfPaused) {
+                    const pauseOk = await waitIfPaused();
+                    if (pauseOk === false) return false;
+                }
                 const waitMs = Math.min(remain, chunk);
+                const startedAt = now();
                 await sleep(waitMs);
-                remain -= waitMs;
+                const elapsed = Math.max(0, now() - startedAt);
+                remain -= elapsed;
             }
 
+            if (waitIfPaused) {
+                const pauseOk = await waitIfPaused();
+                if (pauseOk === false) return false;
+            }
             return !(cancelFn && cancelFn());
         }
 
@@ -9377,6 +9413,7 @@
             let clearBeforeRunEl = null;
             const runButtons = [];
             const stopButtons = [];
+            const pauseButtons = [];
             let activeTab = "input";
             let setActiveTab = null;
 
@@ -9385,6 +9422,9 @@
             let imageObjectUrls = [];
             let running = false;
             let cancelRun = false;
+            let paused = false;
+            let pauseStartedAtMs = 0;
+            let accumulatedPausedMs = 0;
             let runFinalStatus = "idle";
             let pendingFinalStatusDetail = "";
             let draftPersistToken = 0;
@@ -9407,6 +9447,150 @@
 
             function isInsideOverlay(el) {
                 return isInsideOverlayTree(el, overlayId);
+            }
+
+            function resetPauseTracking() {
+                paused = false;
+                pauseStartedAtMs = 0;
+                accumulatedPausedMs = 0;
+            }
+
+            function getPauseAwareNow() {
+                const wallNow = Date.now();
+                const currentPauseDuration = paused && pauseStartedAtMs
+                    ? Math.max(0, wallNow - pauseStartedAtMs)
+                    : 0;
+                return wallNow - accumulatedPausedMs - currentPauseDuration;
+            }
+
+            async function waitWhilePaused({ pollMs = 80 } = {}) {
+                const waitMs = Math.max(20, Number(pollMs) || 80);
+                while (paused) {
+                    if (cancelRun) return false;
+                    await sleep(waitMs);
+                }
+                return !cancelRun;
+            }
+
+            const runtimeTiming = Object.freeze({
+                now: () => getPauseAwareNow(),
+                waitIfPaused: () => waitWhilePaused()
+            });
+
+            const runRuntime = Object.freeze({
+                isPaused: () => paused,
+                waitIfPaused: runtimeTiming.waitIfPaused,
+                sleep: (ms) => sleepWithCancel(ms, {
+                    shouldCancel: () => cancelRun,
+                    runtime: runtimeTiming,
+                    chunkMs: 160
+                }),
+                now: runtimeTiming.now
+            });
+
+            function appendRuntimeLog(text, options = {}) {
+                if (!text) return;
+                if (activeLoopLogBodyEl) {
+                    appendLoopLog(text, options);
+                    return;
+                }
+                appendGlobalLog(text, options);
+            }
+
+            function getPauseButtonLabel() {
+                return paused
+                    ? (labels.buttons?.resume || DEFAULT_LABELS.buttons.resume)
+                    : (labels.buttons?.pause || DEFAULT_LABELS.buttons.pause);
+            }
+
+            function syncRunControls() {
+                const isBusy = running;
+                const isCancelling = isBusy && cancelRun;
+                for (const btn of runButtons) {
+                    if (btn) btn.disabled = isBusy;
+                }
+                for (const btn of stopButtons) {
+                    if (btn) btn.disabled = !isBusy || isCancelling;
+                }
+                for (const btn of pauseButtons) {
+                    if (!btn) continue;
+                    btn.disabled = !isBusy || isCancelling;
+                    btn.textContent = getPauseButtonLabel();
+                }
+                for (const input of hotkeyInputs) {
+                    if (input) input.disabled = isBusy;
+                }
+                if (addHotkeyBtnEl) addHotkeyBtnEl.disabled = isBusy;
+                try {
+                    const delButtons = hotkeyListEl?.querySelectorAll?.("button.qi-hotkey-del") || [];
+                    for (const btn of delButtons) {
+                        if (btn) btn.disabled = isBusy;
+                    }
+                } catch {}
+                if (loopEl) loopEl.disabled = isBusy;
+                if (stepDelayEl) stepDelayEl.disabled = isBusy;
+                if (stepDelayUnitEl) stepDelayUnitEl.disabled = isBusy;
+                if (loopDelayEl) loopDelayEl.disabled = isBusy;
+                if (loopDelayUnitEl) loopDelayUnitEl.disabled = isBusy;
+                if (clearBeforeRunEl) clearBeforeRunEl.disabled = isBusy;
+                if (newChatHotkeyEl) newChatHotkeyEl.disabled = isBusy;
+                if (textEl) textEl.disabled = isBusy;
+                if (imageDropEl) imageDropEl.style.opacity = isBusy ? "0.7" : "1";
+                if (clearAllImagesBtnEl) {
+                    const hasImages = (imageFiles?.length || 0) > 0;
+                    clearAllImagesBtnEl.disabled = isBusy || !hasImages;
+                }
+                try {
+                    const delButtons = imagePreviewListEl?.querySelectorAll?.("button.qi-preview-del") || [];
+                    for (const btn of delButtons) {
+                        if (btn) btn.disabled = isBusy;
+                    }
+                } catch {}
+            }
+
+            function setPausedState(nextPaused, { log = true } = {}) {
+                if (!running) return;
+                const targetPaused = !!nextPaused;
+                if (paused === targetPaused) return;
+
+                if (targetPaused) {
+                    paused = true;
+                    pauseStartedAtMs = Date.now();
+                    if (log) {
+                        appendRuntimeLog(labels.messages?.paused || DEFAULT_LABELS.messages.paused, { level: "warn" });
+                    }
+                    setActiveTab?.("log");
+                } else {
+                    if (pauseStartedAtMs) {
+                        accumulatedPausedMs += Math.max(0, Date.now() - pauseStartedAtMs);
+                    }
+                    pauseStartedAtMs = 0;
+                    paused = false;
+                    if (log) {
+                        appendRuntimeLog(labels.messages?.resumed || DEFAULT_LABELS.messages.resumed, { level: "ok" });
+                    }
+                }
+
+                syncRunControls();
+            }
+
+            function pauseRun() {
+                if (!running || cancelRun) return;
+                setPausedState(true);
+            }
+
+            function resumeRun() {
+                if (!running || cancelRun) return;
+                setPausedState(false);
+            }
+
+            function togglePause() {
+                if (!running || cancelRun) return;
+                if (paused) {
+                    resumeRun();
+                    return;
+                }
+                pauseRun();
             }
 
             function normalizeThemeMode(value) {
@@ -9493,7 +9677,7 @@
                 return typeof defaults.newChatHotkey === "string" ? defaults.newChatHotkey : "";
             }
 
-            async function triggerNewChatAction({ hotkey, phase = "primary", attempt = 1, shouldCancel = null } = {}) {
+            async function triggerNewChatAction({ hotkey, phase = "primary", attempt = 1, shouldCancel = null, runtime = null } = {}) {
                 const fallbackHotkey = String(hotkey || "").trim();
                 const triggerLabel = getNewChatTriggerLabel(fallbackHotkey);
                 if (!fallbackHotkey && !hasCustomNewChatTrigger) return { ok: false, label: triggerLabel };
@@ -9504,6 +9688,7 @@
                         phase,
                         attempt,
                         shouldCancel,
+                        runtime,
                         fallbackTrigger: () => fallbackHotkey ? executeEngineShortcutByHotkey(engine, fallbackHotkey) : false
                     });
                     if (result && typeof result === "object") {
@@ -10851,41 +11036,8 @@
 
             function setRunning(nextRunning) {
                 running = !!nextRunning;
-                for (const btn of runButtons) {
-                    if (btn) btn.disabled = running;
-                }
-                for (const btn of stopButtons) {
-                    if (btn) btn.disabled = !running;
-                }
-                for (const input of hotkeyInputs) {
-                    if (input) input.disabled = running;
-                }
-                if (addHotkeyBtnEl) addHotkeyBtnEl.disabled = running;
-                try {
-                    const delButtons = hotkeyListEl?.querySelectorAll?.("button.qi-hotkey-del") || [];
-                    for (const btn of delButtons) {
-                        if (btn) btn.disabled = running;
-                    }
-                } catch {}
-                if (loopEl) loopEl.disabled = running;
-                if (stepDelayEl) stepDelayEl.disabled = running;
-                if (stepDelayUnitEl) stepDelayUnitEl.disabled = running;
-                if (loopDelayEl) loopDelayEl.disabled = running;
-                if (loopDelayUnitEl) loopDelayUnitEl.disabled = running;
-                if (clearBeforeRunEl) clearBeforeRunEl.disabled = running;
-                if (newChatHotkeyEl) newChatHotkeyEl.disabled = running;
-                if (textEl) textEl.disabled = running;
-                if (imageDropEl) imageDropEl.style.opacity = running ? "0.7" : "1";
-                if (clearAllImagesBtnEl) {
-                    const hasImages = (imageFiles?.length || 0) > 0;
-                    clearAllImagesBtnEl.disabled = running || !hasImages;
-                }
-                try {
-                    const delButtons = imagePreviewListEl?.querySelectorAll?.("button.qi-preview-del") || [];
-                    for (const btn of delButtons) {
-                        if (btn) btn.disabled = running;
-                    }
-                } catch {}
+                if (!running) resetPauseTracking();
+                syncRunControls();
             }
 
             function isColorDark(colorStr) {
@@ -11299,12 +11451,16 @@
                 if (clearBeforeRunEl) clearBeforeRunEl.checked = cfg.clearBeforeRun !== false;
             }
 
-            async function transitionToNextLoop({ loopDelayMs, loopDelayUnit, newChatHotkey, shouldCancel, sendCompletedAtMs }) {
+            async function transitionToNextLoop({ loopDelayMs, loopDelayUnit, newChatHotkey, shouldCancel, sendCompletedAtMs, runtime = null }) {
                 const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+                const runtimeApi = runtime && typeof runtime === "object" ? runtime : null;
+                const now = typeof runtimeApi?.now === "function"
+                    ? () => runtimeApi.now()
+                    : () => Date.now();
                 const delayMs = Math.max(0, Number(loopDelayMs) || 0);
                 const sendAt = Number(sendCompletedAtMs);
-                const delayDeadline = (Number.isFinite(sendAt) ? sendAt : Date.now()) + delayMs;
-                const remainMs = Math.max(0, delayDeadline - Date.now());
+                const delayDeadline = (Number.isFinite(sendAt) ? sendAt : now()) + delayMs;
+                const remainMs = Math.max(0, delayDeadline - now());
 
                 if (delayMs > 0) {
                     const formattedDelay = formatDelayWithUnit(delayMs, loopDelayUnit, getDelayUnitLabels());
@@ -11316,7 +11472,7 @@
                     if (waitingMsg) appendLoopLog(waitingMsg);
                 }
 
-                const waitOk = await sleepWithCancel(remainMs, { shouldCancel: cancelFn, chunkMs: 160 });
+                const waitOk = await sleepWithCancel(remainMs, { shouldCancel: cancelFn, chunkMs: 160, runtime: runtimeApi });
                 if (!waitOk) return { cancelled: true, okNewChat: false };
 
                 const maxNewChatRetries = 1;
@@ -11332,7 +11488,8 @@
                         hotkey: newChatHotkey,
                         phase: attemptIndex === 0 ? "primary" : "retry",
                         attempt: attemptIndex + 1,
-                        shouldCancel: cancelFn
+                        shouldCancel: cancelFn,
+                        runtime: runtimeApi
                     });
                     const triggerLabel = String(triggerResult?.label || newChatHotkey || "").trim() || String(newChatHotkey || "").trim();
                     usedNewChatLabel = triggerLabel;
@@ -11344,7 +11501,8 @@
                             hotkey: triggerLabel,
                             timeoutMs: 12000,
                             intervalMs: 160,
-                            shouldCancel: cancelFn
+                            shouldCancel: cancelFn,
+                            runtime: runtimeApi
                         });
                         if (verification && typeof verification === "object") {
                             if (verification.cancelled) {
@@ -11374,7 +11532,7 @@
                             : "");
                     if (retryMsg) appendLoopLog(retryMsg);
 
-                    const retryWaitOk = await sleepWithCancel(800, { shouldCancel: cancelFn, chunkMs: 160 });
+                    const retryWaitOk = await sleepWithCancel(800, { shouldCancel: cancelFn, chunkMs: 160, runtime: runtimeApi });
                     if (!retryWaitOk) return { cancelled: true, okNewChat: false };
                 }
 
@@ -11392,6 +11550,7 @@
             async function runMacro() {
                 if (running) return;
                 cancelRun = false;
+                resetPauseTracking();
                 runFinalStatus = "running";
                 setRunning(true);
                 clearLog();
@@ -11420,6 +11579,12 @@
                 }
 
                 const shouldCancel = () => cancelRun;
+                const runtime = runRuntime;
+                const waitStep = async (ms, chunkMs = 160) => sleepWithCancel(ms, {
+                    shouldCancel,
+                    runtime,
+                    chunkMs
+                });
                 setActiveTab?.("log");
                 const startRows = labels.messages?.startRows
                     ? labels.messages.startRows(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length)
@@ -11459,7 +11624,8 @@
                         timeoutMs: 240,
                         intervalMs: 60,
                         settleMs: 0,
-                        shouldCancel
+                        shouldCancel,
+                        runtime
                     });
                     if (verification && typeof verification === "object" && verification.cancelled) return "cancelled";
 
@@ -11478,7 +11644,8 @@
                         hotkey: newChatHotkey,
                         phase: "retry",
                         attempt: 1,
-                        shouldCancel
+                        shouldCancel,
+                        runtime
                     });
                     if (retryTrigger.ok && adapter.waitForNewChatReady) {
                         verification = await adapter.waitForNewChatReady({
@@ -11486,7 +11653,8 @@
                             timeoutMs: 12000,
                             intervalMs: 160,
                             settleMs: 300,
-                            shouldCancel
+                            shouldCancel,
+                            runtime
                         });
                         if (verification && typeof verification === "object" && verification.cancelled) return "cancelled";
                         ok = (verification && typeof verification === "object") ? !!verification.ok : !!verification;
@@ -11534,6 +11702,7 @@
                 async function attachImageFiles(fileList, composerEl) {
                     return await adapter.attachImages(fileList, composerEl, {
                         shouldCancel,
+                        runtime,
                         onDiagnostics: handleImageAttachDiagnostics
                     });
                 }
@@ -11593,8 +11762,10 @@
                         appendLoopLog(waitingMsg);
 
                         if (!adapter.waitForReadyToSend) {
-                            await sleep(Math.max(800, cfg.stepDelayMs));
-                            return { ok: true, composer: composerRef };
+                            const fallbackWaitOk = await waitStep(Math.max(800, cfg.stepDelayMs));
+                            return fallbackWaitOk
+                                ? { ok: true, composer: composerRef }
+                                : { ok: false, cancelled: true, composer: composerRef };
                         }
 
                         const ready = await adapter.waitForReadyToSend(composerRef, {
@@ -11603,7 +11774,8 @@
                             timeoutMs: 45000,
                             intervalMs: 160,
                             settleMs: 600,
-                            shouldCancel
+                            shouldCancel,
+                            runtime
                         });
                         if (ready?.cancelled) return { ok: false, cancelled: true, composer: composerRef, ready };
                         if (ready?.ok) return { ok: true, composer: composerRef, ready };
@@ -11633,7 +11805,7 @@
                             return { ok: false, cancelled: false, composer: composerRef, ready };
                         }
 
-                        composerRef = await adapter.focusComposer({ timeoutMs: 6000, intervalMs: 120, shouldCancel }) || composerRef;
+                        composerRef = await adapter.focusComposer({ timeoutMs: 6000, intervalMs: 120, shouldCancel, runtime }) || composerRef;
                         if (!composerRef) {
                             return {
                                 ok: false,
@@ -11664,8 +11836,8 @@
                             ? labels.messages.repairedImages(repairFiles.length, expected)
                             : DEFAULT_LABELS.messages.repairedImages(repairFiles.length, expected);
                         appendLoopLog(repairedMsg, { level: "ok" });
-                        await sleep(cfg.stepDelayMs);
-                        if (cancelRun) return { ok: false, cancelled: true, composer: composerRef, ready };
+                        const repairWaitOk = await waitStep(cfg.stepDelayMs);
+                        if (!repairWaitOk) return { ok: false, cancelled: true, composer: composerRef, ready };
                     }
                 }
 
@@ -11682,9 +11854,12 @@
                         break;
                     }
 
-                    let composer = await adapter.focusComposer({ timeoutMs: 15000, intervalMs: 160, shouldCancel });
+                    let composer = await adapter.focusComposer({ timeoutMs: 15000, intervalMs: 160, shouldCancel, runtime });
                     if (!composer) {
-                        if (cancelRun) break;
+                        if (cancelRun) {
+                            markRunCancelled();
+                            break;
+                        }
                         markRunFailed();
                         appendLoopLog(labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound, { level: "error" });
                         break;
@@ -11697,8 +11872,10 @@
                     }
 
                     if (cfg.clearBeforeRun) adapter.clearComposerValue(composer);
-                    await sleep(cfg.stepDelayMs);
-                    if (cancelRun) break;
+                    if (!(await waitStep(cfg.stepDelayMs))) {
+                        markRunCancelled();
+                        break;
+                    }
 
                     if (images.length) {
                         const beforeImagesReady = await verifyInputUrlReady("贴图前");
@@ -11729,8 +11906,10 @@
                             break;
                         }
                         appendLoopLog(`已成功插入图片：${images.length} 张。`, { level: "ok" });
-                        await sleep(cfg.stepDelayMs);
-                        if (cancelRun) break;
+                        if (!(await waitStep(cfg.stepDelayMs))) {
+                            markRunCancelled();
+                            break;
+                        }
                     }
 
                     if (promptText.trim()) {
@@ -11745,8 +11924,10 @@
                             ? labels.messages.textInserted(okText)
                             : DEFAULT_LABELS.messages.textInserted(okText);
                         appendLoopLog(msg, { level: okText ? "ok" : "error" });
-                        await sleep(cfg.stepDelayMs);
-                        if (cancelRun) break;
+                        if (!(await waitStep(cfg.stepDelayMs))) {
+                            markRunCancelled();
+                            break;
+                        }
                     }
 
                     if (toolHotkeys.length) {
@@ -11762,7 +11943,10 @@
                                 ? labels.messages.hotkeyTriggered(hotkey, okHotkey)
                                 : DEFAULT_LABELS.messages.hotkeyTriggered(hotkey, okHotkey);
                             appendLoopLog(msg, { level: okHotkey ? "ok" : "error" });
-                            await sleep(cfg.stepDelayMs);
+                            if (!(await waitStep(cfg.stepDelayMs))) {
+                                markRunCancelled();
+                                break;
+                            }
                         }
                         if (cancelRun) break;
                     }
@@ -11786,8 +11970,10 @@
                         }
 
                         appendLoopLog("图片已就绪。", { level: "ok" });
-                        await sleep(Math.min(300, cfg.stepDelayMs));
-                        if (cancelRun) break;
+                        if (!(await waitStep(Math.min(300, cfg.stepDelayMs), 80))) {
+                            markRunCancelled();
+                            break;
+                        }
                     }
 
                     if (cancelRun) break;
@@ -11797,7 +11983,7 @@
                         break;
                     }
                     const okSend = await adapter.sendMessage(composer);
-                    const sendCompletedAtMs = Date.now();
+                    const sendCompletedAtMs = runtime.now();
                     const sendMsg = labels.messages?.sendAttempted
                         ? labels.messages.sendAttempted(okSend)
                         : DEFAULT_LABELS.messages.sendAttempted(okSend);
@@ -11809,7 +11995,8 @@
                             loopDelayUnit: cfg.loopDelayUnit,
                             newChatHotkey,
                             shouldCancel,
-                            sendCompletedAtMs
+                            sendCompletedAtMs,
+                            runtime
                         });
                         if (transition.cancelled) {
                             markRunCancelled();
@@ -11855,6 +12042,7 @@
                 cancelRun = true;
                 setActiveTab?.("log");
                 pendingFinalStatusDetail = labels.messages?.stopRequested || DEFAULT_LABELS.messages.stopRequested;
+                syncRunControls();
             }
 
             function ensureUi() {
@@ -12203,6 +12391,14 @@
                 stopBtnInput.addEventListener("click", stopMacro);
                 stopButtons.push(stopBtnInput);
 
+                const pauseBtnInput = global.document.createElement("button");
+                pauseBtnInput.type = "button";
+                pauseBtnInput.className = "qi-btn";
+                pauseBtnInput.textContent = getPauseButtonLabel();
+                pauseBtnInput.disabled = true;
+                pauseBtnInput.addEventListener("click", togglePause);
+                pauseButtons.push(pauseBtnInput);
+
                 const runBtnInput = global.document.createElement("button");
                 runBtnInput.type = "button";
                 runBtnInput.className = "qi-btn qi-btn-primary";
@@ -12211,6 +12407,7 @@
                 runButtons.push(runBtnInput);
 
                 inputActions.appendChild(stopBtnInput);
+                inputActions.appendChild(pauseBtnInput);
                 inputActions.appendChild(runBtnInput);
 
                 inputPanel.appendChild(body);
@@ -12234,6 +12431,14 @@
                 stopBtnLog.addEventListener("click", stopMacro);
                 stopButtons.push(stopBtnLog);
 
+                const pauseBtnLog = global.document.createElement("button");
+                pauseBtnLog.type = "button";
+                pauseBtnLog.className = "qi-btn";
+                pauseBtnLog.textContent = getPauseButtonLabel();
+                pauseBtnLog.disabled = true;
+                pauseBtnLog.addEventListener("click", togglePause);
+                pauseButtons.push(pauseBtnLog);
+
                 const runBtnLog = global.document.createElement("button");
                 runBtnLog.type = "button";
                 runBtnLog.className = "qi-btn qi-btn-primary";
@@ -12242,6 +12447,7 @@
                 runButtons.push(runBtnLog);
 
                 logActions.appendChild(stopBtnLog);
+                logActions.appendChild(pauseBtnLog);
                 logActions.appendChild(runBtnLog);
 
                 logPanel.appendChild(logEl);
@@ -12283,6 +12489,7 @@
 
                 writeConfigToUi(loadConfig(storageKey, defaults));
                 restoreDraftFromStorage();
+                syncRunControls();
             }
 
             function open() {
