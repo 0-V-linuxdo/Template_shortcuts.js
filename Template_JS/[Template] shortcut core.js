@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.0.0
+// @name         [Template] 快捷键跳转 [20260409] v1.1.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.0.0
-// @update-log   1.0.0: QuickInput 新增暂停/继续，并将关闭弹窗改为暂停当前任务；暂停时冻结步骤/循环/上传/新对话校验等待并支持继续后无损恢复。
+// @version      [20260409] v1.1.0
+// @update-log   1.1.0: QuickInput 新增 MutationObserver 主驱动的观察等待骨架；Gemini/ChatGPT 的贴图完成检测与发送就绪检测改为观察器+低频兜底，缓解后台页轮询节流。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8451,6 +8451,254 @@
             return setInputValue(el, "");
         }
 
+        function normalizeObservedRoots(rawRoots) {
+            const input = (() => {
+                if (!rawRoots) return [];
+                if (Array.isArray(rawRoots)) return rawRoots;
+                if (typeof rawRoots !== "string" && typeof rawRoots?.[Symbol.iterator] === "function") {
+                    try { return Array.from(rawRoots); } catch {}
+                }
+                return [rawRoots];
+            })();
+
+            const roots = [];
+            const seen = new Set();
+            for (const root of input) {
+                if (!root || seen.has(root)) continue;
+                try {
+                    if (typeof root.nodeType !== "number") continue;
+                } catch {
+                    continue;
+                }
+                seen.add(root);
+                roots.push(root);
+            }
+            return roots;
+        }
+
+        function haveSameObservedRoots(prevRoots, nextRoots) {
+            const prev = Array.isArray(prevRoots) ? prevRoots : [];
+            const next = Array.isArray(nextRoots) ? nextRoots : [];
+            if (prev.length !== next.length) return false;
+            const nextSet = new Set(next);
+            for (const root of prev) {
+                if (!nextSet.has(root)) return false;
+            }
+            return true;
+        }
+
+        async function waitForObservedState({
+            resolveRoots = null,
+            computeState = null,
+            isSatisfied = null,
+            timeoutMs = 0,
+            settleMs = 0,
+            pollFallbackMs = 1000,
+            attributeFilter = null,
+            shouldCancel = null,
+            runtime = null
+        } = {}) {
+            const computeStateFn = typeof computeState === "function" ? computeState : null;
+            const isSatisfiedFn = typeof isSatisfied === "function" ? isSatisfied : null;
+            const resolveRootsFn = typeof resolveRoots === "function" ? resolveRoots : null;
+            if (!computeStateFn || !isSatisfiedFn) {
+                return { ok: false, cancelled: false, reason: "invalid-options", state: null };
+            }
+
+            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            const runtimeApi = runtime && typeof runtime === "object" ? runtime : null;
+            const now = typeof runtimeApi?.now === "function"
+                ? () => runtimeApi.now()
+                : () => Date.now();
+            const waitIfPaused = typeof runtimeApi?.waitIfPaused === "function"
+                ? runtimeApi.waitIfPaused.bind(runtimeApi)
+                : null;
+            const MutationObserverCtor = global.MutationObserver;
+            const deadline = now() + Math.max(0, Number(timeoutMs) || 0);
+            const settle = Math.max(0, Number(settleMs) || 0);
+            const fallbackMs = Math.max(60, Number(pollFallbackMs) || 1000);
+            const filteredAttributes = Array.isArray(attributeFilter)
+                ? attributeFilter.map(item => String(item ?? "").trim()).filter(Boolean)
+                : [];
+
+            let observer = null;
+            let observedRoots = [];
+            let signalPending = false;
+            let waitResolver = null;
+            let lastState = null;
+            let stableSince = 0;
+            let stableStateKey = "";
+            let lastSatisfied = false;
+
+            function clearObservers() {
+                try { observer?.disconnect?.(); } catch {}
+                observer = null;
+                observedRoots = [];
+            }
+
+            function queueSignal() {
+                signalPending = true;
+                const wake = waitResolver;
+                waitResolver = null;
+                try { wake?.("mutation"); } catch {}
+            }
+
+            function reconnectObservers(nextRootsRaw) {
+                const fallbackRoot = global.document?.documentElement || global.document || null;
+                const normalizedRoots = normalizeObservedRoots(nextRootsRaw);
+                const nextRoots = normalizedRoots.length
+                    ? normalizedRoots
+                    : normalizeObservedRoots(fallbackRoot ? [fallbackRoot] : []);
+                if (haveSameObservedRoots(observedRoots, nextRoots)) return;
+
+                clearObservers();
+                observedRoots = nextRoots;
+                if (!MutationObserverCtor || observedRoots.length === 0) return;
+
+                const options = {
+                    subtree: true,
+                    childList: true,
+                    attributes: true
+                };
+                if (filteredAttributes.length) options.attributeFilter = filteredAttributes;
+
+                observer = new MutationObserverCtor(() => {
+                    queueSignal();
+                });
+
+                let activeCount = 0;
+                for (const root of observedRoots) {
+                    try {
+                        observer.observe(root, options);
+                        activeCount += 1;
+                    } catch {}
+                }
+                if (activeCount === 0) clearObservers();
+            }
+
+            function getStateKey(state) {
+                if (!state || typeof state !== "object") return "";
+                return String(state.stateKey ?? "");
+            }
+
+            function resetStabilityTracking() {
+                stableSince = 0;
+                stableStateKey = "";
+                lastSatisfied = false;
+            }
+
+            async function evaluateState() {
+                lastState = await computeStateFn(lastState);
+                if (resolveRootsFn) {
+                    let nextRoots = [];
+                    try { nextRoots = resolveRootsFn(lastState); } catch { nextRoots = []; }
+                    reconnectObservers(nextRoots);
+                } else {
+                    reconnectObservers([]);
+                }
+
+                const satisfied = !!isSatisfiedFn(lastState);
+                const currentNow = now();
+                const nextStateKey = getStateKey(lastState);
+
+                if (!satisfied) {
+                    resetStabilityTracking();
+                    return { done: false, state: lastState, satisfied: false };
+                }
+
+                if (settle <= 0) {
+                    lastSatisfied = true;
+                    stableSince = currentNow;
+                    stableStateKey = nextStateKey;
+                    return { done: true, state: lastState, satisfied: true };
+                }
+
+                if (!lastSatisfied || !stableSince || nextStateKey !== stableStateKey) {
+                    stableSince = currentNow;
+                    stableStateKey = nextStateKey;
+                    lastSatisfied = true;
+                }
+
+                if (currentNow - stableSince >= settle) {
+                    return { done: true, state: lastState, satisfied: true };
+                }
+
+                return { done: false, state: lastState, satisfied: true };
+            }
+
+            try {
+                const initial = await evaluateState();
+                if (initial.done) {
+                    return { ok: true, cancelled: false, reason: "ok", state: initial.state };
+                }
+
+                while (now() < deadline) {
+                    if (cancelFn && cancelFn()) {
+                        return { ok: false, cancelled: true, reason: "cancelled", state: lastState };
+                    }
+                    if (waitIfPaused) {
+                        const pauseOk = await waitIfPaused();
+                        if (pauseOk === false) {
+                            return { ok: false, cancelled: true, reason: "cancelled", state: lastState };
+                        }
+                    }
+
+                    if (signalPending) {
+                        signalPending = false;
+                        const signalResult = await evaluateState();
+                        if (signalResult.done) {
+                            return { ok: true, cancelled: false, reason: "ok", state: signalResult.state };
+                        }
+                        continue;
+                    }
+
+                    const remainMs = Math.max(0, deadline - now());
+                    if (remainMs <= 0) break;
+
+                    let nextWaitMs = Math.min(remainMs, fallbackMs);
+                    if (lastSatisfied && settle > 0 && stableSince > 0) {
+                        const settleRemainMs = Math.max(0, settle - Math.max(0, now() - stableSince));
+                        nextWaitMs = Math.min(nextWaitMs, Math.max(20, settleRemainMs));
+                    }
+                    if (!(nextWaitMs > 0)) break;
+
+                    const wakeReason = await new Promise((resolve) => {
+                        let settled = false;
+                        let timerId = 0;
+                        const finish = (reason) => {
+                            if (settled) return;
+                            settled = true;
+                            if (waitResolver === finish) waitResolver = null;
+                            if (timerId) clearTimeout(timerId);
+                            resolve(reason);
+                        };
+                        waitResolver = finish;
+                        timerId = global.setTimeout(() => finish("poll"), nextWaitMs);
+                        if (signalPending) finish("mutation");
+                    });
+
+                    if (wakeReason === "mutation") signalPending = false;
+                    const next = await evaluateState();
+                    if (next.done) {
+                        return { ok: true, cancelled: false, reason: "ok", state: next.state };
+                    }
+                }
+
+                const finalState = await computeStateFn(lastState);
+                const finalOk = !!isSatisfiedFn(finalState);
+                lastState = finalState;
+                return {
+                    ok: finalOk,
+                    cancelled: false,
+                    reason: finalOk ? "ok" : "timeout",
+                    state: lastState
+                };
+            } finally {
+                waitResolver = null;
+                clearObservers();
+            }
+        }
+
         function findComposerElement({ shouldIgnore = null } = {}) {
             const ignore = typeof shouldIgnore === "function" ? shouldIgnore : null;
             const active = global.document?.activeElement || null;
@@ -12547,7 +12795,8 @@
                 collectFileInputs,
                 collectFileInputsFromOpenShadows,
                 trySetFileInputFiles,
-                isInsideOverlayTree
+                isInsideOverlayTree,
+                waitForObservedState
             }),
             engine: Object.freeze({
                 executeShortcutByHotkey: executeEngineShortcutByHotkey
