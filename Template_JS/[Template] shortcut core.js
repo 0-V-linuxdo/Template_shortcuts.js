@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.3.2
+// @name         [Template] 快捷键跳转 [20260409] v1.3.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.3.2
-// @update-log   1.3.2: 合并 QuickInput 底部播放/暂停按钮，并收窄按钮栏高度，进一步优化播放器式控制区视觉。
+// @version      [20260409] v1.3.3
+// @update-log   1.3.3: 放大 QuickInput 底部控制按钮图标，并进一步收窄按钮栏高度，优化播放器式控制区视觉。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10260,22 +10260,22 @@
                 }
                 ${hostSelector} .qi-tab-panel[data-active="1"] { display: flex; }
                 ${hostSelector} .qi-actions {
-                    padding: 6px 10px 8px;
+                    padding: 4px 8px 5px;
                     border-top: 1px solid var(--qi-border);
                     background: var(--qi-actions-bg);
                     display: flex;
                     justify-content: flex-end;
                     align-items: center;
-                    gap: 8px;
+                    gap: 7px;
                 }
                 ${hostSelector} .qi-actions .qi-btn {
                     font-size: 12px;
                     line-height: 1;
                 }
                 ${hostSelector} .qi-actions .qi-player-btn {
-                    width: 40px;
-                    height: 40px;
-                    min-width: 40px;
+                    width: 38px;
+                    height: 38px;
+                    min-width: 38px;
                     padding: 0;
                     border-radius: 999px;
                     display: inline-flex;
@@ -10303,8 +10303,8 @@
                     opacity: 0.75;
                 }
                 ${hostSelector} .qi-actions .qi-player-btn svg {
-                    width: 17px;
-                    height: 17px;
+                    width: 22px;
+                    height: 22px;
                     display: block;
                     pointer-events: none;
                     flex: 0 0 auto;
