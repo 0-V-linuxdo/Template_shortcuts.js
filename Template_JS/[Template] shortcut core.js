@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.5.7
+// @name         [Template] 快捷键跳转 [20260409] v1.5.8
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.5.7
-// @update-log   1.5.7: 修复 QuickInput 三处样式问题：关闭按钮改为几何居中的绘制叉号；调用快捷键输入框移除原生 textfield 残留内侧竖线；清空图片按钮 hover 边框改浅。
+// @version      [20260409] v1.5.8
+// @update-log   1.5.8: QuickInput 停止按钮默认改为黑色主题，hover/focus 时恢复当前警示外观。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10117,6 +10117,9 @@
                     --qi-icon-btn-danger-hover: rgba(239,68,68,0.26);
                     --qi-icon-btn-danger-border: rgba(248,113,113,0.34);
                     --qi-icon-btn-danger-color: #fecaca;
+                    --qi-player-stop-bg: rgba(0,0,0,0.82);
+                    --qi-player-stop-border: rgba(255,255,255,0.14);
+                    --qi-player-stop-color: rgba(255,255,255,0.92);
                     --qi-player-btn-shadow: 0 10px 22px rgba(0,0,0,0.28);
                     --qi-player-btn-hover-shadow: 0 14px 30px rgba(0,0,0,0.34);
                     box-sizing: border-box;
@@ -10151,6 +10154,9 @@
                     --qi-icon-btn-danger-hover: rgba(220,38,38,0.14);
                     --qi-icon-btn-danger-border: rgba(220,38,38,0.2);
                     --qi-icon-btn-danger-color: #b91c1c;
+                    --qi-player-stop-bg: rgba(17,24,39,0.9);
+                    --qi-player-stop-border: rgba(17,24,39,0.08);
+                    --qi-player-stop-color: #ffffff;
                     --qi-player-btn-shadow: 0 10px 22px rgba(15,23,42,0.12);
                     --qi-player-btn-hover-shadow: 0 14px 28px rgba(15,23,42,0.18);
                     color-scheme: light;
@@ -10740,6 +10746,20 @@
                 ${hostSelector} .qi-btn-danger {
                     background: var(--qi-icon-btn-danger-bg);
                     border-color: var(--qi-icon-btn-danger-border);
+                    color: var(--qi-icon-btn-danger-color);
+                }
+                ${hostSelector} .qi-actions .qi-player-btn.qi-btn-danger[data-action="stop"] {
+                    background: var(--qi-player-stop-bg);
+                    border-color: var(--qi-player-stop-border);
+                    color: var(--qi-player-stop-color);
+                }
+                ${hostSelector} .qi-actions .qi-player-btn.qi-btn-danger[data-action="stop"]:not(:disabled):hover {
+                    background: var(--qi-icon-btn-danger-bg);
+                    border-color: var(--qi-icon-btn-danger-border);
+                    color: var(--qi-icon-btn-danger-color);
+                }
+                ${hostSelector} .qi-actions .qi-player-btn.qi-btn-danger[data-action="stop"]:not(:disabled):focus-visible {
+                    background: var(--qi-icon-btn-danger-bg);
                     color: var(--qi-icon-btn-danger-color);
                 }
                 ${hostSelector} .qi-btn-danger:not(.qi-player-btn):hover { background: var(--qi-icon-btn-danger-hover); }
