@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.5.3
+// @name         [Template] 快捷键跳转 [20260409] v1.5.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.5.3
-// @update-log   1.5.3: 恢复 QuickInput 图片预览区外层边框，仅移除 🗑️ 清空按钮边框，并将上传提示文案改为“支持：点击上传、输入框粘贴、拖拽粘贴”。
+// @version      [20260409] v1.5.4
+// @update-log   1.5.4: 将 QuickInput 的 🗑️ 清空按钮默认背景改为透明，并在 hover 时显示红色边框；上传提示文案改为“支持：点击上传、输入框粘贴、拖拽上传”。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9094,7 +9094,7 @@
             }),
             placeholders: Object.freeze({
                 imageDrop: "点击选择 / 粘贴 / 拖拽图片",
-                imageDropMore: "支持：点击上传、输入框粘贴、拖拽粘贴",
+                imageDropMore: "支持：点击上传、输入框粘贴、拖拽上传",
                 imageDropOverlay: "松开鼠标继续追加图片",
                 text: "在这里输入/粘贴要发送的文字…",
                 hotkeyPrimary: "留空则不触发（例如：CTRL+I）",
@@ -10220,7 +10220,7 @@
                     color: var(--qi-text-strong);
                 }
                 ${hostSelector} .qi-close {
-                    border: none;
+                    border: 1px solid transparent;
                     background: transparent;
                     color: var(--qi-text);
                     font-size: 18px;
@@ -10511,7 +10511,7 @@
                     gap: 8px;
                     padding: 0;
                     border-radius: 0;
-                    border: none;
+                    border: 1px solid transparent;
                     background: transparent;
                     transition:
                         border-color 140ms ease,
@@ -10612,8 +10612,8 @@
                     height: 28px;
                     padding: 0;
                     border-radius: 999px;
-                    border: none;
-                    background: var(--qi-icon-btn-danger-bg);
+                    border: 1px solid transparent;
+                    background: transparent;
                     cursor: pointer;
                     display: none;
                     align-items: center;
@@ -10628,12 +10628,14 @@
                     box-shadow: 0 4px 10px rgba(0,0,0,0.14);
                     transition:
                         background 120ms ease,
+                        border-color 120ms ease,
                         box-shadow 120ms ease,
                         transform 120ms ease;
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-clear { display: inline-flex; }
                 ${hostSelector} .qi-preview-clear:hover {
-                    background: var(--qi-icon-btn-danger-hover);
+                    background: transparent;
+                    border-color: var(--qi-icon-btn-danger-color);
                     box-shadow: 0 6px 14px rgba(0,0,0,0.18);
                     transform: scale(1.03);
                 }
