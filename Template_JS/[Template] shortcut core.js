@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.3.5
+// @name         [Template] 快捷键跳转 [20260409] v1.4.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.3.5
-// @update-log   1.3.5: 继续放大 QuickInput 底部停止按钮图标，提升播放器式控制区的识别度。
+// @version      [20260409] v1.4.0
+// @update-log   1.4.0: QuickInput 图片预览区支持直接拖拽追加图片，并强化删除按钮样式与拖拽高亮。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9094,6 +9094,7 @@
             }),
             placeholders: Object.freeze({
                 imageDrop: "点击选择 / 粘贴 / 拖拽图片",
+                imageDropMore: "可拖拽到此继续追加",
                 text: "在这里输入/粘贴要发送的文字…",
                 hotkeyPrimary: "留空则不触发（例如：CTRL+I）",
                 hotkeyExtra: "例如：CTRL+I",
@@ -9857,7 +9858,14 @@
                 if (clearBeforeRunEl) clearBeforeRunEl.disabled = isBusy;
                 if (newChatHotkeyEl) newChatHotkeyEl.disabled = isBusy;
                 if (textEl) textEl.disabled = isBusy;
-                if (imageDropEl) imageDropEl.style.opacity = isBusy ? "0.7" : "1";
+                if (imageDropEl) {
+                    imageDropEl.style.opacity = isBusy ? "0.7" : "1";
+                    imageDropEl.setAttribute("data-disabled", isBusy ? "1" : "0");
+                    imageDropEl.tabIndex = isBusy ? -1 : 0;
+                }
+                if (imagePreviewShellEl) {
+                    imagePreviewShellEl.setAttribute("data-disabled", isBusy ? "1" : "0");
+                }
                 if (clearAllImagesBtnEl) {
                     const hasImages = (imageFiles?.length || 0) > 0;
                     clearAllImagesBtnEl.disabled = isBusy || !hasImages;
@@ -10452,6 +10460,7 @@
                     align-items: flex-start;
                 }
                 ${hostSelector} .qi-drop {
+                    position: relative;
                     border: 1px dashed var(--qi-border);
                     border-radius: 12px;
                     padding: 12px;
@@ -10461,8 +10470,23 @@
                     background: var(--qi-surface-alt);
                     cursor: pointer;
                     user-select: none;
+                    transition:
+                        border-color 140ms ease,
+                        background 140ms ease,
+                        box-shadow 140ms ease,
+                        transform 140ms ease,
+                        opacity 140ms ease;
                 }
-                ${hostSelector} .qi-drop:hover { border-color: ${primaryColor}; background: var(--qi-hover); }
+                ${hostSelector} .qi-drop:hover,
+                ${hostSelector} .qi-drop[data-drag-over="1"] {
+                    border-color: ${primaryColor};
+                    background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
+                    box-shadow: 0 0 0 1px ${primaryColor}33;
+                }
+                ${hostSelector} .qi-drop[data-disabled="1"] {
+                    opacity: 0.68;
+                    cursor: not-allowed;
+                }
                 ${hostSelector} .qi-drop:focus { outline: none; }
                 ${hostSelector} .qi-preview-list {
                     width: 100%;
@@ -10473,11 +10497,44 @@
                     border-radius: 12px;
                     border: 1px solid var(--qi-border);
                     background: var(--qi-surface-alt);
+                    transition:
+                        border-color 140ms ease,
+                        background 140ms ease,
+                        box-shadow 140ms ease,
+                        opacity 140ms ease;
                 }
                 ${hostSelector} .qi-preview-list:not(:empty) { display: flex; }
                 ${hostSelector} .qi-preview-shell {
                     width: 100%;
                     position: relative;
+                }
+                ${hostSelector} .qi-preview-shell[data-has-items="1"]::before {
+                    content: attr(data-drop-hint);
+                    position: absolute;
+                    top: 9px;
+                    left: 10px;
+                    max-width: calc(100% - 52px);
+                    font-size: 11px;
+                    font-weight: 600;
+                    line-height: 1.2;
+                    color: var(--qi-text-muted);
+                    pointer-events: none;
+                    z-index: 1;
+                }
+                ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-list {
+                    cursor: copy;
+                }
+                ${hostSelector} .qi-preview-shell[data-drag-over="1"] .qi-preview-list {
+                    border-color: ${primaryColor};
+                    background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
+                    box-shadow: 0 0 0 1px ${primaryColor}33;
+                }
+                ${hostSelector} .qi-preview-shell[data-drag-over="1"]::before {
+                    color: ${primaryColor};
+                }
+                ${hostSelector} .qi-preview-shell[data-disabled="1"] .qi-preview-list {
+                    opacity: 0.68;
+                    cursor: not-allowed;
                 }
                 ${hostSelector} .qi-preview-clear {
                     position: absolute;
@@ -10499,6 +10556,13 @@
                     user-select: none;
                     -webkit-user-select: none;
                     touch-action: manipulation;
+                    z-index: 2;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+                    transition:
+                        background 120ms ease,
+                        border-color 120ms ease,
+                        box-shadow 120ms ease,
+                        transform 120ms ease;
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-clear { display: inline-flex; }
                 ${hostSelector} .qi-preview-clear::before,
@@ -10515,7 +10579,11 @@
                 }
                 ${hostSelector} .qi-preview-clear::before { transform: translate(-50%, -50%) rotate(45deg); }
                 ${hostSelector} .qi-preview-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                ${hostSelector} .qi-preview-clear:hover { background: var(--qi-icon-btn-danger-hover); }
+                ${hostSelector} .qi-preview-clear:hover {
+                    background: var(--qi-icon-btn-danger-hover);
+                    box-shadow: 0 8px 18px rgba(0,0,0,0.22);
+                    transform: scale(1.04);
+                }
                 ${hostSelector} .qi-preview-clear:disabled { opacity: 0.55; cursor: not-allowed; }
                 ${hostSelector} .qi-preview-wrap {
                     position: relative;
@@ -10533,22 +10601,32 @@
                 }
                 ${hostSelector} .qi-preview-del {
                     position: absolute;
-                    top: 0;
-                    right: -1px;
-                    width: 20px;
-                    height: 20px;
+                    top: -6px;
+                    right: -6px;
+                    width: 26px;
+                    height: 26px;
                     padding: 0;
                     border-radius: 999px;
-                    border: 1px solid var(--qi-icon-btn-border);
-                    background: var(--qi-icon-btn-bg);
-                    color: var(--qi-icon-btn-color);
+                    border: 1px solid var(--qi-icon-btn-danger-border);
+                    background: color-mix(in srgb, var(--qi-icon-btn-danger-bg) 88%, var(--qi-surface) 12%);
+                    color: var(--qi-icon-btn-danger-color);
                     cursor: pointer;
-                    display: block;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
                     font-size: 0;
                     line-height: 0;
                     user-select: none;
                     -webkit-user-select: none;
                     touch-action: manipulation;
+                    z-index: 2;
+                    box-shadow: 0 6px 16px rgba(0,0,0,0.22);
+                    backdrop-filter: blur(6px);
+                    transition:
+                        background 120ms ease,
+                        border-color 120ms ease,
+                        box-shadow 120ms ease,
+                        transform 120ms ease;
                 }
                 ${hostSelector} .qi-preview-del::before,
                 ${hostSelector} .qi-preview-del::after {
@@ -10557,14 +10635,19 @@
                     top: 50%;
                     left: 50%;
                     width: 12px;
-                    height: 2px;
+                    height: 2.2px;
                     background: currentColor;
                     border-radius: 999px;
                     transform-origin: center;
                 }
                 ${hostSelector} .qi-preview-del::before { transform: translate(-50%, -50%) rotate(45deg); }
                 ${hostSelector} .qi-preview-del::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                ${hostSelector} .qi-preview-del:hover { background: var(--qi-icon-btn-hover); }
+                ${hostSelector} .qi-preview-del:hover {
+                    background: var(--qi-icon-btn-danger-hover);
+                    border-color: color-mix(in srgb, var(--qi-icon-btn-danger-color) 28%, var(--qi-icon-btn-danger-border));
+                    box-shadow: 0 10px 22px rgba(0,0,0,0.26);
+                    transform: scale(1.06);
+                }
                 ${hostSelector} .qi-preview-del:disabled { opacity: 0.55; cursor: not-allowed; }
                 ${hostSelector} .qi-btn {
                     padding: 8px 14px;
@@ -11368,7 +11451,97 @@
                 void persistDraftImagesFromFiles(imageFiles);
             }
 
+            function extractImageFilesFromTransfer(dataTransfer) {
+                if (!dataTransfer) return [];
+
+                const directFiles = Array.from(dataTransfer.files || [])
+                    .filter(Boolean)
+                    .filter((file) => String(file?.type || "").startsWith("image/"));
+                if (directFiles.length) return directFiles;
+
+                return Array.from(dataTransfer.items || [])
+                    .filter((item) => item && item.kind === "file" && String(item.type || "").startsWith("image/"))
+                    .map((item) => item.getAsFile?.())
+                    .filter(Boolean);
+            }
+
+            function transferHasImageFiles(dataTransfer) {
+                if (!dataTransfer) return false;
+                if (Array.from(dataTransfer.files || []).some((file) => String(file?.type || "").startsWith("image/"))) {
+                    return true;
+                }
+                return Array.from(dataTransfer.items || []).some((item) =>
+                    item && item.kind === "file" && String(item.type || "").startsWith("image/")
+                );
+            }
+
+            function setImageDropTargetActive(targetEl, active) {
+                if (!targetEl) return;
+                targetEl.setAttribute("data-drag-over", active ? "1" : "0");
+            }
+
+            function bindImageTransferTarget(targetEl, { enableClick = false, enablePaste = false, focusText = true } = {}) {
+                if (!targetEl) return;
+                let dragDepth = 0;
+
+                const resetDragState = () => {
+                    dragDepth = 0;
+                    setImageDropTargetActive(targetEl, false);
+                };
+
+                const tryActivateDragState = (dataTransfer) => {
+                    if (running) return false;
+                    if (!transferHasImageFiles(dataTransfer)) return false;
+                    setImageDropTargetActive(targetEl, true);
+                    return true;
+                };
+
+                if (enableClick) {
+                    targetEl.addEventListener("click", () => {
+                        if (running) return;
+                        try { fileInputEl?.click?.(); } catch {}
+                    });
+                }
+
+                targetEl.addEventListener("dragenter", (e) => {
+                    if (!tryActivateDragState(e.dataTransfer)) return;
+                    e.preventDefault();
+                    dragDepth += 1;
+                });
+                targetEl.addEventListener("dragover", (e) => {
+                    if (!tryActivateDragState(e.dataTransfer)) return;
+                    e.preventDefault();
+                    if (dragDepth === 0) dragDepth = 1;
+                    try {
+                        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+                    } catch {}
+                });
+                targetEl.addEventListener("dragleave", () => {
+                    if (dragDepth > 0) dragDepth -= 1;
+                    if (dragDepth <= 0) resetDragState();
+                });
+                targetEl.addEventListener("drop", (e) => {
+                    const files = extractImageFilesFromTransfer(e.dataTransfer);
+                    resetDragState();
+                    if (running || files.length === 0) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onPickFiles(files);
+                    clearImageDropFocus({ focusText });
+                });
+                if (enablePaste) {
+                    targetEl.addEventListener("paste", (e) => {
+                        if (running) return;
+                        const files = extractImageFilesFromTransfer(e.clipboardData);
+                        if (files.length === 0) return;
+                        onPickFiles(files);
+                        clearImageDropFocus({ focusText });
+                    });
+                }
+            }
+
             function onPickFiles(fileList) {
+                if (running) return;
                 const files = Array.from(fileList || []).filter(Boolean);
                 const images = files.filter(f => String(f?.type || "").startsWith("image/"));
                 if (images.length === 0) {
@@ -11396,6 +11569,7 @@
 
             function clearImageDropFocus({ focusText = true } = {}) {
                 try { imageDropEl?.blur?.(); } catch {}
+                try { imagePreviewShellEl?.blur?.(); } catch {}
                 try { fileInputEl?.blur?.(); } catch {}
 
                 if (!focusText) return;
@@ -12589,6 +12763,8 @@
                 imageDropEl.className = "qi-drop";
                 imageDropEl.tabIndex = 0;
                 imageDropEl.textContent = labels.placeholders?.imageDrop || DEFAULT_LABELS.placeholders.imageDrop;
+                imageDropEl.setAttribute("data-drag-over", "0");
+                imageDropEl.setAttribute("data-disabled", "0");
 
                 imagePreviewListEl = global.document.createElement("div");
                 imagePreviewListEl.className = "qi-preview-list";
@@ -12600,29 +12776,16 @@
                 fileInputEl.style.display = "none";
                 fileInputEl.addEventListener("change", (e) => {
                     if (e && e.isTrusted === false) return;
+                    if (running) {
+                        try { fileInputEl.value = ""; } catch {}
+                        return;
+                    }
                     onPickFiles(fileInputEl.files);
                     clearImageDropFocus();
                     try { fileInputEl.value = ""; } catch {}
                 });
 
-                imageDropEl.addEventListener("click", () => fileInputEl.click());
-                imageDropEl.addEventListener("dragover", (e) => { e.preventDefault(); });
-                imageDropEl.addEventListener("drop", (e) => {
-                    e.preventDefault();
-                    onPickFiles(e.dataTransfer?.files);
-                    clearImageDropFocus();
-                });
-                imageDropEl.addEventListener("paste", (e) => {
-                    const items = Array.from(e.clipboardData?.items || []);
-                    const files = items
-                        .filter(it => it.kind === "file" && String(it.type || "").startsWith("image/"))
-                        .map(it => it.getAsFile())
-                        .filter(Boolean);
-                    if (files.length) {
-                        onPickFiles(files);
-                        clearImageDropFocus();
-                    }
-                });
+                bindImageTransferTarget(imageDropEl, { enableClick: true, enablePaste: true, focusText: true });
 
                 imageBox.appendChild(imageDropEl);
                 imageBox.appendChild(fileInputEl);
@@ -12638,6 +12801,10 @@
                 imagePreviewShellEl = global.document.createElement("div");
                 imagePreviewShellEl.className = "qi-preview-shell";
                 imagePreviewShellEl.setAttribute("data-has-items", "0");
+                imagePreviewShellEl.setAttribute("data-drag-over", "0");
+                imagePreviewShellEl.setAttribute("data-disabled", "0");
+                imagePreviewShellEl.setAttribute("data-drop-hint", labels.placeholders?.imageDropMore || DEFAULT_LABELS.placeholders.imageDropMore);
+                bindImageTransferTarget(imagePreviewShellEl, { focusText: true });
 
                 clearAllImagesBtnEl = global.document.createElement("button");
                 clearAllImagesBtnEl.type = "button";
@@ -12646,7 +12813,9 @@
                 clearAllImagesBtnEl.title = labels.buttons?.clearImages || DEFAULT_LABELS.buttons.clearImages;
                 clearAllImagesBtnEl.setAttribute("aria-label", labels.aria?.clearImages || DEFAULT_LABELS.aria.clearImages);
                 clearAllImagesBtnEl.disabled = true;
-                clearAllImagesBtnEl.addEventListener("click", () => {
+                clearAllImagesBtnEl.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (running) return;
                     setImageFiles([]);
                     appendGlobalLog(labels.messages?.imagesCleared || DEFAULT_LABELS.messages.imagesCleared);
