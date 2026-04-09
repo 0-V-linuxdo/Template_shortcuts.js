@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.4.4
+// @name         [Template] 快捷键跳转 [20260409] v1.4.5
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.4.4
-// @update-log   1.4.4: 修正 QuickInput 图片拖拽预览组件的虚线边框位置，使其紧贴最外层边框，并同步更新缓存版本。
+// @version      [20260409] v1.4.5
+// @update-log   1.4.5: 去除 QuickInput 停止按钮内部图标的圆角，改为直角方块。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9756,7 +9756,6 @@
                         y: "3.98",
                         width: "16.04",
                         height: "16.04",
-                        rx: "3.71",
                         fill: "currentColor"
                     }));
                     return svg;
