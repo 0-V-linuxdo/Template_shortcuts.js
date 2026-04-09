@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.5.5
+// @name         [Template] 快捷键跳转 [20260409] v1.5.7
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.5.5
-// @update-log   1.5.5: 修复 QuickInput 的 🗑️ 清空按钮透明态仍显灰底的问题：去除默认圆形阴影，仅在 hover 时显示红色边框；保留“支持：点击上传、输入框粘贴、拖拽上传”文案。
+// @version      [20260409] v1.5.7
+// @update-log   1.5.7: 修复 QuickInput 三处样式问题：关闭按钮改为几何居中的绘制叉号；调用快捷键输入框移除原生 textfield 残留内侧竖线；清空图片按钮 hover 边框改浅。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10220,11 +10220,12 @@
                     color: var(--qi-text-strong);
                 }
                 ${hostSelector} .qi-close {
+                    position: relative;
                     border: 1px solid transparent;
                     background: transparent;
                     color: var(--qi-text);
-                    font-size: 18px;
-                    line-height: 1;
+                    font-size: 0;
+                    line-height: 0;
                     cursor: pointer;
                     width: 32px;
                     height: 32px;
@@ -10235,6 +10236,20 @@
                     flex: 0 0 32px;
                     border-radius: 50%;
                 }
+                ${hostSelector} .qi-close::before,
+                ${hostSelector} .qi-close::after {
+                    content: "";
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 14px;
+                    height: 2px;
+                    background: currentColor;
+                    border-radius: 999px;
+                    transform-origin: center;
+                }
+                ${hostSelector} .qi-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+                ${hostSelector} .qi-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
                 ${hostSelector} .qi-close:hover { background: var(--qi-hover); color: var(--qi-text-strong); }
                 ${hostSelector} .qi-tabs {
                     display: flex;
@@ -10347,14 +10362,19 @@
                 ${hostSelector} input[type="number"],
                 ${hostSelector} textarea,
                 ${hostSelector} select {
+                    -webkit-appearance: none;
+                    -moz-appearance: none;
+                    appearance: none;
                     width: 100%;
                     padding: 8px 10px;
                     border-radius: 10px;
                     border: 1px solid var(--qi-border);
                     background: var(--qi-surface-alt);
+                    background-clip: padding-box;
                     color: var(--qi-text-strong);
                     outline: none;
                     font-size: 13px;
+                    box-shadow: none;
                 }
                 ${hostSelector} input[type="number"],
                 ${hostSelector} .qi-number-input {
@@ -10633,7 +10653,7 @@
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-clear { display: inline-flex; }
                 ${hostSelector} .qi-preview-clear:hover {
                     background: transparent;
-                    border-color: var(--qi-icon-btn-danger-color);
+                    border-color: color-mix(in srgb, var(--qi-icon-btn-danger-color) 36%, transparent);
                     transform: scale(1.03);
                 }
                 ${hostSelector} .qi-preview-clear:disabled { opacity: 0.55; cursor: not-allowed; }
