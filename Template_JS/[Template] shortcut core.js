@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.4.9
+// @name         [Template] 快捷键跳转 [20260409] v1.5.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.4.9
-// @update-log   1.4.9: 将 QuickInput 文字输入框默认高度调整为 3 行，并同步更新缓存版本。
-// @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
+// @version      [20260409] v1.5.1
+// @update-log   1.5.1: 将 QuickInput 图片预览区的清空按钮改为 🗑️，并重写脚本说明文案。
+// @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
 // @grant        GM_getValue
@@ -10226,8 +10226,14 @@
                     font-size: 18px;
                     line-height: 1;
                     cursor: pointer;
-                    padding: 6px 8px;
-                    border-radius: 8px;
+                    width: 32px;
+                    height: 32px;
+                    padding: 0;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex: 0 0 32px;
+                    border-radius: 50%;
                 }
                 ${hostSelector} .qi-close:hover { background: var(--qi-hover); color: var(--qi-text-strong); }
                 ${hostSelector} .qi-tabs {
@@ -10600,21 +10606,21 @@
                 }
                 ${hostSelector} .qi-preview-clear {
                     position: absolute;
-                    top: 8px;
-                    right: 8px;
-                    width: 20px;
-                    height: 20px;
+                    top: 6px;
+                    right: 6px;
+                    min-width: 28px;
+                    height: 28px;
                     padding: 0;
                     border-radius: 999px;
                     border: 1px solid var(--qi-icon-btn-danger-border);
                     background: var(--qi-icon-btn-danger-bg);
-                    color: var(--qi-icon-btn-danger-color);
                     cursor: pointer;
                     display: none;
                     align-items: center;
                     justify-content: center;
-                    font-size: 0;
-                    line-height: 0;
+                    font-size: 15px;
+                    line-height: 1;
+                    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
                     user-select: none;
                     -webkit-user-select: none;
                     touch-action: manipulation;
@@ -10627,20 +10633,6 @@
                         transform 120ms ease;
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-clear { display: inline-flex; }
-                ${hostSelector} .qi-preview-clear::before,
-                ${hostSelector} .qi-preview-clear::after {
-                    content: "";
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    width: 12px;
-                    height: 2px;
-                    background: currentColor;
-                    border-radius: 999px;
-                    transform-origin: center;
-                }
-                ${hostSelector} .qi-preview-clear::before { transform: translate(-50%, -50%) rotate(45deg); }
-                ${hostSelector} .qi-preview-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
                 ${hostSelector} .qi-preview-clear:hover {
                     background: var(--qi-icon-btn-danger-hover);
                     box-shadow: 0 6px 14px rgba(0,0,0,0.18);
@@ -12881,7 +12873,7 @@
                 clearAllImagesBtnEl = global.document.createElement("button");
                 clearAllImagesBtnEl.type = "button";
                 clearAllImagesBtnEl.className = "qi-preview-clear";
-                clearAllImagesBtnEl.textContent = "×";
+                clearAllImagesBtnEl.textContent = "🗑️";
                 clearAllImagesBtnEl.title = labels.buttons?.clearImages || DEFAULT_LABELS.buttons.clearImages;
                 clearAllImagesBtnEl.setAttribute("aria-label", labels.aria?.clearImages || DEFAULT_LABELS.aria.clearImages);
                 clearAllImagesBtnEl.disabled = true;
