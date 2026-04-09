@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.5.9
+// @name         [Template] 快捷键跳转 [20260409] v1.5.11
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.5.9
-// @update-log   1.5.9: QuickInput 成功完成后主按钮切换为重播图标；停止按钮维持默认黑色主题，hover/focus 时恢复警示外观。
+// @version      [20260409] v1.5.11
+// @update-log   1.5.11: QuickInput 空闲时隐藏停止按钮；亮色模式停止按钮激活态维持灰底黑块，暗色模式保持当前配色。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9833,6 +9833,7 @@
                 actionsEl.className = "qi-actions";
 
                 const stopBtn = createPlayerActionButton("stop", stopMacro, { disabled: true });
+                stopBtn.hidden = !running;
                 stopButtons.push(stopBtn);
 
                 const playPauseBtn = createPlayerActionButton(getPrimaryButtonAction(), handlePrimaryAction);
@@ -9847,7 +9848,9 @@
                 const isBusy = running;
                 const isCancelling = isBusy && cancelRun;
                 for (const btn of stopButtons) {
-                    if (btn) btn.disabled = !isBusy || isCancelling;
+                    if (!btn) continue;
+                    btn.disabled = !isBusy || isCancelling;
+                    btn.hidden = !isBusy;
                 }
                 for (const btn of playPauseButtons) {
                     if (!btn) continue;
@@ -10166,9 +10169,9 @@
                     --qi-icon-btn-danger-hover: rgba(220,38,38,0.14);
                     --qi-icon-btn-danger-border: rgba(220,38,38,0.2);
                     --qi-icon-btn-danger-color: #b91c1c;
-                    --qi-player-stop-bg: rgba(17,24,39,0.9);
-                    --qi-player-stop-border: rgba(17,24,39,0.08);
-                    --qi-player-stop-color: #ffffff;
+                    --qi-player-stop-bg: #d4d4d4;
+                    --qi-player-stop-border: #d4d4d4;
+                    --qi-player-stop-color: #111111;
                     --qi-player-btn-shadow: 0 10px 22px rgba(15,23,42,0.12);
                     --qi-player-btn-hover-shadow: 0 14px 28px rgba(15,23,42,0.18);
                     color-scheme: light;
