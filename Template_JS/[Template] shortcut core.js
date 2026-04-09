@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.5.1
+// @name         [Template] 快捷键跳转 [20260409] v1.5.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.5.1
-// @update-log   1.5.1: 将 QuickInput 图片预览区的清空按钮改为 🗑️，并重写脚本说明文案。
+// @version      [20260409] v1.5.3
+// @update-log   1.5.3: 恢复 QuickInput 图片预览区外层边框，仅移除 🗑️ 清空按钮边框，并将上传提示文案改为“支持：点击上传、输入框粘贴、拖拽粘贴”。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9094,7 +9094,7 @@
             }),
             placeholders: Object.freeze({
                 imageDrop: "点击选择 / 粘贴 / 拖拽图片",
-                imageDropMore: "点击 / 粘贴 / 拖拽继续追加图片",
+                imageDropMore: "支持：点击上传、输入框粘贴、拖拽粘贴",
                 imageDropOverlay: "松开鼠标继续追加图片",
                 text: "在这里输入/粘贴要发送的文字…",
                 hotkeyPrimary: "留空则不触发（例如：CTRL+I）",
@@ -10612,7 +10612,7 @@
                     height: 28px;
                     padding: 0;
                     border-radius: 999px;
-                    border: 1px solid var(--qi-icon-btn-danger-border);
+                    border: none;
                     background: var(--qi-icon-btn-danger-bg);
                     cursor: pointer;
                     display: none;
@@ -10628,7 +10628,6 @@
                     box-shadow: 0 4px 10px rgba(0,0,0,0.14);
                     transition:
                         background 120ms ease,
-                        border-color 120ms ease,
                         box-shadow 120ms ease,
                         transform 120ms ease;
                 }
