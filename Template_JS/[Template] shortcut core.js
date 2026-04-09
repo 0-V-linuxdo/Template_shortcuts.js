@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.5.4
+// @name         [Template] 快捷键跳转 [20260409] v1.5.5
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.5.4
-// @update-log   1.5.4: 将 QuickInput 的 🗑️ 清空按钮默认背景改为透明，并在 hover 时显示红色边框；上传提示文案改为“支持：点击上传、输入框粘贴、拖拽上传”。
+// @version      [20260409] v1.5.5
+// @update-log   1.5.5: 修复 QuickInput 的 🗑️ 清空按钮透明态仍显灰底的问题：去除默认圆形阴影，仅在 hover 时显示红色边框；保留“支持：点击上传、输入框粘贴、拖拽上传”文案。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10625,18 +10625,15 @@
                     -webkit-user-select: none;
                     touch-action: manipulation;
                     z-index: 2;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.14);
                     transition:
                         background 120ms ease,
                         border-color 120ms ease,
-                        box-shadow 120ms ease,
                         transform 120ms ease;
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-clear { display: inline-flex; }
                 ${hostSelector} .qi-preview-clear:hover {
                     background: transparent;
                     border-color: var(--qi-icon-btn-danger-color);
-                    box-shadow: 0 6px 14px rgba(0,0,0,0.18);
                     transform: scale(1.03);
                 }
                 ${hostSelector} .qi-preview-clear:disabled { opacity: 0.55; cursor: not-allowed; }
