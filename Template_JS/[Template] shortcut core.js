@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.6.4
+// @name         [Template] 快捷键跳转 [20260409] v1.6.5
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.6.4
-// @update-log   1.6.4: QuickInput 停止按钮改为使用网站主题色；更新版本号与发布记录。
+// @version      [20260409] v1.6.5
+// @update-log   1.6.5: QuickInput 将“文字”标签改为“输入”，并将“调用快捷键(可选)”调整为两行显示。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9075,8 +9075,8 @@
             fields: Object.freeze({
                 images: "图片：",
                 preview: "预览：",
-                text: "文字：",
-                hotkeys: "调用快捷键(可选)：",
+                text: "输入",
+                hotkeys: "调用快捷键\n(可选)：",
                 loopCount: "循环次数：",
                 newChatHotkey: "新对话快捷键：",
                 stepDelay: "步骤间隔：",
@@ -10471,6 +10471,7 @@
                     font-weight: 600;
                     line-height: 1.35;
                     color: var(--qi-text-strong);
+                    white-space: pre-line;
                 }
                 ${hostSelector} input[type="text"],
                 ${hostSelector} input[type="number"],
