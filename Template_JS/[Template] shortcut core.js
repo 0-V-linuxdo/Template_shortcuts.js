@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.6.1
+// @name         [Template] 快捷键跳转 [20260409] v1.6.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.6.1
-// @update-log   1.6.1: 调整 QuickInput 停止按钮默认配色为浅蓝底蓝色图标，并继续确保仅在运行状态显示。
+// @version      [20260409] v1.6.2
+// @update-log   1.6.2: QuickInput 重试按钮改为先新建对话再执行，并将提示文案从“重播”更新为“重试”。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9085,7 +9085,7 @@
             }),
             buttons: Object.freeze({
                 run: "运行",
-                replay: "重播",
+                replay: "重试",
                 stop: "停止",
                 pause: "暂停",
                 resume: "继续",
@@ -9155,6 +9155,9 @@
                 newChatTriggered: (hotkey, ok) => (ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`),
                 newChatRetrying: (hotkey, attempt, maxRetries) => `新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
                 newChatNotReady: "新对话在自动重试后仍未就绪：已停止后续循环，避免在旧上下文继续执行。",
+                replayNewChatTriggered: (hotkey, ok) => (ok ? `重试前已触发：${hotkey} 新建对话。` : `重试前新建对话失败：${hotkey}。`),
+                replayNewChatRetrying: (hotkey, attempt, maxRetries) => `重试前新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
+                replayNewChatNotReady: "重试前新对话在自动重试后仍未就绪：已取消本次重试，避免在旧上下文继续执行。",
                 inputUrlRecovering: (stage, hotkey) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：准备自动重新触发 ${hotkey} 新建对话。`,
                 inputUrlNotReady: (stage) => `输入前 URL 校验失败${stage ? `（${stage}）` : ""}：自动补救后仍未恢复，已停止后续循环，避免在错误会话继续执行。`,
                 paused: "已暂停。",
@@ -9712,9 +9715,9 @@
                 return paused ? "resume" : "pause";
             }
 
-            function handlePrimaryAction() {
+            async function handlePrimaryAction() {
                 if (!running) {
-                    runMacro();
+                    await runMacro({ sourceAction: getPrimaryButtonAction() });
                     return;
                 }
                 togglePause();
@@ -10050,6 +10053,83 @@
                 } catch {
                     return { ok: false, label: triggerLabel };
                 }
+            }
+
+            async function ensureNewChatReady({ newChatHotkey, shouldCancel, runtime = null, maxNewChatRetries = 1, onRetry = null } = {}) {
+                const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+                const runtimeApi = runtime && typeof runtime === "object" ? runtime : null;
+                const safeRetryCount = Math.max(0, Number.parseInt(String(maxNewChatRetries ?? 1), 10) || 0);
+                const totalAttempts = safeRetryCount + 1;
+                let okNewChat = false;
+                let verificationMessage = "";
+                let attemptsUsed = 0;
+                let usedNewChatLabel = getNewChatTriggerLabel(newChatHotkey);
+
+                for (let attemptIndex = 0; attemptIndex < totalAttempts; attemptIndex++) {
+                    attemptsUsed = attemptIndex + 1;
+                    const triggerResult = await triggerNewChatAction({
+                        hotkey: newChatHotkey,
+                        phase: attemptIndex === 0 ? "primary" : "retry",
+                        attempt: attemptIndex + 1,
+                        shouldCancel: cancelFn,
+                        runtime: runtimeApi
+                    });
+                    const triggerLabel = String(triggerResult?.label || newChatHotkey || "").trim() || String(newChatHotkey || "").trim();
+                    usedNewChatLabel = triggerLabel;
+                    let attemptOk = !!triggerResult?.ok;
+                    let attemptMessage = "";
+
+                    if (attemptOk && adapter.waitForNewChatReady) {
+                        const verification = await adapter.waitForNewChatReady({
+                            hotkey: triggerLabel,
+                            timeoutMs: 12000,
+                            intervalMs: 160,
+                            shouldCancel: cancelFn,
+                            runtime: runtimeApi
+                        });
+                        if (verification && typeof verification === "object") {
+                            if (verification.cancelled) {
+                                return { cancelled: true, okNewChat: false, attemptsUsed, usedNewChatLabel, verificationMessage };
+                            }
+                            attemptOk = !!verification.ok;
+                            attemptMessage = typeof verification.message === "string" ? verification.message.trim() : "";
+                        } else {
+                            attemptOk = !!verification;
+                        }
+                    }
+
+                    if (attemptOk) {
+                        okNewChat = true;
+                        verificationMessage = attemptMessage;
+                        break;
+                    }
+
+                    verificationMessage = attemptMessage;
+                    if (attemptIndex >= totalAttempts - 1) break;
+
+                    if (typeof onRetry === "function") {
+                        try {
+                            onRetry({
+                                hotkey: getNewChatTriggerLabel(newChatHotkey),
+                                attempt: attemptIndex + 1,
+                                maxRetries: safeRetryCount
+                            });
+                        } catch {}
+                    }
+
+                    const retryWaitOk = await sleepWithCancel(800, { shouldCancel: cancelFn, chunkMs: 160, runtime: runtimeApi });
+                    if (!retryWaitOk) {
+                        return { cancelled: true, okNewChat: false, attemptsUsed, usedNewChatLabel, verificationMessage };
+                    }
+                }
+
+                return {
+                    cancelled: !!(cancelFn && cancelFn()),
+                    okNewChat,
+                    attemptsUsed,
+                    usedNewChatLabel,
+                    verificationMessage
+                };
             }
 
             function clampPanelHeightPx(value) {
@@ -12233,10 +12313,12 @@
                 return { cancelled: !!(cancelFn && cancelFn()), okNewChat, attemptsUsed };
             }
 
-            async function runMacro() {
+            async function runMacro({ sourceAction = "run" } = {}) {
                 if (running) return;
+                const requestedAction = String(sourceAction ?? "run").trim().toLowerCase();
+                const isReplayRun = requestedAction === "replay";
+                const previousTerminalStatus = lastTerminalStatus;
                 cancelRun = false;
-                lastTerminalStatus = "idle";
                 resetPauseTracking();
                 runFinalStatus = "running";
                 setRunning(true);
@@ -12302,6 +12384,57 @@
                     if (runFinalStatus === "failed") return;
                     runFinalStatus = "cancelled";
                 };
+
+                if (isReplayRun) {
+                    const replayTransition = await ensureNewChatReady({
+                        newChatHotkey,
+                        shouldCancel,
+                        runtime,
+                        maxNewChatRetries: 1,
+                        onRetry: ({ hotkey, attempt, maxRetries }) => {
+                            const retryMsg = labels.messages?.replayNewChatRetrying
+                                ? labels.messages.replayNewChatRetrying(hotkey, attempt, maxRetries)
+                                : (DEFAULT_LABELS.messages.replayNewChatRetrying
+                                    ? DEFAULT_LABELS.messages.replayNewChatRetrying(hotkey, attempt, maxRetries)
+                                    : "");
+                            if (retryMsg) appendRuntimeLog(retryMsg, { level: "warn" });
+                        }
+                    });
+
+                    if (replayTransition?.cancelled) {
+                        if (runConfigGroupEl) setLogGroupStatus(runConfigGroupEl, "warn");
+                        appendStatusLog(labels.messages?.stopped || DEFAULT_LABELS.messages.stopped, { level: "warn" });
+                        pendingFinalStatusDetail = "";
+                        lastTerminalStatus = previousTerminalStatus;
+                        runFinalStatus = "idle";
+                        setRunning(false);
+                        return;
+                    }
+
+                    const replayLabel = String(replayTransition?.usedNewChatLabel || newChatDisplayLabel || "").trim() || newChatDisplayLabel;
+                    const replayMsg = labels.messages?.replayNewChatTriggered
+                        ? labels.messages.replayNewChatTriggered(replayLabel, !!replayTransition?.okNewChat)
+                        : DEFAULT_LABELS.messages.replayNewChatTriggered(replayLabel, !!replayTransition?.okNewChat);
+                    if (replayMsg) appendRuntimeLog(replayMsg, { level: replayTransition?.okNewChat ? "ok" : "error" });
+
+                    if (!replayTransition?.okNewChat) {
+                        const replayNotReadyMsg = labels.messages?.replayNewChatNotReady || DEFAULT_LABELS.messages.replayNewChatNotReady;
+                        if (replayNotReadyMsg) appendRuntimeLog(replayNotReadyMsg, { level: "error" });
+
+                        const replayDetail = String(replayTransition?.verificationMessage || "").trim();
+                        if (replayDetail) appendRuntimeLog(replayDetail, { level: "error" });
+
+                        if (runConfigGroupEl) setLogGroupStatus(runConfigGroupEl, "error");
+                        appendStatusLog(labels.messages?.failed || DEFAULT_LABELS.messages.failed, { level: "error" });
+                        pendingFinalStatusDetail = "";
+                        lastTerminalStatus = previousTerminalStatus;
+                        runFinalStatus = "idle";
+                        setRunning(false);
+                        return;
+                    }
+                }
+
+                lastTerminalStatus = "idle";
 
                 async function verifyInputUrlReady(stageLabel = "") {
                     if (!adapter.waitForNewChatReady) return true;
