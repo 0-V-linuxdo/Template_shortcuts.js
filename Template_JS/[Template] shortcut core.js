@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.3.3
+// @name         [Template] 快捷键跳转 [20260409] v1.3.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.3.3
-// @update-log   1.3.3: 放大 QuickInput 底部控制按钮图标，并进一步收窄按钮栏高度，优化播放器式控制区视觉。
+// @version      [20260409] v1.3.4
+// @update-log   1.3.4: 修正 QuickInput 底部播放按钮顶部高光遮罩导致的背景填充异常；放大停止图标并移除按钮栏 hover 效果。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9750,11 +9750,11 @@
 
                 if (normalized === "stop") {
                     svg.appendChild(createPlayerActionSvgNode("rect", {
-                        x: "7.25",
-                        y: "7.25",
-                        width: "9.5",
-                        height: "9.5",
-                        rx: "2.2",
+                        x: "5.83",
+                        y: "5.83",
+                        width: "12.34",
+                        height: "12.34",
+                        rx: "2.85",
                         fill: "currentColor"
                     }));
                     return svg;
@@ -10292,16 +10292,6 @@
                         color 160ms ease,
                         filter 160ms ease;
                 }
-                ${hostSelector} .qi-actions .qi-player-btn::before {
-                    content: "";
-                    position: absolute;
-                    inset: 1px 1px auto 1px;
-                    height: 42%;
-                    border-radius: inherit;
-                    background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0));
-                    pointer-events: none;
-                    opacity: 0.75;
-                }
                 ${hostSelector} .qi-actions .qi-player-btn svg {
                     width: 22px;
                     height: 22px;
@@ -10310,10 +10300,6 @@
                     flex: 0 0 auto;
                     position: relative;
                     z-index: 1;
-                }
-                ${hostSelector} .qi-actions .qi-player-btn:not(:disabled):hover {
-                    transform: translateY(-1px);
-                    box-shadow: var(--qi-player-btn-hover-shadow);
                 }
                 ${hostSelector} .qi-actions .qi-player-btn:focus-visible {
                     outline: none;
@@ -10601,8 +10587,7 @@
                     border-color: var(--qi-icon-btn-danger-border);
                     color: var(--qi-icon-btn-danger-color);
                 }
-                ${hostSelector} .qi-btn-danger:hover { background: var(--qi-icon-btn-danger-hover); }
-                ${hostSelector} .qi-actions .qi-player-btn.qi-btn-primary:hover { filter: brightness(1.06); }
+                ${hostSelector} .qi-btn-danger:not(.qi-player-btn):hover { background: var(--qi-icon-btn-danger-hover); }
                 ${hostSelector} .qi-btn:disabled { opacity: 0.55; cursor: not-allowed; }
                 ${hostSelector} .qi-actions .qi-player-btn:disabled {
                     transform: none;
