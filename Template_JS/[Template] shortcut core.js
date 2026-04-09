@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.1.0
+// @name         [Template] 快捷键跳转 [20260409] v1.2.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.1.0
-// @update-log   1.1.0: QuickInput 新增 MutationObserver 主驱动的观察等待骨架；Gemini/ChatGPT 的贴图完成检测与发送就绪检测改为观察器+低频兜底，缓解后台页轮询节流。
+// @version      [20260409] v1.2.0
+// @update-log   1.2.0: QuickInput 新增 clearAttachments 接口；图片就绪超时后支持清空当前附件并整组重传，ChatGPT 已接入该流程，Gemini 保持原有补缺兜底。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8451,254 +8451,6 @@
             return setInputValue(el, "");
         }
 
-        function normalizeObservedRoots(rawRoots) {
-            const input = (() => {
-                if (!rawRoots) return [];
-                if (Array.isArray(rawRoots)) return rawRoots;
-                if (typeof rawRoots !== "string" && typeof rawRoots?.[Symbol.iterator] === "function") {
-                    try { return Array.from(rawRoots); } catch {}
-                }
-                return [rawRoots];
-            })();
-
-            const roots = [];
-            const seen = new Set();
-            for (const root of input) {
-                if (!root || seen.has(root)) continue;
-                try {
-                    if (typeof root.nodeType !== "number") continue;
-                } catch {
-                    continue;
-                }
-                seen.add(root);
-                roots.push(root);
-            }
-            return roots;
-        }
-
-        function haveSameObservedRoots(prevRoots, nextRoots) {
-            const prev = Array.isArray(prevRoots) ? prevRoots : [];
-            const next = Array.isArray(nextRoots) ? nextRoots : [];
-            if (prev.length !== next.length) return false;
-            const nextSet = new Set(next);
-            for (const root of prev) {
-                if (!nextSet.has(root)) return false;
-            }
-            return true;
-        }
-
-        async function waitForObservedState({
-            resolveRoots = null,
-            computeState = null,
-            isSatisfied = null,
-            timeoutMs = 0,
-            settleMs = 0,
-            pollFallbackMs = 1000,
-            attributeFilter = null,
-            shouldCancel = null,
-            runtime = null
-        } = {}) {
-            const computeStateFn = typeof computeState === "function" ? computeState : null;
-            const isSatisfiedFn = typeof isSatisfied === "function" ? isSatisfied : null;
-            const resolveRootsFn = typeof resolveRoots === "function" ? resolveRoots : null;
-            if (!computeStateFn || !isSatisfiedFn) {
-                return { ok: false, cancelled: false, reason: "invalid-options", state: null };
-            }
-
-            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
-            const runtimeApi = runtime && typeof runtime === "object" ? runtime : null;
-            const now = typeof runtimeApi?.now === "function"
-                ? () => runtimeApi.now()
-                : () => Date.now();
-            const waitIfPaused = typeof runtimeApi?.waitIfPaused === "function"
-                ? runtimeApi.waitIfPaused.bind(runtimeApi)
-                : null;
-            const MutationObserverCtor = global.MutationObserver;
-            const deadline = now() + Math.max(0, Number(timeoutMs) || 0);
-            const settle = Math.max(0, Number(settleMs) || 0);
-            const fallbackMs = Math.max(60, Number(pollFallbackMs) || 1000);
-            const filteredAttributes = Array.isArray(attributeFilter)
-                ? attributeFilter.map(item => String(item ?? "").trim()).filter(Boolean)
-                : [];
-
-            let observer = null;
-            let observedRoots = [];
-            let signalPending = false;
-            let waitResolver = null;
-            let lastState = null;
-            let stableSince = 0;
-            let stableStateKey = "";
-            let lastSatisfied = false;
-
-            function clearObservers() {
-                try { observer?.disconnect?.(); } catch {}
-                observer = null;
-                observedRoots = [];
-            }
-
-            function queueSignal() {
-                signalPending = true;
-                const wake = waitResolver;
-                waitResolver = null;
-                try { wake?.("mutation"); } catch {}
-            }
-
-            function reconnectObservers(nextRootsRaw) {
-                const fallbackRoot = global.document?.documentElement || global.document || null;
-                const normalizedRoots = normalizeObservedRoots(nextRootsRaw);
-                const nextRoots = normalizedRoots.length
-                    ? normalizedRoots
-                    : normalizeObservedRoots(fallbackRoot ? [fallbackRoot] : []);
-                if (haveSameObservedRoots(observedRoots, nextRoots)) return;
-
-                clearObservers();
-                observedRoots = nextRoots;
-                if (!MutationObserverCtor || observedRoots.length === 0) return;
-
-                const options = {
-                    subtree: true,
-                    childList: true,
-                    attributes: true
-                };
-                if (filteredAttributes.length) options.attributeFilter = filteredAttributes;
-
-                observer = new MutationObserverCtor(() => {
-                    queueSignal();
-                });
-
-                let activeCount = 0;
-                for (const root of observedRoots) {
-                    try {
-                        observer.observe(root, options);
-                        activeCount += 1;
-                    } catch {}
-                }
-                if (activeCount === 0) clearObservers();
-            }
-
-            function getStateKey(state) {
-                if (!state || typeof state !== "object") return "";
-                return String(state.stateKey ?? "");
-            }
-
-            function resetStabilityTracking() {
-                stableSince = 0;
-                stableStateKey = "";
-                lastSatisfied = false;
-            }
-
-            async function evaluateState() {
-                lastState = await computeStateFn(lastState);
-                if (resolveRootsFn) {
-                    let nextRoots = [];
-                    try { nextRoots = resolveRootsFn(lastState); } catch { nextRoots = []; }
-                    reconnectObservers(nextRoots);
-                } else {
-                    reconnectObservers([]);
-                }
-
-                const satisfied = !!isSatisfiedFn(lastState);
-                const currentNow = now();
-                const nextStateKey = getStateKey(lastState);
-
-                if (!satisfied) {
-                    resetStabilityTracking();
-                    return { done: false, state: lastState, satisfied: false };
-                }
-
-                if (settle <= 0) {
-                    lastSatisfied = true;
-                    stableSince = currentNow;
-                    stableStateKey = nextStateKey;
-                    return { done: true, state: lastState, satisfied: true };
-                }
-
-                if (!lastSatisfied || !stableSince || nextStateKey !== stableStateKey) {
-                    stableSince = currentNow;
-                    stableStateKey = nextStateKey;
-                    lastSatisfied = true;
-                }
-
-                if (currentNow - stableSince >= settle) {
-                    return { done: true, state: lastState, satisfied: true };
-                }
-
-                return { done: false, state: lastState, satisfied: true };
-            }
-
-            try {
-                const initial = await evaluateState();
-                if (initial.done) {
-                    return { ok: true, cancelled: false, reason: "ok", state: initial.state };
-                }
-
-                while (now() < deadline) {
-                    if (cancelFn && cancelFn()) {
-                        return { ok: false, cancelled: true, reason: "cancelled", state: lastState };
-                    }
-                    if (waitIfPaused) {
-                        const pauseOk = await waitIfPaused();
-                        if (pauseOk === false) {
-                            return { ok: false, cancelled: true, reason: "cancelled", state: lastState };
-                        }
-                    }
-
-                    if (signalPending) {
-                        signalPending = false;
-                        const signalResult = await evaluateState();
-                        if (signalResult.done) {
-                            return { ok: true, cancelled: false, reason: "ok", state: signalResult.state };
-                        }
-                        continue;
-                    }
-
-                    const remainMs = Math.max(0, deadline - now());
-                    if (remainMs <= 0) break;
-
-                    let nextWaitMs = Math.min(remainMs, fallbackMs);
-                    if (lastSatisfied && settle > 0 && stableSince > 0) {
-                        const settleRemainMs = Math.max(0, settle - Math.max(0, now() - stableSince));
-                        nextWaitMs = Math.min(nextWaitMs, Math.max(20, settleRemainMs));
-                    }
-                    if (!(nextWaitMs > 0)) break;
-
-                    const wakeReason = await new Promise((resolve) => {
-                        let settled = false;
-                        let timerId = 0;
-                        const finish = (reason) => {
-                            if (settled) return;
-                            settled = true;
-                            if (waitResolver === finish) waitResolver = null;
-                            if (timerId) clearTimeout(timerId);
-                            resolve(reason);
-                        };
-                        waitResolver = finish;
-                        timerId = global.setTimeout(() => finish("poll"), nextWaitMs);
-                        if (signalPending) finish("mutation");
-                    });
-
-                    if (wakeReason === "mutation") signalPending = false;
-                    const next = await evaluateState();
-                    if (next.done) {
-                        return { ok: true, cancelled: false, reason: "ok", state: next.state };
-                    }
-                }
-
-                const finalState = await computeStateFn(lastState);
-                const finalOk = !!isSatisfiedFn(finalState);
-                lastState = finalState;
-                return {
-                    ok: finalOk,
-                    cancelled: false,
-                    reason: finalOk ? "ok" : "timeout",
-                    state: lastState
-                };
-            } finally {
-                waitResolver = null;
-                clearObservers();
-            }
-        }
-
         function findComposerElement({ shouldIgnore = null } = {}) {
             const ignore = typeof shouldIgnore === "function" ? shouldIgnore : null;
             const active = global.document?.activeElement || null;
@@ -9387,6 +9139,9 @@
                 textInserted: (ok) => (ok ? "已输入文字。" : "输入文字失败。"),
                 hotkeyTriggered: (hotkey, ok) => (ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}`),
                 waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
+                resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `图片就绪等待超时：当前识别到 ${currentCount} / ${expectedCount} 张，准备清空当前附件并整组重传（第 ${attempt}/${maxAttempts} 次）。`,
+                reuploadedImages: (count, expectedCount = count) => `已清空当前附件，并重新上传图片：${count} 张（目标共 ${expectedCount} 张）。`,
+                clearAttachmentsFailed: "清空当前图片附件失败：已取消本轮发送。",
                 repairingImages: (missingCount, currentCount, expectedCount, attempt, maxAttempts) => `检测到图片缺失：当前 ${currentCount} / ${expectedCount} 张，正在自动补齐缺失的 ${missingCount} 张（第 ${attempt}/${maxAttempts} 次）。`,
                 repairedImages: (count, expectedCount) => `已自动补齐图片：${count} 张（目标共 ${expectedCount} 张）。`,
                 uploadNotReady: "图片尚未上传完成：已取消发送，避免文字先发。",
@@ -9617,6 +9372,7 @@
                 setInputValue: typeof rawAdapter.setInputValue === "function" ? rawAdapter.setInputValue : setInputValue,
                 clearComposerValue: typeof rawAdapter.clearComposerValue === "function" ? rawAdapter.clearComposerValue : clearInputValue,
                 attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
+                clearAttachments: typeof rawAdapter.clearAttachments === "function" ? rawAdapter.clearAttachments : null,
                 waitForReadyToSend: typeof rawAdapter.waitForReadyToSend === "function" ? rawAdapter.waitForReadyToSend : null,
                 waitForNewChatReady: typeof rawAdapter.waitForNewChatReady === "function" ? rawAdapter.waitForNewChatReady : null,
                 triggerNewChat: typeof rawAdapter.triggerNewChat === "function"
@@ -11955,6 +11711,13 @@
                     });
                 }
 
+                async function clearImageAttachments(composerEl) {
+                    return await adapter.clearAttachments(composerEl, {
+                        shouldCancel,
+                        runtime
+                    });
+                }
+
                 function getReadyAttachmentCount(readyState) {
                     const count = Number(readyState?.snapshot?.attachmentCount);
                     return Number.isFinite(count) && count > 0 ? count : 0;
@@ -11997,11 +11760,13 @@
                     return list.slice(0, need);
                 }
 
-                async function waitForImagesReadyWithRepair(composerEl, expectedCount) {
+                async function waitForImagesReadyWithReset(composerEl, expectedCount) {
                     const expected = Math.max(0, Number(expectedCount) || 0);
                     const maxRepairAttempts = 2;
+                    const maxResetAttempts = 1;
                     let composerRef = composerEl;
                     let repairAttempt = 0;
+                    let resetAttempt = 0;
 
                     while (true) {
                         const waitingMsg = labels.messages?.waitingUploads
@@ -12028,9 +11793,83 @@
                         if (ready?.cancelled) return { ok: false, cancelled: true, composer: composerRef, ready };
                         if (ready?.ok) return { ok: true, composer: composerRef, ready };
 
+                        const reason = String(ready?.reason || "").trim().toLowerCase();
+                        if (reason === "timeout" && resetAttempt < maxResetAttempts && adapter.clearAttachments && adapter.attachImages) {
+                            resetAttempt += 1;
+                            const currentCount = getReadyAttachmentCount(ready);
+                            const resetMsg = labels.messages?.resettingImages
+                                ? labels.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts)
+                                : DEFAULT_LABELS.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts);
+                            appendLoopLog(resetMsg, { level: "error" });
+
+                            const beforeResetReady = await verifyInputUrlReady(`重传前#${resetAttempt}`);
+                            if (beforeResetReady === "cancelled") {
+                                return { ok: false, cancelled: true, composer: composerRef, ready };
+                            }
+                            if (beforeResetReady !== true) {
+                                return { ok: false, cancelled: false, composer: composerRef, ready };
+                            }
+
+                            composerRef = await adapter.focusComposer({ timeoutMs: 6000, intervalMs: 120, shouldCancel, runtime }) || composerRef;
+                            if (!composerRef) {
+                                return {
+                                    ok: false,
+                                    cancelled: !!cancelRun,
+                                    composer: composerEl,
+                                    ready,
+                                    message: labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound
+                                };
+                            }
+
+                            const clearResult = await clearImageAttachments(composerRef);
+                            if (clearResult?.cancelled) {
+                                return { ok: false, cancelled: true, composer: composerRef, ready: clearResult };
+                            }
+                            if (!clearResult?.ok) {
+                                const clearFailedMsg = labels.messages?.clearAttachmentsFailed || DEFAULT_LABELS.messages.clearAttachmentsFailed;
+                                if (clearFailedMsg) appendLoopLog(clearFailedMsg, { level: "error" });
+                                return {
+                                    ok: false,
+                                    cancelled: false,
+                                    composer: composerRef,
+                                    ready: clearResult,
+                                    message: (typeof clearResult?.message === "string" && clearResult.message.trim())
+                                        ? clearResult.message.trim()
+                                        : clearFailedMsg
+                                };
+                            }
+
+                            const clearWaitOk = await waitStep(cfg.stepDelayMs);
+                            if (!clearWaitOk) return { ok: false, cancelled: true, composer: composerRef, ready: clearResult };
+
+                            const reuploadResult = await attachImageFiles(images, composerRef);
+                            if (reuploadResult?.cancelled) {
+                                return { ok: false, cancelled: true, composer: composerRef, ready: reuploadResult };
+                            }
+                            if (!reuploadResult?.ok) {
+                                return {
+                                    ok: false,
+                                    cancelled: false,
+                                    composer: composerRef,
+                                    ready: reuploadResult,
+                                    message: (typeof reuploadResult?.message === "string" && reuploadResult.message.trim())
+                                        ? reuploadResult.message.trim()
+                                        : "图片重新上传失败：已取消发送，避免文字先发。"
+                                };
+                            }
+
+                            const reuploadedMsg = labels.messages?.reuploadedImages
+                                ? labels.messages.reuploadedImages(images.length, expected)
+                                : DEFAULT_LABELS.messages.reuploadedImages(images.length, expected);
+                            appendLoopLog(reuploadedMsg, { level: "ok" });
+                            const reuploadWaitOk = await waitStep(cfg.stepDelayMs);
+                            if (!reuploadWaitOk) return { ok: false, cancelled: true, composer: composerRef, ready: reuploadResult };
+                            continue;
+                        }
+
                         const currentCount = getReadyAttachmentCount(ready);
                         const missingCount = Math.max(0, expected - currentCount);
-                        if (!(missingCount > 0 && repairAttempt < maxRepairAttempts && adapter.attachImages)) {
+                        if (!(missingCount > 0 && repairAttempt < maxRepairAttempts && !adapter.clearAttachments && adapter.attachImages)) {
                             return { ok: false, cancelled: false, composer: composerRef, ready };
                         }
 
@@ -12200,7 +12039,7 @@
                     }
 
                     if (images.length) {
-                        const readyResult = await waitForImagesReadyWithRepair(composer, images.length);
+                        const readyResult = await waitForImagesReadyWithReset(composer, images.length);
                         if (readyResult?.composer) composer = readyResult.composer;
                         if (readyResult?.cancelled) {
                             markRunCancelled();
@@ -12795,8 +12634,7 @@
                 collectFileInputs,
                 collectFileInputsFromOpenShadows,
                 trySetFileInputFiles,
-                isInsideOverlayTree,
-                waitForObservedState
+                isInsideOverlayTree
             }),
             engine: Object.freeze({
                 executeShortcutByHotkey: executeEngineShortcutByHotkey
