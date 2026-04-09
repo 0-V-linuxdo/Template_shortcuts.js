@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.3.1
+// @name         [Template] 快捷键跳转 [20260409] v1.3.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.3.1
-// @update-log   1.3.1: 将 QuickInput 底部操作按钮改为 SVG 播放器风格图标，优化运行/暂停/停止控制区视觉。
+// @version      [20260409] v1.3.2
+// @update-log   1.3.2: 合并 QuickInput 底部播放/暂停按钮，并收窄按钮栏高度，进一步优化播放器式控制区视觉。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9618,9 +9618,8 @@
             let loopDelayEl = null;
             let loopDelayUnitEl = null;
             let clearBeforeRunEl = null;
-            const runButtons = [];
             const stopButtons = [];
-            const pauseButtons = [];
+            const playPauseButtons = [];
             let activeTab = "input";
             let setActiveTab = null;
 
@@ -9704,8 +9703,17 @@
                 appendGlobalLog(text, options);
             }
 
-            function getPauseButtonAction() {
+            function getPrimaryButtonAction() {
+                if (!running) return "run";
                 return paused ? "resume" : "pause";
+            }
+
+            function handlePrimaryAction() {
+                if (!running) {
+                    runMacro();
+                    return;
+                }
+                togglePause();
             }
 
             function getPlayerActionLabel(action) {
@@ -9812,31 +9820,24 @@
                 const stopBtn = createPlayerActionButton("stop", stopMacro, { disabled: true });
                 stopButtons.push(stopBtn);
 
-                const pauseBtn = createPlayerActionButton(getPauseButtonAction(), togglePause, { disabled: true });
-                pauseButtons.push(pauseBtn);
-
-                const runBtn = createPlayerActionButton("run", runMacro);
-                runButtons.push(runBtn);
+                const playPauseBtn = createPlayerActionButton(getPrimaryButtonAction(), handlePrimaryAction);
+                playPauseButtons.push(playPauseBtn);
 
                 actionsEl.appendChild(stopBtn);
-                actionsEl.appendChild(pauseBtn);
-                actionsEl.appendChild(runBtn);
+                actionsEl.appendChild(playPauseBtn);
                 return actionsEl;
             }
 
             function syncRunControls() {
                 const isBusy = running;
                 const isCancelling = isBusy && cancelRun;
-                for (const btn of runButtons) {
-                    if (btn) btn.disabled = isBusy;
-                }
                 for (const btn of stopButtons) {
                     if (btn) btn.disabled = !isBusy || isCancelling;
                 }
-                for (const btn of pauseButtons) {
+                for (const btn of playPauseButtons) {
                     if (!btn) continue;
-                    btn.disabled = !isBusy || isCancelling;
-                    setPlayerActionButtonVisual(btn, getPauseButtonAction());
+                    btn.disabled = isCancelling;
+                    setPlayerActionButtonVisual(btn, getPrimaryButtonAction());
                 }
                 for (const input of hotkeyInputs) {
                     if (input) input.disabled = isBusy;
@@ -10259,22 +10260,22 @@
                 }
                 ${hostSelector} .qi-tab-panel[data-active="1"] { display: flex; }
                 ${hostSelector} .qi-actions {
-                    padding: 10px 12px 12px;
+                    padding: 6px 10px 8px;
                     border-top: 1px solid var(--qi-border);
                     background: var(--qi-actions-bg);
                     display: flex;
                     justify-content: flex-end;
                     align-items: center;
-                    gap: 10px;
+                    gap: 8px;
                 }
                 ${hostSelector} .qi-actions .qi-btn {
                     font-size: 12px;
                     line-height: 1;
                 }
                 ${hostSelector} .qi-actions .qi-player-btn {
-                    width: 46px;
-                    height: 46px;
-                    min-width: 46px;
+                    width: 40px;
+                    height: 40px;
+                    min-width: 40px;
                     padding: 0;
                     border-radius: 999px;
                     display: inline-flex;
@@ -10302,8 +10303,8 @@
                     opacity: 0.75;
                 }
                 ${hostSelector} .qi-actions .qi-player-btn svg {
-                    width: 20px;
-                    height: 20px;
+                    width: 17px;
+                    height: 17px;
                     display: block;
                     pointer-events: none;
                     flex: 0 0 auto;
