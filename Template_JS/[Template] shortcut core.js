@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.6.7
+// @name         [Template] 快捷键跳转 [20260409] v1.6.8
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.6.7
-// @update-log   1.6.7: QuickInput 将“调用快捷键”标签调整为“快捷键调用”。
+// @version      [20260409] v1.6.8
+// @update-log   1.6.8: QuickInput 将“快捷键调用”标签调整为“触发快捷键”。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9076,7 +9076,7 @@
                 images: "图片：",
                 preview: "预览：",
                 text: "输入：",
-                hotkeys: "快捷键调用：",
+                hotkeys: "触发快捷键：",
                 loopCount: "循环次数：",
                 newChatHotkey: "新对话快捷键：",
                 stepDelay: "步骤间隔：",
