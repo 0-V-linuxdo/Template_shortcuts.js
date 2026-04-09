@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.5.8
+// @name         [Template] 快捷键跳转 [20260409] v1.5.9
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.5.8
-// @update-log   1.5.8: QuickInput 停止按钮默认改为黑色主题，hover/focus 时恢复当前警示外观。
+// @version      [20260409] v1.5.9
+// @update-log   1.5.9: QuickInput 成功完成后主按钮切换为重播图标；停止按钮维持默认黑色主题，hover/focus 时恢复警示外观。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9085,6 +9085,7 @@
             }),
             buttons: Object.freeze({
                 run: "运行",
+                replay: "重播",
                 stop: "停止",
                 pause: "暂停",
                 resume: "继续",
@@ -9634,6 +9635,7 @@
             let pauseStartedAtMs = 0;
             let accumulatedPausedMs = 0;
             let runFinalStatus = "idle";
+            let lastTerminalStatus = "idle";
             let pendingFinalStatusDetail = "";
             let draftPersistToken = 0;
 
@@ -9706,7 +9708,7 @@
             }
 
             function getPrimaryButtonAction() {
-                if (!running) return "run";
+                if (!running) return lastTerminalStatus === "ok" ? "replay" : "run";
                 return paused ? "resume" : "pause";
             }
 
@@ -9721,6 +9723,8 @@
             function getPlayerActionLabel(action) {
                 const normalized = String(action ?? "").trim().toLowerCase();
                 switch (normalized) {
+                    case "replay":
+                        return labels.buttons?.replay || DEFAULT_LABELS.buttons.replay;
                     case "stop":
                         return labels.buttons?.stop || DEFAULT_LABELS.buttons.stop;
                     case "pause":
@@ -9782,6 +9786,14 @@
                     return svg;
                 }
 
+                if (normalized === "replay") {
+                    svg.appendChild(createPlayerActionSvgNode("path", {
+                        d: "M12 5V1L7 6L12 11V7C15.31 7 18 9.69 18 13S15.31 19 12 19C9.03 19 6.57 16.84 6.09 14H4.07C4.57 17.95 7.93 21 12 21C16.42 21 20 17.42 20 13S16.42 5 12 5Z",
+                        fill: "currentColor"
+                    }));
+                    return svg;
+                }
+
                 svg.appendChild(createPlayerActionSvgNode("path", {
                     d: "M8.55 6.9C8.55 6.35 9.15 6 9.63 6.3L17.32 11.12C17.78 11.41 17.78 12.59 17.32 12.88L9.63 17.7C9.15 18 8.55 17.65 8.55 17.1V6.9Z",
                     transform: "translate(13.165 12) scale(1.2) translate(-13.165 -12)",
@@ -9800,7 +9812,7 @@
                 btn.classList.remove("qi-btn-primary", "qi-btn-danger");
                 if (normalized === "stop") {
                     btn.classList.add("qi-btn-danger");
-                } else if (normalized === "resume" || normalized === "run") {
+                } else if (normalized === "resume" || normalized === "run" || normalized === "replay") {
                     btn.classList.add("qi-btn-primary");
                 }
                 btn.replaceChildren(createPlayerActionIcon(normalized));
@@ -12207,6 +12219,7 @@
             async function runMacro() {
                 if (running) return;
                 cancelRun = false;
+                lastTerminalStatus = "idle";
                 resetPauseTracking();
                 runFinalStatus = "running";
                 setRunning(true);
@@ -12773,6 +12786,7 @@
                     open: !(finalLevel === "warn" && !!finalDetail)
                 });
                 pendingFinalStatusDetail = "";
+                lastTerminalStatus = finalLevel;
                 runFinalStatus = "idle";
                 setRunning(false);
             }
