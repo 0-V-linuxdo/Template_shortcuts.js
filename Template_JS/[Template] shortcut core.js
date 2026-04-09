@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.5.11
+// @name         [Template] 快捷键跳转 [20260409] v1.6.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.5.11
-// @update-log   1.5.11: QuickInput 空闲时隐藏停止按钮；亮色模式停止按钮激活态维持灰底黑块，暗色模式保持当前配色。
+// @version      [20260409] v1.6.1
+// @update-log   1.6.1: 调整 QuickInput 停止按钮默认配色为浅蓝底蓝色图标，并继续确保仅在运行状态显示。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9834,6 +9834,8 @@
 
                 const stopBtn = createPlayerActionButton("stop", stopMacro, { disabled: true });
                 stopBtn.hidden = !running;
+                stopBtn.setAttribute("aria-hidden", running ? "false" : "true");
+                stopBtn.style.display = running ? "" : "none";
                 stopButtons.push(stopBtn);
 
                 const playPauseBtn = createPlayerActionButton(getPrimaryButtonAction(), handlePrimaryAction);
@@ -9851,6 +9853,8 @@
                     if (!btn) continue;
                     btn.disabled = !isBusy || isCancelling;
                     btn.hidden = !isBusy;
+                    btn.setAttribute("aria-hidden", isBusy ? "false" : "true");
+                    btn.style.display = isBusy ? "" : "none";
                 }
                 for (const btn of playPauseButtons) {
                     if (!btn) continue;
@@ -10132,9 +10136,12 @@
                     --qi-icon-btn-danger-hover: rgba(239,68,68,0.26);
                     --qi-icon-btn-danger-border: rgba(248,113,113,0.34);
                     --qi-icon-btn-danger-color: #fecaca;
-                    --qi-player-stop-bg: rgba(0,0,0,0.82);
-                    --qi-player-stop-border: rgba(255,255,255,0.14);
-                    --qi-player-stop-color: rgba(255,255,255,0.92);
+                    --qi-player-stop-bg: rgba(60, 116, 255, 0.18);
+                    --qi-player-stop-border: rgba(96, 146, 255, 0.22);
+                    --qi-player-stop-color: #8ab4ff;
+                    --qi-player-stop-hover-bg: rgba(77, 130, 255, 0.26);
+                    --qi-player-stop-hover-border: rgba(116, 161, 255, 0.3);
+                    --qi-player-stop-hover-color: #a9c7ff;
                     --qi-player-btn-shadow: 0 10px 22px rgba(0,0,0,0.28);
                     --qi-player-btn-hover-shadow: 0 14px 30px rgba(0,0,0,0.34);
                     box-sizing: border-box;
@@ -10169,9 +10176,12 @@
                     --qi-icon-btn-danger-hover: rgba(220,38,38,0.14);
                     --qi-icon-btn-danger-border: rgba(220,38,38,0.2);
                     --qi-icon-btn-danger-color: #b91c1c;
-                    --qi-player-stop-bg: #d4d4d4;
-                    --qi-player-stop-border: #d4d4d4;
-                    --qi-player-stop-color: #111111;
+                    --qi-player-stop-bg: #e6edff;
+                    --qi-player-stop-border: #e6edff;
+                    --qi-player-stop-color: #1f5ed6;
+                    --qi-player-stop-hover-bg: #dbe6ff;
+                    --qi-player-stop-hover-border: #dbe6ff;
+                    --qi-player-stop-hover-color: #174fb8;
                     --qi-player-btn-shadow: 0 10px 22px rgba(15,23,42,0.12);
                     --qi-player-btn-hover-shadow: 0 14px 28px rgba(15,23,42,0.18);
                     color-scheme: light;
@@ -10343,6 +10353,9 @@
                         border-color 160ms ease,
                         color 160ms ease,
                         filter 160ms ease;
+                }
+                ${hostSelector} .qi-actions .qi-player-btn[hidden] {
+                    display: none !important;
                 }
                 ${hostSelector} .qi-actions .qi-player-btn svg {
                     width: 22px;
@@ -10769,13 +10782,14 @@
                     color: var(--qi-player-stop-color);
                 }
                 ${hostSelector} .qi-actions .qi-player-btn.qi-btn-danger[data-action="stop"]:not(:disabled):hover {
-                    background: var(--qi-icon-btn-danger-bg);
-                    border-color: var(--qi-icon-btn-danger-border);
-                    color: var(--qi-icon-btn-danger-color);
+                    background: var(--qi-player-stop-hover-bg);
+                    border-color: var(--qi-player-stop-hover-border);
+                    color: var(--qi-player-stop-hover-color);
                 }
                 ${hostSelector} .qi-actions .qi-player-btn.qi-btn-danger[data-action="stop"]:not(:disabled):focus-visible {
-                    background: var(--qi-icon-btn-danger-bg);
-                    color: var(--qi-icon-btn-danger-color);
+                    background: var(--qi-player-stop-hover-bg);
+                    border-color: var(--qi-player-stop-hover-border);
+                    color: var(--qi-player-stop-hover-color);
                 }
                 ${hostSelector} .qi-btn-danger:not(.qi-player-btn):hover { background: var(--qi-icon-btn-danger-hover); }
                 ${hostSelector} .qi-btn:disabled { opacity: 0.55; cursor: not-allowed; }
