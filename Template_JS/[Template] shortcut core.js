@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.4.7
+// @name         [Template] 快捷键跳转 [20260409] v1.4.9
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.4.7
-// @update-log   1.4.7: 微调 QuickInput 播放/停止按钮图标圆角：停止按钮恢复少量圆角，播放按钮圆角更收一些。
+// @version      [20260409] v1.4.9
+// @update-log   1.4.9: 将 QuickInput 文字输入框默认高度调整为 3 行，并同步更新缓存版本。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9784,6 +9784,7 @@
 
                 svg.appendChild(createPlayerActionSvgNode("path", {
                     d: "M8.55 6.9C8.55 6.35 9.15 6 9.63 6.3L17.32 11.12C17.78 11.41 17.78 12.59 17.32 12.88L9.63 17.7C9.15 18 8.55 17.65 8.55 17.1V6.9Z",
+                    transform: "translate(13.165 12) scale(1.2) translate(-13.165 -12)",
                     fill: "currentColor"
                 }));
                 return svg;
@@ -10407,11 +10408,13 @@
                 }
                 ${hostSelector} .qi-hotkey-del {
                     position: absolute;
-                    top: 6px;
+                    top: 50%;
                     right: 6px;
                     width: 20px;
                     height: 20px;
+                    margin: 0;
                     padding: 0;
+                    box-sizing: border-box;
                     border-radius: 999px;
                     border: 1px solid var(--qi-icon-btn-border);
                     background: var(--qi-icon-btn-bg);
@@ -10425,6 +10428,7 @@
                     user-select: none;
                     -webkit-user-select: none;
                     touch-action: manipulation;
+                    transform: translateY(-50%);
                 }
                 ${hostSelector} .qi-hotkey-del::before,
                 ${hostSelector} .qi-hotkey-del::after {
@@ -10450,7 +10454,7 @@
                     box-shadow: 0 0 0 1px ${primaryColor};
                 }
                 ${hostSelector} textarea {
-                    min-height: calc(2.7em + 18px);
+                    min-height: calc(4.05em + 18px);
                     line-height: 1.35;
                     resize: vertical;
                 }
@@ -12903,7 +12907,7 @@
                 const textLabel = global.document.createElement("label");
                 textLabel.textContent = labels.fields?.text || DEFAULT_LABELS.fields.text;
                 textEl = global.document.createElement("textarea");
-                textEl.rows = 2;
+                textEl.rows = 3;
                 textEl.placeholder = labels.placeholders?.text || DEFAULT_LABELS.placeholders.text;
                 textEl.addEventListener("input", persistDraftText);
                 textEl.addEventListener("change", persistDraftText);
