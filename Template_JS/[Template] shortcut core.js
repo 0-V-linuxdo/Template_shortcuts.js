@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.4.0
+// @name         [Template] 快捷键跳转 [20260409] v1.4.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.4.0
-// @update-log   1.4.0: QuickInput 图片预览区支持直接拖拽追加图片，并强化删除按钮样式与拖拽高亮。
+// @version      [20260409] v1.4.1
+// @update-log   1.4.1: 合并 QuickInput 图片与预览区域，缩小图片预览删除按钮，并同步优化合并区域的拖拽追加交互。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10463,13 +10463,18 @@
                     position: relative;
                     border: 1px dashed var(--qi-border);
                     border-radius: 12px;
-                    padding: 12px;
+                    min-height: 88px;
+                    padding: 14px 16px;
                     font-size: 12px;
                     line-height: 1.25;
                     color: var(--qi-text);
                     background: var(--qi-surface-alt);
                     cursor: pointer;
                     user-select: none;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    text-align: center;
                     transition:
                         border-color 140ms ease,
                         background 140ms ease,
@@ -10493,10 +10498,10 @@
                     display: none;
                     flex-wrap: wrap;
                     gap: 8px;
-                    padding: 30px 8px 8px 8px;
-                    border-radius: 12px;
-                    border: 1px solid var(--qi-border);
-                    background: var(--qi-surface-alt);
+                    padding: 0;
+                    border-radius: 0;
+                    border: none;
+                    background: transparent;
                     transition:
                         border-color 140ms ease,
                         background 140ms ease,
@@ -10507,41 +10512,66 @@
                 ${hostSelector} .qi-preview-shell {
                     width: 100%;
                     position: relative;
+                    display: grid;
+                    gap: 8px;
+                    min-width: 0;
+                    padding: 0;
+                    border-radius: 14px;
+                    transition:
+                        border-color 140ms ease,
+                        background 140ms ease,
+                        box-shadow 140ms ease,
+                        opacity 140ms ease;
                 }
-                ${hostSelector} .qi-preview-shell[data-has-items="1"]::before {
-                    content: attr(data-drop-hint);
-                    position: absolute;
-                    top: 9px;
-                    left: 10px;
-                    max-width: calc(100% - 52px);
+                ${hostSelector} .qi-preview-shell[data-has-items="1"] {
+                    padding: 10px;
+                    border: 1px solid var(--qi-border);
+                    background: var(--qi-surface-alt);
+                }
+                ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-drop {
+                    min-height: 0;
+                    padding: 0 34px 0 0;
+                    border: none;
+                    border-radius: 0;
+                    background: transparent;
+                    box-shadow: none;
+                    justify-content: flex-start;
+                    text-align: left;
                     font-size: 11px;
                     font-weight: 600;
                     line-height: 1.2;
                     color: var(--qi-text-muted);
-                    pointer-events: none;
-                    z-index: 1;
+                }
+                ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-drop:hover,
+                ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-drop[data-drag-over="1"] {
+                    background: transparent;
+                    box-shadow: none;
+                    transform: none;
+                    border-color: transparent;
+                    color: ${primaryColor};
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-list {
                     cursor: copy;
                 }
-                ${hostSelector} .qi-preview-shell[data-drag-over="1"] .qi-preview-list {
+                ${hostSelector} .qi-preview-shell[data-drag-over="1"] {
                     border-color: ${primaryColor};
                     background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
                     box-shadow: 0 0 0 1px ${primaryColor}33;
-                }
-                ${hostSelector} .qi-preview-shell[data-drag-over="1"]::before {
-                    color: ${primaryColor};
                 }
                 ${hostSelector} .qi-preview-shell[data-disabled="1"] .qi-preview-list {
                     opacity: 0.68;
                     cursor: not-allowed;
                 }
+                ${hostSelector} .qi-preview-shell[data-disabled="1"] .qi-drop {
+                    opacity: 0.68;
+                    cursor: not-allowed;
+                }
                 ${hostSelector} .qi-preview-clear {
                     position: absolute;
-                    top: 6px;
-                    right: 6px;
-                    width: 22px;
-                    height: 22px;
+                    top: 8px;
+                    right: 8px;
+                    width: 20px;
+                    height: 20px;
                     padding: 0;
                     border-radius: 999px;
                     border: 1px solid var(--qi-icon-btn-danger-border);
@@ -10557,7 +10587,7 @@
                     -webkit-user-select: none;
                     touch-action: manipulation;
                     z-index: 2;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.14);
                     transition:
                         background 120ms ease,
                         border-color 120ms ease,
@@ -10581,8 +10611,8 @@
                 ${hostSelector} .qi-preview-clear::after { transform: translate(-50%, -50%) rotate(-45deg); }
                 ${hostSelector} .qi-preview-clear:hover {
                     background: var(--qi-icon-btn-danger-hover);
-                    box-shadow: 0 8px 18px rgba(0,0,0,0.22);
-                    transform: scale(1.04);
+                    box-shadow: 0 6px 14px rgba(0,0,0,0.18);
+                    transform: scale(1.03);
                 }
                 ${hostSelector} .qi-preview-clear:disabled { opacity: 0.55; cursor: not-allowed; }
                 ${hostSelector} .qi-preview-wrap {
@@ -10601,10 +10631,10 @@
                 }
                 ${hostSelector} .qi-preview-del {
                     position: absolute;
-                    top: -6px;
-                    right: -6px;
-                    width: 26px;
-                    height: 26px;
+                    top: -4px;
+                    right: -4px;
+                    width: 20px;
+                    height: 20px;
                     padding: 0;
                     border-radius: 999px;
                     border: 1px solid var(--qi-icon-btn-danger-border);
@@ -10620,8 +10650,8 @@
                     -webkit-user-select: none;
                     touch-action: manipulation;
                     z-index: 2;
-                    box-shadow: 0 6px 16px rgba(0,0,0,0.22);
-                    backdrop-filter: blur(6px);
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.16);
+                    backdrop-filter: blur(4px);
                     transition:
                         background 120ms ease,
                         border-color 120ms ease,
@@ -10634,8 +10664,8 @@
                     position: absolute;
                     top: 50%;
                     left: 50%;
-                    width: 12px;
-                    height: 2.2px;
+                    width: 10px;
+                    height: 2px;
                     background: currentColor;
                     border-radius: 999px;
                     transform-origin: center;
@@ -10645,8 +10675,8 @@
                 ${hostSelector} .qi-preview-del:hover {
                     background: var(--qi-icon-btn-danger-hover);
                     border-color: color-mix(in srgb, var(--qi-icon-btn-danger-color) 28%, var(--qi-icon-btn-danger-border));
-                    box-shadow: 0 10px 22px rgba(0,0,0,0.26);
-                    transform: scale(1.06);
+                    box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+                    transform: scale(1.03);
                 }
                 ${hostSelector} .qi-preview-del:disabled { opacity: 0.55; cursor: not-allowed; }
                 ${hostSelector} .qi-btn {
@@ -11023,6 +11053,12 @@
                     gap: 10px;
                     align-items: center;
                     flex-wrap: wrap;
+                }
+                ${hostSelector} .qi-image-stack {
+                    display: grid;
+                    gap: 0;
+                    width: 100%;
+                    min-width: 0;
                 }
                 `;
             }
@@ -12758,7 +12794,7 @@
                 imageLabel.textContent = labels.fields?.images || DEFAULT_LABELS.fields.images;
                 imageLabelStack.appendChild(imageLabel);
                 const imageBox = global.document.createElement("div");
-                imageBox.className = "qi-inline";
+                imageBox.className = "qi-image-stack";
                 imageDropEl = global.document.createElement("div");
                 imageDropEl.className = "qi-drop";
                 imageDropEl.tabIndex = 0;
@@ -12768,6 +12804,13 @@
 
                 imagePreviewListEl = global.document.createElement("div");
                 imagePreviewListEl.className = "qi-preview-list";
+
+                imagePreviewShellEl = global.document.createElement("div");
+                imagePreviewShellEl.className = "qi-preview-shell";
+                imagePreviewShellEl.setAttribute("data-has-items", "0");
+                imagePreviewShellEl.setAttribute("data-drag-over", "0");
+                imagePreviewShellEl.setAttribute("data-disabled", "0");
+                imagePreviewShellEl.setAttribute("data-drop-hint", labels.placeholders?.imageDropMore || DEFAULT_LABELS.placeholders.imageDropMore);
 
                 fileInputEl = global.document.createElement("input");
                 fileInputEl.type = "file";
@@ -12786,24 +12829,6 @@
                 });
 
                 bindImageTransferTarget(imageDropEl, { enableClick: true, enablePaste: true, focusText: true });
-
-                imageBox.appendChild(imageDropEl);
-                imageBox.appendChild(fileInputEl);
-
-                imageRow.appendChild(imageLabelStack);
-                imageRow.appendChild(imageBox);
-
-                previewRowEl = global.document.createElement("div");
-                previewRowEl.className = "qi-row";
-                previewRowEl.style.display = "none";
-                const previewLabel = global.document.createElement("label");
-                previewLabel.textContent = labels.fields?.preview || DEFAULT_LABELS.fields.preview;
-                imagePreviewShellEl = global.document.createElement("div");
-                imagePreviewShellEl.className = "qi-preview-shell";
-                imagePreviewShellEl.setAttribute("data-has-items", "0");
-                imagePreviewShellEl.setAttribute("data-drag-over", "0");
-                imagePreviewShellEl.setAttribute("data-disabled", "0");
-                imagePreviewShellEl.setAttribute("data-drop-hint", labels.placeholders?.imageDropMore || DEFAULT_LABELS.placeholders.imageDropMore);
                 bindImageTransferTarget(imagePreviewShellEl, { focusText: true });
 
                 clearAllImagesBtnEl = global.document.createElement("button");
@@ -12820,11 +12845,15 @@
                     setImageFiles([]);
                     appendGlobalLog(labels.messages?.imagesCleared || DEFAULT_LABELS.messages.imagesCleared);
                 });
+                imagePreviewShellEl.appendChild(imageDropEl);
                 imagePreviewShellEl.appendChild(clearAllImagesBtnEl);
                 imagePreviewShellEl.appendChild(imagePreviewListEl);
 
-                previewRowEl.appendChild(previewLabel);
-                previewRowEl.appendChild(imagePreviewShellEl);
+                imageBox.appendChild(imagePreviewShellEl);
+                imageBox.appendChild(fileInputEl);
+
+                imageRow.appendChild(imageLabelStack);
+                imageRow.appendChild(imageBox);
 
                 const textRow = global.document.createElement("div");
                 textRow.className = "qi-row";
@@ -12994,7 +13023,6 @@
                 hint.textContent = labels.hints?.flow || DEFAULT_LABELS.hints.flow;
 
                 body.appendChild(imageRow);
-                body.appendChild(previewRowEl);
                 body.appendChild(textRow);
                 body.appendChild(hotkeyRow);
                 body.appendChild(loopRow);
