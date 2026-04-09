@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.4.1
+// @name         [Template] 快捷键跳转 [20260409] v1.4.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.4.1
-// @update-log   1.4.1: 合并 QuickInput 图片与预览区域，缩小图片预览删除按钮，并同步优化合并区域的拖拽追加交互。
+// @version      [20260409] v1.4.2
+// @update-log   1.4.2: QuickInput 文字输入框新增图片粘贴支持，并同步更新合并图片区的缓存版本。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -11603,6 +11603,16 @@
                 appendGlobalLog(msg, { level: "ok" });
             }
 
+            function handleTextInputPaste(e) {
+                if (running) return;
+                const files = extractImageFilesFromTransfer(e?.clipboardData);
+                if (files.length === 0) return;
+                try { e.preventDefault(); } catch {}
+                try { e.stopPropagation(); } catch {}
+                onPickFiles(files);
+                try { textEl?.focus?.(); } catch {}
+            }
+
             function clearImageDropFocus({ focusText = true } = {}) {
                 try { imageDropEl?.blur?.(); } catch {}
                 try { imagePreviewShellEl?.blur?.(); } catch {}
@@ -12864,6 +12874,7 @@
                 textEl.placeholder = labels.placeholders?.text || DEFAULT_LABELS.placeholders.text;
                 textEl.addEventListener("input", persistDraftText);
                 textEl.addEventListener("change", persistDraftText);
+                textEl.addEventListener("paste", handleTextInputPaste);
                 textRow.appendChild(textLabel);
                 textRow.appendChild(textEl);
 
