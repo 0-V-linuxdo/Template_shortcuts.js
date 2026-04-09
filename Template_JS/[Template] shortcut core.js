@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.4.2
+// @name         [Template] 快捷键跳转 [20260409] v1.4.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.4.2
-// @update-log   1.4.2: QuickInput 文字输入框新增图片粘贴支持，并同步更新合并图片区的缓存版本。
+// @version      [20260409] v1.4.3
+// @update-log   1.4.3: 优化 QuickInput 图片预览区交互；移除 hover 复制光标，仅在拖拽进入时显示追加提示，并同步更新缓存版本。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9094,7 +9094,8 @@
             }),
             placeholders: Object.freeze({
                 imageDrop: "点击选择 / 粘贴 / 拖拽图片",
-                imageDropMore: "可拖拽到此继续追加",
+                imageDropMore: "点击 / 粘贴 / 拖拽继续追加图片",
+                imageDropOverlay: "松开鼠标继续追加图片",
                 text: "在这里输入/粘贴要发送的文字…",
                 hotkeyPrimary: "留空则不触发（例如：CTRL+I）",
                 hotkeyExtra: "例如：CTRL+I",
@@ -10551,12 +10552,37 @@
                     color: ${primaryColor};
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-list {
-                    cursor: copy;
+                    cursor: default;
                 }
                 ${hostSelector} .qi-preview-shell[data-drag-over="1"] {
                     border-color: ${primaryColor};
                     background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
                     box-shadow: 0 0 0 1px ${primaryColor}33;
+                }
+                ${hostSelector} .qi-preview-shell[data-has-items="1"][data-drag-over="1"]::after {
+                    content: attr(data-drop-hint);
+                    position: absolute;
+                    inset: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 16px;
+                    border: 1px dashed ${primaryColor};
+                    border-radius: 12px;
+                    background: color-mix(in srgb, ${primaryColor} 12%, var(--qi-surface-alt));
+                    box-shadow: 0 0 0 1px ${primaryColor}22 inset;
+                    color: ${primaryColor};
+                    font-size: 12px;
+                    font-weight: 700;
+                    line-height: 1.35;
+                    text-align: center;
+                    letter-spacing: 0.01em;
+                    pointer-events: none;
+                    z-index: 2;
+                }
+                ${hostSelector} .qi-preview-shell[data-has-items="1"][data-drag-over="1"] .qi-drop,
+                ${hostSelector} .qi-preview-shell[data-has-items="1"][data-drag-over="1"] .qi-preview-list {
+                    opacity: 0.3;
                 }
                 ${hostSelector} .qi-preview-shell[data-disabled="1"] .qi-preview-list {
                     opacity: 0.68;
@@ -11465,6 +11491,11 @@
                     });
                     const hasItems = previewCount > 0;
                     if (imagePreviewShellEl) imagePreviewShellEl.setAttribute("data-has-items", hasItems ? "1" : "0");
+                    if (imageDropEl) {
+                        imageDropEl.textContent = hasItems
+                            ? (labels.placeholders?.imageDropMore || DEFAULT_LABELS.placeholders.imageDropMore)
+                            : (labels.placeholders?.imageDrop || DEFAULT_LABELS.placeholders.imageDrop);
+                    }
                     if (clearAllImagesBtnEl) {
                         clearAllImagesBtnEl.disabled = running || !hasItems;
                     }
@@ -12820,7 +12851,7 @@
                 imagePreviewShellEl.setAttribute("data-has-items", "0");
                 imagePreviewShellEl.setAttribute("data-drag-over", "0");
                 imagePreviewShellEl.setAttribute("data-disabled", "0");
-                imagePreviewShellEl.setAttribute("data-drop-hint", labels.placeholders?.imageDropMore || DEFAULT_LABELS.placeholders.imageDropMore);
+                imagePreviewShellEl.setAttribute("data-drop-hint", labels.placeholders?.imageDropOverlay || DEFAULT_LABELS.placeholders.imageDropOverlay);
 
                 fileInputEl = global.document.createElement("input");
                 fileInputEl.type = "file";
