@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.4.3
+// @name         [Template] 快捷键跳转 [20260409] v1.4.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.4.3
-// @update-log   1.4.3: 优化 QuickInput 图片预览区交互；移除 hover 复制光标，仅在拖拽进入时显示追加提示，并同步更新缓存版本。
+// @version      [20260409] v1.4.4
+// @update-log   1.4.4: 修正 QuickInput 图片拖拽预览组件的虚线边框位置，使其紧贴最外层边框，并同步更新缓存版本。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10559,18 +10559,20 @@
                     background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
                     box-shadow: 0 0 0 1px ${primaryColor}33;
                 }
+                ${hostSelector} .qi-preview-shell[data-has-items="1"][data-drag-over="1"] {
+                    border-style: dashed;
+                }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"][data-drag-over="1"]::after {
                     content: attr(data-drop-hint);
                     position: absolute;
-                    inset: 10px;
+                    inset: 0;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     padding: 16px;
-                    border: 1px dashed ${primaryColor};
-                    border-radius: 12px;
+                    border: none;
+                    border-radius: inherit;
                     background: color-mix(in srgb, ${primaryColor} 12%, var(--qi-surface-alt));
-                    box-shadow: 0 0 0 1px ${primaryColor}22 inset;
                     color: ${primaryColor};
                     font-size: 12px;
                     font-weight: 700;
@@ -10578,7 +10580,7 @@
                     text-align: center;
                     letter-spacing: 0.01em;
                     pointer-events: none;
-                    z-index: 2;
+                    z-index: 1;
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"][data-drag-over="1"] .qi-drop,
                 ${hostSelector} .qi-preview-shell[data-has-items="1"][data-drag-over="1"] .qi-preview-list {
