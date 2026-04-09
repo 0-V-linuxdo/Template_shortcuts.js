@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.2.1
+// @name         [Template] 快捷键跳转 [20260409] v1.3.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.2.1
-// @update-log   1.2.1: 修复 QuickInput 缺失 waitForObservedState 导致 ChatGPT/Gemini 快捷输入适配器初始化失败、弹窗无法打开；保留 v1.2.0 的整组重传能力。
+// @version      [20260409] v1.3.0
+// @update-log   1.3.0: 提高 QuickInput 默认图片恢复重试次数，并支持配置图片恢复策略，减少图片未就绪时的过早中止。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9169,6 +9169,10 @@
             loopCount: 1,
             stepDelayMs: 120,
             loopDelayMs: 800,
+            imageRecovery: Object.freeze({
+                maxRepairAttempts: 4,
+                maxResetAttempts: 3
+            }),
             clearBeforeRun: true,
             panelPos: null
         });
@@ -9182,6 +9186,25 @@
                 return trimmed ? [trimmed] : [];
             }
             return [];
+        }
+
+        function normalizeImageRecovery(value, fallback = null) {
+            const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+            const base = fallback && typeof fallback === "object" && !Array.isArray(fallback)
+                ? fallback
+                : DEFAULT_CONFIG.imageRecovery;
+            return Object.freeze({
+                maxRepairAttempts: clampInt(raw.maxRepairAttempts, {
+                    min: 0,
+                    max: 10,
+                    fallback: clampInt(base?.maxRepairAttempts, { min: 0, max: 10, fallback: 4 })
+                }),
+                maxResetAttempts: clampInt(raw.maxResetAttempts, {
+                    min: 0,
+                    max: 10,
+                    fallback: clampInt(base?.maxResetAttempts, { min: 0, max: 10, fallback: 3 })
+                })
+            });
         }
 
         function loadConfig(storageKey, defaults) {
@@ -11940,8 +11963,9 @@
 
                 async function waitForImagesReadyWithReset(composerEl, expectedCount) {
                     const expected = Math.max(0, Number(expectedCount) || 0);
-                    const maxRepairAttempts = 2;
-                    const maxResetAttempts = 1;
+                    const imageRecovery = normalizeImageRecovery(defaults?.imageRecovery);
+                    const maxRepairAttempts = imageRecovery.maxRepairAttempts;
+                    const maxResetAttempts = imageRecovery.maxResetAttempts;
                     let composerRef = composerEl;
                     let repairAttempt = 0;
                     let resetAttempt = 0;
