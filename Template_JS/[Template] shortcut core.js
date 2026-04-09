@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.4.5
+// @name         [Template] 快捷键跳转 [20260409] v1.4.6
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.4.5
-// @update-log   1.4.5: 去除 QuickInput 停止按钮内部图标的圆角，改为直角方块。
+// @version      [20260409] v1.4.6
+// @update-log   1.4.6: 调整 QuickInput 停止按钮内部图标为轻微圆角方块，并将暂停图标放大至 110%。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9756,6 +9756,7 @@
                         y: "3.98",
                         width: "16.04",
                         height: "16.04",
+                        rx: "2.2",
                         fill: "currentColor"
                     }));
                     return svg;
@@ -9763,19 +9764,19 @@
 
                 if (normalized === "pause") {
                     svg.appendChild(createPlayerActionSvgNode("rect", {
-                        x: "7.1",
-                        y: "6.1",
-                        width: "3.7",
-                        height: "11.8",
-                        rx: "1.4",
+                        x: "6.61",
+                        y: "5.51",
+                        width: "4.07",
+                        height: "12.98",
+                        rx: "1.54",
                         fill: "currentColor"
                     }));
                     svg.appendChild(createPlayerActionSvgNode("rect", {
-                        x: "13.2",
-                        y: "6.1",
-                        width: "3.7",
-                        height: "11.8",
-                        rx: "1.4",
+                        x: "13.32",
+                        y: "5.51",
+                        width: "4.07",
+                        height: "12.98",
+                        rx: "1.54",
                         fill: "currentColor"
                     }));
                     return svg;
