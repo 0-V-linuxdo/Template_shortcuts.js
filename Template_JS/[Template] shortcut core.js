@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.3.0
+// @name         [Template] 快捷键跳转 [20260409] v1.3.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.3.0
-// @update-log   1.3.0: 提高 QuickInput 默认图片恢复重试次数，并支持配置图片恢复策略，减少图片未就绪时的过早中止。
+// @version      [20260409] v1.3.1
+// @update-log   1.3.1: 将 QuickInput 底部操作按钮改为 SVG 播放器风格图标，优化运行/暂停/停止控制区视觉。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9068,6 +9068,8 @@
             m: "分钟"
         });
 
+        const QUICK_INPUT_SVG_NS = "http://www.w3.org/2000/svg";
+
         const DEFAULT_LABELS = Object.freeze({
             tabs: Object.freeze({ input: "输入", log: "日志" }),
             fields: Object.freeze({
@@ -9702,10 +9704,124 @@
                 appendGlobalLog(text, options);
             }
 
-            function getPauseButtonLabel() {
-                return paused
-                    ? (labels.buttons?.resume || DEFAULT_LABELS.buttons.resume)
-                    : (labels.buttons?.pause || DEFAULT_LABELS.buttons.pause);
+            function getPauseButtonAction() {
+                return paused ? "resume" : "pause";
+            }
+
+            function getPlayerActionLabel(action) {
+                const normalized = String(action ?? "").trim().toLowerCase();
+                switch (normalized) {
+                    case "stop":
+                        return labels.buttons?.stop || DEFAULT_LABELS.buttons.stop;
+                    case "pause":
+                        return labels.buttons?.pause || DEFAULT_LABELS.buttons.pause;
+                    case "resume":
+                        return labels.buttons?.resume || DEFAULT_LABELS.buttons.resume;
+                    default:
+                        return labels.buttons?.run || DEFAULT_LABELS.buttons.run;
+                }
+            }
+
+            function createPlayerActionSvgNode(tag, attrs = {}) {
+                const node = global.document.createElementNS(QUICK_INPUT_SVG_NS, tag);
+                Object.entries(attrs).forEach(([name, value]) => {
+                    if (value == null) return;
+                    node.setAttribute(name, String(value));
+                });
+                return node;
+            }
+
+            function createPlayerActionIcon(action) {
+                const normalized = String(action ?? "").trim().toLowerCase();
+                const svg = createPlayerActionSvgNode("svg", {
+                    viewBox: "0 0 24 24",
+                    fill: "none",
+                    "aria-hidden": "true",
+                    focusable: "false"
+                });
+
+                if (normalized === "stop") {
+                    svg.appendChild(createPlayerActionSvgNode("rect", {
+                        x: "7.25",
+                        y: "7.25",
+                        width: "9.5",
+                        height: "9.5",
+                        rx: "2.2",
+                        fill: "currentColor"
+                    }));
+                    return svg;
+                }
+
+                if (normalized === "pause") {
+                    svg.appendChild(createPlayerActionSvgNode("rect", {
+                        x: "7.1",
+                        y: "6.1",
+                        width: "3.7",
+                        height: "11.8",
+                        rx: "1.4",
+                        fill: "currentColor"
+                    }));
+                    svg.appendChild(createPlayerActionSvgNode("rect", {
+                        x: "13.2",
+                        y: "6.1",
+                        width: "3.7",
+                        height: "11.8",
+                        rx: "1.4",
+                        fill: "currentColor"
+                    }));
+                    return svg;
+                }
+
+                svg.appendChild(createPlayerActionSvgNode("path", {
+                    d: "M8.25 6.65C8.25 5.9 9.06 5.43 9.71 5.83L17.69 10.83C18.31 11.22 18.31 12.78 17.69 13.17L9.71 18.17C9.06 18.57 8.25 18.1 8.25 17.35V6.65Z",
+                    fill: "currentColor"
+                }));
+                return svg;
+            }
+
+            function setPlayerActionButtonVisual(btn, action) {
+                if (!btn) return;
+                const normalized = String(action ?? "").trim().toLowerCase();
+                const label = getPlayerActionLabel(normalized);
+                btn.setAttribute("data-action", normalized || "run");
+                btn.title = label;
+                btn.setAttribute("aria-label", label);
+                btn.classList.remove("qi-btn-primary", "qi-btn-danger");
+                if (normalized === "stop") {
+                    btn.classList.add("qi-btn-danger");
+                } else if (normalized === "resume" || normalized === "run") {
+                    btn.classList.add("qi-btn-primary");
+                }
+                btn.replaceChildren(createPlayerActionIcon(normalized));
+            }
+
+            function createPlayerActionButton(action, onClick, { disabled = false } = {}) {
+                const btn = global.document.createElement("button");
+                btn.type = "button";
+                btn.className = "qi-btn qi-player-btn";
+                btn.disabled = !!disabled;
+                setPlayerActionButtonVisual(btn, action);
+                if (typeof onClick === "function") btn.addEventListener("click", onClick);
+                return btn;
+            }
+
+            function createPlayerActionsBar() {
+                const actionsEl = global.document.createElement("div");
+                actionsEl.className = "qi-actions";
+
+                const stopBtn = createPlayerActionButton("stop", stopMacro, { disabled: true });
+                stopButtons.push(stopBtn);
+
+                const pauseBtn = createPlayerActionButton(getPauseButtonAction(), togglePause, { disabled: true });
+                pauseButtons.push(pauseBtn);
+
+                const runBtn = createPlayerActionButton("run", runMacro);
+                runButtons.push(runBtn);
+
+                actionsEl.appendChild(stopBtn);
+                actionsEl.appendChild(pauseBtn);
+                actionsEl.appendChild(runBtn);
+                return actionsEl;
             }
 
             function syncRunControls() {
@@ -9720,7 +9836,7 @@
                 for (const btn of pauseButtons) {
                     if (!btn) continue;
                     btn.disabled = !isBusy || isCancelling;
-                    btn.textContent = getPauseButtonLabel();
+                    setPlayerActionButtonVisual(btn, getPauseButtonAction());
                 }
                 for (const input of hotkeyInputs) {
                     if (input) input.disabled = isBusy;
@@ -9990,6 +10106,8 @@
                     --qi-icon-btn-danger-hover: rgba(239,68,68,0.26);
                     --qi-icon-btn-danger-border: rgba(248,113,113,0.34);
                     --qi-icon-btn-danger-color: #fecaca;
+                    --qi-player-btn-shadow: 0 10px 22px rgba(0,0,0,0.28);
+                    --qi-player-btn-hover-shadow: 0 14px 30px rgba(0,0,0,0.34);
                     box-sizing: border-box;
                     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
                     font-size: 13px;
@@ -10022,6 +10140,8 @@
                     --qi-icon-btn-danger-hover: rgba(220,38,38,0.14);
                     --qi-icon-btn-danger-border: rgba(220,38,38,0.2);
                     --qi-icon-btn-danger-color: #b91c1c;
+                    --qi-player-btn-shadow: 0 10px 22px rgba(15,23,42,0.12);
+                    --qi-player-btn-hover-shadow: 0 14px 28px rgba(15,23,42,0.18);
                     color-scheme: light;
                 }
                 ${hostSelector},
@@ -10139,18 +10259,65 @@
                 }
                 ${hostSelector} .qi-tab-panel[data-active="1"] { display: flex; }
                 ${hostSelector} .qi-actions {
-                    padding: 6px 12px;
+                    padding: 10px 12px 12px;
                     border-top: 1px solid var(--qi-border);
                     background: var(--qi-actions-bg);
                     display: flex;
                     justify-content: flex-end;
-                    gap: 6px;
+                    align-items: center;
+                    gap: 10px;
                 }
                 ${hostSelector} .qi-actions .qi-btn {
-                    padding: 6px 12px;
                     font-size: 12px;
-                    line-height: 1.2;
+                    line-height: 1;
+                }
+                ${hostSelector} .qi-actions .qi-player-btn {
+                    width: 46px;
+                    height: 46px;
+                    min-width: 46px;
+                    padding: 0;
                     border-radius: 999px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    position: relative;
+                    overflow: hidden;
+                    box-shadow: var(--qi-player-btn-shadow);
+                    transition:
+                        transform 160ms ease,
+                        box-shadow 160ms ease,
+                        background 160ms ease,
+                        border-color 160ms ease,
+                        color 160ms ease,
+                        filter 160ms ease;
+                }
+                ${hostSelector} .qi-actions .qi-player-btn::before {
+                    content: "";
+                    position: absolute;
+                    inset: 1px 1px auto 1px;
+                    height: 42%;
+                    border-radius: inherit;
+                    background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0));
+                    pointer-events: none;
+                    opacity: 0.75;
+                }
+                ${hostSelector} .qi-actions .qi-player-btn svg {
+                    width: 20px;
+                    height: 20px;
+                    display: block;
+                    pointer-events: none;
+                    flex: 0 0 auto;
+                    position: relative;
+                    z-index: 1;
+                }
+                ${hostSelector} .qi-actions .qi-player-btn:not(:disabled):hover {
+                    transform: translateY(-1px);
+                    box-shadow: var(--qi-player-btn-hover-shadow);
+                }
+                ${hostSelector} .qi-actions .qi-player-btn:focus-visible {
+                    outline: none;
+                    border-color: ${primaryColor};
+                    box-shadow: 0 0 0 2px ${primaryColor}33, var(--qi-player-btn-hover-shadow);
                 }
                 ${hostSelector} .qi-body {
                     padding: 14px;
@@ -10422,13 +10589,25 @@
                     font-size: 13px;
                     font-weight: 650;
                 }
-                ${hostSelector} .qi-btn:not(.qi-btn-primary):hover { background: var(--qi-hover); }
+                ${hostSelector} .qi-btn:not(.qi-btn-primary):not(.qi-btn-danger):hover { background: var(--qi-hover); }
                 ${hostSelector} .qi-btn-primary {
                     background: ${primaryColor};
                     border-color: ${primaryColor};
                     color: #fff;
                 }
+                ${hostSelector} .qi-btn-danger {
+                    background: var(--qi-icon-btn-danger-bg);
+                    border-color: var(--qi-icon-btn-danger-border);
+                    color: var(--qi-icon-btn-danger-color);
+                }
+                ${hostSelector} .qi-btn-danger:hover { background: var(--qi-icon-btn-danger-hover); }
+                ${hostSelector} .qi-actions .qi-player-btn.qi-btn-primary:hover { filter: brightness(1.06); }
                 ${hostSelector} .qi-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+                ${hostSelector} .qi-actions .qi-player-btn:disabled {
+                    transform: none;
+                    box-shadow: none;
+                    filter: none;
+                }
                 ${hostSelector} .qi-hint {
                     font-size: 12px;
                     font-weight: 500;
@@ -12669,35 +12848,7 @@
                 body.appendChild(optionsRow);
                 body.appendChild(hint);
 
-                const inputActions = global.document.createElement("div");
-                inputActions.className = "qi-actions";
-
-                const stopBtnInput = global.document.createElement("button");
-                stopBtnInput.type = "button";
-                stopBtnInput.className = "qi-btn";
-                stopBtnInput.textContent = labels.buttons?.stop || DEFAULT_LABELS.buttons.stop;
-                stopBtnInput.disabled = true;
-                stopBtnInput.addEventListener("click", stopMacro);
-                stopButtons.push(stopBtnInput);
-
-                const pauseBtnInput = global.document.createElement("button");
-                pauseBtnInput.type = "button";
-                pauseBtnInput.className = "qi-btn";
-                pauseBtnInput.textContent = getPauseButtonLabel();
-                pauseBtnInput.disabled = true;
-                pauseBtnInput.addEventListener("click", togglePause);
-                pauseButtons.push(pauseBtnInput);
-
-                const runBtnInput = global.document.createElement("button");
-                runBtnInput.type = "button";
-                runBtnInput.className = "qi-btn qi-btn-primary";
-                runBtnInput.textContent = labels.buttons?.run || DEFAULT_LABELS.buttons.run;
-                runBtnInput.addEventListener("click", runMacro);
-                runButtons.push(runBtnInput);
-
-                inputActions.appendChild(stopBtnInput);
-                inputActions.appendChild(pauseBtnInput);
-                inputActions.appendChild(runBtnInput);
+                const inputActions = createPlayerActionsBar();
 
                 inputPanel.appendChild(body);
                 inputPanel.appendChild(inputActions);
@@ -12709,35 +12860,7 @@
                 logEl = global.document.createElement("div");
                 logEl.className = "qi-log";
 
-                const logActions = global.document.createElement("div");
-                logActions.className = "qi-actions";
-
-                const stopBtnLog = global.document.createElement("button");
-                stopBtnLog.type = "button";
-                stopBtnLog.className = "qi-btn";
-                stopBtnLog.textContent = labels.buttons?.stop || DEFAULT_LABELS.buttons.stop;
-                stopBtnLog.disabled = true;
-                stopBtnLog.addEventListener("click", stopMacro);
-                stopButtons.push(stopBtnLog);
-
-                const pauseBtnLog = global.document.createElement("button");
-                pauseBtnLog.type = "button";
-                pauseBtnLog.className = "qi-btn";
-                pauseBtnLog.textContent = getPauseButtonLabel();
-                pauseBtnLog.disabled = true;
-                pauseBtnLog.addEventListener("click", togglePause);
-                pauseButtons.push(pauseBtnLog);
-
-                const runBtnLog = global.document.createElement("button");
-                runBtnLog.type = "button";
-                runBtnLog.className = "qi-btn qi-btn-primary";
-                runBtnLog.textContent = labels.buttons?.run || DEFAULT_LABELS.buttons.run;
-                runBtnLog.addEventListener("click", runMacro);
-                runButtons.push(runBtnLog);
-
-                logActions.appendChild(stopBtnLog);
-                logActions.appendChild(pauseBtnLog);
-                logActions.appendChild(runBtnLog);
+                const logActions = createPlayerActionsBar();
 
                 logPanel.appendChild(logEl);
                 logPanel.appendChild(logActions);
