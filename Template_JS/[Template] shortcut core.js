@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.6.3
+// @name         [Template] 快捷键跳转 [20260409] v1.6.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.6.3
-// @update-log   1.6.3: 清理 QuickInput 重试前的冗余成功日志，保留失败与自动重试提示。
+// @version      [20260409] v1.6.4
+// @update-log   1.6.4: QuickInput 停止按钮改为使用网站主题色；更新版本号与发布记录。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -10216,12 +10216,12 @@
                     --qi-icon-btn-danger-hover: rgba(239,68,68,0.26);
                     --qi-icon-btn-danger-border: rgba(248,113,113,0.34);
                     --qi-icon-btn-danger-color: #fecaca;
-                    --qi-player-stop-bg: rgba(60, 116, 255, 0.18);
-                    --qi-player-stop-border: rgba(96, 146, 255, 0.22);
-                    --qi-player-stop-color: #8ab4ff;
-                    --qi-player-stop-hover-bg: rgba(77, 130, 255, 0.26);
-                    --qi-player-stop-hover-border: rgba(116, 161, 255, 0.3);
-                    --qi-player-stop-hover-color: #a9c7ff;
+                    --qi-player-stop-bg: color-mix(in srgb, ${primaryColor} 18%, var(--qi-surface-alt));
+                    --qi-player-stop-border: color-mix(in srgb, ${primaryColor} 26%, var(--qi-border));
+                    --qi-player-stop-color: color-mix(in srgb, ${primaryColor} 82%, white 18%);
+                    --qi-player-stop-hover-bg: color-mix(in srgb, ${primaryColor} 24%, var(--qi-surface-alt));
+                    --qi-player-stop-hover-border: color-mix(in srgb, ${primaryColor} 34%, var(--qi-border));
+                    --qi-player-stop-hover-color: color-mix(in srgb, ${primaryColor} 88%, white 12%);
                     --qi-player-btn-shadow: 0 10px 22px rgba(0,0,0,0.28);
                     --qi-player-btn-hover-shadow: 0 14px 30px rgba(0,0,0,0.34);
                     box-sizing: border-box;
@@ -10256,12 +10256,12 @@
                     --qi-icon-btn-danger-hover: rgba(220,38,38,0.14);
                     --qi-icon-btn-danger-border: rgba(220,38,38,0.2);
                     --qi-icon-btn-danger-color: #b91c1c;
-                    --qi-player-stop-bg: #e6edff;
-                    --qi-player-stop-border: #e6edff;
-                    --qi-player-stop-color: #1f5ed6;
-                    --qi-player-stop-hover-bg: #dbe6ff;
-                    --qi-player-stop-hover-border: #dbe6ff;
-                    --qi-player-stop-hover-color: #174fb8;
+                    --qi-player-stop-bg: color-mix(in srgb, ${primaryColor} 12%, white);
+                    --qi-player-stop-border: color-mix(in srgb, ${primaryColor} 22%, var(--qi-border));
+                    --qi-player-stop-color: color-mix(in srgb, ${primaryColor} 88%, black 12%);
+                    --qi-player-stop-hover-bg: color-mix(in srgb, ${primaryColor} 18%, white);
+                    --qi-player-stop-hover-border: color-mix(in srgb, ${primaryColor} 30%, var(--qi-border));
+                    --qi-player-stop-hover-color: color-mix(in srgb, ${primaryColor} 92%, black 8%);
                     --qi-player-btn-shadow: 0 10px 22px rgba(15,23,42,0.12);
                     --qi-player-btn-hover-shadow: 0 14px 28px rgba(15,23,42,0.18);
                     color-scheme: light;
