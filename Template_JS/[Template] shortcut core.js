@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.3.4
+// @name         [Template] 快捷键跳转 [20260409] v1.3.5
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.3.4
-// @update-log   1.3.4: 修正 QuickInput 底部播放按钮顶部高光遮罩导致的背景填充异常；放大停止图标并移除按钮栏 hover 效果。
+// @version      [20260409] v1.3.5
+// @update-log   1.3.5: 继续放大 QuickInput 底部停止按钮图标，提升播放器式控制区的识别度。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9750,11 +9750,11 @@
 
                 if (normalized === "stop") {
                     svg.appendChild(createPlayerActionSvgNode("rect", {
-                        x: "5.83",
-                        y: "5.83",
-                        width: "12.34",
-                        height: "12.34",
-                        rx: "2.85",
+                        x: "3.98",
+                        y: "3.98",
+                        width: "16.04",
+                        height: "16.04",
+                        rx: "3.71",
                         fill: "currentColor"
                     }));
                     return svg;
