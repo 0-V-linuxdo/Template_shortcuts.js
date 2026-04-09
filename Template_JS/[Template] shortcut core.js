@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260409] v1.2.0
+// @name         [Template] 快捷键跳转 [20260409] v1.2.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260409] v1.2.0
-// @update-log   1.2.0: QuickInput 新增 clearAttachments 接口；图片就绪超时后支持清空当前附件并整组重传，ChatGPT 已接入该流程，Gemini 保持原有补缺兜底。
+// @version      [20260409] v1.2.1
+// @update-log   1.2.1: 修复 QuickInput 缺失 waitForObservedState 导致 ChatGPT/Gemini 快捷输入适配器初始化失败、弹窗无法打开；保留 v1.2.0 的整组重传能力。
 // @description  提供可复用的快捷键管理模板(支持URL跳转/元素点击/按键模拟、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获，并内置安全 SVG 图标构造能力)。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -9349,6 +9349,184 @@
             return !(cancelFn && cancelFn());
         }
 
+        async function waitForObservedState({
+            resolveRoots = null,
+            computeState = null,
+            isSatisfied = null,
+            timeoutMs = 4000,
+            settleMs = 0,
+            pollFallbackMs = 1000,
+            attributeFilter = null,
+            shouldCancel = null,
+            runtime = null
+        } = {}) {
+            if (typeof computeState !== "function") {
+                return { ok: false, cancelled: false, state: null };
+            }
+
+            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            const runtimeApi = runtime && typeof runtime === "object" ? runtime : null;
+            const now = typeof runtimeApi?.now === "function"
+                ? () => runtimeApi.now()
+                : () => Date.now();
+            const settle = Math.max(0, Number(settleMs) || 0);
+            const pollMs = Math.max(80, Number(pollFallbackMs) || 1000);
+            const deadline = now() + Math.max(0, Number(timeoutMs) || 0);
+            const evaluate = typeof isSatisfied === "function" ? isSatisfied : (state) => !!state;
+            const MutationObserverCtor = global.MutationObserver;
+
+            let observer = null;
+            let stableSince = 0;
+            let latestState = null;
+            let pendingMutation = false;
+            let wakeResolver = null;
+
+            function flushWake(reason = "mutation") {
+                pendingMutation = true;
+                if (typeof wakeResolver === "function") {
+                    const resolve = wakeResolver;
+                    wakeResolver = null;
+                    try { resolve(reason); } catch {}
+                }
+            }
+
+            function normalizeRoots(rawRoots) {
+                const list = Array.isArray(rawRoots) ? rawRoots : [rawRoots];
+                const out = [];
+                const seen = new Set();
+
+                for (const raw of list) {
+                    let root = raw || null;
+                    if (!root && raw !== 0) continue;
+                    if (root === global || root === global.window) {
+                        root = global.document?.documentElement || global.document || null;
+                    }
+                    if (!root || seen.has(root)) continue;
+                    const nodeType = Number(root?.nodeType) || 0;
+                    if (nodeType === 1 || nodeType === 9 || nodeType === 11) {
+                        seen.add(root);
+                        out.push(root);
+                    }
+                }
+                return out;
+            }
+
+            function refreshObserver() {
+                if (!MutationObserverCtor) return;
+                if (observer) {
+                    try { observer.disconnect(); } catch {}
+                    observer = null;
+                }
+
+                const roots = normalizeRoots(typeof resolveRoots === "function" ? resolveRoots() : []);
+                if (roots.length === 0) return;
+
+                observer = new MutationObserverCtor(() => {
+                    flushWake("mutation");
+                });
+
+                const observeOptions = {
+                    subtree: true,
+                    childList: true,
+                    characterData: true,
+                    attributes: true
+                };
+                if (Array.isArray(attributeFilter) && attributeFilter.length > 0) {
+                    observeOptions.attributeFilter = attributeFilter;
+                }
+
+                for (const root of roots) {
+                    try {
+                        observer.observe(root, observeOptions);
+                    } catch { }
+                }
+            }
+
+            async function waitForNextSignal(waitMs) {
+                if (pendingMutation) {
+                    pendingMutation = false;
+                    return "mutation";
+                }
+
+                let settled = false;
+                const signalPromise = new Promise(resolve => {
+                    wakeResolver = (reason = "mutation") => {
+                        if (settled) return;
+                        settled = true;
+                        wakeResolver = null;
+                        resolve(reason);
+                    };
+                });
+                const sleepPromise = (async () => {
+                    const ok = await sleepWithCancel(waitMs, {
+                        shouldCancel: cancelFn,
+                        runtime: runtimeApi,
+                        chunkMs: Math.min(160, Math.max(20, waitMs))
+                    });
+                    if (settled) return "ignored";
+                    settled = true;
+                    wakeResolver = null;
+                    return ok ? "timeout" : "cancelled";
+                })();
+
+                return await Promise.race([signalPromise, sleepPromise]);
+            }
+
+            try {
+                while (true) {
+                    if (cancelFn && cancelFn()) {
+                        return { ok: false, cancelled: true, state: latestState };
+                    }
+
+                    refreshObserver();
+
+                    try {
+                        latestState = computeState();
+                    } catch {
+                        latestState = null;
+                    }
+
+                    let satisfied = false;
+                    try {
+                        satisfied = !!evaluate(latestState);
+                    } catch {
+                        satisfied = false;
+                    }
+
+                    const nowMs = now();
+                    if (satisfied) {
+                        if (!stableSince) stableSince = nowMs;
+                        if (nowMs - stableSince >= settle) {
+                            return { ok: true, cancelled: false, state: latestState };
+                        }
+                    } else {
+                        stableSince = 0;
+                    }
+
+                    const remainingMs = Math.max(0, deadline - nowMs);
+                    if (remainingMs <= 0) {
+                        return { ok: false, cancelled: false, state: latestState };
+                    }
+
+                    let nextWaitMs = Math.min(remainingMs, pollMs);
+                    if (satisfied && settle > 0 && stableSince > 0) {
+                        nextWaitMs = Math.min(nextWaitMs, Math.max(20, settle - (nowMs - stableSince)));
+                    }
+
+                    const signal = await waitForNextSignal(nextWaitMs);
+                    if (signal === "cancelled") {
+                        return { ok: false, cancelled: true, state: latestState };
+                    }
+                }
+            } finally {
+                if (observer) {
+                    try { observer.disconnect(); } catch {}
+                    observer = null;
+                }
+                wakeResolver = null;
+            }
+        }
+
         function createController(userOptions = {}) {
             const options = userOptions && typeof userOptions === "object" ? userOptions : {};
             const engine = options.engine;
@@ -12634,6 +12812,7 @@
                 collectFileInputs,
                 collectFileInputsFromOpenShadows,
                 trySetFileInputFiles,
+                waitForObservedState,
                 isInsideOverlayTree
             }),
             engine: Object.freeze({
