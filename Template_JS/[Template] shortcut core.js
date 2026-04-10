@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260410] v1.0.2
+// @name         [Template] 快捷键跳转 [20260410] v1.0.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260410] v1.0.2
-// @update-log   1.0.2: 修复 quickInput 提交消息阶段因图片恢复配置函数缺失而中断的问题。
+// @version      [20260410] v1.0.3
+// @update-log   1.0.3: 同步 Template 发版元数据，刷新版本号与发布日志。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -7814,9 +7814,129 @@ ${displayTargetText}`;
     return false;
   }
   var QUICK_INPUT_DRAFT_STORAGE_VERSION = 1;
+  var QUICK_INPUT_DRAFT_DB_NAME = "template_shortcuts_quick_input_drafts";
+  var QUICK_INPUT_DRAFT_DB_VERSION = 1;
+  var QUICK_INPUT_DRAFT_STORE_NAME = "drafts";
+  var draftDbPromise = null;
   function getDraftStorageKey(storageKey) {
     const base = String(storageKey ?? "").trim() || "quick_input";
     return `${base}__draft_local_v${QUICK_INPUT_DRAFT_STORAGE_VERSION}`;
+  }
+  function getIndexedDbApi() {
+    const scope = getGlobalScope();
+    return scope?.indexedDB || scope?.window?.indexedDB || null;
+  }
+  function requestToPromise(request) {
+    return new Promise((resolve, reject) => {
+      if (!request) {
+        resolve(null);
+        return;
+      }
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error("IndexedDB request failed"));
+    });
+  }
+  function transactionToPromise(transaction) {
+    return new Promise((resolve, reject) => {
+      if (!transaction) {
+        resolve();
+        return;
+      }
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error || new Error("IndexedDB transaction failed"));
+      transaction.onabort = () => reject(transaction.error || new Error("IndexedDB transaction aborted"));
+    });
+  }
+  function openDraftDatabase() {
+    if (draftDbPromise) return draftDbPromise;
+    const indexedDb = getIndexedDbApi();
+    if (!indexedDb || typeof indexedDb.open !== "function") {
+      draftDbPromise = Promise.resolve(null);
+      return draftDbPromise;
+    }
+    draftDbPromise = new Promise((resolve) => {
+      let settled = false;
+      const finish = (db) => {
+        if (settled) return;
+        settled = true;
+        resolve(db || null);
+      };
+      try {
+        const request = indexedDb.open(QUICK_INPUT_DRAFT_DB_NAME, QUICK_INPUT_DRAFT_DB_VERSION);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db?.objectStoreNames?.contains?.(QUICK_INPUT_DRAFT_STORE_NAME)) {
+            db.createObjectStore(QUICK_INPUT_DRAFT_STORE_NAME);
+          }
+        };
+        request.onsuccess = () => {
+          const db = request.result;
+          try {
+            db.onclose = () => {
+              draftDbPromise = null;
+            };
+            db.onversionchange = () => {
+              try {
+                db.close();
+              } catch {
+              }
+              draftDbPromise = null;
+            };
+          } catch {
+          }
+          finish(db);
+        };
+        request.onerror = () => {
+          draftDbPromise = null;
+          finish(null);
+        };
+        request.onblocked = () => {
+          draftDbPromise = null;
+          finish(null);
+        };
+      } catch {
+        draftDbPromise = null;
+        finish(null);
+      }
+    });
+    return draftDbPromise;
+  }
+  async function loadDraftFromIndexedDb(draftStorageKey) {
+    const db = await openDraftDatabase();
+    if (!db) return null;
+    try {
+      const tx = db.transaction(QUICK_INPUT_DRAFT_STORE_NAME, "readonly");
+      const store = tx.objectStore(QUICK_INPUT_DRAFT_STORE_NAME);
+      const result = await requestToPromise(store.get(draftStorageKey));
+      await transactionToPromise(tx);
+      return result && typeof result === "object" ? result : null;
+    } catch {
+      return null;
+    }
+  }
+  async function saveDraftToIndexedDb(draftStorageKey, payload) {
+    const db = await openDraftDatabase();
+    if (!db) return false;
+    try {
+      const tx = db.transaction(QUICK_INPUT_DRAFT_STORE_NAME, "readwrite");
+      tx.objectStore(QUICK_INPUT_DRAFT_STORE_NAME).put(payload, draftStorageKey);
+      await transactionToPromise(tx);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async function removeDraftFromIndexedDb(draftStorageKey) {
+    const db = await openDraftDatabase();
+    if (!db) return false;
+    try {
+      const tx = db.transaction(QUICK_INPUT_DRAFT_STORE_NAME, "readwrite");
+      tx.objectStore(QUICK_INPUT_DRAFT_STORE_NAME).delete(draftStorageKey);
+      await transactionToPromise(tx);
+      return true;
+    } catch {
+      return false;
+    }
   }
   function inferMimeTypeFromDataUrl(dataUrl) {
     const match = String(dataUrl ?? "").match(/^data:([^;,]+)/i);
@@ -7905,7 +8025,7 @@ ${displayTargetText}`;
       return renameImageFile(file, uniqueName);
     }).filter(Boolean);
   }
-  function normalizeDraftImageEntry2(value, index = 0) {
+  function normalizeDraftImageEntry(value, index = 0) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
     const dataUrl = String(value.dataUrl || value.dataURL || "").trim();
     if (!/^data:image\//i.test(dataUrl)) return null;
@@ -7920,35 +8040,61 @@ ${displayTargetText}`;
   function normalizeDraftImages(value) {
     if (!Array.isArray(value)) return [];
     const usedNames = /* @__PURE__ */ new Set();
-    return value.map((entry, index) => normalizeDraftImageEntry2(entry, index)).filter(Boolean).map((entry, index) => {
+    return value.map((entry, index) => normalizeDraftImageEntry(entry, index)).filter(Boolean).map((entry, index) => {
       const uniqueName = claimUniqueImageName(entry.name, usedNames, index, { type: entry.type });
       return uniqueName === entry.name ? entry : { ...entry, name: uniqueName };
     });
   }
-  function loadDraft(draftStorageKey) {
-    const raw = safeLocalStorageGet(draftStorageKey, null);
+  async function loadDraft(draftStorageKey) {
+    let raw = await loadDraftFromIndexedDb(draftStorageKey);
+    let fromLegacyLocalStorage = false;
+    if (!raw || typeof raw !== "object") {
+      raw = safeLocalStorageGet(draftStorageKey, null);
+      fromLegacyLocalStorage = !!(raw && typeof raw === "object");
+    }
     const stored = raw && typeof raw === "object" ? raw : {};
-    return {
+    const normalized = {
       text: typeof stored.text === "string" ? stored.text : String(stored.text ?? ""),
       images: normalizeDraftImages(stored.images)
     };
+    if (fromLegacyLocalStorage && (normalized.text || normalized.images.length > 0)) {
+      const migrated = await saveDraftToIndexedDb(draftStorageKey, {
+        version: QUICK_INPUT_DRAFT_STORAGE_VERSION,
+        text: normalized.text,
+        images: normalized.images,
+        savedAt: Number(stored.savedAt) || Date.now()
+      });
+      if (migrated) safeLocalStorageRemove(draftStorageKey);
+    }
+    return normalized;
   }
-  function saveDraft(draftStorageKey, draft) {
+  async function saveDraft(draftStorageKey, draft) {
     const text = typeof draft?.text === "string" ? draft.text : String(draft?.text ?? "");
     const images = normalizeDraftImages(draft?.images);
     if (!text && images.length === 0) {
+      await removeDraftFromIndexedDb(draftStorageKey);
       safeLocalStorageRemove(draftStorageKey);
       return { ok: true, storedImages: [], truncated: false };
     }
+    const payload = {
+      version: QUICK_INPUT_DRAFT_STORAGE_VERSION,
+      text,
+      images,
+      savedAt: Date.now()
+    };
+    if (await saveDraftToIndexedDb(draftStorageKey, payload)) {
+      safeLocalStorageRemove(draftStorageKey);
+      return { ok: true, storedImages: images, truncated: false };
+    }
     for (let count = images.length; count >= 0; count--) {
       const storedImages = images.slice(0, count);
-      const payload = {
+      const fallbackPayload = {
         version: QUICK_INPUT_DRAFT_STORAGE_VERSION,
         text,
         images: storedImages,
         savedAt: Date.now()
       };
-      if (safeLocalStorageSet(draftStorageKey, payload)) {
+      if (safeLocalStorageSet(draftStorageKey, fallbackPayload)) {
         return { ok: true, storedImages, truncated: storedImages.length !== images.length };
       }
     }
@@ -10164,6 +10310,8 @@ ${displayTargetText}`;
     let lastTerminalStatus = "idle";
     let pendingFinalStatusDetail = "";
     let draftPersistToken = 0;
+    let draftRestorePromise = null;
+    let draftWriteChain = Promise.resolve(null);
     let dragPointerId = null;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
@@ -10185,6 +10333,27 @@ ${displayTargetText}`;
       try {
         if (error) console.warn(`${logTag} ${message}`, error);
         else console.warn(`${logTag} ${message}`);
+      } catch {
+      }
+    }
+    function queueDraftWrite(task) {
+      const runTask = async () => {
+        try {
+          return await task();
+        } catch (error) {
+          warnQuickInput("写入 QuickInput 草稿失败。", error);
+          return null;
+        }
+      };
+      const next = draftWriteChain.then(runTask, runTask);
+      draftWriteChain = next.then(() => null, () => null);
+      return next;
+    }
+    async function waitForDraftRestore() {
+      const pending = draftRestorePromise;
+      if (!pending || typeof pending.then !== "function") return;
+      try {
+        await pending;
       } catch {
       }
     }
@@ -10927,12 +11096,15 @@ ${displayTargetText}`;
       imageObjectUrls = [];
     }
     function persistDraftSnapshot({ text = null, images = null } = {}) {
-      const result = saveDraft(draftStorageKey, {
+      const snapshot = {
         text: text == null ? String(textEl?.value ?? "") : String(text),
         images: Array.isArray(images) ? images : draftImageEntries
+      };
+      return queueDraftWrite(async () => {
+        const result = await saveDraft(draftStorageKey, snapshot);
+        draftImageEntries = Array.isArray(result?.storedImages) ? result.storedImages : [];
+        return result;
       });
-      draftImageEntries = Array.isArray(result?.storedImages) ? result.storedImages : [];
-      return result;
     }
     async function persistDraftImagesFromFiles(files) {
       const token = ++draftPersistToken;
@@ -10957,10 +11129,11 @@ ${displayTargetText}`;
         if (entry) serialized.push(entry);
       }
       if (token !== draftPersistToken) return false;
-      return !!persistDraftSnapshot({ images: serialized })?.ok;
+      const result = await persistDraftSnapshot({ images: serialized });
+      return !!result?.ok;
     }
     function persistDraftText() {
-      persistDraftSnapshot();
+      void persistDraftSnapshot();
     }
     function clearDraftImagesState({ preserveText = true } = {}) {
       draftImageEntries = [];
@@ -10970,19 +11143,15 @@ ${displayTargetText}`;
       } catch (error) {
         warnQuickInput("清理图片草稿状态时发生异常。", error);
       }
-      try {
-        saveDraft(draftStorageKey, {
-          text: preserveText ? String(textEl?.value ?? "") : "",
-          images: []
-        });
-      } catch (error) {
-        warnQuickInput("写回清理后的图片草稿失败。", error);
-      }
+      void persistDraftSnapshot({
+        text: preserveText ? String(textEl?.value ?? "") : "",
+        images: []
+      });
     }
-    function restoreDraftFromStorage() {
+    async function restoreDraftFromStorage() {
       let storedDraft = { text: "", images: [] };
       try {
-        storedDraft = loadDraft(draftStorageKey);
+        storedDraft = await loadDraft(draftStorageKey);
       } catch (error) {
         warnQuickInput("读取已保存草稿失败，已忽略该草稿。", error);
       }
@@ -11006,7 +11175,7 @@ ${displayTargetText}`;
         draftPersistToken += 1;
         setImageFiles(restoredFiles, { draftEntries: restoredEntries, skipDraftPersist: true });
         if (restoredEntries.length !== storedDraft.images.length) {
-          persistDraftSnapshot({ text: String(textEl?.value ?? ""), images: restoredEntries });
+          void persistDraftSnapshot({ text: String(textEl?.value ?? ""), images: restoredEntries });
         }
       } catch (error) {
         warnQuickInput("恢复图片草稿失败，已跳过损坏的图片草稿数据。", error);
@@ -11066,13 +11235,13 @@ ${displayTargetText}`;
       if (skipDraftPersist) return;
       if (normalizedDraftEntries) {
         draftPersistToken += 1;
-        persistDraftSnapshot({ images: normalizedDraftEntries });
+        void persistDraftSnapshot({ images: normalizedDraftEntries });
         return;
       }
       if (imageFiles.length === 0) {
         draftPersistToken += 1;
         draftImageEntries = [];
-        persistDraftSnapshot({ images: [] });
+        void persistDraftSnapshot({ images: [] });
         return;
       }
       void persistDraftImagesFromFiles(imageFiles);
@@ -11693,6 +11862,7 @@ ${displayTargetText}`;
     }
     async function runMacro({ sourceAction = "run" } = {}) {
       if (running) return;
+      await waitForDraftRestore();
       const requestedAction = String(sourceAction ?? "run").trim().toLowerCase();
       const isReplayRun = requestedAction === "replay";
       const previousTerminalStatus = lastTerminalStatus;
@@ -12543,12 +12713,10 @@ ${displayTargetText}`;
         warnQuickInput("读取 QuickInput 配置失败，已回退到默认配置。", error);
         writeConfigToUi(defaults);
       }
-      try {
-        restoreDraftFromStorage();
-      } catch (error) {
+      draftRestorePromise = restoreDraftFromStorage().catch((error) => {
         warnQuickInput("恢复 QuickInput 草稿失败，弹窗将忽略损坏的草稿数据继续打开。", error);
         clearDraftImagesState({ preserveText: true });
-      }
+      });
       try {
         syncRunControls();
       } catch (error) {
@@ -12578,7 +12746,7 @@ ${displayTargetText}`;
       }
       if (running && !cancelRun && !paused) pauseRun();
       stopDrag();
-      persistDraftText();
+      void persistDraftText();
       stopThemeAutoSync();
       setOverlayVisibility(false);
     }
