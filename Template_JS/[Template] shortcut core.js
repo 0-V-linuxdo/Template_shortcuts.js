@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260410] v1.0.1
+// @name         [Template] 快捷键跳转 [20260410] v1.0.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260410] v1.0.1
-// @update-log   1.0.1: 修复 quickInput 弹窗因延迟单位常量缺失而无法打开的问题。
+// @version      [20260410] v1.0.2
+// @update-log   1.0.2: 修复 quickInput 提交消息阶段因图片恢复配置函数缺失而中断的问题。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -8192,6 +8192,22 @@ ${displayTargetText}`;
       return trimmed ? [trimmed] : [];
     }
     return [];
+  }
+  function normalizeImageRecovery(value, fallback = null) {
+    const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    const base = fallback && typeof fallback === "object" && !Array.isArray(fallback) ? fallback : DEFAULT_CONFIG.imageRecovery;
+    return Object.freeze({
+      maxRepairAttempts: clampInt(raw.maxRepairAttempts, {
+        min: 0,
+        max: 10,
+        fallback: clampInt(base?.maxRepairAttempts, { min: 0, max: 10, fallback: 4 })
+      }),
+      maxResetAttempts: clampInt(raw.maxResetAttempts, {
+        min: 0,
+        max: 10,
+        fallback: clampInt(base?.maxResetAttempts, { min: 0, max: 10, fallback: 3 })
+      })
+    });
   }
   function loadConfig(storageKey, defaults) {
     const stored = safeStoreGet(storageKey, null);
