@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260410] v1.0.0
+// @name         [Template] 快捷键跳转 [20260410] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260410] v1.0.0
-// @update-log   1.0.0: 完成态 ESM 迁移收口；统一 Template / ChatGPT / Gemini 发版号与 require。
+// @version      [20260410] v1.0.1
+// @update-log   1.0.1: 修复 quickInput 弹窗因延迟单位常量缺失而无法打开的问题。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -367,6 +367,36 @@
   }
   function createTreeWalker(root, whatToShow, filter = null) {
     return getDocument()?.createTreeWalker?.(root, whatToShow, filter) || null;
+  }
+  function requestAnimationFrameSafe(callback) {
+    const scope = getGlobalScope();
+    if (scope && typeof scope.requestAnimationFrame === "function") {
+      return scope.requestAnimationFrame(callback);
+    }
+    return setTimeoutSafe(() => callback(Date.now()), 16);
+  }
+  function cancelAnimationFrameSafe(id) {
+    const scope = getGlobalScope();
+    if (scope && typeof scope.cancelAnimationFrame === "function") {
+      scope.cancelAnimationFrame(id);
+      return;
+    }
+    clearTimeoutSafe(id);
+  }
+  function setTimeoutSafe(callback, delay = 0, ...args) {
+    const scope = getGlobalScope();
+    if (scope && typeof scope.setTimeout === "function") {
+      return scope.setTimeout(callback, delay, ...args);
+    }
+    return setTimeout(callback, delay, ...args);
+  }
+  function clearTimeoutSafe(timerId) {
+    const scope = getGlobalScope();
+    if (scope && typeof scope.clearTimeout === "function") {
+      scope.clearTimeout(timerId);
+      return;
+    }
+    clearTimeout(timerId);
   }
 
   // src/modules/shared/platform/userscript.js
@@ -7980,7 +8010,7 @@ ${displayTargetText}`;
   // src/modules/quick-input/config.js
   var STEP_DELAY_MAX_MS = 3e4;
   var LOOP_DELAY_MAX_MS = 3e5;
-  var DELAY_UNIT_FACTORS2 = Object.freeze({
+  var DELAY_UNIT_FACTORS = Object.freeze({
     ms: 1,
     s: 1e3,
     m: 6e4
@@ -7995,12 +8025,12 @@ ${displayTargetText}`;
   }
   function inferDelayUnitFromMs(value) {
     const ms = Math.max(0, Number(value) || 0);
-    if (ms >= DELAY_UNIT_FACTORS2.m) return "m";
-    if (ms >= DELAY_UNIT_FACTORS2.s) return "s";
+    if (ms >= DELAY_UNIT_FACTORS.m) return "m";
+    if (ms >= DELAY_UNIT_FACTORS.s) return "s";
     return "ms";
   }
   function getDelayUnitFactor(unit) {
-    return DELAY_UNIT_FACTORS2[normalizeDelayUnit(unit)] || DELAY_UNIT_FACTORS2.ms;
+    return DELAY_UNIT_FACTORS[normalizeDelayUnit(unit)] || DELAY_UNIT_FACTORS.ms;
   }
   function formatDelayNumber(value) {
     const num = Number(value);
@@ -8030,11 +8060,11 @@ ${displayTargetText}`;
     const normalizedUnit = normalizeDelayUnit(unit) || inferDelayUnitFromMs(ms);
     const labels = unitLabels && typeof unitLabels === "object" ? unitLabels : null;
     const unitLabel = String(
-      labels?.[normalizedUnit] || DELAY_UNIT_LABELS2[normalizedUnit] || DELAY_UNIT_LABELS2.ms
+      labels?.[normalizedUnit] || DELAY_UNIT_LABELS[normalizedUnit] || DELAY_UNIT_LABELS.ms
     );
     return `${formatDelayInputValue(ms, normalizedUnit)} ${unitLabel}`;
   }
-  var DELAY_UNIT_LABELS2 = Object.freeze({
+  var DELAY_UNIT_LABELS = Object.freeze({
     ms: "毫秒",
     s: "秒",
     m: "分钟"
@@ -8121,7 +8151,7 @@ ${displayTargetText}`;
       repairedImages: (count, expectedCount) => `已自动补齐图片：${count} 张（目标共 ${expectedCount} 张）。`,
       uploadNotReady: "图片尚未上传完成：已取消发送，避免文字先发。",
       sendAttempted: (ok) => ok ? "已尝试发送（Enter/Send）。" : "发送失败。",
-      loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), DELAY_UNIT_LABELS2)) => `循环间隔等待中：${formattedDelay}（发送后 → 新对话前）。`,
+      loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), DELAY_UNIT_LABELS)) => `循环间隔等待中：${formattedDelay}（发送后 → 新对话前）。`,
       newChatTriggered: (hotkey, ok) => ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`,
       newChatRetrying: (hotkey, attempt, maxRetries) => `新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
       newChatNotReady: "新对话在自动重试后仍未就绪：已停止后续循环，避免在旧上下文继续执行。",
@@ -10058,6 +10088,7 @@ ${displayTargetText}`;
     const primaryColor = String(options.primaryColor || "#4285F4").trim() || "#4285F4";
     const overlayId = `${idPrefix}-quick-input-overlay`;
     const themeMode = normalizeThemeMode(options.themeMode);
+    const logTag = "[QuickInput]";
     const labels = deepMerge(deepMerge({}, DEFAULT_LABELS), options.labels || {});
     const defaults = deepMerge(deepMerge({}, DEFAULT_CONFIG), options.defaults || {});
     const rawAdapter = options.adapter && typeof options.adapter === "object" ? options.adapter : {};
@@ -10133,6 +10164,42 @@ ${displayTargetText}`;
     let themeSyncCleanup = null;
     function isInsideOverlay(el) {
       return isInsideOverlayTree(el, overlayId);
+    }
+    function warnQuickInput(message, error = null) {
+      try {
+        if (error) console.warn(`${logTag} ${message}`, error);
+        else console.warn(`${logTag} ${message}`);
+      } catch {
+      }
+    }
+    function getFileCtor() {
+      return getDomConstructor("File");
+    }
+    function isImageFileLike(file) {
+      if (!file || typeof file !== "object") return false;
+      const type = String(file.type || "").trim();
+      if (!type.startsWith("image/")) return false;
+      const FileCtor = getFileCtor();
+      if (FileCtor && file instanceof FileCtor) return true;
+      return typeof file.name === "string" && typeof file.size === "number";
+    }
+    function getUrlApi() {
+      const scope = getGlobalScope();
+      return scope?.URL || (typeof URL !== "undefined" ? URL : null);
+    }
+    function createObjectUrlSafe(file) {
+      try {
+        return getUrlApi()?.createObjectURL?.(file) || "";
+      } catch {
+        return "";
+      }
+    }
+    function revokeObjectUrlSafe(url) {
+      if (!url) return;
+      try {
+        getUrlApi()?.revokeObjectURL?.(url);
+      } catch {
+      }
     }
     function resetPauseTracking() {
       paused = false;
@@ -10839,10 +10906,7 @@ ${displayTargetText}`;
     function revokeImageUrls() {
       for (const url of imageObjectUrls) {
         if (!url) continue;
-        try {
-          URL.revokeObjectURL(url);
-        } catch {
-        }
+        revokeObjectUrlSafe(url);
       }
       imageObjectUrls = [];
     }
@@ -10856,7 +10920,7 @@ ${displayTargetText}`;
     }
     async function persistDraftImagesFromFiles(files) {
       const token = ++draftPersistToken;
-      const list = Array.from(files || []).filter((file) => file && file instanceof File && String(file.type || "").startsWith("image/"));
+      const list = Array.from(files || []).filter(isImageFileLike);
       const serialized = [];
       for (let index = 0; index < list.length; index++) {
         const file = list[index];
@@ -10882,30 +10946,55 @@ ${displayTargetText}`;
     function persistDraftText() {
       persistDraftSnapshot();
     }
+    function clearDraftImagesState({ preserveText = true } = {}) {
+      draftImageEntries = [];
+      draftPersistToken += 1;
+      try {
+        setImageFiles([], { skipDraftPersist: true });
+      } catch (error) {
+        warnQuickInput("清理图片草稿状态时发生异常。", error);
+      }
+      try {
+        saveDraft(draftStorageKey, {
+          text: preserveText ? String(textEl?.value ?? "") : "",
+          images: []
+        });
+      } catch (error) {
+        warnQuickInput("写回清理后的图片草稿失败。", error);
+      }
+    }
     function restoreDraftFromStorage() {
-      const storedDraft = loadDraft(draftStorageKey);
+      let storedDraft = { text: "", images: [] };
+      try {
+        storedDraft = loadDraft(draftStorageKey);
+      } catch (error) {
+        warnQuickInput("读取已保存草稿失败，已忽略该草稿。", error);
+      }
       if (textEl) textEl.value = String(storedDraft.text ?? "");
       if (!storedDraft.images.length) {
-        draftImageEntries = [];
-        draftPersistToken += 1;
-        setImageFiles([], { skipDraftPersist: true });
+        clearDraftImagesState({ preserveText: true });
         return;
       }
-      const restoredFiles = [];
-      const restoredEntries = [];
-      storedDraft.images.forEach((entry, index) => {
-        const normalized = normalizeDraftImageEntry(entry, index);
-        if (!normalized) return;
-        const file = dataUrlToFile(normalized.dataUrl, normalized);
-        if (!file) return;
-        restoredFiles.push(file);
-        restoredEntries.push(normalized);
-      });
-      draftImageEntries = restoredEntries;
-      draftPersistToken += 1;
-      setImageFiles(restoredFiles, { draftEntries: restoredEntries, skipDraftPersist: true });
-      if (restoredEntries.length !== storedDraft.images.length) {
-        persistDraftSnapshot({ text: String(textEl?.value ?? ""), images: restoredEntries });
+      try {
+        const restoredFiles = [];
+        const restoredEntries = [];
+        storedDraft.images.forEach((entry, index) => {
+          const normalized = normalizeDraftImageEntry(entry, index);
+          if (!normalized) return;
+          const file = dataUrlToFile(normalized.dataUrl, normalized);
+          if (!file || !isImageFileLike(file)) return;
+          restoredFiles.push(file);
+          restoredEntries.push(normalized);
+        });
+        draftImageEntries = restoredEntries;
+        draftPersistToken += 1;
+        setImageFiles(restoredFiles, { draftEntries: restoredEntries, skipDraftPersist: true });
+        if (restoredEntries.length !== storedDraft.images.length) {
+          persistDraftSnapshot({ text: String(textEl?.value ?? ""), images: restoredEntries });
+        }
+      } catch (error) {
+        warnQuickInput("恢复图片草稿失败，已跳过损坏的图片草稿数据。", error);
+        clearDraftImagesState({ preserveText: true });
       }
     }
     function setImageFiles(nextFiles, { draftEntries = null, skipDraftPersist = false } = {}) {
@@ -10917,15 +11006,15 @@ ${displayTargetText}`;
         imagePreviewListEl.textContent = "";
         let previewCount = 0;
         imageFiles.forEach((file, index) => {
-          if (!(file instanceof File)) return;
-          const url = URL.createObjectURL(file);
-          imageObjectUrls.push(url);
+          if (!isImageFileLike(file)) return;
+          const url = createObjectUrlSafe(file);
+          if (url) imageObjectUrls.push(url);
           const wrap = globalThis.document.createElement("div");
           wrap.className = "qi-preview-wrap";
           wrap.title = file.name || "";
           const img = globalThis.document.createElement("img");
           img.className = "qi-preview-item";
-          img.src = url;
+          if (url) img.src = url;
           img.alt = file.name || "image";
           wrap.appendChild(img);
           const delBtn = globalThis.document.createElement("button");
@@ -11305,7 +11394,7 @@ ${displayTargetText}`;
     }
     function stopDrag() {
       if (dragRaf) {
-        cancelAnimationFrame(dragRaf);
+        cancelAnimationFrameSafe(dragRaf);
         dragRaf = 0;
       }
       if (dragPointerId === null) return;
@@ -11382,7 +11471,7 @@ ${displayTargetText}`;
       dragNextLeft = clamped.left;
       dragNextTop = clamped.top;
       if (dragRaf) return;
-      dragRaf = requestAnimationFrame(() => {
+      dragRaf = requestAnimationFrameSafe(() => {
         dragRaf = 0;
         if (!panelEl) return;
         panelEl.style.left = `${dragNextLeft}px`;
@@ -12432,16 +12521,30 @@ ${displayTargetText}`;
           close();
         }
       }, true);
-      writeConfigToUi(loadConfig(storageKey, defaults));
-      restoreDraftFromStorage();
-      syncRunControls();
+      try {
+        writeConfigToUi(loadConfig(storageKey, defaults));
+      } catch (error) {
+        warnQuickInput("读取 QuickInput 配置失败，已回退到默认配置。", error);
+        writeConfigToUi(defaults);
+      }
+      try {
+        restoreDraftFromStorage();
+      } catch (error) {
+        warnQuickInput("恢复 QuickInput 草稿失败，弹窗将忽略损坏的草稿数据继续打开。", error);
+        clearDraftImagesState({ preserveText: true });
+      }
+      try {
+        syncRunControls();
+      } catch (error) {
+        warnQuickInput("同步 QuickInput 运行控件状态失败。", error);
+      }
     }
     function open() {
       ensureUi();
       stopDrag();
       setOverlayVisibility(true);
       startThemeAutoSync();
-      requestAnimationFrame(() => {
+      requestAnimationFrameSafe(() => {
         applyStoredPanelPos();
         syncPanelMinHeight();
       });
