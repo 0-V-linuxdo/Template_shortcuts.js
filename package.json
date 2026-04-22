@@ -1,0 +1,12 @@
+{
+  "name": "template-shortcuts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "stage:release": "node scripts/stage-release-branch.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
+  }
+}

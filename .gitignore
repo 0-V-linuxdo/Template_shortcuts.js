@@ -1,0 +1,13 @@
+node_modules/
+
+.DS_Store
+.cursor/
+.idea/
+.vscode/
+
+/dist/esm/
+/Site_JS/
+
+/template-shortcuts-dev/
+/template-shortcuts-release/
+/template-shortcuts-archive/
