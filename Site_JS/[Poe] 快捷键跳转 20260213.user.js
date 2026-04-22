@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Poe] 快捷键跳转 [20260423] v1.0.1
+// @name         [Poe] 快捷键跳转 [20260423] v1.0.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。
 
-// @version      [20260423] v1.0.1
-// @update-log   1.0.1: 侧边栏保持显示菜单改由 bootstrap 托管，并以菜单文字直接显示开/关状态。
+// @version      [20260423] v1.0.2
+// @update-log   1.0.2: 补上 bootstrap 菜单下的 settings 命令接线，修复设置快捷键菜单点击无反应。
 
 // @match        https://poe.com/*
 

@@ -80,11 +80,13 @@ async function startSite(runtime = {}) {
   const menuPageToken = typeof runtime?.menuPageToken === "string" && runtime.menuPageToken.trim() ? runtime.menuPageToken.trim() : "";
   const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1e3;
   const MENU_COMMAND_KEYS = Object.freeze({
+    settings: "settings",
     sidebarVisibility: "sidebarVisibility"
   });
   let keepSidebarVisible = getKeepSidebarVisibleSetting();
   let sidebarVisibilityMenuCommandId = null;
   let menuCommandPollTimer = null;
+  let engineInstance = null;
   const handledMenuCommandIds = [];
   const handledMenuCommandIdSet = /* @__PURE__ */ new Set();
   const defaultIconURL = "https://psc2.cf2.poecdn.net/assets/favicon.svg";
@@ -481,6 +483,9 @@ async function startSite(runtime = {}) {
     const key = String(commandKey || "").trim();
     if (!key) return false;
     switch (key) {
+      case MENU_COMMAND_KEYS.settings:
+        engineInstance?.openSettingsPanel?.();
+        return true;
       case MENU_COMMAND_KEYS.sidebarVisibility:
         setSidebarVisibilityPreference(!keepSidebarVisible);
         return true;
@@ -758,11 +763,11 @@ async function startSite(runtime = {}) {
   function getManagedActionIconMap() {
     return MANAGED_ACTION_ICON_MAP;
   }
-  function syncManagedActionIcons(engineInstance) {
-    if (!engineInstance || typeof engineInstance.getShortcuts !== "function" || typeof engineInstance.setShortcuts !== "function") {
+  function syncManagedActionIcons(engineInstance2) {
+    if (!engineInstance2 || typeof engineInstance2.getShortcuts !== "function" || typeof engineInstance2.setShortcuts !== "function") {
       return;
     }
-    const shortcuts = engineInstance.getShortcuts();
+    const shortcuts = engineInstance2.getShortcuts();
     if (!Array.isArray(shortcuts) || shortcuts.length === 0) return;
     const nextIconMap = getManagedActionIconMap();
     let changed = false;
@@ -779,7 +784,7 @@ async function startSite(runtime = {}) {
       return { ...item, icon: targetIcon };
     });
     if (changed) {
-      engineInstance.setShortcuts(patched);
+      engineInstance2.setShortcuts(patched);
     }
   }
   const engine = ShortcutTemplate.createShortcutEngine({
@@ -834,6 +839,7 @@ async function startSite(runtime = {}) {
       return value.startsWith("https://poe.com/") || value.startsWith("https://psc2.cf2.poecdn.net/") || value.startsWith("https://qph.cf2.poecdn.net/");
     }
   });
+  engineInstance = engine;
   engine.init();
   syncManagedActionIcons(engine);
   setupKeepSidebarVisible();
