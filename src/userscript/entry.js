@@ -14,6 +14,7 @@ function normalizeResourceNames(resourceNames = {}) {
 }
 
 const USERSCRIPT_API_RESOLVER_KEY = "__TEMPLATE_SHORTCUTS_GET_USERSCRIPT_API__";
+const USERSCRIPT_MENU_BRIDGE_KEY = "__TEMPLATE_SHORTCUTS_MENU_BRIDGE__";
 
 export function renderUserscriptBootstrap({
     siteId = "",
@@ -98,6 +99,66 @@ export function renderUserscriptBootstrap({
         } catch {}
     }
 
+    function createMenuBridge() {
+        const register = getUserscriptApi('GM_registerMenuCommand');
+        let settingsHandler = null;
+        let settingsCommandId = null;
+        const settingsLabel = \`\${SITE_LABEL} - 设置快捷键\`;
+
+        const invokeSettingsHandler = () => {
+            if (typeof settingsHandler === 'function') {
+                try {
+                    settingsHandler();
+                    return;
+                } catch (error) {
+                    console.error(\`[\${SITE_LABEL}] settings menu handler failed.\`, error);
+                    return;
+                }
+            }
+            console.warn(\`[\${SITE_LABEL}] settings menu clicked before handler was ready.\`);
+        };
+
+        if (typeof register === 'function') {
+            try {
+                settingsCommandId = register(settingsLabel, invokeSettingsHandler);
+            } catch (error) {
+                console.warn(\`[\${SITE_LABEL}] Failed to register bootstrap settings menu.\`, error);
+            }
+        }
+
+        const bridge = {
+            managedByBootstrap: settingsCommandId !== null && settingsCommandId !== undefined,
+            setSettingsHandler(handler) {
+                settingsHandler = typeof handler === 'function' ? handler : null;
+                return settingsHandler !== null;
+            },
+            getSettingsCommandId() {
+                return settingsCommandId;
+            },
+            getSettingsLabel() {
+                return settingsLabel;
+            }
+        };
+
+        const scope = getGlobalScope();
+        if (scope) {
+            try {
+                Object.defineProperty(scope, ${JSON.stringify(USERSCRIPT_MENU_BRIDGE_KEY)}, {
+                    value: bridge,
+                    configurable: true,
+                    enumerable: false,
+                    writable: true
+                });
+            } catch {
+                try {
+                    scope[${JSON.stringify(USERSCRIPT_MENU_BRIDGE_KEY)}] = bridge;
+                } catch {}
+            }
+        }
+
+        return Object.freeze(bridge);
+    }
+
     async function getResourceUrl(name) {
         const fn = getUserscriptApi('GM_getResourceURL');
         if (typeof fn !== 'function') {
@@ -137,6 +198,7 @@ export function renderUserscriptBootstrap({
     }
 
     exposeUserscriptApiResolver();
+    const menuBridge = createMenuBridge();
 
     async function main() {
         const preparedCore = await prepareModuleUrl(RESOURCE_NAMES.core);
@@ -165,6 +227,7 @@ export function renderUserscriptBootstrap({
             resourceNames: RESOURCE_NAMES,
             resourceUrls,
             moduleUrls,
+            menuBridge,
             getUserscriptApi,
             getResourceUrl
         }));

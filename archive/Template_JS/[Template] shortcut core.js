@@ -6902,7 +6902,11 @@ ${displayTargetText}`;
       }
       state.destroyDragCss = injectDragCss();
       const menuLabel = options.menuCommandLabel || options.text.menuLabelFallback;
-      if (!state.menuCommandRegistered) {
+      const bootstrapMenuBridge = options?.menuBridge;
+      if (!state.menuCommandRegistered && bootstrapMenuBridge?.managedByBootstrap && typeof bootstrapMenuBridge.setSettingsHandler === "function") {
+        bootstrapMenuBridge.setSettingsHandler(settingsPanelLayer.openSettingsPanel);
+        state.menuCommandRegistered = true;
+      } else if (!state.menuCommandRegistered) {
         const commandId = gmRegisterMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
         if (commandId !== null && commandId !== void 0) {
           state.menuCommandRegistered = true;
@@ -6932,6 +6936,12 @@ ${displayTargetText}`;
         } catch {
         }
         state.destroyDarkModeObserver = null;
+      }
+      if (options?.menuBridge?.managedByBootstrap && typeof options.menuBridge.setSettingsHandler === "function") {
+        try {
+          options.menuBridge.setSettingsHandler(null);
+        } catch {
+        }
       }
       uiShared.layout.disableScrollLock();
     }
