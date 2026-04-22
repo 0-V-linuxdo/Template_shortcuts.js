@@ -419,11 +419,7 @@ export async function startSite(runtime = {}) {
         }
 
         sidebarVisibilityMenuCommandId = gmRegisterMenuCommandLocal(getSidebarVisibilityMenuLabel(), () => {
-            keepSidebarVisible = !keepSidebarVisible;
-            setKeepSidebarVisibleSetting(keepSidebarVisible);
-            console.info(`${LOG_TAG} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
-            if (keepSidebarVisible) startSidebarWarmup();
-            registerSidebarVisibilityMenuCommand();
+            setSidebarVisibilityPreference(!keepSidebarVisible);
         });
     }
 
@@ -545,6 +541,24 @@ export async function startSite(runtime = {}) {
         const open = isSidebarOpen();
         if (open === true) return true;
         return clickSidebarToggleButton();
+    }
+
+    function setSidebarVisibilityPreference(nextValue) {
+        keepSidebarVisible = !!nextValue;
+        setKeepSidebarVisibleSetting(keepSidebarVisible);
+        if (keepSidebarVisible) {
+            if (shouldWarmupSidebarInBackground()) {
+                startSidebarWarmup();
+            } else {
+                stopSidebarWarmup();
+            }
+        } else {
+            stopSidebarWarmup();
+        }
+
+        console.info(`${LOG_TAG} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
+        registerSidebarVisibilityMenuCommand();
+        return keepSidebarVisible;
     }
 
     function stopSidebarWarmup() {
@@ -2754,11 +2768,7 @@ export async function startSite(runtime = {}) {
                 ensureQuickInputController(engine)?.open?.();
                 return true;
             case MENU_COMMAND_KEYS.sidebarVisibility:
-                keepSidebarVisible = !keepSidebarVisible;
-                setKeepSidebarVisibleSetting(keepSidebarVisible);
-                console.info(`${LOG_TAG} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
-                if (keepSidebarVisible) startSidebarWarmup();
-                registerSidebarVisibilityMenuCommand();
+                setSidebarVisibilityPreference(!keepSidebarVisible);
                 return true;
             default:
                 return false;

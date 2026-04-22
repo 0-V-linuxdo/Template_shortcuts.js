@@ -163,15 +163,18 @@ export const SITE_MANIFEST = Object.freeze([
             },
             {
                 "key": "sidebarVisibility",
-                "label": "Gemini - 切换保持侧边栏显示"
+                "stateKey": "gemini_keep_sidebar_visible_v1",
+                "stateDefault": true,
+                "labelOn": "Gemini - 保持侧边栏显示: 开",
+                "labelOff": "Gemini - 保持侧边栏显示: 关"
             }
         ],
         "metadata": {
-            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.7",
+            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.8",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            "version": "[20260423] v1.0.7",
-            "updateLog": "1.0.7: Gemini 菜单桥改用 GM 存储事件并固定 Violentmonkey content 注入，修复菜单点击仍无响应。",
+            "version": "[20260423] v1.0.8",
+            "updateLog": "1.0.8: Gemini 侧边栏菜单改为以文字显示开/关状态，并同步保持显示偏好。",
             "match": [
                 "https://gemini.google.com/*"
             ],
