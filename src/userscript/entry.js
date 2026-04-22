@@ -239,7 +239,8 @@ export function renderUserscriptBootstrap({
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandId = createCommandId(key);
-            if (!isCurrentPageMenuReady()) {
+            const shouldPersistCommand = BOOTSTRAP_MENU_COMMANDS.length > 0;
+            if (shouldPersistCommand || !isCurrentPageMenuReady()) {
                 queuePendingCommand(key, commandId);
             }
             const dispatched = dispatchCommand(key, commandId);
