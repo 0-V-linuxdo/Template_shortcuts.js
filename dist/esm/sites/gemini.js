@@ -2389,6 +2389,7 @@ async function startSite(runtime = {}) {
   }
   const engine = ShortcutTemplate.createShortcutEngine({
     menuCommandLabel: "Gemini - 设置快捷键",
+    menuBridge: runtime?.menuBridge || null,
     panelTitle: "Gemini - 自定义快捷键",
     storageKeys: {
       shortcuts: "gemini_shortcuts_v2",
@@ -2425,6 +2426,9 @@ async function startSite(runtime = {}) {
       return url && url.startsWith("https://gemini.google.com/");
     }
   });
+  if (runtime?.menuBridge && typeof runtime.menuBridge.setSettingsHandler === "function") {
+    runtime.menuBridge.setSettingsHandler(engine.openSettingsPanel);
+  }
   gmRegisterMenuCommandLocal("Gemini - 快捷输入", () => {
     ensureQuickInputController(engine)?.open?.();
   });

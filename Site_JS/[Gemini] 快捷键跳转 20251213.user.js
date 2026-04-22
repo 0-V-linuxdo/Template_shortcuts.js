@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Gemini] 快捷键跳转 [20260423] v1.0.2
+// @name         [Gemini] 快捷键跳转 [20260423] v1.0.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 
-// @version      [20260423] v1.0.2
-// @update-log   1.0.2: 补齐 userscript bootstrap 与 ESM core 之间的 GM API 桥接，修复 Gemini 菜单命令仍不显示的问题。
+// @version      [20260423] v1.0.3
+// @update-log   1.0.3: 将 Gemini 主设置菜单前移到 bootstrap 同步注册，避免因 ESM 初始化链导致菜单仍不显示。
 
 // @match        https://gemini.google.com/*
 
@@ -116,6 +116,66 @@
         } catch {}
     }
 
+    function createMenuBridge() {
+        const register = getUserscriptApi('GM_registerMenuCommand');
+        let settingsHandler = null;
+        let settingsCommandId = null;
+        const settingsLabel = `${SITE_LABEL} - 设置快捷键`;
+
+        const invokeSettingsHandler = () => {
+            if (typeof settingsHandler === 'function') {
+                try {
+                    settingsHandler();
+                    return;
+                } catch (error) {
+                    console.error(`[${SITE_LABEL}] settings menu handler failed.`, error);
+                    return;
+                }
+            }
+            console.warn(`[${SITE_LABEL}] settings menu clicked before handler was ready.`);
+        };
+
+        if (typeof register === 'function') {
+            try {
+                settingsCommandId = register(settingsLabel, invokeSettingsHandler);
+            } catch (error) {
+                console.warn(`[${SITE_LABEL}] Failed to register bootstrap settings menu.`, error);
+            }
+        }
+
+        const bridge = {
+            managedByBootstrap: settingsCommandId !== null && settingsCommandId !== undefined,
+            setSettingsHandler(handler) {
+                settingsHandler = typeof handler === 'function' ? handler : null;
+                return settingsHandler !== null;
+            },
+            getSettingsCommandId() {
+                return settingsCommandId;
+            },
+            getSettingsLabel() {
+                return settingsLabel;
+            }
+        };
+
+        const scope = getGlobalScope();
+        if (scope) {
+            try {
+                Object.defineProperty(scope, "__TEMPLATE_SHORTCUTS_MENU_BRIDGE__", {
+                    value: bridge,
+                    configurable: true,
+                    enumerable: false,
+                    writable: true
+                });
+            } catch {
+                try {
+                    scope["__TEMPLATE_SHORTCUTS_MENU_BRIDGE__"] = bridge;
+                } catch {}
+            }
+        }
+
+        return Object.freeze(bridge);
+    }
+
     async function getResourceUrl(name) {
         const fn = getUserscriptApi('GM_getResourceURL');
         if (typeof fn !== 'function') {
@@ -155,6 +215,7 @@
     }
 
     exposeUserscriptApiResolver();
+    const menuBridge = createMenuBridge();
 
     async function main() {
         const preparedCore = await prepareModuleUrl(RESOURCE_NAMES.core);
@@ -183,6 +244,7 @@
             resourceNames: RESOURCE_NAMES,
             resourceUrls,
             moduleUrls,
+            menuBridge,
             getUserscriptApi,
             getResourceUrl
         }));
