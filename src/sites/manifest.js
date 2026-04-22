@@ -10,6 +10,7 @@ export const RELEASE_PUBLISH_CONFIG = Object.freeze({
     "gitUserEmail": "0_v@linux.do"
 });
 
+export const MAIN_RAW_BASE_URL = `https://github.com/${RELEASE_PUBLISH_CONFIG.githubOwner}/${RELEASE_PUBLISH_CONFIG.repository}/raw/refs/heads/main`;
 export const RELEASE_RAW_BASE_URL = `https://github.com/${RELEASE_PUBLISH_CONFIG.githubOwner}/${RELEASE_PUBLISH_CONFIG.repository}/raw/refs/heads/${RELEASE_PUBLISH_CONFIG.releaseBranch}`;
 
 function normalizeReleaseAssetPath(filePath = "") {
@@ -31,6 +32,11 @@ function releaseAsset(relativePath = "") {
     return normalizedPath ? `${RELEASE_RAW_BASE_URL}/${normalizedPath}` : RELEASE_RAW_BASE_URL;
 }
 
+function mainAsset(relativePath = "") {
+    const normalizedPath = normalizeReleaseAssetPath(relativePath);
+    return normalizedPath ? `${MAIN_RAW_BASE_URL}/${normalizedPath}` : MAIN_RAW_BASE_URL;
+}
+
 const RELEASE_ICON_BASE_URL = releaseAsset("Site_Icon");
 
 export function releaseDistEsm(relativePath = "") {
@@ -40,6 +46,10 @@ export function releaseDistEsm(relativePath = "") {
 
 function releaseIcon(fileName) {
     return releaseAsset(`Site_Icon/${fileName}`);
+}
+
+function mainIcon(fileName) {
+    return mainAsset(`Site_Icon/${fileName}`);
 }
 
 export const SITE_MANIFEST = Object.freeze([
@@ -165,7 +175,7 @@ export const SITE_MANIFEST = Object.freeze([
             "connect": [
                 "*"
             ],
-            "icon": releaseIcon("gemini_keycap.svg")
+            "icon": mainIcon("gemini_keycap.svg")
         }
     },
     {

@@ -51,5 +51,5 @@ npm run stage:release -- --out-dir /absolute/path/to/template-shortcuts-release
 
 ## 发布元数据
 
-- 当前 userscript 的 GitHub Raw 图标地址与 `@resource` 依赖地址统一指向本仓库的 `release` 分支。
-- 若你要改成自己的仓库或分支，只需要调整 `src/sites/manifest.js` 中的发布配置。
+- 默认情况下，userscript 的 GitHub Raw `@resource` 地址指向本仓库的 `release` 分支；图标地址也默认使用 `release` 分支，但站点清单可按需覆盖为 `main` 或其他分支资源。
+- 若你要改成自己的仓库或分支，只需要调整 [src/sites/manifest.js](/Users/zhutaiyu/Downloads/Cursor Workspace/Template_shortcuts/src/sites/manifest.js) 中的发布配置。
