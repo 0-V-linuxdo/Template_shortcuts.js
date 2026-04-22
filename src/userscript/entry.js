@@ -13,6 +13,8 @@ function normalizeResourceNames(resourceNames = {}) {
     return Object.freeze({ core, site });
 }
 
+const USERSCRIPT_API_RESOLVER_KEY = "__TEMPLATE_SHORTCUTS_GET_USERSCRIPT_API__";
+
 export function renderUserscriptBootstrap({
     siteId = "",
     displayName = "",
@@ -34,7 +36,29 @@ export function renderUserscriptBootstrap({
         return typeof globalThis !== 'undefined' ? globalThis : null;
     }
 
+    function getDirectUserscriptApi(name) {
+        switch (String(name || "")) {
+            case 'GM_getValue':
+                return typeof GM_getValue === 'function' ? GM_getValue : null;
+            case 'GM_setValue':
+                return typeof GM_setValue === 'function' ? GM_setValue : null;
+            case 'GM_xmlhttpRequest':
+                return typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : null;
+            case 'GM_getResourceURL':
+                return typeof GM_getResourceURL === 'function' ? GM_getResourceURL : null;
+            case 'GM_registerMenuCommand':
+                return typeof GM_registerMenuCommand === 'function' ? GM_registerMenuCommand : null;
+            case 'GM_unregisterMenuCommand':
+                return typeof GM_unregisterMenuCommand === 'function' ? GM_unregisterMenuCommand : null;
+            default:
+                return null;
+        }
+    }
+
     function getUserscriptApi(name) {
+        const directBinding = getDirectUserscriptApi(name);
+        if (typeof directBinding === 'function') return directBinding;
+
         const scope = getGlobalScope();
         if (!scope) return null;
 
@@ -53,6 +77,25 @@ export function renderUserscriptBootstrap({
         }
 
         return null;
+    }
+
+    function exposeUserscriptApiResolver() {
+        const scope = getGlobalScope();
+        if (!scope) return;
+
+        try {
+            Object.defineProperty(scope, ${JSON.stringify(USERSCRIPT_API_RESOLVER_KEY)}, {
+                value: getUserscriptApi,
+                configurable: true,
+                enumerable: false,
+                writable: true
+            });
+            return;
+        } catch {}
+
+        try {
+            scope[${JSON.stringify(USERSCRIPT_API_RESOLVER_KEY)}] = getUserscriptApi;
+        } catch {}
     }
 
     async function getResourceUrl(name) {
@@ -92,6 +135,8 @@ export function renderUserscriptBootstrap({
             };
         }
     }
+
+    exposeUserscriptApiResolver();
 
     async function main() {
         const preparedCore = await prepareModuleUrl(RESOURCE_NAMES.core);

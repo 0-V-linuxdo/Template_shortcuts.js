@@ -157,11 +157,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.1",
+            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.2",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            "version": "[20260423] v1.0.1",
-            "updateLog": "1.0.1: 修复 ESM 站点模块中 GM_* 菜单命令注册失效，恢复 Gemini 菜单项显示。",
+            "version": "[20260423] v1.0.2",
+            "updateLog": "1.0.2: 补齐 userscript bootstrap 与 ESM core 之间的 GM API 桥接，修复 Gemini 菜单命令仍不显示的问题。",
             "match": [
                 "https://gemini.google.com/*"
             ],
