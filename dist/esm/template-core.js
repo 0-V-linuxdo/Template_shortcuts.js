@@ -407,6 +407,15 @@ function gmSetValue(key, value) {
 function getGmXmlHttpRequest() {
   return getUserscriptApi("GM_xmlhttpRequest");
 }
+function gmRegisterMenuCommand(label, handler) {
+  const fn = getUserscriptApi("GM_registerMenuCommand");
+  if (typeof fn !== "function") return null;
+  try {
+    return fn(label, handler);
+  } catch {
+    return null;
+  }
+}
 
 // src/modules/core/utils/dom.js
 var DEFAULT_TIMING = Object.freeze({
@@ -6851,9 +6860,11 @@ function createEngineApi(ctx = {}) {
     }
     state.destroyDragCss = injectDragCss();
     const menuLabel = options.menuCommandLabel || options.text.menuLabelFallback;
-    if (!state.menuCommandRegistered && typeof GM_registerMenuCommand === "function") {
-      GM_registerMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
-      state.menuCommandRegistered = true;
+    if (!state.menuCommandRegistered) {
+      const commandId = gmRegisterMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
+      if (commandId !== null && commandId !== void 0) {
+        state.menuCommandRegistered = true;
+      }
     }
   }
   function destroy() {

@@ -1,5 +1,38 @@
 // src/sites/chatgpt/index.js
 async function startSite(runtime = {}) {
+  function getUserscriptApi(name) {
+    const runtimeGetter = typeof runtime?.getUserscriptApi === "function" ? runtime.getUserscriptApi : null;
+    if (runtimeGetter) {
+      try {
+        const runtimeApi = runtimeGetter(name);
+        if (typeof runtimeApi === "function") return runtimeApi;
+      } catch {
+      }
+    }
+    const scope = typeof globalThis !== "undefined" ? globalThis : null;
+    if (!scope) return null;
+    const direct = scope[name];
+    if (typeof direct === "function") return direct.bind(scope);
+    const gm = scope.GM;
+    if (gm && typeof gm === "object") {
+      const altName = name.replace(/^GM_/, "");
+      const directGm = gm[altName];
+      if (typeof directGm === "function") return directGm.bind(gm);
+      const lowerCamel = altName.charAt(0).toLowerCase() + altName.slice(1);
+      const camelGm = gm[lowerCamel];
+      if (typeof camelGm === "function") return camelGm.bind(gm);
+    }
+    return null;
+  }
+  function gmRegisterMenuCommandLocal(label, handler) {
+    const fn = getUserscriptApi("GM_registerMenuCommand");
+    if (typeof fn !== "function") return null;
+    try {
+      return fn(label, handler);
+    } catch {
+      return null;
+    }
+  }
   const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
   const coreModule = coreUrl ? await import(coreUrl) : null;
   const ShortcutTemplate = coreModule?.default || coreModule || null;
@@ -1810,11 +1843,9 @@ async function startSite(runtime = {}) {
     }
     // 其余参数保持默认（Template 内置：URL模版解析、中文文案、响应式断点等）
   });
-  if (typeof GM_registerMenuCommand === "function") {
-    GM_registerMenuCommand("ChatGPT - 快捷输入", () => {
-      ensureQuickInputController(engine)?.open?.();
-    });
-  }
+  gmRegisterMenuCommandLocal("ChatGPT - 快捷输入", () => {
+    ensureQuickInputController(engine)?.open?.();
+  });
   engine.init();
 }
 export {

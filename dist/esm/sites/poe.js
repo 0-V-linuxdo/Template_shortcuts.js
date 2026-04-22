@@ -1,5 +1,63 @@
 // src/sites/poe/index.js
 async function startSite(runtime = {}) {
+  function getUserscriptApi(name) {
+    const runtimeGetter = typeof runtime?.getUserscriptApi === "function" ? runtime.getUserscriptApi : null;
+    if (runtimeGetter) {
+      try {
+        const runtimeApi = runtimeGetter(name);
+        if (typeof runtimeApi === "function") return runtimeApi;
+      } catch {
+      }
+    }
+    const scope = typeof globalThis !== "undefined" ? globalThis : null;
+    if (!scope) return null;
+    const direct = scope[name];
+    if (typeof direct === "function") return direct.bind(scope);
+    const gm = scope.GM;
+    if (gm && typeof gm === "object") {
+      const altName = name.replace(/^GM_/, "");
+      const directGm = gm[altName];
+      if (typeof directGm === "function") return directGm.bind(gm);
+      const lowerCamel = altName.charAt(0).toLowerCase() + altName.slice(1);
+      const camelGm = gm[lowerCamel];
+      if (typeof camelGm === "function") return camelGm.bind(gm);
+    }
+    return null;
+  }
+  function gmGetValueLocal(key, fallback) {
+    const fn = getUserscriptApi("GM_getValue");
+    if (typeof fn !== "function") return fallback;
+    try {
+      return fn(key, fallback);
+    } catch {
+      return fallback;
+    }
+  }
+  function gmSetValueLocal(key, value) {
+    const fn = getUserscriptApi("GM_setValue");
+    if (typeof fn !== "function") return;
+    try {
+      fn(key, value);
+    } catch {
+    }
+  }
+  function gmRegisterMenuCommandLocal(label, handler) {
+    const fn = getUserscriptApi("GM_registerMenuCommand");
+    if (typeof fn !== "function") return null;
+    try {
+      return fn(label, handler);
+    } catch {
+      return null;
+    }
+  }
+  function gmUnregisterMenuCommandLocal(commandId) {
+    const fn = getUserscriptApi("GM_unregisterMenuCommand");
+    if (typeof fn !== "function") return;
+    try {
+      fn(commandId);
+    } catch {
+    }
+  }
   const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
   const coreModule = coreUrl ? await import(coreUrl) : null;
   const ShortcutTemplate = coreModule?.default || coreModule || null;
@@ -21,9 +79,8 @@ async function startSite(runtime = {}) {
   const APP_CREATOR_ICON = "https://qph.cf2.poecdn.net/main-thumb-pb-5003-50-zdgktfpcizyaajmazqorxwnwlzhiwdmi.jpeg";
   const RENAME_SAVE_BUTTON_SELECTOR = "button.button_primary__Vo3KL";
   function getKeepSidebarVisibleSetting() {
-    if (typeof GM_getValue !== "function") return DEFAULT_KEEP_SIDEBAR_VISIBLE;
     try {
-      const value = GM_getValue(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
+      const value = gmGetValueLocal(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
       if (value && typeof value.then === "function") return DEFAULT_KEEP_SIDEBAR_VISIBLE;
       return value === true || value === "true";
     } catch {
@@ -31,9 +88,8 @@ async function startSite(runtime = {}) {
     return DEFAULT_KEEP_SIDEBAR_VISIBLE;
   }
   function setKeepSidebarVisibleSetting(value) {
-    if (typeof GM_setValue !== "function") return;
     try {
-      GM_setValue(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
+      gmSetValueLocal(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
     } catch {
     }
   }
@@ -41,14 +97,13 @@ async function startSite(runtime = {}) {
     return `Poe - 保持侧边栏显示: ${keepSidebarVisible ? "开" : "关"}`;
   }
   function registerSidebarVisibilityMenuCommand() {
-    if (typeof GM_registerMenuCommand !== "function" || typeof GM_unregisterMenuCommand !== "function") return;
     if (sidebarVisibilityMenuCommandId !== null) {
       try {
-        GM_unregisterMenuCommand(sidebarVisibilityMenuCommandId);
+        gmUnregisterMenuCommandLocal(sidebarVisibilityMenuCommandId);
       } catch {
       }
     }
-    sidebarVisibilityMenuCommandId = GM_registerMenuCommand(getSidebarVisibilityMenuLabel(), () => {
+    sidebarVisibilityMenuCommandId = gmRegisterMenuCommandLocal(getSidebarVisibilityMenuLabel(), () => {
       keepSidebarVisible = !keepSidebarVisible;
       setKeepSidebarVisibleSetting(keepSidebarVisible);
       console.info(`${logTag} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
