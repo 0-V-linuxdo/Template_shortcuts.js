@@ -611,7 +611,8 @@ export async function build() {
     const bootstrapText = renderUserscriptBootstrap({
       siteId: siteEntry.siteId,
       displayName: siteEntry.displayName,
-      resourceNames: siteEntry.resourceNames
+      resourceNames: siteEntry.resourceNames,
+      bootstrapMenuCommands: siteEntry.bootstrapMenuCommands
     }).trimEnd();
     const userscriptText = [
       headerText,

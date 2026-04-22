@@ -156,12 +156,22 @@ export const SITE_MANIFEST = Object.freeze([
             "core": "template-core",
             "site": "site-entry"
         },
+        "bootstrapMenuCommands": [
+            {
+                "key": "quickInput",
+                "label": "Gemini - 快捷输入"
+            },
+            {
+                "key": "sidebarVisibility",
+                "label": "Gemini - 切换保持侧边栏显示"
+            }
+        ],
         "metadata": {
-            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.4",
+            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.5",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            "version": "[20260423] v1.0.4",
-            "updateLog": "1.0.4: 将 Gemini 菜单动作改为 bootstrap 命令事件桥接，修复菜单不完整且点击无响应。",
+            "version": "[20260423] v1.0.5",
+            "updateLog": "1.0.5: 改为 bootstrap 静态注册 Gemini 菜单并通过 postMessage/sessionStorage 传递命令，避开 ESM 跨环境回调失效。",
             "match": [
                 "https://gemini.google.com/*"
             ],
