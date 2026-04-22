@@ -1,17 +1,21 @@
 // ==UserScript==
-// @name         [Gemini] 快捷键跳转 [20260423] v1.0.6
+// @name         [Gemini] 快捷键跳转 [20260423] v1.0.7
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 
-// @version      [20260423] v1.0.6
-// @update-log   1.0.6: Gemini 菜单命令改为始终入队并轮询消费，修复 Tampermonkey 沙箱下点击仍无响应的问题。
+// @version      [20260423] v1.0.7
+// @update-log   1.0.7: Gemini 菜单桥改用 GM 存储事件并固定 Violentmonkey content 注入，修复菜单点击仍无响应。
 
 // @match        https://gemini.google.com/*
+
+// @inject-into  content
 
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_addValueChangeListener
+// @grant        GM_removeValueChangeListener
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getResourceURL
 
@@ -60,21 +64,12 @@
     }
 ]);
     const MENU_MESSAGE_SOURCE = "template-shortcuts-userscript";
-    const MENU_PENDING_STORAGE_KEY = "__templateShortcutsMenuPending::gemini";
-    const MENU_READY_STORAGE_KEY = "__templateShortcutsMenuReady::gemini";
+    const MENU_PENDING_VALUE_KEY = "__templateShortcutsMenuPendingValue::gemini";
     const MENU_PAGE_TOKEN = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+    const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
 
     function getGlobalScope() {
         return typeof globalThis !== 'undefined' ? globalThis : null;
-    }
-
-    function getSessionStorageSafe() {
-        const scope = getGlobalScope();
-        try {
-            return scope?.sessionStorage || null;
-        } catch {
-            return null;
-        }
     }
 
     function getDirectUserscriptApi(name) {
@@ -83,6 +78,10 @@
                 return typeof GM_getValue === 'function' ? GM_getValue : null;
             case 'GM_setValue':
                 return typeof GM_setValue === 'function' ? GM_setValue : null;
+            case 'GM_addValueChangeListener':
+                return typeof GM_addValueChangeListener === 'function' ? GM_addValueChangeListener : null;
+            case 'GM_removeValueChangeListener':
+                return typeof GM_removeValueChangeListener === 'function' ? GM_removeValueChangeListener : null;
             case 'GM_xmlhttpRequest':
                 return typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : null;
             case 'GM_getResourceURL':
@@ -118,6 +117,28 @@
         }
 
         return null;
+    }
+
+    function gmGetValueSafe(key, fallback) {
+        const fn = getUserscriptApi('GM_getValue');
+        if (typeof fn !== 'function') return fallback;
+        try {
+            const value = fn(key, fallback);
+            return value === undefined ? fallback : value;
+        } catch {
+            return fallback;
+        }
+    }
+
+    function gmSetValueSafe(key, value) {
+        const fn = getUserscriptApi('GM_setValue');
+        if (typeof fn !== 'function') return false;
+        try {
+            fn(key, value);
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     function exposeUserscriptApiResolver() {
@@ -158,47 +179,34 @@
             return key + ':' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 10);
         }
 
-        function readPendingEntries() {
-            const storage = getSessionStorageSafe();
-            if (!storage) return [];
-            try {
-                const raw = storage.getItem(MENU_PENDING_STORAGE_KEY);
-                if (!raw) return [];
-                const parsed = JSON.parse(raw);
-                if (!Array.isArray(parsed)) return [];
-                return parsed
-                    .map((entry) => {
-                        const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
-                        const key = normalizeCommandKey(entry?.key);
-                        if (!id || !key) return null;
-                        return Object.freeze({ id, key });
-                    })
-                    .filter(Boolean);
-            } catch {
-                return [];
+        function normalizePendingEntries(entries) {
+            const now = Date.now();
+            const normalized = [];
+            const seenIds = new Set();
+
+            for (const entry of Array.isArray(entries) ? entries : []) {
+                const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
+                const key = normalizeCommandKey(entry?.key);
+                const pageToken = typeof entry?.pageToken === 'string' ? entry.pageToken.trim() : '';
+                const createdAt = Number(entry?.createdAt);
+                if (!id || !key || !pageToken) continue;
+                if (!Number.isFinite(createdAt)) continue;
+                if ((now - createdAt) > MENU_COMMAND_MAX_AGE_MS) continue;
+                if (seenIds.has(id)) continue;
+                seenIds.add(id);
+                normalized.push(Object.freeze({ id, key, pageToken, createdAt }));
             }
+
+            if (normalized.length <= 48) return normalized;
+            return normalized.slice(normalized.length - 48);
+        }
+
+        function readPendingEntries() {
+            return normalizePendingEntries(gmGetValueSafe(MENU_PENDING_VALUE_KEY, []));
         }
 
         function writePendingEntries(entries) {
-            const storage = getSessionStorageSafe();
-            if (!storage) return;
-            try {
-                if (!Array.isArray(entries) || entries.length === 0) {
-                    storage.removeItem(MENU_PENDING_STORAGE_KEY);
-                    return;
-                }
-                storage.setItem(MENU_PENDING_STORAGE_KEY, JSON.stringify(entries));
-            } catch {}
-        }
-
-        function isCurrentPageMenuReady() {
-            const storage = getSessionStorageSafe();
-            if (!storage || !MENU_PAGE_TOKEN) return false;
-            try {
-                return String(storage.getItem(MENU_READY_STORAGE_KEY) || '').trim() === MENU_PAGE_TOKEN;
-            } catch {
-                return false;
-            }
+            return gmSetValueSafe(MENU_PENDING_VALUE_KEY, normalizePendingEntries(entries));
         }
 
         function queuePendingCommand(commandKey, commandId) {
@@ -206,9 +214,13 @@
             const id = String(commandId || "").trim() || createCommandId(key);
             if (!key || !id) return null;
             const pendingEntries = readPendingEntries();
-            pendingEntries.push(Object.freeze({ id, key }));
-            writePendingEntries(pendingEntries);
-            return id;
+            pendingEntries.push(Object.freeze({
+                id,
+                key,
+                pageToken: MENU_PAGE_TOKEN,
+                createdAt: Date.now()
+            }));
+            return writePendingEntries(pendingEntries) ? id : null;
         }
 
         function dispatchCommand(commandKey, commandId) {
@@ -243,12 +255,10 @@
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandId = createCommandId(key);
-            const shouldPersistCommand = BOOTSTRAP_MENU_COMMANDS.length > 0;
-            if (shouldPersistCommand || !isCurrentPageMenuReady()) {
-                queuePendingCommand(key, commandId);
-            }
-            const dispatched = dispatchCommand(key, commandId);
-            if (dispatched) return;
+            const queuedCommandId = queuePendingCommand(key, commandId);
+            const effectiveCommandId = queuedCommandId || commandId;
+            const dispatched = dispatchCommand(key, effectiveCommandId);
+            if (queuedCommandId || dispatched) return;
 
             if (key === "settings" && typeof settingsHandler === 'function') {
                 try {
@@ -311,7 +321,7 @@
             let count = 0;
             const remainingEntries = [];
             for (const entry of pendingEntries) {
-                if (entry.key === key) {
+                if (entry.key === key && entry.pageToken === MENU_PAGE_TOKEN) {
                     count += 1;
                     continue;
                 }
@@ -435,8 +445,7 @@
             bootstrapMenuManaged: BOOTSTRAP_MENU_COMMANDS.length > 0,
             menuMessageType: "__templateShortcutsMenuCommand",
             menuMessageSource: "template-shortcuts-userscript",
-            menuPendingStorageKey: MENU_PENDING_STORAGE_KEY,
-            menuReadyStorageKey: MENU_READY_STORAGE_KEY,
+            menuPendingValueKey: MENU_PENDING_VALUE_KEY,
             menuPageToken: MENU_PAGE_TOKEN,
             menuBridge,
             getUserscriptApi,
