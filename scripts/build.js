@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
 
-import { SITE_MANIFEST } from "../src/sites/manifest.js";
+import { SITE_MANIFEST, releaseDistEsm } from "../src/sites/manifest.js";
 import { renderUserscriptBootstrap } from "../src/userscript/entry.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +25,8 @@ const siteJsDir = path.join(repoRoot, "Site_JS");
 const archiveTemplateJsDir = path.join(archiveDir, "Template_JS");
 const templateCorePath = path.join(archiveTemplateJsDir, "[Template] shortcut core.js");
 const coreEntryPath = path.join(modulesDir, "index.js");
+const DIST_ESM_OUTPUT_PREFIX = "dist/esm/";
+const RELEASE_CORE_RESOURCE_URL = releaseDistEsm("template-core.js");
 
 const BROWSER_BUILD_OPTIONS = Object.freeze({
   bundle: true,
@@ -449,6 +451,14 @@ function formatMetadataLine(name, value) {
   return `// @${String(name).padEnd(13, " ")}${value}`;
 }
 
+function resolveReleaseDistEsmUrl(outputPath) {
+  const normalizedOutputPath = String(outputPath || "").trim().replace(/\\/g, "/");
+  if (!normalizedOutputPath.startsWith(DIST_ESM_OUTPUT_PREFIX)) {
+    throw new Error(`Expected dist/esm output path, received: ${outputPath}`);
+  }
+  return releaseDistEsm(normalizedOutputPath.slice(DIST_ESM_OUTPUT_PREFIX.length));
+}
+
 function renderUserscriptHeader(siteEntry) {
   const metadata = siteEntry.metadata || {};
   const grants = Array.from(
@@ -459,7 +469,7 @@ function renderUserscriptHeader(siteEntry) {
   );
   const matches = Array.isArray(metadata.match) ? metadata.match : [];
   const connects = Array.isArray(metadata.connect) ? metadata.connect : [];
-  const siteResourcePath = `../dist/esm/sites/${path.posix.basename(siteEntry.moduleOutput)}`;
+  const siteResourceUrl = resolveReleaseDistEsmUrl(siteEntry.moduleOutput);
   const lines = [
     "// ==UserScript==",
     formatMetadataLine("name", metadata.name || siteEntry.displayName || siteEntry.siteId),
@@ -490,8 +500,8 @@ function renderUserscriptHeader(siteEntry) {
 
   if (connects.length > 0) lines.push("");
   if (metadata.icon) lines.push(formatMetadataLine("icon", metadata.icon));
-  lines.push(formatMetadataLine("resource", `${siteEntry.resourceNames.core} ../dist/esm/template-core.js`));
-  lines.push(formatMetadataLine("resource", `${siteEntry.resourceNames.site} ${siteResourcePath}`));
+  lines.push(formatMetadataLine("resource", `${siteEntry.resourceNames.core} ${RELEASE_CORE_RESOURCE_URL}`));
+  lines.push(formatMetadataLine("resource", `${siteEntry.resourceNames.site} ${siteResourceUrl}`));
   lines.push("// ==/UserScript==");
   return lines.join("\n");
 }
@@ -514,6 +524,18 @@ function assertBuiltUserscript(siteEntry, userscriptText) {
   }
   if (!/@resource\b/.test(userscriptText)) {
     throw new Error(`Generated userscript is missing @resource metadata: ${siteEntry.userscriptOutput}`);
+  }
+  if (/\.\.\/dist\/esm\//.test(userscriptText)) {
+    throw new Error(`Generated userscript still contains local dist/esm resource paths: ${siteEntry.userscriptOutput}`);
+  }
+
+  const expectedCoreResource = formatMetadataLine("resource", `${siteEntry.resourceNames.core} ${RELEASE_CORE_RESOURCE_URL}`);
+  const expectedSiteResource = formatMetadataLine("resource", `${siteEntry.resourceNames.site} ${resolveReleaseDistEsmUrl(siteEntry.moduleOutput)}`);
+  if (!userscriptText.includes(expectedCoreResource)) {
+    throw new Error(`Generated userscript is missing expected core resource URL: ${siteEntry.userscriptOutput}`);
+  }
+  if (!userscriptText.includes(expectedSiteResource)) {
+    throw new Error(`Generated userscript is missing expected site resource URL: ${siteEntry.userscriptOutput}`);
   }
 }
 

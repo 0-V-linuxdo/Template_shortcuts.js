@@ -8,10 +8,36 @@ export const RELEASE_PUBLISH_CONFIG = Object.freeze({
     "releaseBranch": "release"
 });
 
-const RELEASE_ICON_BASE_URL = `https://github.com/${RELEASE_PUBLISH_CONFIG.githubOwner}/${RELEASE_PUBLISH_CONFIG.repository}/raw/refs/heads/${RELEASE_PUBLISH_CONFIG.releaseBranch}/Site_Icon`;
+export const RELEASE_RAW_BASE_URL = `https://github.com/${RELEASE_PUBLISH_CONFIG.githubOwner}/${RELEASE_PUBLISH_CONFIG.repository}/raw/refs/heads/${RELEASE_PUBLISH_CONFIG.releaseBranch}`;
+
+function normalizeReleaseAssetPath(filePath = "") {
+    const normalizedPath = String(filePath || "")
+        .trim()
+        .replace(/\\/g, "/")
+        .replace(/^(?:\.\/)+/, "")
+        .replace(/^\/+/, "");
+
+    if (!normalizedPath) return "";
+    if (normalizedPath.split("/").some((segment) => segment === "..")) {
+        throw new Error(`Release asset path must not traverse parent directories: ${filePath}`);
+    }
+    return normalizedPath;
+}
+
+function releaseAsset(relativePath = "") {
+    const normalizedPath = normalizeReleaseAssetPath(relativePath);
+    return normalizedPath ? `${RELEASE_RAW_BASE_URL}/${normalizedPath}` : RELEASE_RAW_BASE_URL;
+}
+
+const RELEASE_ICON_BASE_URL = releaseAsset("Site_Icon");
+
+export function releaseDistEsm(relativePath = "") {
+    const normalizedPath = normalizeReleaseAssetPath(relativePath);
+    return normalizedPath ? releaseAsset(`dist/esm/${normalizedPath}`) : releaseAsset("dist/esm");
+}
 
 function releaseIcon(fileName) {
-    return `${RELEASE_ICON_BASE_URL}/${fileName}`;
+    return releaseAsset(`Site_Icon/${fileName}`);
 }
 
 export const SITE_MANIFEST = Object.freeze([
@@ -26,11 +52,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[ChatGPT] 快捷键跳转 [20260410] v1.1.0",
+            "name": "[ChatGPT] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            "version": "[20260410] v1.1.0",
-            "updateLog": "1.1.0: 同步 Template v1.1.0；核心依赖切换为 ESM @resource bootstrap，并刷新发布日志。",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://chatgpt.com/*"
             ],
@@ -57,11 +83,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[Claude] 快捷键跳转 [20251229] v1.0.6",
+            "name": "[Claude] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。",
-            "version": "[20251229] v1.0.6",
-            "updateLog": "1.0.6: menu 支持关键词/selector/path（面板可直接填关键词自定义快捷键）",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://claude.ai/*"
             ],
@@ -88,11 +114,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[DeepSeek] 快捷键跳转 20250926",
+            "name": "[DeepSeek] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "0_V userscripts/[DeepSeek] shortcut",
             "description": "为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025",
-            "version": "2.0.1",
-            "updateLog": "",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://chat.deepseek.com/*"
             ],
@@ -119,11 +145,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[Gemini] 快捷键跳转 [20260411] v1.0.0",
+            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            "version": "[20260411] v1.0.0",
-            "updateLog": "1.0.0: 适配 Gemini 窄屏布局；页面宽度 <= 1024px 时自动暂停“保持侧边栏显示”的后台自动展开。",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://gemini.google.com/*"
             ],
@@ -151,11 +177,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[Grok] 快捷键跳转 20250927",
+            "name": "[Grok] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "0_V userscripts/[Grok] 快捷键跳转",
             "description": "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            "version": "4.0.0",
-            "updateLog": "",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://grok.dairoot.cn/*",
                 "https://grok.com/*"
@@ -183,11 +209,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[Kagi] 快捷键跳转 [20260222] v1.4.4",
+            "name": "[Kagi] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "0_V userscripts/[Kagi] shortcut",
             "description": "为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025",
-            "version": "[20260222] v1.4.4",
-            "updateLog": "1.4.4: 升级 Template 至 20260222.1.4.4（开启“svg自适应处理”时自动隐藏“黑暗模式图标URL”组件）。",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://*.kagi.com/*"
             ],
@@ -214,11 +240,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[LINUX DO] 快捷键跳转 [20260216] v1.0.0",
+            "name": "[LINUX DO] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Linux Do 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、搜索模板变量与图标库管理，并适配 Discourse 的 SPA 导航场景。",
-            "version": "[20260216] v1.0.0",
-            "updateLog": "1.0.0: 版本号更新为 [20260216] v1.0.0，重写 description 文案，并同步更新发布日志说明。",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://linux.do/*"
             ],
@@ -245,11 +271,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[Le Chat] 快捷键跳转 20250925",
+            "name": "[Le Chat] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "0_V userscripts/[Le Chat] 快捷键跳转",
             "description": "为 Le Chat 添加自定义快捷键，依托通用模板实现快捷面板、图标库、统计筛选、暗黑模式、自适应布局、事件隔离、快捷键捕获等功能。",
-            "version": "1.1.1",
-            "updateLog": "",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://chat.mistral.ai/*"
             ],
@@ -276,11 +302,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[Perplexity] 快捷键跳转 20250927",
+            "name": "[Perplexity] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "0_V userscripts/[Perplexity] shortcut",
             "description": "为 Perplexity.ai 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)、图标缓存、用户体验优化等功能。（基于 Template 模块重构）",
-            "version": "3.0.0",
-            "updateLog": "",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://www.perplexity.ai/*"
             ],
@@ -307,11 +333,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[Poe] 快捷键跳转 [20260216] v1.0.0",
+            "name": "[Poe] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。",
-            "version": "[20260216] v1.0.0",
-            "updateLog": "1.0.0: 版本重置；升级到 Template core v1.1.1，统一内置快捷键图标为原生样式，并重写脚本说明文案。",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://poe.com/*"
             ],
@@ -339,11 +365,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[Telegram] 快捷键跳转 [20260216] v1.0.0",
+            "name": "[Telegram] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Telegram 网页客户端提供 Template 架构的可视化快捷键中心。支持 URL 跳转、元素点击、按键模拟与图标库管理，并兼容旧版存储键与 Telegram 哈希路由跳转。",
-            "version": "[20260216] v1.0.0",
-            "updateLog": "1.0.0: 更新版本号为 [20260216] v1.0.0，并同步更新发布日志文案。",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://web.telegram.org/a/*"
             ],
@@ -370,11 +396,11 @@ export const SITE_MANIFEST = Object.freeze([
             "site": "site-entry"
         },
         "metadata": {
-            "name": "[哔哩哔哩] 快捷键跳转 20250927",
+            "name": "[哔哩哔哩] 快捷键跳转 [20260423] v1.0.0",
             "namespace": "0_V userscripts/bilibiliSearch Shortcuts",
             "description": "在 Bilibili 搜索页面，通过快捷键快速切换到对应的搜索分类，支持多种操作类型（URL跳转/元素点击/按键模拟），包含图标库管理、完善暗黑模式支持、智能事件隔离、滚动锁定等高级功能。基于模版架构全面升级。",
-            "version": "4.0.0",
-            "updateLog": "",
+            "version": "[20260423] v1.0.0",
+            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
             "match": [
                 "https://*.bilibili.com/*"
             ],
