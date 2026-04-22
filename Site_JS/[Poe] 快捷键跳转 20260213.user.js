@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Poe] 快捷键跳转 [20260423] v1.0.3
+// @name         [Poe] 快捷键跳转 [20260423] v1.0.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。
 
-// @version      [20260423] v1.0.3
-// @update-log   1.0.3: 对齐 Gemini 的稳态菜单桥，补上 content 注入与 GM 值变更监听，修复 Poe 菜单点击无反应。
+// @version      [20260423] v1.0.4
+// @update-log   1.0.4: 将 settings 菜单根修到 core 的 menuBridge 直连回调，并保留稳态菜单桥作为后备链路。
 
 // @match        https://poe.com/*
 
@@ -350,6 +350,15 @@
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandConfig = commandConfigs.get(key) || null;
+            const hasDirectSettingsHandler = key === "settings" && typeof settingsHandler === 'function';
+            if (hasDirectSettingsHandler) {
+                try {
+                    settingsHandler();
+                    return;
+                } catch (error) {
+                    console.error(`[${SITE_LABEL}] settings menu handler failed.`, error);
+                }
+            }
             const commandId = createCommandId(key);
             const queuedCommandId = queuePendingCommand(key, commandId);
             const effectiveCommandId = queuedCommandId || commandId;
@@ -358,16 +367,6 @@
                 refreshCommandLabel(key);
             }
             if (queuedCommandId || dispatched) return;
-
-            if (key === "settings" && typeof settingsHandler === 'function') {
-                try {
-                    settingsHandler();
-                    return;
-                } catch (error) {
-                    console.error(`[${SITE_LABEL}] settings menu handler failed.`, error);
-                    return;
-                }
-            }
 
             if (key === "settings") {
                 console.warn(`[${SITE_LABEL}] settings menu clicked before handler was ready.`);

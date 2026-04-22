@@ -85,6 +85,7 @@ async function startSite(runtime = {}) {
   };
   const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
   const bootstrapMenuManaged = runtime?.bootstrapMenuManaged === true;
+  const menuBridge = runtime?.menuBridge && typeof runtime.menuBridge === "object" ? runtime.menuBridge : null;
   const menuCommandMessageType = typeof runtime?.menuMessageType === "string" && runtime.menuMessageType.trim() ? runtime.menuMessageType.trim() : "";
   const menuCommandMessageSource = typeof runtime?.menuMessageSource === "string" && runtime.menuMessageSource.trim() ? runtime.menuMessageSource.trim() : "";
   const menuPendingValueKey = typeof runtime?.menuPendingValueKey === "string" && runtime.menuPendingValueKey.trim() ? runtime.menuPendingValueKey.trim() : "";
@@ -1930,6 +1931,7 @@ async function startSite(runtime = {}) {
     // 基本配置
     menuCommandLabel: "ChatGPT - 设置快捷键",
     bootstrapMenuManaged,
+    menuBridge,
     panelTitle: "ChatGPT - 自定义快捷键",
     // 存储键配置
     storageKeys: {

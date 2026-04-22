@@ -91,6 +91,7 @@ async function startSite(runtime = {}) {
   const SIDEBAR_VISIBILITY_STORAGE_KEY = "poe_keep_sidebar_visible_v1";
   const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
   const bootstrapMenuManaged = runtime?.bootstrapMenuManaged === true;
+  const menuBridge = runtime?.menuBridge && typeof runtime.menuBridge === "object" ? runtime.menuBridge : null;
   const menuCommandMessageType = typeof runtime?.menuMessageType === "string" && runtime.menuMessageType.trim() ? runtime.menuMessageType.trim() : "";
   const menuCommandMessageSource = typeof runtime?.menuMessageSource === "string" && runtime.menuMessageSource.trim() ? runtime.menuMessageSource.trim() : "";
   const menuPendingValueKey = typeof runtime?.menuPendingValueKey === "string" && runtime.menuPendingValueKey.trim() ? runtime.menuPendingValueKey.trim() : "";
@@ -820,6 +821,7 @@ async function startSite(runtime = {}) {
   const engine = ShortcutTemplate.createShortcutEngine({
     menuCommandLabel: "Poe - 设置快捷键",
     bootstrapMenuManaged,
+    menuBridge,
     panelTitle: "Poe - 自定义快捷键",
     storageKeys: {
       shortcuts: SHORTCUTS_STORAGE_KEY,

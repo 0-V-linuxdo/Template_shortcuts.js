@@ -93,6 +93,7 @@ async function startSite(runtime = {}) {
   const LOG_TAG = "[Gemini Shortcut Script]";
   const defaultIconURL = "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg";
   const bootstrapMenuManaged = runtime?.bootstrapMenuManaged === true;
+  const menuBridge = runtime?.menuBridge && typeof runtime.menuBridge === "object" ? runtime.menuBridge : null;
   const menuCommandMessageType = typeof runtime?.menuMessageType === "string" && runtime.menuMessageType.trim() ? runtime.menuMessageType.trim() : "";
   const menuCommandMessageSource = typeof runtime?.menuMessageSource === "string" && runtime.menuMessageSource.trim() ? runtime.menuMessageSource.trim() : "";
   const menuPendingValueKey = typeof runtime?.menuPendingValueKey === "string" && runtime.menuPendingValueKey.trim() ? runtime.menuPendingValueKey.trim() : "";
@@ -2620,6 +2621,7 @@ async function startSite(runtime = {}) {
   const engine = ShortcutTemplate.createShortcutEngine({
     menuCommandLabel: "Gemini - 设置快捷键",
     bootstrapMenuManaged,
+    menuBridge,
     panelTitle: "Gemini - 自定义快捷键",
     storageKeys: {
       shortcuts: "gemini_shortcuts_v2",

@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Gemini] 快捷键跳转 [20260423] v1.0.8
+// @name         [Gemini] 快捷键跳转 [20260423] v1.0.9
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 
-// @version      [20260423] v1.0.8
-// @update-log   1.0.8: Gemini 侧边栏菜单改为以文字显示开/关状态，并同步保持显示偏好。
+// @version      [20260423] v1.0.9
+// @update-log   1.0.9: 将 settings 菜单根修到 core 的 menuBridge 直连回调，减少对站点侧菜单桥的依赖。
 
 // @match        https://gemini.google.com/*
 
@@ -358,6 +358,15 @@
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandConfig = commandConfigs.get(key) || null;
+            const hasDirectSettingsHandler = key === "settings" && typeof settingsHandler === 'function';
+            if (hasDirectSettingsHandler) {
+                try {
+                    settingsHandler();
+                    return;
+                } catch (error) {
+                    console.error(`[${SITE_LABEL}] settings menu handler failed.`, error);
+                }
+            }
             const commandId = createCommandId(key);
             const queuedCommandId = queuePendingCommand(key, commandId);
             const effectiveCommandId = queuedCommandId || commandId;
@@ -366,16 +375,6 @@
                 refreshCommandLabel(key);
             }
             if (queuedCommandId || dispatched) return;
-
-            if (key === "settings" && typeof settingsHandler === 'function') {
-                try {
-                    settingsHandler();
-                    return;
-                } catch (error) {
-                    console.error(`[${SITE_LABEL}] settings menu handler failed.`, error);
-                    return;
-                }
-            }
 
             if (key === "settings") {
                 console.warn(`[${SITE_LABEL}] settings menu clicked before handler was ready.`);
