@@ -67,6 +67,13 @@ async function startSite(runtime = {}) {
   }
   const LOG_TAG = "[Gemini Shortcut Script]";
   const defaultIconURL = "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg";
+  const menuBridge = runtime?.menuBridge && typeof runtime.menuBridge === "object" ? runtime.menuBridge : null;
+  const menuCommandEventName = typeof menuBridge?.eventName === "string" && menuBridge.eventName.trim() ? menuBridge.eventName.trim() : "";
+  const MENU_COMMAND_KEYS = Object.freeze({
+    settings: "settings",
+    quickInput: "quickInput",
+    sidebarVisibility: "sidebarVisibility"
+  });
   const defaultIcons = [
     { name: "Gemini", url: "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg" },
     { name: "Google", url: "https://www.google.com/favicon.ico" },
@@ -293,6 +300,13 @@ async function startSite(runtime = {}) {
     return `Gemini - 保持侧边栏显示: ${keepSidebarVisible ? "开" : "关"}`;
   }
   function registerSidebarVisibilityMenuCommand() {
+    if (menuBridge && typeof menuBridge.registerCommand === "function") {
+      try {
+        sidebarVisibilityMenuCommandId = menuBridge.registerCommand(MENU_COMMAND_KEYS.sidebarVisibility, getSidebarVisibilityMenuLabel());
+        return;
+      } catch {
+      }
+    }
     if (sidebarVisibilityMenuCommandId !== null) {
       try {
         gmUnregisterMenuCommandLocal(sidebarVisibilityMenuCommandId);
@@ -2387,6 +2401,64 @@ async function startSite(runtime = {}) {
       parse: parseMenuDataAdapter
     };
   }
+  function handleMenuCommand(engine2, commandKey) {
+    const key = String(commandKey || "").trim();
+    if (!key) return false;
+    switch (key) {
+      case MENU_COMMAND_KEYS.settings:
+        engine2?.openSettingsPanel?.();
+        return true;
+      case MENU_COMMAND_KEYS.quickInput:
+        ensureQuickInputController(engine2)?.open?.();
+        return true;
+      case MENU_COMMAND_KEYS.sidebarVisibility:
+        keepSidebarVisible = !keepSidebarVisible;
+        setKeepSidebarVisibleSetting(keepSidebarVisible);
+        console.info(`${LOG_TAG} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
+        if (keepSidebarVisible) startSidebarWarmup();
+        registerSidebarVisibilityMenuCommand();
+        return true;
+      default:
+        return false;
+    }
+  }
+  function registerGeminiMenuCommands(engine2) {
+    if (menuBridge && typeof menuBridge.registerCommand === "function") {
+      try {
+        menuBridge.registerCommand(MENU_COMMAND_KEYS.settings, `${String(runtime?.displayName || "[Gemini] 快捷键跳转").trim()} - 设置快捷键`);
+      } catch {
+      }
+      try {
+        menuBridge.registerCommand(MENU_COMMAND_KEYS.quickInput, "Gemini - 快捷输入");
+      } catch {
+      }
+      registerSidebarVisibilityMenuCommand();
+      return;
+    }
+    gmRegisterMenuCommandLocal("Gemini - 快捷输入", () => {
+      ensureQuickInputController(engine2)?.open?.();
+    });
+    registerSidebarVisibilityMenuCommand();
+  }
+  function bindMenuBridgeCommands(engine2) {
+    if (!menuBridge || !menuCommandEventName) return;
+    const target = typeof document !== "undefined" && document && typeof document.addEventListener === "function" ? document : typeof window !== "undefined" && window && typeof window.addEventListener === "function" ? window : null;
+    if (!target) return;
+    target.addEventListener(menuCommandEventName, (event) => {
+      const detail = event?.detail;
+      if (!detail || detail.siteId !== runtime?.siteId) return;
+      handleMenuCommand(engine2, detail.commandKey);
+    });
+  }
+  function consumePendingMenuCommands(engine2) {
+    if (!menuBridge || typeof menuBridge.consumePending !== "function") return;
+    for (const key of Object.values(MENU_COMMAND_KEYS)) {
+      const count = Number(menuBridge.consumePending(key)) || 0;
+      for (let index = 0; index < count; index += 1) {
+        handleMenuCommand(engine2, key);
+      }
+    }
+  }
   const engine = ShortcutTemplate.createShortcutEngine({
     menuCommandLabel: "Gemini - 设置快捷键",
     menuBridge: runtime?.menuBridge || null,
@@ -2426,15 +2498,11 @@ async function startSite(runtime = {}) {
       return url && url.startsWith("https://gemini.google.com/");
     }
   });
-  if (runtime?.menuBridge && typeof runtime.menuBridge.setSettingsHandler === "function") {
-    runtime.menuBridge.setSettingsHandler(engine.openSettingsPanel);
-  }
-  gmRegisterMenuCommandLocal("Gemini - 快捷输入", () => {
-    ensureQuickInputController(engine)?.open?.();
-  });
   engine.init();
   setupKeepSidebarVisible();
-  registerSidebarVisibilityMenuCommand();
+  registerGeminiMenuCommands(engine);
+  bindMenuBridgeCommands(engine);
+  consumePendingMenuCommands(engine);
 }
 export {
   startSite

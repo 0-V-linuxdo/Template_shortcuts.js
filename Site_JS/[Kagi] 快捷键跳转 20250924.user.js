@@ -53,7 +53,29 @@
         return typeof globalThis !== 'undefined' ? globalThis : null;
     }
 
+    function getDirectUserscriptApi(name) {
+        switch (String(name || "")) {
+            case 'GM_getValue':
+                return typeof GM_getValue === 'function' ? GM_getValue : null;
+            case 'GM_setValue':
+                return typeof GM_setValue === 'function' ? GM_setValue : null;
+            case 'GM_xmlhttpRequest':
+                return typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : null;
+            case 'GM_getResourceURL':
+                return typeof GM_getResourceURL === 'function' ? GM_getResourceURL : null;
+            case 'GM_registerMenuCommand':
+                return typeof GM_registerMenuCommand === 'function' ? GM_registerMenuCommand : null;
+            case 'GM_unregisterMenuCommand':
+                return typeof GM_unregisterMenuCommand === 'function' ? GM_unregisterMenuCommand : null;
+            default:
+                return null;
+        }
+    }
+
     function getUserscriptApi(name) {
+        const directBinding = getDirectUserscriptApi(name);
+        if (typeof directBinding === 'function') return directBinding;
+
         const scope = getGlobalScope();
         if (!scope) return null;
 
@@ -72,6 +94,172 @@
         }
 
         return null;
+    }
+
+    function exposeUserscriptApiResolver() {
+        const scope = getGlobalScope();
+        if (!scope) return;
+
+        try {
+            Object.defineProperty(scope, "__TEMPLATE_SHORTCUTS_GET_USERSCRIPT_API__", {
+                value: getUserscriptApi,
+                configurable: true,
+                enumerable: false,
+                writable: true
+            });
+            return;
+        } catch {}
+
+        try {
+            scope["__TEMPLATE_SHORTCUTS_GET_USERSCRIPT_API__"] = getUserscriptApi;
+        } catch {}
+    }
+
+    function createMenuBridge() {
+        const register = getUserscriptApi('GM_registerMenuCommand');
+        const unregister = getUserscriptApi('GM_unregisterMenuCommand');
+        let settingsHandler = null;
+        const commands = new Map();
+        const pendingCounts = new Map();
+        const scope = getGlobalScope();
+        const dispatchTarget = scope?.document && typeof scope.document.dispatchEvent === 'function'
+            ? scope.document
+            : (scope && typeof scope.dispatchEvent === 'function' ? scope : null);
+
+        function normalizeCommandKey(commandKey) {
+            return String(commandKey || "").trim();
+        }
+
+        function queuePendingCommand(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return 0;
+            const nextCount = (Number(pendingCounts.get(key)) || 0) + 1;
+            pendingCounts.set(key, nextCount);
+            return nextCount;
+        }
+
+        function dispatchCommand(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return false;
+            queuePendingCommand(key);
+            if (!dispatchTarget || typeof CustomEvent !== 'function') return false;
+            try {
+                dispatchTarget.dispatchEvent(new CustomEvent("__templateShortcutsMenuCommand", {
+                    detail: Object.freeze({
+                        siteId: SITE_ID,
+                        commandKey: key
+                    })
+                }));
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        function invokeCommand(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            const dispatched = dispatchCommand(key);
+            if (dispatched) return;
+
+            if (key === "settings" && typeof settingsHandler === 'function') {
+                try {
+                    settingsHandler();
+                    return;
+                } catch (error) {
+                    console.error(`[${SITE_LABEL}] settings menu handler failed.`, error);
+                    return;
+                }
+            }
+
+            if (key === "settings") {
+                console.warn(`[${SITE_LABEL}] settings menu clicked before handler was ready.`);
+            }
+        }
+
+        function registerCommand(commandKey, label) {
+            const key = normalizeCommandKey(commandKey);
+            const text = String(label || "").trim();
+            if (!key || !text || typeof register !== 'function') return null;
+
+            const existing = commands.get(key) || null;
+            if (existing && existing.label === text && existing.commandId !== null && existing.commandId !== undefined) {
+                return existing.commandId;
+            }
+
+            if (existing && existing.commandId !== null && existing.commandId !== undefined && typeof unregister === 'function') {
+                try { unregister(existing.commandId); } catch {}
+            }
+
+            let commandId = null;
+            try {
+                commandId = register(text, () => invokeCommand(key));
+            } catch (error) {
+                console.warn(`[${SITE_LABEL}] Failed to register bootstrap menu "${text}".`, error);
+                commandId = null;
+            }
+
+            commands.set(key, { label: text, commandId });
+            return commandId;
+        }
+
+        function unregisterCommand(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return false;
+            const existing = commands.get(key) || null;
+            if (!existing) return false;
+            if (existing.commandId !== null && existing.commandId !== undefined && typeof unregister === 'function') {
+                try { unregister(existing.commandId); } catch {}
+            }
+            commands.delete(key);
+            pendingCounts.delete(key);
+            return true;
+        }
+
+        function consumePending(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return 0;
+            const count = Number(pendingCounts.get(key)) || 0;
+            pendingCounts.delete(key);
+            return count;
+        }
+
+        registerCommand("settings", `${SITE_LABEL} - 设置快捷键`);
+
+        const bridge = {
+            managedByBootstrap: typeof register === 'function',
+            eventName: "__templateShortcutsMenuCommand",
+            registerCommand,
+            unregisterCommand,
+            consumePending,
+            dispatchCommand,
+            setSettingsHandler(handler) {
+                settingsHandler = typeof handler === 'function' ? handler : null;
+                return settingsHandler !== null;
+            },
+            getSettingsCommandId() {
+                return commands.get("settings")?.commandId ?? null;
+            },
+            getSettingsLabel() {
+                return commands.get("settings")?.label || `${SITE_LABEL} - 设置快捷键`;
+            }
+        };
+
+        if (scope) {
+            try {
+                Object.defineProperty(scope, "__TEMPLATE_SHORTCUTS_MENU_BRIDGE__", {
+                    value: bridge,
+                    configurable: true,
+                    enumerable: false,
+                    writable: true
+                });
+            } catch {
+                try {
+                    scope["__TEMPLATE_SHORTCUTS_MENU_BRIDGE__"] = bridge;
+                } catch {}
+            }
+        }
+
+        return Object.freeze(bridge);
     }
 
     async function getResourceUrl(name) {
@@ -112,6 +300,9 @@
         }
     }
 
+    exposeUserscriptApiResolver();
+    const menuBridge = createMenuBridge();
+
     async function main() {
         const preparedCore = await prepareModuleUrl(RESOURCE_NAMES.core);
         const preparedSite = await prepareModuleUrl(RESOURCE_NAMES.site);
@@ -139,6 +330,7 @@
             resourceNames: RESOURCE_NAMES,
             resourceUrls,
             moduleUrls,
+            menuBridge,
             getUserscriptApi,
             getResourceUrl
         }));
