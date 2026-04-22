@@ -3,6 +3,71 @@
  * -------------------------------------------------------------------------- */
 
 export async function startSite(runtime = {}) {
+    function getUserscriptApi(name) {
+        const runtimeGetter = typeof runtime?.getUserscriptApi === "function" ? runtime.getUserscriptApi : null;
+        if (runtimeGetter) {
+            try {
+                const runtimeApi = runtimeGetter(name);
+                if (typeof runtimeApi === "function") return runtimeApi;
+            } catch { }
+        }
+
+        const scope = typeof globalThis !== "undefined" ? globalThis : null;
+        if (!scope) return null;
+
+        const direct = scope[name];
+        if (typeof direct === "function") return direct.bind(scope);
+
+        const gm = scope.GM;
+        if (gm && typeof gm === "object") {
+            const altName = name.replace(/^GM_/, "");
+            const directGm = gm[altName];
+            if (typeof directGm === "function") return directGm.bind(gm);
+
+            const lowerCamel = altName.charAt(0).toLowerCase() + altName.slice(1);
+            const camelGm = gm[lowerCamel];
+            if (typeof camelGm === "function") return camelGm.bind(gm);
+        }
+
+        return null;
+    }
+
+    function gmGetValueLocal(key, fallback) {
+        const fn = getUserscriptApi("GM_getValue");
+        if (typeof fn !== "function") return fallback;
+        try {
+            return fn(key, fallback);
+        } catch {
+            return fallback;
+        }
+    }
+
+    function gmSetValueLocal(key, value) {
+        const fn = getUserscriptApi("GM_setValue");
+        if (typeof fn !== "function") return;
+        try {
+            fn(key, value);
+        } catch { }
+    }
+
+    function gmRegisterMenuCommandLocal(label, handler) {
+        const fn = getUserscriptApi("GM_registerMenuCommand");
+        if (typeof fn !== "function") return null;
+        try {
+            return fn(label, handler);
+        } catch {
+            return null;
+        }
+    }
+
+    function gmUnregisterMenuCommandLocal(commandId) {
+        const fn = getUserscriptApi("GM_unregisterMenuCommand");
+        if (typeof fn !== "function") return;
+        try {
+            fn(commandId);
+        } catch { }
+    }
+
     const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
     const coreModule = coreUrl ? await import(coreUrl) : null;
     const ShortcutTemplate = coreModule?.default || coreModule || null;
@@ -248,9 +313,8 @@ export async function startSite(runtime = {}) {
     }
 
     function getKeepSidebarVisibleSetting() {
-        if (typeof GM_getValue !== "function") return DEFAULT_KEEP_SIDEBAR_VISIBLE;
         try {
-            const value = GM_getValue(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
+            const value = gmGetValueLocal(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
             if (value && typeof value.then === "function") return DEFAULT_KEEP_SIDEBAR_VISIBLE;
             return value === true || value === "true";
         } catch { }
@@ -258,9 +322,8 @@ export async function startSite(runtime = {}) {
     }
 
     function setKeepSidebarVisibleSetting(value) {
-        if (typeof GM_setValue !== "function") return;
         try {
-            GM_setValue(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
+            gmSetValueLocal(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
         } catch { }
     }
 
@@ -269,19 +332,13 @@ export async function startSite(runtime = {}) {
     }
 
     function registerSidebarVisibilityMenuCommand() {
-        if (typeof GM_registerMenuCommand !== "function") return;
-
         if (sidebarVisibilityMenuCommandId !== null) {
-            if (typeof GM_unregisterMenuCommand === "function") {
-                try {
-                    GM_unregisterMenuCommand(sidebarVisibilityMenuCommandId);
-                } catch { }
-            } else {
-                return;
-            }
+            try {
+                gmUnregisterMenuCommandLocal(sidebarVisibilityMenuCommandId);
+            } catch { }
         }
 
-        sidebarVisibilityMenuCommandId = GM_registerMenuCommand(getSidebarVisibilityMenuLabel(), () => {
+        sidebarVisibilityMenuCommandId = gmRegisterMenuCommandLocal(getSidebarVisibilityMenuLabel(), () => {
             keepSidebarVisible = !keepSidebarVisible;
             setKeepSidebarVisibleSetting(keepSidebarVisible);
             console.info(`${LOG_TAG} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
@@ -2625,11 +2682,9 @@ export async function startSite(runtime = {}) {
         }
     });
 
-    if (typeof GM_registerMenuCommand === "function") {
-        GM_registerMenuCommand("Gemini - 快捷输入", () => {
-            ensureQuickInputController(engine)?.open?.();
-        });
-    }
+    gmRegisterMenuCommandLocal("Gemini - 快捷输入", () => {
+        ensureQuickInputController(engine)?.open?.();
+    });
 
     engine.init();
     setupKeepSidebarVisible();

@@ -1,5 +1,6 @@
 import { createKeyboardLayer } from "./keyboard.js";
 import { createSettingsPanelLayer } from "../../panel/settings/index.js";
+import { gmRegisterMenuCommand } from "../../shared/platform/userscript.js";
 
 /* -------------------------------------------------------------------------- *
  * Module 06 · Styling & exports (CSS injection, lifecycle, global API)
@@ -265,9 +266,11 @@ import { createSettingsPanelLayer } from "../../panel/settings/index.js";
                 state.destroyDragCss = injectDragCss();
 
                 const menuLabel = options.menuCommandLabel || options.text.menuLabelFallback;
-                if (!state.menuCommandRegistered && typeof GM_registerMenuCommand === 'function') {
-                    GM_registerMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
-                    state.menuCommandRegistered = true;
+                if (!state.menuCommandRegistered) {
+                    const commandId = gmRegisterMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
+                    if (commandId !== null && commandId !== undefined) {
+                        state.menuCommandRegistered = true;
+                    }
                 }
             }
 
