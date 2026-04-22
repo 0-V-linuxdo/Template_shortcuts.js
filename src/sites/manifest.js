@@ -5,7 +5,9 @@
 export const RELEASE_PUBLISH_CONFIG = Object.freeze({
     "githubOwner": "0-V-linuxdo",
     "repository": "Template_shortcuts.js",
-    "releaseBranch": "release"
+    "releaseBranch": "release",
+    "gitUserName": "0-V-linuxdo",
+    "gitUserEmail": "0_v@linux.do"
 });
 
 export const RELEASE_RAW_BASE_URL = `https://github.com/${RELEASE_PUBLISH_CONFIG.githubOwner}/${RELEASE_PUBLISH_CONFIG.repository}/raw/refs/heads/${RELEASE_PUBLISH_CONFIG.releaseBranch}`;

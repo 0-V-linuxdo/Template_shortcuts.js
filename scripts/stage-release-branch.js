@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,6 +30,19 @@ function resetDir(targetPath) {
   fs.mkdirSync(targetPath, { recursive: true });
 }
 
+function resetReleaseTargetRoot(targetPath, { preserveGitMetadata = false } = {}) {
+  if (!preserveGitMetadata) {
+    resetDir(targetPath);
+    return;
+  }
+
+  fs.mkdirSync(targetPath, { recursive: true });
+  for (const entryName of fs.readdirSync(targetPath)) {
+    if (entryName === ".git") continue;
+    fs.rmSync(path.join(targetPath, entryName), { recursive: true, force: true });
+  }
+}
+
 function copyFile(sourcePath, targetPath) {
   ensurePathExists(sourcePath, "Source file");
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
@@ -53,6 +67,32 @@ function resolveOutDir(rawPath) {
 function writeText(targetPath, text) {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(targetPath, ensureTrailingNewline(text), "utf8");
+}
+
+function isGitRepository(targetPath) {
+  try {
+    execFileSync("git", ["-C", targetPath, "rev-parse", "--git-dir"], {
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function configureGitIdentity(targetPath) {
+  const gitUserName = String(RELEASE_PUBLISH_CONFIG.gitUserName || "").trim();
+  const gitUserEmail = String(RELEASE_PUBLISH_CONFIG.gitUserEmail || "").trim();
+  if (!gitUserName || !gitUserEmail) return false;
+  if (!isGitRepository(targetPath)) return false;
+
+  execFileSync("git", ["-C", targetPath, "config", "user.name", gitUserName], {
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  execFileSync("git", ["-C", targetPath, "config", "user.email", gitUserEmail], {
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  return true;
 }
 
 function renderReleaseReadme() {
@@ -122,7 +162,8 @@ function stageReleaseBranch(targetRoot) {
   ensurePathExists(distEsmDir, "Built dist/esm output");
   ensurePathExists(siteJsDir, "Built Site_JS output");
 
-  resetDir(targetRoot);
+  const targetIsGitRepo = isGitRepository(targetRoot);
+  resetReleaseTargetRoot(targetRoot, { preserveGitMetadata: targetIsGitRepo });
   copyDir(distEsmDir, path.join(targetRoot, "dist", "esm"));
   copyDir(siteJsDir, path.join(targetRoot, "Site_JS"));
 
@@ -134,12 +175,16 @@ function stageReleaseBranch(targetRoot) {
 
   copyFile(licensePath, path.join(targetRoot, "LICENSE"));
   writeText(path.join(targetRoot, "README.md"), renderReleaseReadme());
+  const configuredGitIdentity = targetIsGitRepo && configureGitIdentity(targetRoot);
 
   process.stdout.write(
     `Staged release branch contents: ${targetRoot}\n` +
     `  - dist/esm\n` +
     `  - Site_JS\n` +
-    `  - Site_Icon (${RELEASE_SITE_ICON_FILES.length} files)\n`
+    `  - Site_Icon (${RELEASE_SITE_ICON_FILES.length} files)\n` +
+    (configuredGitIdentity
+      ? `  - git identity: ${RELEASE_PUBLISH_CONFIG.gitUserName} <${RELEASE_PUBLISH_CONFIG.gitUserEmail}>\n`
+      : "")
   );
 }
 

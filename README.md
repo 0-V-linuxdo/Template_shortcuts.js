@@ -47,6 +47,8 @@ npm run stage:release -- --out-dir /absolute/path/to/template-shortcuts-release
 - 最小 `README.md`
 - `LICENSE`
 
+如果 `--out-dir` 本身就是一个 `release` 分支仓库或 worktree，脚本还会自动把该目录的本地 git 身份配置为 `src/sites/manifest.js` 中声明的发布账号，避免错误回退到全局 git 身份。
+
 ## 发布元数据
 
 - 当前 userscript 的 GitHub Raw 图标地址与 `@resource` 依赖地址统一指向本仓库的 `release` 分支。
