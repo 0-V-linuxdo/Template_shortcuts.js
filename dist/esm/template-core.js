@@ -6870,8 +6870,14 @@ function createEngineApi(ctx = {}) {
     state.destroyDragCss = injectDragCss();
     const menuLabel = options.menuCommandLabel || options.text.menuLabelFallback;
     const bootstrapMenuBridge = options?.menuBridge;
-    if (!state.menuCommandRegistered && bootstrapMenuBridge?.managedByBootstrap && typeof bootstrapMenuBridge.setSettingsHandler === "function") {
-      bootstrapMenuBridge.setSettingsHandler(settingsPanelLayer.openSettingsPanel);
+    const bootstrapMenuManaged = options?.bootstrapMenuManaged === true || bootstrapMenuBridge?.managedByBootstrap === true;
+    if (!state.menuCommandRegistered && bootstrapMenuManaged) {
+      if (bootstrapMenuBridge?.managedByBootstrap && typeof bootstrapMenuBridge.setSettingsHandler === "function") {
+        try {
+          bootstrapMenuBridge.setSettingsHandler(settingsPanelLayer.openSettingsPanel);
+        } catch {
+        }
+      }
       state.menuCommandRegistered = true;
     } else if (!state.menuCommandRegistered) {
       const commandId = gmRegisterMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);

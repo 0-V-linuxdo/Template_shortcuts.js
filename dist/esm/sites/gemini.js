@@ -58,6 +58,22 @@ async function startSite(runtime = {}) {
     } catch {
     }
   }
+  function getLocalStorageLocal() {
+    const scope = typeof globalThis !== "undefined" ? globalThis : null;
+    try {
+      return scope?.localStorage || null;
+    } catch {
+      return null;
+    }
+  }
+  function getSessionStorageLocal() {
+    const scope = typeof globalThis !== "undefined" ? globalThis : null;
+    try {
+      return scope?.sessionStorage || null;
+    } catch {
+      return null;
+    }
+  }
   const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
   const coreModule = coreUrl ? await import(coreUrl) : null;
   const ShortcutTemplate = coreModule?.default || coreModule || null;
@@ -67,8 +83,12 @@ async function startSite(runtime = {}) {
   }
   const LOG_TAG = "[Gemini Shortcut Script]";
   const defaultIconURL = "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg";
-  const menuBridge = runtime?.menuBridge && typeof runtime.menuBridge === "object" ? runtime.menuBridge : null;
-  const menuCommandEventName = typeof menuBridge?.eventName === "string" && menuBridge.eventName.trim() ? menuBridge.eventName.trim() : "";
+  const bootstrapMenuManaged = runtime?.bootstrapMenuManaged === true;
+  const menuCommandMessageType = typeof runtime?.menuMessageType === "string" && runtime.menuMessageType.trim() ? runtime.menuMessageType.trim() : "";
+  const menuCommandMessageSource = typeof runtime?.menuMessageSource === "string" && runtime.menuMessageSource.trim() ? runtime.menuMessageSource.trim() : "";
+  const menuPendingStorageKey = typeof runtime?.menuPendingStorageKey === "string" && runtime.menuPendingStorageKey.trim() ? runtime.menuPendingStorageKey.trim() : "";
+  const menuReadyStorageKey = typeof runtime?.menuReadyStorageKey === "string" && runtime.menuReadyStorageKey.trim() ? runtime.menuReadyStorageKey.trim() : "";
+  const menuPageToken = typeof runtime?.menuPageToken === "string" && runtime.menuPageToken.trim() ? runtime.menuPageToken.trim() : "";
   const MENU_COMMAND_KEYS = Object.freeze({
     settings: "settings",
     quickInput: "quickInput",
@@ -171,6 +191,8 @@ async function startSite(runtime = {}) {
   let keepSidebarVisible = getKeepSidebarVisibleSetting();
   let sidebarVisibilityMenuCommandId = null;
   let sidebarWarmupTimer = null;
+  const handledMenuCommandIds = [];
+  const handledMenuCommandIdSet = /* @__PURE__ */ new Set();
   const baseShortcut = Object.freeze({
     url: "",
     urlMethod: "current",
@@ -281,32 +303,54 @@ async function startSite(runtime = {}) {
     console.error("[Gemini Shortcut] Template utils.menu not found (update Template core).");
     return;
   }
-  function getKeepSidebarVisibleSetting() {
+  function getLocalBooleanFallback(key, fallback) {
+    const storage = getLocalStorageLocal();
+    const k = String(key ?? "").trim();
+    if (!storage || !k) return fallback;
     try {
-      const value = gmGetValueLocal(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
-      if (value && typeof value.then === "function") return DEFAULT_KEEP_SIDEBAR_VISIBLE;
+      const raw = storage.getItem(k);
+      if (raw == null) return fallback;
+      if (raw === "true" || raw === "1") return true;
+      if (raw === "false" || raw === "0") return false;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "boolean") return parsed;
+    } catch {
+    }
+    return fallback;
+  }
+  function setLocalBooleanFallback(key, value) {
+    const storage = getLocalStorageLocal();
+    const k = String(key ?? "").trim();
+    if (!storage || !k) return;
+    try {
+      storage.setItem(k, JSON.stringify(!!value));
+    } catch {
+    }
+  }
+  function getKeepSidebarVisibleSetting() {
+    const localFallback = getLocalBooleanFallback(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
+    const fn = getUserscriptApi("GM_getValue");
+    if (typeof fn !== "function") return localFallback;
+    try {
+      const value = fn(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
+      if (value && typeof value.then === "function") return localFallback;
       return value === true || value === "true";
     } catch {
     }
-    return DEFAULT_KEEP_SIDEBAR_VISIBLE;
+    return localFallback;
   }
   function setKeepSidebarVisibleSetting(value) {
     try {
       gmSetValueLocal(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
     } catch {
     }
+    setLocalBooleanFallback(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
   }
   function getSidebarVisibilityMenuLabel() {
     return `Gemini - 保持侧边栏显示: ${keepSidebarVisible ? "开" : "关"}`;
   }
   function registerSidebarVisibilityMenuCommand() {
-    if (menuBridge && typeof menuBridge.registerCommand === "function") {
-      try {
-        sidebarVisibilityMenuCommandId = menuBridge.registerCommand(MENU_COMMAND_KEYS.sidebarVisibility, getSidebarVisibilityMenuLabel());
-        return;
-      } catch {
-      }
-    }
+    if (bootstrapMenuManaged) return;
     if (sidebarVisibilityMenuCommandId !== null) {
       try {
         gmUnregisterMenuCommandLocal(sidebarVisibilityMenuCommandId);
@@ -2402,6 +2446,23 @@ async function startSite(runtime = {}) {
     };
   }
   function handleMenuCommand(engine2, commandKey) {
+    return handleMenuCommandWithId(engine2, commandKey, "");
+  }
+  function markMenuCommandHandled(commandId) {
+    const id = String(commandId || "").trim();
+    if (!id) return true;
+    if (handledMenuCommandIdSet.has(id)) return false;
+    handledMenuCommandIdSet.add(id);
+    handledMenuCommandIds.push(id);
+    while (handledMenuCommandIds.length > 120) {
+      const staleId = handledMenuCommandIds.shift();
+      if (!staleId) continue;
+      handledMenuCommandIdSet.delete(staleId);
+    }
+    return true;
+  }
+  function handleMenuCommandWithId(engine2, commandKey, commandId = "") {
+    if (!markMenuCommandHandled(commandId)) return false;
     const key = String(commandKey || "").trim();
     if (!key) return false;
     switch (key) {
@@ -2423,45 +2484,81 @@ async function startSite(runtime = {}) {
     }
   }
   function registerGeminiMenuCommands(engine2) {
-    if (menuBridge && typeof menuBridge.registerCommand === "function") {
-      try {
-        menuBridge.registerCommand(MENU_COMMAND_KEYS.settings, `${String(runtime?.displayName || "[Gemini] 快捷键跳转").trim()} - 设置快捷键`);
-      } catch {
-      }
-      try {
-        menuBridge.registerCommand(MENU_COMMAND_KEYS.quickInput, "Gemini - 快捷输入");
-      } catch {
-      }
-      registerSidebarVisibilityMenuCommand();
-      return;
-    }
+    if (bootstrapMenuManaged) return;
     gmRegisterMenuCommandLocal("Gemini - 快捷输入", () => {
       ensureQuickInputController(engine2)?.open?.();
     });
     registerSidebarVisibilityMenuCommand();
   }
-  function bindMenuBridgeCommands(engine2) {
-    if (!menuBridge || !menuCommandEventName) return;
-    const target = typeof document !== "undefined" && document && typeof document.addEventListener === "function" ? document : typeof window !== "undefined" && window && typeof window.addEventListener === "function" ? window : null;
-    if (!target) return;
-    target.addEventListener(menuCommandEventName, (event) => {
-      const detail = event?.detail;
-      if (!detail || detail.siteId !== runtime?.siteId) return;
-      handleMenuCommand(engine2, detail.commandKey);
+  function readPendingMenuEntries() {
+    const storage = getSessionStorageLocal();
+    if (!storage || !menuPendingStorageKey) return [];
+    try {
+      const raw = storage.getItem(menuPendingStorageKey);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((entry) => {
+        const commandId = typeof entry?.id === "string" ? entry.id.trim() : "";
+        const commandKey = typeof entry?.key === "string" ? entry.key.trim() : "";
+        if (!commandId || !commandKey) return null;
+        return { commandId, commandKey };
+      }).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+  function clearPendingMenuEntries() {
+    const storage = getSessionStorageLocal();
+    if (!storage || !menuPendingStorageKey) return;
+    try {
+      storage.removeItem(menuPendingStorageKey);
+    } catch {
+    }
+  }
+  function markMenuReady() {
+    const storage = getSessionStorageLocal();
+    if (!storage || !menuReadyStorageKey || !menuPageToken) return;
+    try {
+      storage.setItem(menuReadyStorageKey, menuPageToken);
+    } catch {
+    }
+  }
+  function clearMenuReady() {
+    const storage = getSessionStorageLocal();
+    if (!storage || !menuReadyStorageKey || !menuPageToken) return;
+    try {
+      if (String(storage.getItem(menuReadyStorageKey) || "").trim() === menuPageToken) {
+        storage.removeItem(menuReadyStorageKey);
+      }
+    } catch {
+    }
+  }
+  function bindMenuCommandMessages(engine2) {
+    if (!bootstrapMenuManaged || !menuCommandMessageType || !menuCommandMessageSource) return;
+    if (typeof window === "undefined" || !window || typeof window.addEventListener !== "function") return;
+    window.addEventListener("message", (event) => {
+      if (event?.source && event.source !== window) return;
+      const detail = event?.data;
+      if (!detail || typeof detail !== "object") return;
+      if (detail.source !== menuCommandMessageSource) return;
+      if (detail.type !== menuCommandMessageType) return;
+      if (detail.siteId !== runtime?.siteId) return;
+      if (menuPageToken && detail.pageToken && detail.pageToken !== menuPageToken) return;
+      handleMenuCommandWithId(engine2, detail.commandKey, detail.commandId);
     });
   }
   function consumePendingMenuCommands(engine2) {
-    if (!menuBridge || typeof menuBridge.consumePending !== "function") return;
-    for (const key of Object.values(MENU_COMMAND_KEYS)) {
-      const count = Number(menuBridge.consumePending(key)) || 0;
-      for (let index = 0; index < count; index += 1) {
-        handleMenuCommand(engine2, key);
-      }
+    if (!bootstrapMenuManaged) return;
+    const pendingEntries = readPendingMenuEntries();
+    clearPendingMenuEntries();
+    for (const entry of pendingEntries) {
+      handleMenuCommandWithId(engine2, entry.commandKey, entry.commandId);
     }
   }
   const engine = ShortcutTemplate.createShortcutEngine({
     menuCommandLabel: "Gemini - 设置快捷键",
-    menuBridge: runtime?.menuBridge || null,
+    bootstrapMenuManaged,
     panelTitle: "Gemini - 自定义快捷键",
     storageKeys: {
       shortcuts: "gemini_shortcuts_v2",
@@ -2500,9 +2597,14 @@ async function startSite(runtime = {}) {
   });
   engine.init();
   setupKeepSidebarVisible();
-  registerGeminiMenuCommands(engine);
-  bindMenuBridgeCommands(engine);
+  bindMenuCommandMessages(engine);
+  markMenuReady();
+  if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
+    window.addEventListener("pagehide", clearMenuReady, { once: true });
+    window.addEventListener("beforeunload", clearMenuReady, { once: true });
+  }
   consumePendingMenuCommands(engine);
+  registerGeminiMenuCommands(engine);
 }
 export {
   startSite

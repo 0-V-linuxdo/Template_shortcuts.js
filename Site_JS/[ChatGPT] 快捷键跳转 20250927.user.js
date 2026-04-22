@@ -48,9 +48,23 @@
     "core": "template-core",
     "site": "site-entry"
 });
+    const BOOTSTRAP_MENU_COMMANDS = Object.freeze([]);
+    const MENU_MESSAGE_SOURCE = "template-shortcuts-userscript";
+    const MENU_PENDING_STORAGE_KEY = "__templateShortcutsMenuPending::chatgpt";
+    const MENU_READY_STORAGE_KEY = "__templateShortcutsMenuReady::chatgpt";
+    const MENU_PAGE_TOKEN = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
 
     function getGlobalScope() {
         return typeof globalThis !== 'undefined' ? globalThis : null;
+    }
+
+    function getSessionStorageSafe() {
+        const scope = getGlobalScope();
+        try {
+            return scope?.sessionStorage || null;
+        } catch {
+            return null;
+        }
     }
 
     function getDirectUserscriptApi(name) {
@@ -120,7 +134,6 @@
         const unregister = getUserscriptApi('GM_unregisterMenuCommand');
         let settingsHandler = null;
         const commands = new Map();
-        const pendingCounts = new Map();
         const scope = getGlobalScope();
         const dispatchTarget = scope?.document && typeof scope.document.dispatchEvent === 'function'
             ? scope.document
@@ -130,25 +143,86 @@
             return String(commandKey || "").trim();
         }
 
-        function queuePendingCommand(commandKey) {
-            const key = normalizeCommandKey(commandKey);
-            if (!key) return 0;
-            const nextCount = (Number(pendingCounts.get(key)) || 0) + 1;
-            pendingCounts.set(key, nextCount);
-            return nextCount;
+        function createCommandId(commandKey) {
+            const key = normalizeCommandKey(commandKey) || 'menu';
+            return key + ':' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 10);
         }
 
-        function dispatchCommand(commandKey) {
+        function readPendingEntries() {
+            const storage = getSessionStorageSafe();
+            if (!storage) return [];
+            try {
+                const raw = storage.getItem(MENU_PENDING_STORAGE_KEY);
+                if (!raw) return [];
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) return [];
+                return parsed
+                    .map((entry) => {
+                        const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
+                        const key = normalizeCommandKey(entry?.key);
+                        if (!id || !key) return null;
+                        return Object.freeze({ id, key });
+                    })
+                    .filter(Boolean);
+            } catch {
+                return [];
+            }
+        }
+
+        function writePendingEntries(entries) {
+            const storage = getSessionStorageSafe();
+            if (!storage) return;
+            try {
+                if (!Array.isArray(entries) || entries.length === 0) {
+                    storage.removeItem(MENU_PENDING_STORAGE_KEY);
+                    return;
+                }
+                storage.setItem(MENU_PENDING_STORAGE_KEY, JSON.stringify(entries));
+            } catch {}
+        }
+
+        function isCurrentPageMenuReady() {
+            const storage = getSessionStorageSafe();
+            if (!storage || !MENU_PAGE_TOKEN) return false;
+            try {
+                return String(storage.getItem(MENU_READY_STORAGE_KEY) || '').trim() === MENU_PAGE_TOKEN;
+            } catch {
+                return false;
+            }
+        }
+
+        function queuePendingCommand(commandKey, commandId) {
+            const key = normalizeCommandKey(commandKey);
+            const id = String(commandId || "").trim() || createCommandId(key);
+            if (!key || !id) return null;
+            const pendingEntries = readPendingEntries();
+            pendingEntries.push(Object.freeze({ id, key }));
+            writePendingEntries(pendingEntries);
+            return id;
+        }
+
+        function dispatchCommand(commandKey, commandId) {
             const key = normalizeCommandKey(commandKey);
             if (!key) return false;
-            queuePendingCommand(key);
+            const id = String(commandId || "").trim() || createCommandId(key);
+            const payload = Object.freeze({
+                type: "__templateShortcutsMenuCommand",
+                source: MENU_MESSAGE_SOURCE,
+                siteId: SITE_ID,
+                pageToken: MENU_PAGE_TOKEN,
+                commandKey: key,
+                commandId: id
+            });
+            try {
+                if (scope && typeof scope.postMessage === 'function') {
+                    scope.postMessage(payload, '*');
+                    return true;
+                }
+            } catch {}
             if (!dispatchTarget || typeof CustomEvent !== 'function') return false;
             try {
                 dispatchTarget.dispatchEvent(new CustomEvent("__templateShortcutsMenuCommand", {
-                    detail: Object.freeze({
-                        siteId: SITE_ID,
-                        commandKey: key
-                    })
+                    detail: payload
                 }));
                 return true;
             } catch {
@@ -158,7 +232,11 @@
 
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
-            const dispatched = dispatchCommand(key);
+            const commandId = createCommandId(key);
+            if (!isCurrentPageMenuReady()) {
+                queuePendingCommand(key, commandId);
+            }
+            const dispatched = dispatchCommand(key, commandId);
             if (dispatched) return;
 
             if (key === "settings" && typeof settingsHandler === 'function') {
@@ -211,19 +289,32 @@
                 try { unregister(existing.commandId); } catch {}
             }
             commands.delete(key);
-            pendingCounts.delete(key);
             return true;
         }
 
         function consumePending(commandKey) {
             const key = normalizeCommandKey(commandKey);
             if (!key) return 0;
-            const count = Number(pendingCounts.get(key)) || 0;
-            pendingCounts.delete(key);
+            const pendingEntries = readPendingEntries();
+            if (pendingEntries.length === 0) return 0;
+            let count = 0;
+            const remainingEntries = [];
+            for (const entry of pendingEntries) {
+                if (entry.key === key) {
+                    count += 1;
+                    continue;
+                }
+                remainingEntries.push(entry);
+            }
+            writePendingEntries(remainingEntries);
             return count;
         }
 
         registerCommand("settings", `${SITE_LABEL} - 设置快捷键`);
+        for (const command of BOOTSTRAP_MENU_COMMANDS) {
+            if (command?.key === "settings") continue;
+            registerCommand(command?.key, command?.label);
+        }
 
         const bridge = {
             managedByBootstrap: typeof register === 'function',
@@ -330,6 +421,12 @@
             resourceNames: RESOURCE_NAMES,
             resourceUrls,
             moduleUrls,
+            bootstrapMenuManaged: BOOTSTRAP_MENU_COMMANDS.length > 0,
+            menuMessageType: "__templateShortcutsMenuCommand",
+            menuMessageSource: "template-shortcuts-userscript",
+            menuPendingStorageKey: MENU_PENDING_STORAGE_KEY,
+            menuReadyStorageKey: MENU_READY_STORAGE_KEY,
+            menuPageToken: MENU_PAGE_TOKEN,
             menuBridge,
             getUserscriptApi,
             getResourceUrl
