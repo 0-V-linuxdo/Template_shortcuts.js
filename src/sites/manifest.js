@@ -70,11 +70,11 @@ export const SITE_MANIFEST = Object.freeze([
             }
         ],
         "metadata": {
-            "name": "[ChatGPT] 快捷键跳转 [20260423] v1.0.2",
+            "name": "[ChatGPT] 快捷键跳转 [20260423] v1.0.3",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            "version": "[20260423] v1.0.2",
-            "updateLog": "1.0.2: 补上 bootstrap 菜单下的 settings 命令接线，修复设置快捷键菜单点击无反应。",
+            "version": "[20260423] v1.0.3",
+            "updateLog": "1.0.3: 将 settings 菜单根修到 core 的 menuBridge 直连回调，不再依赖站点侧命令桥兜底。",
             "match": [
                 "https://chatgpt.com/*"
             ],
@@ -176,11 +176,11 @@ export const SITE_MANIFEST = Object.freeze([
             }
         ],
         "metadata": {
-            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.8",
+            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.9",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            "version": "[20260423] v1.0.8",
-            "updateLog": "1.0.8: Gemini 侧边栏菜单改为以文字显示开/关状态，并同步保持显示偏好。",
+            "version": "[20260423] v1.0.9",
+            "updateLog": "1.0.9: 将 settings 菜单根修到 core 的 menuBridge 直连回调，减少对站点侧菜单桥的依赖。",
             "match": [
                 "https://gemini.google.com/*"
             ],
@@ -376,11 +376,11 @@ export const SITE_MANIFEST = Object.freeze([
             }
         ],
         "metadata": {
-            "name": "[Poe] 快捷键跳转 [20260423] v1.0.3",
+            "name": "[Poe] 快捷键跳转 [20260423] v1.0.4",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。",
-            "version": "[20260423] v1.0.3",
-            "updateLog": "1.0.3: 对齐 Gemini 的稳态菜单桥，补上 content 注入与 GM 值变更监听，修复 Poe 菜单点击无反应。",
+            "version": "[20260423] v1.0.4",
+            "updateLog": "1.0.4: 将 settings 菜单根修到 core 的 menuBridge 直连回调，并保留稳态菜单桥作为后备链路。",
             "match": [
                 "https://poe.com/*"
             ],

@@ -353,6 +353,15 @@ export function renderUserscriptBootstrap({
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandConfig = commandConfigs.get(key) || null;
+            const hasDirectSettingsHandler = key === "settings" && typeof settingsHandler === 'function';
+            if (hasDirectSettingsHandler) {
+                try {
+                    settingsHandler();
+                    return;
+                } catch (error) {
+                    console.error(\`[\${SITE_LABEL}] settings menu handler failed.\`, error);
+                }
+            }
             const commandId = createCommandId(key);
             const queuedCommandId = queuePendingCommand(key, commandId);
             const effectiveCommandId = queuedCommandId || commandId;
@@ -361,16 +370,6 @@ export function renderUserscriptBootstrap({
                 refreshCommandLabel(key);
             }
             if (queuedCommandId || dispatched) return;
-
-            if (key === "settings" && typeof settingsHandler === 'function') {
-                try {
-                    settingsHandler();
-                    return;
-                } catch (error) {
-                    console.error(\`[\${SITE_LABEL}] settings menu handler failed.\`, error);
-                    return;
-                }
-            }
 
             if (key === "settings") {
                 console.warn(\`[\${SITE_LABEL}] settings menu clicked before handler was ready.\`);
