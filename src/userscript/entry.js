@@ -15,6 +15,7 @@ function normalizeResourceNames(resourceNames = {}) {
 
 const USERSCRIPT_API_RESOLVER_KEY = "__TEMPLATE_SHORTCUTS_GET_USERSCRIPT_API__";
 const USERSCRIPT_MENU_BRIDGE_KEY = "__TEMPLATE_SHORTCUTS_MENU_BRIDGE__";
+const USERSCRIPT_MENU_EVENT_NAME = "__templateShortcutsMenuCommand";
 
 export function renderUserscriptBootstrap({
     siteId = "",
@@ -101,12 +102,51 @@ export function renderUserscriptBootstrap({
 
     function createMenuBridge() {
         const register = getUserscriptApi('GM_registerMenuCommand');
+        const unregister = getUserscriptApi('GM_unregisterMenuCommand');
         let settingsHandler = null;
-        let settingsCommandId = null;
-        const settingsLabel = \`\${SITE_LABEL} - 设置快捷键\`;
+        const commands = new Map();
+        const pendingCounts = new Map();
+        const scope = getGlobalScope();
+        const dispatchTarget = scope?.document && typeof scope.document.dispatchEvent === 'function'
+            ? scope.document
+            : (scope && typeof scope.dispatchEvent === 'function' ? scope : null);
 
-        const invokeSettingsHandler = () => {
-            if (typeof settingsHandler === 'function') {
+        function normalizeCommandKey(commandKey) {
+            return String(commandKey || "").trim();
+        }
+
+        function queuePendingCommand(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return 0;
+            const nextCount = (Number(pendingCounts.get(key)) || 0) + 1;
+            pendingCounts.set(key, nextCount);
+            return nextCount;
+        }
+
+        function dispatchCommand(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return false;
+            queuePendingCommand(key);
+            if (!dispatchTarget || typeof CustomEvent !== 'function') return false;
+            try {
+                dispatchTarget.dispatchEvent(new CustomEvent(${JSON.stringify(USERSCRIPT_MENU_EVENT_NAME)}, {
+                    detail: Object.freeze({
+                        siteId: SITE_ID,
+                        commandKey: key
+                    })
+                }));
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        function invokeCommand(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            const dispatched = dispatchCommand(key);
+            if (dispatched) return;
+
+            if (key === "settings" && typeof settingsHandler === 'function') {
                 try {
                     settingsHandler();
                     return;
@@ -115,32 +155,80 @@ export function renderUserscriptBootstrap({
                     return;
                 }
             }
-            console.warn(\`[\${SITE_LABEL}] settings menu clicked before handler was ready.\`);
-        };
 
-        if (typeof register === 'function') {
-            try {
-                settingsCommandId = register(settingsLabel, invokeSettingsHandler);
-            } catch (error) {
-                console.warn(\`[\${SITE_LABEL}] Failed to register bootstrap settings menu.\`, error);
+            if (key === "settings") {
+                console.warn(\`[\${SITE_LABEL}] settings menu clicked before handler was ready.\`);
             }
         }
 
+        function registerCommand(commandKey, label) {
+            const key = normalizeCommandKey(commandKey);
+            const text = String(label || "").trim();
+            if (!key || !text || typeof register !== 'function') return null;
+
+            const existing = commands.get(key) || null;
+            if (existing && existing.label === text && existing.commandId !== null && existing.commandId !== undefined) {
+                return existing.commandId;
+            }
+
+            if (existing && existing.commandId !== null && existing.commandId !== undefined && typeof unregister === 'function') {
+                try { unregister(existing.commandId); } catch {}
+            }
+
+            let commandId = null;
+            try {
+                commandId = register(text, () => invokeCommand(key));
+            } catch (error) {
+                console.warn(\`[\${SITE_LABEL}] Failed to register bootstrap menu "\${text}".\`, error);
+                commandId = null;
+            }
+
+            commands.set(key, { label: text, commandId });
+            return commandId;
+        }
+
+        function unregisterCommand(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return false;
+            const existing = commands.get(key) || null;
+            if (!existing) return false;
+            if (existing.commandId !== null && existing.commandId !== undefined && typeof unregister === 'function') {
+                try { unregister(existing.commandId); } catch {}
+            }
+            commands.delete(key);
+            pendingCounts.delete(key);
+            return true;
+        }
+
+        function consumePending(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return 0;
+            const count = Number(pendingCounts.get(key)) || 0;
+            pendingCounts.delete(key);
+            return count;
+        }
+
+        registerCommand("settings", \`\${SITE_LABEL} - 设置快捷键\`);
+
         const bridge = {
-            managedByBootstrap: settingsCommandId !== null && settingsCommandId !== undefined,
+            managedByBootstrap: typeof register === 'function',
+            eventName: ${JSON.stringify(USERSCRIPT_MENU_EVENT_NAME)},
+            registerCommand,
+            unregisterCommand,
+            consumePending,
+            dispatchCommand,
             setSettingsHandler(handler) {
                 settingsHandler = typeof handler === 'function' ? handler : null;
                 return settingsHandler !== null;
             },
             getSettingsCommandId() {
-                return settingsCommandId;
+                return commands.get("settings")?.commandId ?? null;
             },
             getSettingsLabel() {
-                return settingsLabel;
+                return commands.get("settings")?.label || \`\${SITE_LABEL} - 设置快捷键\`;
             }
         };
 
-        const scope = getGlobalScope();
         if (scope) {
             try {
                 Object.defineProperty(scope, ${JSON.stringify(USERSCRIPT_MENU_BRIDGE_KEY)}, {
