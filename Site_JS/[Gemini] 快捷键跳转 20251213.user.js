@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Gemini] 快捷键跳转 [20260423] v1.0.1
+// @name         [Gemini] 快捷键跳转 [20260423] v1.0.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 
-// @version      [20260423] v1.0.1
-// @update-log   1.0.1: 修复 ESM 站点模块中 GM_* 菜单命令注册失效，恢复 Gemini 菜单项显示。
+// @version      [20260423] v1.0.2
+// @update-log   1.0.2: 补齐 userscript bootstrap 与 ESM core 之间的 GM API 桥接，修复 Gemini 菜单命令仍不显示的问题。
 
 // @match        https://gemini.google.com/*
 
@@ -54,7 +54,29 @@
         return typeof globalThis !== 'undefined' ? globalThis : null;
     }
 
+    function getDirectUserscriptApi(name) {
+        switch (String(name || "")) {
+            case 'GM_getValue':
+                return typeof GM_getValue === 'function' ? GM_getValue : null;
+            case 'GM_setValue':
+                return typeof GM_setValue === 'function' ? GM_setValue : null;
+            case 'GM_xmlhttpRequest':
+                return typeof GM_xmlhttpRequest === 'function' ? GM_xmlhttpRequest : null;
+            case 'GM_getResourceURL':
+                return typeof GM_getResourceURL === 'function' ? GM_getResourceURL : null;
+            case 'GM_registerMenuCommand':
+                return typeof GM_registerMenuCommand === 'function' ? GM_registerMenuCommand : null;
+            case 'GM_unregisterMenuCommand':
+                return typeof GM_unregisterMenuCommand === 'function' ? GM_unregisterMenuCommand : null;
+            default:
+                return null;
+        }
+    }
+
     function getUserscriptApi(name) {
+        const directBinding = getDirectUserscriptApi(name);
+        if (typeof directBinding === 'function') return directBinding;
+
         const scope = getGlobalScope();
         if (!scope) return null;
 
@@ -73,6 +95,25 @@
         }
 
         return null;
+    }
+
+    function exposeUserscriptApiResolver() {
+        const scope = getGlobalScope();
+        if (!scope) return;
+
+        try {
+            Object.defineProperty(scope, "__TEMPLATE_SHORTCUTS_GET_USERSCRIPT_API__", {
+                value: getUserscriptApi,
+                configurable: true,
+                enumerable: false,
+                writable: true
+            });
+            return;
+        } catch {}
+
+        try {
+            scope["__TEMPLATE_SHORTCUTS_GET_USERSCRIPT_API__"] = getUserscriptApi;
+        } catch {}
     }
 
     async function getResourceUrl(name) {
@@ -112,6 +153,8 @@
             };
         }
     }
+
+    exposeUserscriptApiResolver();
 
     async function main() {
         const preparedCore = await prepareModuleUrl(RESOURCE_NAMES.core);

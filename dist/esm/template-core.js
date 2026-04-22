@@ -368,8 +368,17 @@ function clearTimeoutSafe(timerId) {
 }
 
 // src/modules/shared/platform/userscript.js
+var USERSCRIPT_API_RESOLVER_KEY = "__TEMPLATE_SHORTCUTS_GET_USERSCRIPT_API__";
 function getUserscriptApi(name) {
   const scope = getGlobalScope();
+  const resolver = scope?.[USERSCRIPT_API_RESOLVER_KEY];
+  if (typeof resolver === "function") {
+    try {
+      const resolved = resolver(name);
+      if (typeof resolved === "function") return resolved;
+    } catch {
+    }
+  }
   if (!scope) return null;
   const direct = scope[name];
   if (typeof direct === "function") return direct;
