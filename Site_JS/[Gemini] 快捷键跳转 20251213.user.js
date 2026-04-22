@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Gemini] 快捷键跳转 [20260423] v1.0.0
+// @name         [Gemini] 快捷键跳转 [20260423] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 
-// @version      [20260423] v1.0.0
-// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
+// @version      [20260423] v1.0.1
+// @update-log   1.0.1: 修复 ESM 站点模块中 GM_* 菜单命令注册失效，恢复 Gemini 菜单项显示。
 
 // @match        https://gemini.google.com/*
 
