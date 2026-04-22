@@ -191,6 +191,7 @@ async function startSite(runtime = {}) {
   let keepSidebarVisible = getKeepSidebarVisibleSetting();
   let sidebarVisibilityMenuCommandId = null;
   let sidebarWarmupTimer = null;
+  let menuCommandPollTimer = null;
   const handledMenuCommandIds = [];
   const handledMenuCommandIdSet = /* @__PURE__ */ new Set();
   const baseShortcut = Object.freeze({
@@ -2538,7 +2539,6 @@ async function startSite(runtime = {}) {
     if (!bootstrapMenuManaged || !menuCommandMessageType || !menuCommandMessageSource) return;
     if (typeof window === "undefined" || !window || typeof window.addEventListener !== "function") return;
     window.addEventListener("message", (event) => {
-      if (event?.source && event.source !== window) return;
       const detail = event?.data;
       if (!detail || typeof detail !== "object") return;
       if (detail.source !== menuCommandMessageSource) return;
@@ -2547,6 +2547,39 @@ async function startSite(runtime = {}) {
       if (menuPageToken && detail.pageToken && detail.pageToken !== menuPageToken) return;
       handleMenuCommandWithId(engine2, detail.commandKey, detail.commandId);
     });
+  }
+  function startMenuCommandPolling(engine2) {
+    if (!bootstrapMenuManaged) return;
+    if (typeof window === "undefined" || !window) return;
+    const drain = () => {
+      consumePendingMenuCommands(engine2);
+    };
+    drain();
+    try {
+      if (menuCommandPollTimer !== null) {
+        clearInterval(menuCommandPollTimer);
+      }
+    } catch {
+    }
+    menuCommandPollTimer = window.setInterval(drain, 350);
+    if (typeof window.addEventListener === "function") {
+      window.addEventListener("focus", drain);
+    }
+    if (typeof document !== "undefined" && document && typeof document.addEventListener === "function") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          drain();
+        }
+      });
+    }
+  }
+  function stopMenuCommandPolling() {
+    if (menuCommandPollTimer === null) return;
+    try {
+      clearInterval(menuCommandPollTimer);
+    } catch {
+    }
+    menuCommandPollTimer = null;
   }
   function consumePendingMenuCommands(engine2) {
     if (!bootstrapMenuManaged) return;
@@ -2598,8 +2631,11 @@ async function startSite(runtime = {}) {
   engine.init();
   setupKeepSidebarVisible();
   bindMenuCommandMessages(engine);
+  startMenuCommandPolling(engine);
   markMenuReady();
   if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
+    window.addEventListener("pagehide", stopMenuCommandPolling, { once: true });
+    window.addEventListener("beforeunload", stopMenuCommandPolling, { once: true });
     window.addEventListener("pagehide", clearMenuReady, { once: true });
     window.addEventListener("beforeunload", clearMenuReady, { once: true });
   }

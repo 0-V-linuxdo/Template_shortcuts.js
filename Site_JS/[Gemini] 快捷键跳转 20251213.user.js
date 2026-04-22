@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Gemini] 快捷键跳转 [20260423] v1.0.5
+// @name         [Gemini] 快捷键跳转 [20260423] v1.0.6
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 
-// @version      [20260423] v1.0.5
-// @update-log   1.0.5: 改为 bootstrap 静态注册 Gemini 菜单并通过 postMessage/sessionStorage 传递命令，避开 ESM 跨环境回调失效。
+// @version      [20260423] v1.0.6
+// @update-log   1.0.6: Gemini 菜单命令改为始终入队并轮询消费，修复 Tampermonkey 沙箱下点击仍无响应的问题。
 
 // @match        https://gemini.google.com/*
 
@@ -243,7 +243,8 @@
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandId = createCommandId(key);
-            if (!isCurrentPageMenuReady()) {
+            const shouldPersistCommand = BOOTSTRAP_MENU_COMMANDS.length > 0;
+            if (shouldPersistCommand || !isCurrentPageMenuReady()) {
                 queuePendingCommand(key, commandId);
             }
             const dispatched = dispatchCommand(key, commandId);
