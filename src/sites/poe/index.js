@@ -50,6 +50,24 @@ export async function startSite(runtime = {}) {
         } catch { }
     }
 
+    function gmAddValueChangeListenerLocal(key, handler) {
+        const fn = getUserscriptApi("GM_addValueChangeListener");
+        if (typeof fn !== "function") return null;
+        try {
+            return fn(key, handler);
+        } catch {
+            return null;
+        }
+    }
+
+    function gmRemoveValueChangeListenerLocal(listenerId) {
+        const fn = getUserscriptApi("GM_removeValueChangeListener");
+        if (typeof fn !== "function") return;
+        try {
+            fn(listenerId);
+        } catch { }
+    }
+
     function gmRegisterMenuCommandLocal(label, handler) {
         const fn = getUserscriptApi("GM_registerMenuCommand");
         if (typeof fn !== "function") return null;
@@ -106,6 +124,7 @@ export async function startSite(runtime = {}) {
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
     let sidebarVisibilityMenuCommandId = null;
     let menuCommandPollTimer = null;
+    let menuCommandValueListenerId = null;
     let engineInstance = null;
     const handledMenuCommandIds = [];
     const handledMenuCommandIdSet = new Set();
@@ -613,6 +632,20 @@ export async function startSite(runtime = {}) {
         })));
     }
 
+    function bindMenuCommandValueChanges() {
+        if (!bootstrapMenuManaged || !menuPendingValueKey) return;
+        if (menuCommandValueListenerId !== null) return;
+        menuCommandValueListenerId = gmAddValueChangeListenerLocal(menuPendingValueKey, () => {
+            consumePendingMenuCommands();
+        });
+    }
+
+    function unbindMenuCommandValueChanges() {
+        if (menuCommandValueListenerId === null) return;
+        gmRemoveValueChangeListenerLocal(menuCommandValueListenerId);
+        menuCommandValueListenerId = null;
+    }
+
     function bindMenuCommandMessages() {
         if (!bootstrapMenuManaged || !menuCommandMessageType || !menuCommandMessageSource) return;
         if (typeof window === 'undefined' || !window || typeof window.addEventListener !== 'function') return;
@@ -969,10 +1002,13 @@ export async function startSite(runtime = {}) {
     syncManagedActionIcons(engine);
     setupKeepSidebarVisible();
     bindMenuCommandMessages();
+    bindMenuCommandValueChanges();
     startMenuCommandPolling();
     if (bootstrapMenuManaged && typeof window !== 'undefined' && window && typeof window.addEventListener === 'function') {
         window.addEventListener('pagehide', stopMenuCommandPolling, { once: true });
         window.addEventListener('beforeunload', stopMenuCommandPolling, { once: true });
+        window.addEventListener('pagehide', unbindMenuCommandValueChanges, { once: true });
+        window.addEventListener('beforeunload', unbindMenuCommandValueChanges, { once: true });
     }
     consumePendingMenuCommands();
     registerSidebarVisibilityMenuCommand();

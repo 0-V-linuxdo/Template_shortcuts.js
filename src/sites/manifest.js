@@ -376,19 +376,22 @@ export const SITE_MANIFEST = Object.freeze([
             }
         ],
         "metadata": {
-            "name": "[Poe] 快捷键跳转 [20260423] v1.0.2",
+            "name": "[Poe] 快捷键跳转 [20260423] v1.0.3",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。",
-            "version": "[20260423] v1.0.2",
-            "updateLog": "1.0.2: 补上 bootstrap 菜单下的 settings 命令接线，修复设置快捷键菜单点击无反应。",
+            "version": "[20260423] v1.0.3",
+            "updateLog": "1.0.3: 对齐 Gemini 的稳态菜单桥，补上 content 注入与 GM 值变更监听，修复 Poe 菜单点击无反应。",
             "match": [
                 "https://poe.com/*"
             ],
+            "injectInto": "content",
             "grant": [
                 "GM_registerMenuCommand",
                 "GM_unregisterMenuCommand",
                 "GM_getValue",
                 "GM_setValue",
+                "GM_addValueChangeListener",
+                "GM_removeValueChangeListener",
                 "GM_xmlhttpRequest"
             ],
             "connect": [
