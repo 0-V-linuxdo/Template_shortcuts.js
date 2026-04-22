@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260423] v1.0.3
+// @name         [ChatGPT] 快捷键跳转 [20260423] v1.0.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260423] v1.0.3
-// @update-log   1.0.3: 将 settings 菜单根修到 core 的 menuBridge 直连回调，不再依赖站点侧命令桥兜底。
+// @version      [20260423] v1.0.4
+// @update-log   1.0.4: 删除站点侧冗余 settings 分支，统一改由 core menuBridge 直连处理，并消费早期 pending 点击。
 
 // @match        https://chatgpt.com/*
 

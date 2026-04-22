@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Poe] 快捷键跳转 [20260423] v1.0.4
+// @name         [Poe] 快捷键跳转 [20260423] v1.0.5
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。
 
-// @version      [20260423] v1.0.4
-// @update-log   1.0.4: 将 settings 菜单根修到 core 的 menuBridge 直连回调，并保留稳态菜单桥作为后备链路。
+// @version      [20260423] v1.0.5
+// @update-log   1.0.5: 删除站点侧冗余 settings 分支，统一改由 core menuBridge 直连处理，并保留 extra menu 稳态桥。
 
 // @match        https://poe.com/*
 

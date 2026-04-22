@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Gemini] 快捷键跳转 [20260423] v1.0.9
+// @name         [Gemini] 快捷键跳转 [20260423] v1.0.10
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 
-// @version      [20260423] v1.0.9
-// @update-log   1.0.9: 将 settings 菜单根修到 core 的 menuBridge 直连回调，减少对站点侧菜单桥的依赖。
+// @version      [20260423] v1.0.10
+// @update-log   1.0.10: 删除站点侧冗余 settings 分支，统一改由 core menuBridge 直连处理，并消费早期 pending 点击。
 
 // @match        https://gemini.google.com/*
 

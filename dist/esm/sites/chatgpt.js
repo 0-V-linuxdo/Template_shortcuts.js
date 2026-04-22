@@ -92,7 +92,6 @@ async function startSite(runtime = {}) {
   const menuPageToken = typeof runtime?.menuPageToken === "string" && runtime.menuPageToken.trim() ? runtime.menuPageToken.trim() : "";
   const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1e3;
   const MENU_COMMAND_KEYS = Object.freeze({
-    settings: "settings",
     quickInput: "quickInput"
   });
   let menuCommandPollTimer = null;
@@ -1607,9 +1606,6 @@ async function startSite(runtime = {}) {
     const key = String(commandKey || "").trim();
     if (!key) return false;
     switch (key) {
-      case MENU_COMMAND_KEYS.settings:
-        engine2?.openSettingsPanel?.();
-        return true;
       case MENU_COMMAND_KEYS.quickInput:
         ensureQuickInputController(engine2)?.open?.();
         return true;
