@@ -6910,6 +6910,19 @@ ${displayTargetText}`;
             bootstrapMenuBridge.setSettingsHandler(settingsPanelLayer.openSettingsPanel);
           } catch {
           }
+          if (typeof bootstrapMenuBridge.consumePending === "function") {
+            let pendingSettingsCount = 0;
+            try {
+              pendingSettingsCount = Number(bootstrapMenuBridge.consumePending("settings")) || 0;
+            } catch {
+            }
+            if (pendingSettingsCount > 0) {
+              try {
+                settingsPanelLayer.openSettingsPanel();
+              } catch {
+              }
+            }
+          }
         }
         state.menuCommandRegistered = true;
       } else if (!state.menuCommandRegistered) {

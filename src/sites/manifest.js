@@ -70,11 +70,11 @@ export const SITE_MANIFEST = Object.freeze([
             }
         ],
         "metadata": {
-            "name": "[ChatGPT] 快捷键跳转 [20260423] v1.0.3",
+            "name": "[ChatGPT] 快捷键跳转 [20260423] v1.0.4",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            "version": "[20260423] v1.0.3",
-            "updateLog": "1.0.3: 将 settings 菜单根修到 core 的 menuBridge 直连回调，不再依赖站点侧命令桥兜底。",
+            "version": "[20260423] v1.0.4",
+            "updateLog": "1.0.4: 删除站点侧冗余 settings 分支，统一改由 core menuBridge 直连处理，并消费早期 pending 点击。",
             "match": [
                 "https://chatgpt.com/*"
             ],
@@ -176,11 +176,11 @@ export const SITE_MANIFEST = Object.freeze([
             }
         ],
         "metadata": {
-            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.9",
+            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.10",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            "version": "[20260423] v1.0.9",
-            "updateLog": "1.0.9: 将 settings 菜单根修到 core 的 menuBridge 直连回调，减少对站点侧菜单桥的依赖。",
+            "version": "[20260423] v1.0.10",
+            "updateLog": "1.0.10: 删除站点侧冗余 settings 分支，统一改由 core menuBridge 直连处理，并消费早期 pending 点击。",
             "match": [
                 "https://gemini.google.com/*"
             ],
@@ -376,11 +376,11 @@ export const SITE_MANIFEST = Object.freeze([
             }
         ],
         "metadata": {
-            "name": "[Poe] 快捷键跳转 [20260423] v1.0.4",
+            "name": "[Poe] 快捷键跳转 [20260423] v1.0.5",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。",
-            "version": "[20260423] v1.0.4",
-            "updateLog": "1.0.4: 将 settings 菜单根修到 core 的 menuBridge 直连回调，并保留稳态菜单桥作为后备链路。",
+            "version": "[20260423] v1.0.5",
+            "updateLog": "1.0.5: 删除站点侧冗余 settings 分支，统一改由 core menuBridge 直连处理，并保留 extra menu 稳态桥。",
             "match": [
                 "https://poe.com/*"
             ],

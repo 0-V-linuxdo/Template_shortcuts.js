@@ -119,7 +119,6 @@ export async function startSite(runtime = {}) {
         : "";
     const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
     const MENU_COMMAND_KEYS = Object.freeze({
-        settings: 'settings',
         sidebarVisibility: 'sidebarVisibility'
     });
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
@@ -587,9 +586,6 @@ export async function startSite(runtime = {}) {
         if (!key) return false;
 
         switch (key) {
-            case MENU_COMMAND_KEYS.settings:
-                engineInstance?.openSettingsPanel?.();
-                return true;
             case MENU_COMMAND_KEYS.sidebarVisibility:
                 setSidebarVisibilityPreference(!keepSidebarVisible);
                 return true;
