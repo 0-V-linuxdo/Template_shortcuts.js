@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [LINUX DO] 快捷键跳转 [20260216] v1.0.0
+// @name         [LINUX DO] 快捷键跳转 [20260423] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Linux Do 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、搜索模板变量与图标库管理，并适配 Discourse 的 SPA 导航场景。
 
-// @version      [20260216] v1.0.0
-// @update-log   1.0.0: 版本号更新为 [20260216] v1.0.0，重写 description 文案，并同步更新发布日志说明。
+// @version      [20260423] v1.0.0
+// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
 
 // @match        https://linux.do/*
 
@@ -17,8 +17,8 @@
 // @connect      *
 
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/linux.do_keycap.svg
-// @resource     template-core ../dist/esm/template-core.js
-// @resource     site-entry ../dist/esm/sites/linux-do.js
+// @resource     template-core https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/template-core.js
+// @resource     site-entry https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/sites/linux-do.js
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

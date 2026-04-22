@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Kagi] 快捷键跳转 [20260222] v1.4.4
+// @name         [Kagi] 快捷键跳转 [20260423] v1.0.0
 // @namespace    0_V userscripts/[Kagi] shortcut
 // @description  为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025
 
-// @version      [20260222] v1.4.4
-// @update-log   1.4.4: 升级 Template 至 20260222.1.4.4（开启“svg自适应处理”时自动隐藏“黑暗模式图标URL”组件）。
+// @version      [20260423] v1.0.0
+// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
 
 // @match        https://*.kagi.com/*
 
@@ -17,8 +17,8 @@
 // @connect      *
 
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/Kagi_keycap.svg
-// @resource     template-core ../dist/esm/template-core.js
-// @resource     site-entry ../dist/esm/sites/kagi.js
+// @resource     template-core https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/template-core.js
+// @resource     site-entry https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/sites/kagi.js
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

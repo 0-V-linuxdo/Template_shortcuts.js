@@ -1,9 +1,10 @@
 // ==UserScript==
-// @name         [Grok] 快捷键跳转 20250927
+// @name         [Grok] 快捷键跳转 [20260423] v1.0.0
 // @namespace    0_V userscripts/[Grok] 快捷键跳转
 // @description  为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 
-// @version      4.0.0
+// @version      [20260423] v1.0.0
+// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
 
 // @match        https://grok.dairoot.cn/*
 // @match        https://grok.com/*
@@ -17,8 +18,8 @@
 // @connect      *
 
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/grok_keycap.svg
-// @resource     template-core ../dist/esm/template-core.js
-// @resource     site-entry ../dist/esm/sites/grok.js
+// @resource     template-core https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/template-core.js
+// @resource     site-entry https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/sites/grok.js
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

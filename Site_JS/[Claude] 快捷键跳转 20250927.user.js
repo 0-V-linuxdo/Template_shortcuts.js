@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Claude] 快捷键跳转 [20251229] v1.0.6
+// @name         [Claude] 快捷键跳转 [20260423] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。
 
-// @version      [20251229] v1.0.6
-// @update-log   1.0.6: menu 支持关键词/selector/path（面板可直接填关键词自定义快捷键）
+// @version      [20260423] v1.0.0
+// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
 
 // @match        https://claude.ai/*
 
@@ -17,8 +17,8 @@
 // @connect      *
 
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/claude_keycap.svg
-// @resource     template-core ../dist/esm/template-core.js
-// @resource     site-entry ../dist/esm/sites/claude.js
+// @resource     template-core https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/template-core.js
+// @resource     site-entry https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/sites/claude.js
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

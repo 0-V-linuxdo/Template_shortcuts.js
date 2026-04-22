@@ -1,9 +1,10 @@
 // ==UserScript==
-// @name         [DeepSeek] 快捷键跳转 20250926
+// @name         [DeepSeek] 快捷键跳转 [20260423] v1.0.0
 // @namespace    0_V userscripts/[DeepSeek] shortcut
 // @description  为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025
 
-// @version      2.0.1
+// @version      [20260423] v1.0.0
+// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
 
 // @match        https://chat.deepseek.com/*
 
@@ -16,8 +17,8 @@
 // @connect      *
 
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/deepseek_keycap.svg
-// @resource     template-core ../dist/esm/template-core.js
-// @resource     site-entry ../dist/esm/sites/deepseek.js
+// @resource     template-core https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/template-core.js
+// @resource     site-entry https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/sites/deepseek.js
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

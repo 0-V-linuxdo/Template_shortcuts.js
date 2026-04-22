@@ -1,9 +1,10 @@
 // ==UserScript==
-// @name         [Le Chat] 快捷键跳转 20250925
+// @name         [Le Chat] 快捷键跳转 [20260423] v1.0.0
 // @namespace    0_V userscripts/[Le Chat] 快捷键跳转
 // @description  为 Le Chat 添加自定义快捷键，依托通用模板实现快捷面板、图标库、统计筛选、暗黑模式、自适应布局、事件隔离、快捷键捕获等功能。
 
-// @version      1.1.1
+// @version      [20260423] v1.0.0
+// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
 
 // @match        https://chat.mistral.ai/*
 
@@ -16,8 +17,8 @@
 // @connect      *
 
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/Le_Chat_keycap.svg
-// @resource     template-core ../dist/esm/template-core.js
-// @resource     site-entry ../dist/esm/sites/le-chat.js
+// @resource     template-core https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/template-core.js
+// @resource     site-entry https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/sites/le-chat.js
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

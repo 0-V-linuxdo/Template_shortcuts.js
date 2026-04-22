@@ -1,9 +1,10 @@
 // ==UserScript==
-// @name         [哔哩哔哩] 快捷键跳转 20250927
+// @name         [哔哩哔哩] 快捷键跳转 [20260423] v1.0.0
 // @namespace    0_V userscripts/bilibiliSearch Shortcuts
 // @description  在 Bilibili 搜索页面，通过快捷键快速切换到对应的搜索分类，支持多种操作类型（URL跳转/元素点击/按键模拟），包含图标库管理、完善暗黑模式支持、智能事件隔离、滚动锁定等高级功能。基于模版架构全面升级。
 
-// @version      4.0.0
+// @version      [20260423] v1.0.0
+// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
 
 // @match        https://*.bilibili.com/*
 
@@ -16,8 +17,8 @@
 // @connect      *
 
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/bilibili_keycap.svg
-// @resource     template-core ../dist/esm/template-core.js
-// @resource     site-entry ../dist/esm/sites/bilibili.js
+// @resource     template-core https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/template-core.js
+// @resource     site-entry https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/dist/esm/sites/bilibili.js
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
