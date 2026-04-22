@@ -167,19 +167,22 @@ export const SITE_MANIFEST = Object.freeze([
             }
         ],
         "metadata": {
-            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.6",
+            "name": "[Gemini] 快捷键跳转 [20260423] v1.0.7",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            "version": "[20260423] v1.0.6",
-            "updateLog": "1.0.6: Gemini 菜单命令改为始终入队并轮询消费，修复 Tampermonkey 沙箱下点击仍无响应的问题。",
+            "version": "[20260423] v1.0.7",
+            "updateLog": "1.0.7: Gemini 菜单桥改用 GM 存储事件并固定 Violentmonkey content 注入，修复菜单点击仍无响应。",
             "match": [
                 "https://gemini.google.com/*"
             ],
+            "injectInto": "content",
             "grant": [
                 "GM_registerMenuCommand",
                 "GM_unregisterMenuCommand",
                 "GM_getValue",
                 "GM_setValue",
+                "GM_addValueChangeListener",
+                "GM_removeValueChangeListener",
                 "GM_xmlhttpRequest"
             ],
             "connect": [

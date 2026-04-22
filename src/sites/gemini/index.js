@@ -68,19 +68,28 @@ export async function startSite(runtime = {}) {
         } catch { }
     }
 
-    function getLocalStorageLocal() {
-        const scope = typeof globalThis !== "undefined" ? globalThis : null;
+    function gmAddValueChangeListenerLocal(key, handler) {
+        const fn = getUserscriptApi("GM_addValueChangeListener");
+        if (typeof fn !== "function") return null;
         try {
-            return scope?.localStorage || null;
+            return fn(key, handler);
         } catch {
             return null;
         }
     }
 
-    function getSessionStorageLocal() {
+    function gmRemoveValueChangeListenerLocal(listenerId) {
+        const fn = getUserscriptApi("GM_removeValueChangeListener");
+        if (typeof fn !== "function") return;
+        try {
+            fn(listenerId);
+        } catch { }
+    }
+
+    function getLocalStorageLocal() {
         const scope = typeof globalThis !== "undefined" ? globalThis : null;
         try {
-            return scope?.sessionStorage || null;
+            return scope?.localStorage || null;
         } catch {
             return null;
         }
@@ -104,15 +113,13 @@ export async function startSite(runtime = {}) {
     const menuCommandMessageSource = (typeof runtime?.menuMessageSource === "string" && runtime.menuMessageSource.trim())
         ? runtime.menuMessageSource.trim()
         : "";
-    const menuPendingStorageKey = (typeof runtime?.menuPendingStorageKey === "string" && runtime.menuPendingStorageKey.trim())
-        ? runtime.menuPendingStorageKey.trim()
-        : "";
-    const menuReadyStorageKey = (typeof runtime?.menuReadyStorageKey === "string" && runtime.menuReadyStorageKey.trim())
-        ? runtime.menuReadyStorageKey.trim()
+    const menuPendingValueKey = (typeof runtime?.menuPendingValueKey === "string" && runtime.menuPendingValueKey.trim())
+        ? runtime.menuPendingValueKey.trim()
         : "";
     const menuPageToken = (typeof runtime?.menuPageToken === "string" && runtime.menuPageToken.trim())
         ? runtime.menuPageToken.trim()
         : "";
+    const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
     const MENU_COMMAND_KEYS = Object.freeze({
         settings: "settings",
         quickInput: "quickInput",
@@ -227,6 +234,7 @@ export async function startSite(runtime = {}) {
     let sidebarVisibilityMenuCommandId = null;
     let sidebarWarmupTimer = null;
     let menuCommandPollTimer = null;
+    let menuCommandValueListenerId = null;
     const handledMenuCommandIds = [];
     const handledMenuCommandIdSet = new Set();
 
@@ -2766,51 +2774,53 @@ export async function startSite(runtime = {}) {
         registerSidebarVisibilityMenuCommand();
     }
 
-    function readPendingMenuEntries() {
-        const storage = getSessionStorageLocal();
-        if (!storage || !menuPendingStorageKey) return [];
-        try {
-            const raw = storage.getItem(menuPendingStorageKey);
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return [];
-            return parsed
-                .map((entry) => {
-                    const commandId = typeof entry?.id === "string" ? entry.id.trim() : "";
-                    const commandKey = typeof entry?.key === "string" ? entry.key.trim() : "";
-                    if (!commandId || !commandKey) return null;
-                    return { commandId, commandKey };
-                })
-                .filter(Boolean);
-        } catch {
-            return [];
+    function normalizePendingMenuEntries(entries) {
+        const now = Date.now();
+        const normalized = [];
+        const seenIds = new Set();
+        for (const entry of Array.isArray(entries) ? entries : []) {
+            const commandId = typeof entry?.id === "string" ? entry.id.trim() : "";
+            const commandKey = typeof entry?.key === "string" ? entry.key.trim() : "";
+            const pageToken = typeof entry?.pageToken === "string" ? entry.pageToken.trim() : "";
+            const createdAt = Number(entry?.createdAt);
+            if (!commandId || !commandKey || !pageToken) continue;
+            if (!Number.isFinite(createdAt)) continue;
+            if ((now - createdAt) > MENU_COMMAND_MAX_AGE_MS) continue;
+            if (seenIds.has(commandId)) continue;
+            seenIds.add(commandId);
+            normalized.push({ commandId, commandKey, pageToken, createdAt });
         }
+        if (normalized.length <= 48) return normalized;
+        return normalized.slice(normalized.length - 48);
     }
 
-    function clearPendingMenuEntries() {
-        const storage = getSessionStorageLocal();
-        if (!storage || !menuPendingStorageKey) return;
-        try {
-            storage.removeItem(menuPendingStorageKey);
-        } catch { }
+    function readPendingMenuEntries() {
+        if (!menuPendingValueKey) return [];
+        return normalizePendingMenuEntries(gmGetValueLocal(menuPendingValueKey, []));
     }
 
-    function markMenuReady() {
-        const storage = getSessionStorageLocal();
-        if (!storage || !menuReadyStorageKey || !menuPageToken) return;
-        try {
-            storage.setItem(menuReadyStorageKey, menuPageToken);
-        } catch { }
+    function writePendingMenuEntries(entries) {
+        if (!menuPendingValueKey) return;
+        gmSetValueLocal(menuPendingValueKey, normalizePendingMenuEntries(entries).map((entry) => ({
+            id: entry.commandId,
+            key: entry.commandKey,
+            pageToken: entry.pageToken,
+            createdAt: entry.createdAt
+        })));
     }
 
-    function clearMenuReady() {
-        const storage = getSessionStorageLocal();
-        if (!storage || !menuReadyStorageKey || !menuPageToken) return;
-        try {
-            if (String(storage.getItem(menuReadyStorageKey) || "").trim() === menuPageToken) {
-                storage.removeItem(menuReadyStorageKey);
-            }
-        } catch { }
+    function bindMenuCommandValueChanges(engine) {
+        if (!bootstrapMenuManaged || !menuPendingValueKey) return;
+        if (menuCommandValueListenerId !== null) return;
+        menuCommandValueListenerId = gmAddValueChangeListenerLocal(menuPendingValueKey, () => {
+            consumePendingMenuCommands(engine);
+        });
+    }
+
+    function unbindMenuCommandValueChanges() {
+        if (menuCommandValueListenerId === null) return;
+        gmRemoveValueChangeListenerLocal(menuCommandValueListenerId);
+        menuCommandValueListenerId = null;
     }
 
     function bindMenuCommandMessages(engine) {
@@ -2866,9 +2876,19 @@ export async function startSite(runtime = {}) {
     function consumePendingMenuCommands(engine) {
         if (!bootstrapMenuManaged) return;
         const pendingEntries = readPendingMenuEntries();
-        clearPendingMenuEntries();
+        if (pendingEntries.length === 0) return;
+        const remainingEntries = [];
+        let didMutatePendingEntries = false;
         for (const entry of pendingEntries) {
+            if (entry.pageToken !== menuPageToken) {
+                remainingEntries.push(entry);
+                continue;
+            }
+            didMutatePendingEntries = true;
             handleMenuCommandWithId(engine, entry.commandKey, entry.commandId);
+        }
+        if (didMutatePendingEntries || remainingEntries.length !== pendingEntries.length) {
+            writePendingMenuEntries(remainingEntries);
         }
     }
 
@@ -2915,13 +2935,13 @@ export async function startSite(runtime = {}) {
     engine.init();
     setupKeepSidebarVisible();
     bindMenuCommandMessages(engine);
+    bindMenuCommandValueChanges(engine);
     startMenuCommandPolling(engine);
-    markMenuReady();
     if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
         window.addEventListener("pagehide", stopMenuCommandPolling, { once: true });
         window.addEventListener("beforeunload", stopMenuCommandPolling, { once: true });
-        window.addEventListener("pagehide", clearMenuReady, { once: true });
-        window.addEventListener("beforeunload", clearMenuReady, { once: true });
+        window.addEventListener("pagehide", unbindMenuCommandValueChanges, { once: true });
+        window.addEventListener("beforeunload", unbindMenuCommandValueChanges, { once: true });
     }
     consumePendingMenuCommands(engine);
     registerGeminiMenuCommands(engine);

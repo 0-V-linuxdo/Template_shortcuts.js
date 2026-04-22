@@ -489,6 +489,10 @@ function renderUserscriptHeader(siteEntry) {
   }
   lines.push("");
 
+  if (metadata.injectInto) {
+    lines.push(formatMetadataLine("inject-into", metadata.injectInto), "");
+  }
+
   for (const grant of grants) {
     lines.push(formatMetadataLine("grant", grant));
   }
