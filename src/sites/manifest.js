@@ -63,12 +63,18 @@ export const SITE_MANIFEST = Object.freeze([
             "core": "template-core",
             "site": "site-entry"
         },
+        "bootstrapMenuCommands": [
+            {
+                "key": "quickInput",
+                "label": "ChatGPT - 快捷输入"
+            }
+        ],
         "metadata": {
-            "name": "[ChatGPT] 快捷键跳转 [20260423] v1.0.0",
+            "name": "[ChatGPT] 快捷键跳转 [20260423] v1.0.1",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            "version": "[20260423] v1.0.0",
-            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
+            "version": "[20260423] v1.0.1",
+            "updateLog": "1.0.1: 快捷输入菜单改由 bootstrap 托管，修复 userscript 管理器下额外菜单仍依赖站点 ESM 注册的隐患。",
             "match": [
                 "https://chatgpt.com/*"
             ],
@@ -360,12 +366,21 @@ export const SITE_MANIFEST = Object.freeze([
             "core": "template-core",
             "site": "site-entry"
         },
+        "bootstrapMenuCommands": [
+            {
+                "key": "sidebarVisibility",
+                "stateKey": "poe_keep_sidebar_visible_v1",
+                "stateDefault": true,
+                "labelOn": "Poe - 保持侧边栏显示: 开",
+                "labelOff": "Poe - 保持侧边栏显示: 关"
+            }
+        ],
         "metadata": {
-            "name": "[Poe] 快捷键跳转 [20260423] v1.0.0",
+            "name": "[Poe] 快捷键跳转 [20260423] v1.0.1",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。",
-            "version": "[20260423] v1.0.0",
-            "updateLog": "1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。",
+            "version": "[20260423] v1.0.1",
+            "updateLog": "1.0.1: 侧边栏保持显示菜单改由 bootstrap 托管，并以菜单文字直接显示开/关状态。",
             "match": [
                 "https://poe.com/*"
             ],

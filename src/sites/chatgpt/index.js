@@ -42,6 +42,24 @@ export async function startSite(runtime = {}) {
         }
     }
 
+    function gmGetValueLocal(key, fallback) {
+        const fn = getUserscriptApi("GM_getValue");
+        if (typeof fn !== "function") return fallback;
+        try {
+            return fn(key, fallback);
+        } catch {
+            return fallback;
+        }
+    }
+
+    function gmSetValueLocal(key, value) {
+        const fn = getUserscriptApi("GM_setValue");
+        if (typeof fn !== "function") return;
+        try {
+            fn(key, value);
+        } catch { }
+    }
+
     const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
     const coreModule = coreUrl ? await import(coreUrl) : null;
     const ShortcutTemplate = coreModule?.default || coreModule || null;
@@ -87,6 +105,26 @@ export async function startSite(runtime = {}) {
     };
 
     const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
+    const bootstrapMenuManaged = runtime?.bootstrapMenuManaged === true;
+    const menuCommandMessageType = (typeof runtime?.menuMessageType === "string" && runtime.menuMessageType.trim())
+        ? runtime.menuMessageType.trim()
+        : "";
+    const menuCommandMessageSource = (typeof runtime?.menuMessageSource === "string" && runtime.menuMessageSource.trim())
+        ? runtime.menuMessageSource.trim()
+        : "";
+    const menuPendingValueKey = (typeof runtime?.menuPendingValueKey === "string" && runtime.menuPendingValueKey.trim())
+        ? runtime.menuPendingValueKey.trim()
+        : "";
+    const menuPageToken = (typeof runtime?.menuPageToken === "string" && runtime.menuPageToken.trim())
+        ? runtime.menuPageToken.trim()
+        : "";
+    const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
+    const MENU_COMMAND_KEYS = Object.freeze({
+        quickInput: "quickInput"
+    });
+    let menuCommandPollTimer = null;
+    const handledMenuCommandIds = [];
+    const handledMenuCommandIdSet = new Set();
 
     // ===== ChatGPT 特有功能模块开始：1step Canvas / Web =====
 
@@ -1685,6 +1723,138 @@ export async function startSite(runtime = {}) {
         return quickInputController;
     }
 
+    function markMenuCommandHandled(commandId) {
+        const id = String(commandId || "").trim();
+        if (!id) return true;
+        if (handledMenuCommandIdSet.has(id)) return false;
+        handledMenuCommandIdSet.add(id);
+        handledMenuCommandIds.push(id);
+        while (handledMenuCommandIds.length > 120) {
+            const staleId = handledMenuCommandIds.shift();
+            if (!staleId) continue;
+            handledMenuCommandIdSet.delete(staleId);
+        }
+        return true;
+    }
+
+    function handleMenuCommandWithId(engine, commandKey, commandId = "") {
+        if (!markMenuCommandHandled(commandId)) return false;
+        const key = String(commandKey || "").trim();
+        if (!key) return false;
+
+        switch (key) {
+            case MENU_COMMAND_KEYS.quickInput:
+                ensureQuickInputController(engine)?.open?.();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    function normalizePendingMenuEntries(entries) {
+        const now = Date.now();
+        const normalized = [];
+        const seenIds = new Set();
+        for (const entry of Array.isArray(entries) ? entries : []) {
+            const commandId = typeof entry?.id === "string" ? entry.id.trim() : "";
+            const commandKey = typeof entry?.key === "string" ? entry.key.trim() : "";
+            const pageToken = typeof entry?.pageToken === "string" ? entry.pageToken.trim() : "";
+            const createdAt = Number(entry?.createdAt);
+            if (!commandId || !commandKey || !pageToken) continue;
+            if (!Number.isFinite(createdAt)) continue;
+            if ((now - createdAt) > MENU_COMMAND_MAX_AGE_MS) continue;
+            if (seenIds.has(commandId)) continue;
+            seenIds.add(commandId);
+            normalized.push({ commandId, commandKey, pageToken, createdAt });
+        }
+        if (normalized.length <= 48) return normalized;
+        return normalized.slice(normalized.length - 48);
+    }
+
+    function readPendingMenuEntries() {
+        if (!menuPendingValueKey) return [];
+        return normalizePendingMenuEntries(gmGetValueLocal(menuPendingValueKey, []));
+    }
+
+    function writePendingMenuEntries(entries) {
+        if (!menuPendingValueKey) return;
+        gmSetValueLocal(menuPendingValueKey, normalizePendingMenuEntries(entries).map((entry) => ({
+            id: entry.commandId,
+            key: entry.commandKey,
+            pageToken: entry.pageToken,
+            createdAt: entry.createdAt
+        })));
+    }
+
+    function bindMenuCommandMessages(engine) {
+        if (!bootstrapMenuManaged || !menuCommandMessageType || !menuCommandMessageSource) return;
+        if (typeof window === "undefined" || !window || typeof window.addEventListener !== "function") return;
+
+        window.addEventListener("message", (event) => {
+            const detail = event?.data;
+            if (!detail || typeof detail !== "object") return;
+            if (detail.source !== menuCommandMessageSource) return;
+            if (detail.type !== menuCommandMessageType) return;
+            if (detail.siteId !== runtime?.siteId) return;
+            if (menuPageToken && detail.pageToken && detail.pageToken !== menuPageToken) return;
+            handleMenuCommandWithId(engine, detail.commandKey, detail.commandId);
+        });
+    }
+
+    function startMenuCommandPolling(engine) {
+        if (!bootstrapMenuManaged) return;
+        if (typeof window === "undefined" || !window) return;
+        const drain = () => {
+            consumePendingMenuCommands(engine);
+        };
+
+        drain();
+        try {
+            if (menuCommandPollTimer !== null) {
+                clearInterval(menuCommandPollTimer);
+            }
+        } catch { }
+        menuCommandPollTimer = window.setInterval(drain, 350);
+
+        if (typeof window.addEventListener === "function") {
+            window.addEventListener("focus", drain);
+        }
+        if (typeof document !== "undefined" && document && typeof document.addEventListener === "function") {
+            document.addEventListener("visibilitychange", () => {
+                if (document.visibilityState === "visible") {
+                    drain();
+                }
+            });
+        }
+    }
+
+    function stopMenuCommandPolling() {
+        if (menuCommandPollTimer === null) return;
+        try {
+            clearInterval(menuCommandPollTimer);
+        } catch { }
+        menuCommandPollTimer = null;
+    }
+
+    function consumePendingMenuCommands(engine) {
+        if (!bootstrapMenuManaged) return;
+        const pendingEntries = readPendingMenuEntries();
+        if (pendingEntries.length === 0) return;
+        const remainingEntries = [];
+        let didMutatePendingEntries = false;
+        for (const entry of pendingEntries) {
+            if (entry.pageToken !== menuPageToken) {
+                remainingEntries.push(entry);
+                continue;
+            }
+            didMutatePendingEntries = true;
+            handleMenuCommandWithId(engine, entry.commandKey, entry.commandId);
+        }
+        if (didMutatePendingEntries || remainingEntries.length !== pendingEntries.length) {
+            writePendingMenuEntries(remainingEntries);
+        }
+    }
+
     // ===== ChatGPT 快捷输入适配器结束 =====
 
     function normalizeMenuToken(value) {
@@ -1936,6 +2106,7 @@ export async function startSite(runtime = {}) {
 	    const engine = ShortcutTemplate.createShortcutEngine({
         // 基本配置
         menuCommandLabel: "ChatGPT - 设置快捷键",
+        bootstrapMenuManaged,
         panelTitle: "ChatGPT - 自定义快捷键",
 
         // 存储键配置
@@ -2021,12 +2192,19 @@ export async function startSite(runtime = {}) {
         // 其余参数保持默认（Template 内置：URL模版解析、中文文案、响应式断点等）
     });
 
-    gmRegisterMenuCommandLocal("ChatGPT - 快捷输入", () => {
-        ensureQuickInputController(engine)?.open?.();
-    });
-
     // 初始化引擎
     engine.init();
+    bindMenuCommandMessages(engine);
+    startMenuCommandPolling(engine);
+    if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
+        window.addEventListener("pagehide", stopMenuCommandPolling, { once: true });
+        window.addEventListener("beforeunload", stopMenuCommandPolling, { once: true });
+    } else {
+        gmRegisterMenuCommandLocal("ChatGPT - 快捷输入", () => {
+            ensureQuickInputController(engine)?.open?.();
+        });
+    }
+    consumePendingMenuCommands(engine);
 
     // ===== 模版模块配置与初始化结束 =====
 }

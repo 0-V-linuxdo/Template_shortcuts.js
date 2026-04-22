@@ -85,8 +85,28 @@ export async function startSite(runtime = {}) {
     const ICON_THEME_ADAPTED_STORAGE_KEY = 'poe_icon_theme_adapted_v2';
     const SIDEBAR_VISIBILITY_STORAGE_KEY = 'poe_keep_sidebar_visible_v1';
     const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
+    const bootstrapMenuManaged = runtime?.bootstrapMenuManaged === true;
+    const menuCommandMessageType = (typeof runtime?.menuMessageType === "string" && runtime.menuMessageType.trim())
+        ? runtime.menuMessageType.trim()
+        : "";
+    const menuCommandMessageSource = (typeof runtime?.menuMessageSource === "string" && runtime.menuMessageSource.trim())
+        ? runtime.menuMessageSource.trim()
+        : "";
+    const menuPendingValueKey = (typeof runtime?.menuPendingValueKey === "string" && runtime.menuPendingValueKey.trim())
+        ? runtime.menuPendingValueKey.trim()
+        : "";
+    const menuPageToken = (typeof runtime?.menuPageToken === "string" && runtime.menuPageToken.trim())
+        ? runtime.menuPageToken.trim()
+        : "";
+    const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
+    const MENU_COMMAND_KEYS = Object.freeze({
+        sidebarVisibility: 'sidebarVisibility'
+    });
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
     let sidebarVisibilityMenuCommandId = null;
+    let menuCommandPollTimer = null;
+    const handledMenuCommandIds = [];
+    const handledMenuCommandIdSet = new Set();
 
     const defaultIconURL = 'https://psc2.cf2.poecdn.net/assets/favicon.svg';
     const APP_CREATOR_ICON = 'https://qph.cf2.poecdn.net/main-thumb-pb-5003-50-zdgktfpcizyaajmazqorxwnwlzhiwdmi.jpeg';
@@ -112,6 +132,7 @@ export async function startSite(runtime = {}) {
     }
 
     function registerSidebarVisibilityMenuCommand() {
+        if (bootstrapMenuManaged) return;
         if (sidebarVisibilityMenuCommandId !== null) {
             try {
                 gmUnregisterMenuCommandLocal(sidebarVisibilityMenuCommandId);
@@ -119,15 +140,7 @@ export async function startSite(runtime = {}) {
         }
 
         sidebarVisibilityMenuCommandId = gmRegisterMenuCommandLocal(getSidebarVisibilityMenuLabel(), () => {
-            keepSidebarVisible = !keepSidebarVisible;
-            setKeepSidebarVisibleSetting(keepSidebarVisible);
-            console.info(`${logTag} 保持侧边栏显示已${keepSidebarVisible ? '启用' : '关闭'}。`);
-
-            if (keepSidebarVisible) {
-                debouncedEnsureSidebarVisible();
-            }
-
-            registerSidebarVisibilityMenuCommand();
+            setSidebarVisibilityPreference(!keepSidebarVisible);
         });
     }
     const MANAGED_SHORTCUT_KEYS = Object.freeze({
@@ -521,6 +534,149 @@ export async function startSite(runtime = {}) {
         }
     }, 260);
 
+    function setSidebarVisibilityPreference(nextValue) {
+        keepSidebarVisible = !!nextValue;
+        setKeepSidebarVisibleSetting(keepSidebarVisible);
+        console.info(`${logTag} 保持侧边栏显示已${keepSidebarVisible ? '启用' : '关闭'}。`);
+        if (keepSidebarVisible) {
+            debouncedEnsureSidebarVisible();
+        }
+        registerSidebarVisibilityMenuCommand();
+        return keepSidebarVisible;
+    }
+
+    function markMenuCommandHandled(commandId) {
+        const id = String(commandId || '').trim();
+        if (!id) return true;
+        if (handledMenuCommandIdSet.has(id)) return false;
+        handledMenuCommandIdSet.add(id);
+        handledMenuCommandIds.push(id);
+        while (handledMenuCommandIds.length > 120) {
+            const staleId = handledMenuCommandIds.shift();
+            if (!staleId) continue;
+            handledMenuCommandIdSet.delete(staleId);
+        }
+        return true;
+    }
+
+    function handleMenuCommandWithId(commandKey, commandId = '') {
+        if (!markMenuCommandHandled(commandId)) return false;
+        const key = String(commandKey || '').trim();
+        if (!key) return false;
+
+        switch (key) {
+            case MENU_COMMAND_KEYS.sidebarVisibility:
+                setSidebarVisibilityPreference(!keepSidebarVisible);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    function normalizePendingMenuEntries(entries) {
+        const now = Date.now();
+        const normalized = [];
+        const seenIds = new Set();
+        for (const entry of Array.isArray(entries) ? entries : []) {
+            const commandId = typeof entry?.id === 'string' ? entry.id.trim() : '';
+            const commandKey = typeof entry?.key === 'string' ? entry.key.trim() : '';
+            const pageToken = typeof entry?.pageToken === 'string' ? entry.pageToken.trim() : '';
+            const createdAt = Number(entry?.createdAt);
+            if (!commandId || !commandKey || !pageToken) continue;
+            if (!Number.isFinite(createdAt)) continue;
+            if ((now - createdAt) > MENU_COMMAND_MAX_AGE_MS) continue;
+            if (seenIds.has(commandId)) continue;
+            seenIds.add(commandId);
+            normalized.push({ commandId, commandKey, pageToken, createdAt });
+        }
+        if (normalized.length <= 48) return normalized;
+        return normalized.slice(normalized.length - 48);
+    }
+
+    function readPendingMenuEntries() {
+        if (!menuPendingValueKey) return [];
+        return normalizePendingMenuEntries(gmGetValueLocal(menuPendingValueKey, []));
+    }
+
+    function writePendingMenuEntries(entries) {
+        if (!menuPendingValueKey) return;
+        gmSetValueLocal(menuPendingValueKey, normalizePendingMenuEntries(entries).map((entry) => ({
+            id: entry.commandId,
+            key: entry.commandKey,
+            pageToken: entry.pageToken,
+            createdAt: entry.createdAt
+        })));
+    }
+
+    function bindMenuCommandMessages() {
+        if (!bootstrapMenuManaged || !menuCommandMessageType || !menuCommandMessageSource) return;
+        if (typeof window === 'undefined' || !window || typeof window.addEventListener !== 'function') return;
+
+        window.addEventListener('message', (event) => {
+            const detail = event?.data;
+            if (!detail || typeof detail !== 'object') return;
+            if (detail.source !== menuCommandMessageSource) return;
+            if (detail.type !== menuCommandMessageType) return;
+            if (detail.siteId !== runtime?.siteId) return;
+            if (menuPageToken && detail.pageToken && detail.pageToken !== menuPageToken) return;
+            handleMenuCommandWithId(detail.commandKey, detail.commandId);
+        });
+    }
+
+    function startMenuCommandPolling() {
+        if (!bootstrapMenuManaged) return;
+        if (typeof window === 'undefined' || !window) return;
+        const drain = () => {
+            consumePendingMenuCommands();
+        };
+
+        drain();
+        try {
+            if (menuCommandPollTimer !== null) {
+                clearInterval(menuCommandPollTimer);
+            }
+        } catch {}
+        menuCommandPollTimer = window.setInterval(drain, 350);
+
+        if (typeof window.addEventListener === 'function') {
+            window.addEventListener('focus', drain);
+        }
+        if (typeof document !== 'undefined' && document && typeof document.addEventListener === 'function') {
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    drain();
+                }
+            });
+        }
+    }
+
+    function stopMenuCommandPolling() {
+        if (menuCommandPollTimer === null) return;
+        try {
+            clearInterval(menuCommandPollTimer);
+        } catch {}
+        menuCommandPollTimer = null;
+    }
+
+    function consumePendingMenuCommands() {
+        if (!bootstrapMenuManaged) return;
+        const pendingEntries = readPendingMenuEntries();
+        if (pendingEntries.length === 0) return;
+        const remainingEntries = [];
+        let didMutatePendingEntries = false;
+        for (const entry of pendingEntries) {
+            if (entry.pageToken !== menuPageToken) {
+                remainingEntries.push(entry);
+                continue;
+            }
+            didMutatePendingEntries = true;
+            handleMenuCommandWithId(entry.commandKey, entry.commandId);
+        }
+        if (didMutatePendingEntries || remainingEntries.length !== pendingEntries.length) {
+            writePendingMenuEntries(remainingEntries);
+        }
+    }
+
     function setupKeepSidebarVisible() {
         window.addEventListener('load', () => {
             setTimeout(() => debouncedEnsureSidebarVisible(), 650);
@@ -748,6 +904,7 @@ export async function startSite(runtime = {}) {
 
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: 'Poe - 设置快捷键',
+        bootstrapMenuManaged,
         panelTitle: 'Poe - 自定义快捷键',
         storageKeys: {
             shortcuts: SHORTCUTS_STORAGE_KEY,
@@ -805,5 +962,12 @@ export async function startSite(runtime = {}) {
     engine.init();
     syncManagedActionIcons(engine);
     setupKeepSidebarVisible();
+    bindMenuCommandMessages();
+    startMenuCommandPolling();
+    if (bootstrapMenuManaged && typeof window !== 'undefined' && window && typeof window.addEventListener === 'function') {
+        window.addEventListener('pagehide', stopMenuCommandPolling, { once: true });
+        window.addEventListener('beforeunload', stopMenuCommandPolling, { once: true });
+    }
+    consumePendingMenuCommands();
     registerSidebarVisibilityMenuCommand();
 }
