@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Poe] 快捷键跳转 [20260423] v1.0.0
+// @name         [Poe] 快捷键跳转 [20260423] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。
 
-// @version      [20260423] v1.0.0
-// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
+// @version      [20260423] v1.0.1
+// @update-log   1.0.1: 侧边栏保持显示菜单改由 bootstrap 托管，并以菜单文字直接显示开/关状态。
 
 // @match        https://poe.com/*
 
@@ -49,7 +49,16 @@
     "core": "template-core",
     "site": "site-entry"
 });
-    const BOOTSTRAP_MENU_COMMANDS = Object.freeze([]);
+    const BOOTSTRAP_MENU_COMMANDS = Object.freeze([
+    {
+        "key": "sidebarVisibility",
+        "label": "Poe - 保持侧边栏显示: 开",
+        "stateKey": "poe_keep_sidebar_visible_v1",
+        "stateDefault": true,
+        "labelOn": "Poe - 保持侧边栏显示: 开",
+        "labelOff": "Poe - 保持侧边栏显示: 关"
+    }
+]);
     const MENU_MESSAGE_SOURCE = "template-shortcuts-userscript";
     const MENU_PENDING_VALUE_KEY = "__templateShortcutsMenuPendingValue::poe";
     const MENU_PAGE_TOKEN = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);

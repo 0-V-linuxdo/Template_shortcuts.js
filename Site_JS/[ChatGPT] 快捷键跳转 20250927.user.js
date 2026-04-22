@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260423] v1.0.0
+// @name         [ChatGPT] 快捷键跳转 [20260423] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260423] v1.0.0
-// @update-log   1.0.0: 修正站点脚本 @resource 地址，统一改为 release 分支 raw ESM 资源，避免继续引用本地相对路径。
+// @version      [20260423] v1.0.1
+// @update-log   1.0.1: 快捷输入菜单改由 bootstrap 托管，修复 userscript 管理器下额外菜单仍依赖站点 ESM 注册的隐患。
 
 // @match        https://chatgpt.com/*
 
@@ -48,7 +48,16 @@
     "core": "template-core",
     "site": "site-entry"
 });
-    const BOOTSTRAP_MENU_COMMANDS = Object.freeze([]);
+    const BOOTSTRAP_MENU_COMMANDS = Object.freeze([
+    {
+        "key": "quickInput",
+        "label": "ChatGPT - 快捷输入",
+        "stateKey": "",
+        "stateDefault": false,
+        "labelOn": "",
+        "labelOff": ""
+    }
+]);
     const MENU_MESSAGE_SOURCE = "template-shortcuts-userscript";
     const MENU_PENDING_VALUE_KEY = "__templateShortcutsMenuPendingValue::chatgpt";
     const MENU_PAGE_TOKEN = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
