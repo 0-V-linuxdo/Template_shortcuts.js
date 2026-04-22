@@ -150,8 +150,12 @@
     function createMenuBridge() {
         const register = getUserscriptApi('GM_registerMenuCommand');
         const unregister = getUserscriptApi('GM_unregisterMenuCommand');
+        const addValueChangeListener = getUserscriptApi('GM_addValueChangeListener');
+        const removeValueChangeListener = getUserscriptApi('GM_removeValueChangeListener');
         let settingsHandler = null;
         const commands = new Map();
+        const commandConfigs = new Map();
+        const commandStateListenerIds = new Map();
         const scope = getGlobalScope();
         const dispatchTarget = scope?.document && typeof scope.document.dispatchEvent === 'function'
             ? scope.document
@@ -164,6 +168,97 @@
         function createCommandId(commandKey) {
             const key = normalizeCommandKey(commandKey) || 'menu';
             return key + ':' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 10);
+        }
+
+        function normalizeBooleanState(value, fallback = false) {
+            if (value === true || value === "true" || value === 1 || value === "1") return true;
+            if (value === false || value === "false" || value === 0 || value === "0") return false;
+            return !!fallback;
+        }
+
+        function buildCommandConfig(commandKey, label) {
+            const source = (commandKey && typeof commandKey === 'object' && !Array.isArray(commandKey))
+                ? commandKey
+                : { key: commandKey, label };
+            const key = normalizeCommandKey(source?.key);
+            if (!key) return null;
+
+            const previous = commandConfigs.get(key) || null;
+            const directLabel = typeof source?.label === 'string' && source.label.trim()
+                ? source.label.trim()
+                : (typeof previous?.label === 'string' ? previous.label : '');
+            const stateKey = typeof source?.stateKey === 'string' && source.stateKey.trim()
+                ? source.stateKey.trim()
+                : (typeof previous?.stateKey === 'string' ? previous.stateKey : '');
+            const labelOn = typeof source?.labelOn === 'string' && source.labelOn.trim()
+                ? source.labelOn.trim()
+                : (typeof previous?.labelOn === 'string' ? previous.labelOn : '');
+            const labelOff = typeof source?.labelOff === 'string' && source.labelOff.trim()
+                ? source.labelOff.trim()
+                : (typeof previous?.labelOff === 'string' ? previous.labelOff : '');
+            const hasBooleanStateLabel = !!stateKey && !!labelOn && !!labelOff;
+            const resolvedLabel = directLabel || (hasBooleanStateLabel ? labelOn : '');
+            if (!resolvedLabel) return null;
+
+            return Object.freeze({
+                key,
+                label: resolvedLabel,
+                stateKey: hasBooleanStateLabel ? stateKey : '',
+                stateDefault: hasBooleanStateLabel
+                    ? (typeof source?.stateDefault === 'boolean'
+                        ? source.stateDefault
+                        : (previous?.stateDefault === true))
+                    : false,
+                labelOn: hasBooleanStateLabel ? labelOn : '',
+                labelOff: hasBooleanStateLabel ? labelOff : ''
+            });
+        }
+
+        function isStatefulCommand(config) {
+            return !!config?.stateKey && !!config?.labelOn && !!config?.labelOff;
+        }
+
+        function resolveCommandLabel(config) {
+            if (!isStatefulCommand(config)) {
+                return typeof config?.label === 'string' ? config.label : '';
+            }
+            const state = normalizeBooleanState(gmGetValueSafe(config.stateKey, config.stateDefault), config.stateDefault);
+            return state ? config.labelOn : config.labelOff;
+        }
+
+        function refreshCommandLabel(commandKey, delay = 450) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return;
+            const schedule = scope && typeof scope.setTimeout === 'function' ? scope.setTimeout.bind(scope) : setTimeout;
+            try {
+                schedule(() => {
+                    try { registerCommand(key); } catch {}
+                }, Math.max(0, Number(delay) || 0));
+            } catch {}
+        }
+
+        function bindCommandStateListener(config) {
+            if (!isStatefulCommand(config)) return;
+            if (typeof addValueChangeListener !== 'function') return;
+            if (commandStateListenerIds.has(config.key)) return;
+            try {
+                const listenerId = addValueChangeListener(config.stateKey, () => {
+                    refreshCommandLabel(config.key, 0);
+                });
+                if (listenerId !== null && listenerId !== undefined) {
+                    commandStateListenerIds.set(config.key, listenerId);
+                }
+            } catch {}
+        }
+
+        function unbindCommandStateListener(commandKey) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return;
+            const listenerId = commandStateListenerIds.get(key);
+            if (listenerId === undefined) return;
+            commandStateListenerIds.delete(key);
+            if (typeof removeValueChangeListener !== 'function') return;
+            try { removeValueChangeListener(listenerId); } catch {}
         }
 
         function normalizePendingEntries(entries) {
@@ -241,10 +336,14 @@
 
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
+            const commandConfig = commandConfigs.get(key) || null;
             const commandId = createCommandId(key);
             const queuedCommandId = queuePendingCommand(key, commandId);
             const effectiveCommandId = queuedCommandId || commandId;
             const dispatched = dispatchCommand(key, effectiveCommandId);
+            if (isStatefulCommand(commandConfig)) {
+                refreshCommandLabel(key);
+            }
             if (queuedCommandId || dispatched) return;
 
             if (key === "settings" && typeof settingsHandler === 'function') {
@@ -263,11 +362,15 @@
         }
 
         function registerCommand(commandKey, label) {
-            const key = normalizeCommandKey(commandKey);
-            const text = String(label || "").trim();
-            if (!key || !text || typeof register !== 'function') return null;
+            const config = buildCommandConfig(commandKey, label);
+            if (!config || typeof register !== 'function') return null;
+            const key = config.key;
+            const text = String(resolveCommandLabel(config) || "").trim();
+            if (!text) return null;
 
             const existing = commands.get(key) || null;
+            commandConfigs.set(key, config);
+            bindCommandStateListener(config);
             if (existing && existing.label === text && existing.commandId !== null && existing.commandId !== undefined) {
                 return existing.commandId;
             }
@@ -297,6 +400,8 @@
                 try { unregister(existing.commandId); } catch {}
             }
             commands.delete(key);
+            commandConfigs.delete(key);
+            unbindCommandStateListener(key);
             return true;
         }
 
@@ -321,7 +426,7 @@
         registerCommand("settings", `${SITE_LABEL} - 设置快捷键`);
         for (const command of BOOTSTRAP_MENU_COMMANDS) {
             if (command?.key === "settings") continue;
-            registerCommand(command?.key, command?.label);
+            registerCommand(command);
         }
 
         const bridge = {
