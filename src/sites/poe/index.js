@@ -100,11 +100,13 @@ export async function startSite(runtime = {}) {
         : "";
     const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
     const MENU_COMMAND_KEYS = Object.freeze({
+        settings: 'settings',
         sidebarVisibility: 'sidebarVisibility'
     });
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
     let sidebarVisibilityMenuCommandId = null;
     let menuCommandPollTimer = null;
+    let engineInstance = null;
     const handledMenuCommandIds = [];
     const handledMenuCommandIdSet = new Set();
 
@@ -565,6 +567,9 @@ export async function startSite(runtime = {}) {
         if (!key) return false;
 
         switch (key) {
+            case MENU_COMMAND_KEYS.settings:
+                engineInstance?.openSettingsPanel?.();
+                return true;
             case MENU_COMMAND_KEYS.sidebarVisibility:
                 setSidebarVisibilityPreference(!keepSidebarVisible);
                 return true;
@@ -958,6 +963,7 @@ export async function startSite(runtime = {}) {
                 || value.startsWith('https://qph.cf2.poecdn.net/');
         }
     });
+    engineInstance = engine;
 
     engine.init();
     syncManagedActionIcons(engine);
