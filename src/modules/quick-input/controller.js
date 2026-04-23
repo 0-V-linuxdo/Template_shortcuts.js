@@ -847,6 +847,32 @@ export function createController(userOptions = {}) {
                 try { tagEl?.remove?.(); } catch {}
             }
 
+            function setCollapsibleOpenState(rootEl, open, { scheduleLayout = false } = {}) {
+                if (!rootEl) return;
+                const nextOpen = !!open;
+                try { rootEl.setAttribute("data-open", nextOpen ? "1" : "0"); } catch {}
+                const toggleEl = rootEl.__qiToggleButton || null;
+                const bodyEl = rootEl.__qiToggleBody || null;
+                try { toggleEl?.setAttribute?.("aria-expanded", nextOpen ? "true" : "false"); } catch {}
+                try {
+                    if (bodyEl) bodyEl.hidden = !nextOpen;
+                } catch {}
+                if (scheduleLayout) schedulePanelLayout();
+            }
+
+            function initCollapsibleRoot(rootEl, toggleEl, bodyEl, { open = false } = {}) {
+                if (!rootEl || !toggleEl || !bodyEl) return;
+                rootEl.__qiToggleButton = toggleEl;
+                rootEl.__qiToggleBody = bodyEl;
+                setCollapsibleOpenState(rootEl, open);
+                toggleEl.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const currentOpen = rootEl.getAttribute?.("data-open") === "1";
+                    setCollapsibleOpenState(rootEl, !currentOpen, { scheduleLayout: true });
+                });
+            }
+
             function createLogLineElement(text, { level = "info", time = getLogTimestamp() } = {}) {
                 const lineEl = globalThis.document?.createElement?.("div");
                 const timeEl = globalThis.document?.createElement?.("span");
@@ -875,8 +901,8 @@ export function createController(userOptions = {}) {
             function createStatusLogElement(text, { level = "info", time = getLogTimestamp(), detail = "", collapsible = false, open = true } = {}) {
                 const detailText = String(detail ?? "").trim();
                 const useCollapsible = !!(collapsible && detailText);
-                const lineEl = globalThis.document?.createElement?.(useCollapsible ? "details" : "div");
-                const headerEl = globalThis.document?.createElement?.(useCollapsible ? "summary" : "div");
+                const lineEl = globalThis.document?.createElement?.("div");
+                const headerEl = globalThis.document?.createElement?.(useCollapsible ? "button" : "div");
                 const timeEl = globalThis.document?.createElement?.("span");
                 const dividerEl = globalThis.document?.createElement?.("span");
                 const messageEl = globalThis.document?.createElement?.("span");
@@ -886,7 +912,10 @@ export function createController(userOptions = {}) {
                 lineEl.className = `qi-log-status-card qi-log-status-${normalized}`;
                 if (useCollapsible) {
                     lineEl.classList.add("qi-log-status-collapsible");
-                    lineEl.open = !!open;
+                    try {
+                        headerEl.type = "button";
+                        headerEl.setAttribute("aria-expanded", open ? "true" : "false");
+                    } catch {}
                 }
                 headerEl.className = useCollapsible ? "qi-log-status-summary" : "qi-log-status-header";
                 timeEl.className = "qi-log-status-time";
@@ -909,6 +938,7 @@ export function createController(userOptions = {}) {
                     bodyEl.appendChild(detailEl);
                     lineEl.appendChild(headerEl);
                     lineEl.appendChild(bodyEl);
+                    initCollapsibleRoot(lineEl, headerEl, bodyEl, { open });
                     return lineEl;
                 }
 
@@ -940,17 +970,14 @@ export function createController(userOptions = {}) {
                 if (!logEl) return;
                 let groups = [];
                 try {
-                    groups = Array.from(logEl.querySelectorAll(".qi-log-group-loop[open]"));
+                    groups = Array.from(logEl.querySelectorAll(".qi-log-group-loop[data-open='1']"));
                 } catch {
                     groups = [];
                 }
                 for (const group of groups) {
-                    try {
-                        group.open = false;
-                    } catch {
-                        try { group.removeAttribute("open"); } catch {}
-                    }
+                    setCollapsibleOpenState(group, false);
                 }
+                if (groups.length) schedulePanelLayout();
             }
 
             function normalizeLogGroupLabel(title) {
@@ -964,8 +991,8 @@ export function createController(userOptions = {}) {
             }
 
             function createLogGroup(title, { variant = "", open = false } = {}) {
-                const groupEl = globalThis.document?.createElement?.("details");
-                const summaryEl = globalThis.document?.createElement?.("summary");
+                const groupEl = globalThis.document?.createElement?.("div");
+                const summaryEl = globalThis.document?.createElement?.("button");
                 const timeEl = globalThis.document?.createElement?.("span");
                 const dividerEl = globalThis.document?.createElement?.("span");
                 const labelEl = globalThis.document?.createElement?.("span");
@@ -974,7 +1001,10 @@ export function createController(userOptions = {}) {
 
                 const time = getLogTimestamp();
                 groupEl.className = `qi-log-group${variant ? ` qi-log-group-${variant}` : ""}`;
-                groupEl.open = !!open;
+                try {
+                    summaryEl.type = "button";
+                    summaryEl.setAttribute("aria-expanded", open ? "true" : "false");
+                } catch {}
 
                 summaryEl.className = "qi-log-group-summary";
                 timeEl.className = "qi-log-group-time";
@@ -991,6 +1021,7 @@ export function createController(userOptions = {}) {
                 summaryEl.appendChild(dividerEl);
                 groupEl.appendChild(summaryEl);
                 groupEl.appendChild(bodyEl);
+                initCollapsibleRoot(groupEl, summaryEl, bodyEl, { open });
                 return { groupEl, bodyEl, time };
             }
 
