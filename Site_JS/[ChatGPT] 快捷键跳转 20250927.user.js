@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260424] v1.0.4
+// @name         [ChatGPT] 快捷键跳转 [20260424] v1.0.5
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260424] v1.0.4
-// @update-log   1.0.4: 回退 ChatGPT 主菜单根节点识别方式，撤销 ariaLabelledBy 主菜单 root 改动，恢复基于 aria-controls 的展开判断。
+// @version      [20260424] v1.0.5
+// @update-log   1.0.5: 将 ChatGPT More 子菜单入口改为按左侧三个点图标识别，移除对 More 文案的依赖。
 
 // @match        https://chatgpt.com/*
 
@@ -88,11 +88,31 @@
       composerModeMenuItem: "[role='menuitem'], [role='menuitemradio']"
     };
     const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
+    const CHATGPT_MORE_MENU_ICON_IDS = ["f6d0e2"];
     function normalizeChatgptUiText(value) {
       return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
     }
-    function isMoreMenuLabel(rawText) {
-      return normalizeChatgptUiText(rawText) === "more";
+    function getSvgUseHrefValue(useElement) {
+      if (!useElement || typeof useElement.getAttribute !== "function") return "";
+      return String(
+        useElement.getAttribute("href") || useElement.getAttribute("xlink:href") || useElement.href?.baseVal || ""
+      ).trim();
+    }
+    function getChatgptMenuLeadingIconId(menuItem) {
+      if (!menuItem || typeof menuItem.querySelector !== "function") return "";
+      const useElement = menuItem.querySelector("div.icon use");
+      const href = getSvgUseHrefValue(useElement);
+      if (!href) return "";
+      const hashIndex = href.lastIndexOf("#");
+      const iconId = hashIndex >= 0 ? href.slice(hashIndex + 1) : href;
+      return String(iconId || "").trim().toLowerCase();
+    }
+    function isMoreMenuIconMatch(_rawText, element) {
+      if (!element || typeof element.getAttribute !== "function") return false;
+      const hasSubmenu = element.hasAttribute("data-has-submenu") || normalizeChatgptUiText(element.getAttribute("aria-haspopup")) === "menu";
+      if (!hasSubmenu) return false;
+      const iconId = getChatgptMenuLeadingIconId(element);
+      return !!iconId && CHATGPT_MORE_MENU_ICON_IDS.includes(iconId);
     }
     const TemplateUtils = ShortcutTemplate.utils;
     if (!TemplateUtils?.menu?.createMenuController) {
@@ -121,8 +141,8 @@
             searchRoot: "parentRoot",
             action: "hover",
             candidates: [
-              { selector: SELECTORS.moreSubmenuItem, textMatch: isMoreMenuLabel, pick: "last" },
-              { selector: "div[role='menuitem']", textMatch: isMoreMenuLabel, pick: "last" }
+              { selector: SELECTORS.moreSubmenuItem, textMatch: isMoreMenuIconMatch, pick: "last" },
+              { selector: "div[role='menuitem']", textMatch: isMoreMenuIconMatch, pick: "last" }
             ]
           },
           root: {
