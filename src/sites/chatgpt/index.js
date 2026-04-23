@@ -2225,6 +2225,12 @@ export async function startSite(runtime = {}) {
         // 其余参数保持默认（Template 内置：URL模版解析、中文文案、响应式断点等）
     });
 
+    if (bootstrapMenuManaged && menuBridge?.managedByBootstrap && typeof menuBridge.setCommandHandler === "function") {
+        menuBridge.setCommandHandler(MENU_COMMAND_KEYS.quickInput, () => {
+            ensureQuickInputController(engine)?.open?.();
+        });
+    }
+
     // 初始化引擎
     engine.init();
     bindMenuCommandMessages(engine);
@@ -2232,6 +2238,13 @@ export async function startSite(runtime = {}) {
     if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
         window.addEventListener("pagehide", stopMenuCommandPolling, { once: true });
         window.addEventListener("beforeunload", stopMenuCommandPolling, { once: true });
+        if (menuBridge?.managedByBootstrap && typeof menuBridge.setCommandHandler === "function") {
+            const clearQuickInputHandler = () => {
+                try { menuBridge.setCommandHandler(MENU_COMMAND_KEYS.quickInput, null); } catch { }
+            };
+            window.addEventListener("pagehide", clearQuickInputHandler, { once: true });
+            window.addEventListener("beforeunload", clearQuickInputHandler, { once: true });
+        }
     } else {
         gmRegisterMenuCommandLocal("ChatGPT - 快捷输入", () => {
             ensureQuickInputController(engine)?.open?.();
