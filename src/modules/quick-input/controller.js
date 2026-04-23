@@ -98,6 +98,8 @@ export function createController(userOptions = {}) {
             let draftPersistToken = 0;
             let draftRestorePromise = null;
             let draftWriteChain = Promise.resolve(null);
+            let panelLayoutRaf = 0;
+            let pendingLogScrollToBottom = false;
 
             let dragPointerId = null;
             let dragOffsetX = 0;
@@ -108,6 +110,7 @@ export function createController(userOptions = {}) {
             let dragStartTop = 0;
             let dragMoved = false;
             let dragRaf = 0;
+            const PANEL_VIEWPORT_MARGIN_PX = 36;
             let dragNextLeft = 0;
             let dragNextTop = 0;
             let dragRestore = null;
@@ -731,22 +734,54 @@ export function createController(userOptions = {}) {
                 };
             }
 
+            function getPanelViewportHeightPx() {
+                const visualHeight = Number(globalThis.visualViewport?.height);
+                if (Number.isFinite(visualHeight) && visualHeight > 0) return visualHeight;
+                const innerHeight = Number(globalThis.innerHeight);
+                if (Number.isFinite(innerHeight) && innerHeight > 0) return innerHeight;
+                return 0;
+            }
+
+            function getPanelMaxHeightPx() {
+                const viewportHeight = getPanelViewportHeightPx();
+                if (!viewportHeight) return 0;
+                return Math.max(0, Math.round(viewportHeight - PANEL_VIEWPORT_MARGIN_PX));
+            }
+
             function clampPanelHeightPx(value) {
                 const num = Number(value);
                 if (!Number.isFinite(num) || num <= 0) return 0;
-                const max = Math.min(globalThis.innerHeight * 0.86, 860);
+                const max = getPanelMaxHeightPx();
                 if (!Number.isFinite(max) || max <= 0) return Math.round(num);
                 return Math.round(Math.min(num, max));
             }
 
-            function syncPanelMinHeight() {
+            function syncPanelHeight() {
                 if (!panelEl) return;
-                let rect;
-                try { rect = panelEl.getBoundingClientRect(); } catch { rect = null; }
-                if (!rect) return;
-                const next = clampPanelHeightPx(rect.height);
+                const maxHeight = getPanelMaxHeightPx();
+                if (maxHeight > 0) {
+                    panelEl.style.maxHeight = `${maxHeight}px`;
+                }
+                const next = clampPanelHeightPx(panelEl.scrollHeight);
                 if (!next) return;
-                panelEl.style.minHeight = `${next}px`;
+                panelEl.style.height = `${next}px`;
+            }
+
+            function flushScheduledPanelLayout() {
+                panelLayoutRaf = 0;
+                syncPanelHeight();
+                if (pendingLogScrollToBottom && logEl && activeTab === "log" && overlayEl?.getAttribute?.("data-open") === "1") {
+                    logEl.scrollTop = logEl.scrollHeight;
+                    pendingLogScrollToBottom = false;
+                }
+            }
+
+            function schedulePanelLayout({ scrollLogToBottom = false } = {}) {
+                if (scrollLogToBottom) pendingLogScrollToBottom = true;
+                if (panelLayoutRaf) return;
+                panelLayoutRaf = requestAnimationFrameSafe(() => {
+                    flushScheduledPanelLayout();
+                });
             }
 
             function setImportantStyle(el, name, value) {
@@ -785,7 +820,7 @@ export function createController(userOptions = {}) {
 
             function scrollLogToBottom() {
                 if (!logEl) return;
-                logEl.scrollTop = logEl.scrollHeight;
+                schedulePanelLayout({ scrollLogToBottom: true });
             }
 
             function clearActiveLoopLogTarget() {
@@ -1053,6 +1088,7 @@ export function createController(userOptions = {}) {
                 runConfigGroupEl = null;
                 pendingFinalStatusDetail = "";
                 clearActiveLoopLogTarget();
+                schedulePanelLayout();
             }
 
             function revokeImageUrls() {
@@ -3111,14 +3147,13 @@ export function createController(userOptions = {}) {
                 setActiveTab = (nextTab) => {
                     const key = String(nextTab || "").trim().toLowerCase();
                     const next = (key === "log") ? "log" : "input";
-                    const prev = activeTab;
-                    if (prev === "input" && next === "log") syncPanelMinHeight();
                     activeTab = next;
                     const inputActive = next === "input";
                     tabInputBtn.setAttribute("data-active", inputActive ? "1" : "0");
                     tabLogBtn.setAttribute("data-active", inputActive ? "0" : "1");
                     inputPanel.setAttribute("data-active", inputActive ? "1" : "0");
                     logPanel.setAttribute("data-active", inputActive ? "0" : "1");
+                    schedulePanelLayout({ scrollLogToBottom: !inputActive });
                 };
                 tabInputBtn.addEventListener("click", () => setActiveTab?.("input"));
                 tabLogBtn.addEventListener("click", () => setActiveTab?.("log"));
@@ -3162,7 +3197,7 @@ export function createController(userOptions = {}) {
                 startThemeAutoSync();
                 requestAnimationFrameSafe(() => {
                     applyStoredPanelPos();
-                    syncPanelMinHeight();
+                    schedulePanelLayout({ scrollLogToBottom: activeTab === "log" });
                 });
                 try { if (activeTab === "input") imageDropEl?.focus?.(); } catch {}
             }

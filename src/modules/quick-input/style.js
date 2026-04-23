@@ -123,7 +123,8 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     top: 50%;
                     transform: translate(-50%, -50%);
                     width: min(330px, 96vw);
-                    max-height: min(86vh, 860px);
+                    max-height: calc(100vh - 36px);
+                    max-height: calc(100dvh - 36px);
                     overflow: hidden;
                     background: var(--qi-surface);
                     color: var(--qi-text-strong);
@@ -733,17 +734,35 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     padding: 10px 14px;
                     font-size: 12px;
                     color: var(--qi-text);
-                    overflow: auto;
-                    flex: 1;
+                    overflow-x: hidden;
+                    overflow-y: auto;
+                    flex: 1 1 0;
                     min-height: 0;
+                    height: 0;
                     white-space: pre-wrap;
                     line-height: 1.35;
                     display: grid;
                     align-content: start;
                     gap: 6px;
+                    scrollbar-gutter: stable both-edges;
+                    scrollbar-width: thin;
+                    scrollbar-color: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border)) transparent;
                 }
                 ${hostSelector} .qi-log > * {
                     min-width: 0;
+                }
+                ${hostSelector} .qi-log::-webkit-scrollbar {
+                    width: 8px;
+                }
+                ${hostSelector} .qi-log::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                ${hostSelector} .qi-log::-webkit-scrollbar-thumb {
+                    border-radius: 999px;
+                    background: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border));
+                }
+                ${hostSelector} .qi-log::-webkit-scrollbar-thumb:hover {
+                    background: color-mix(in srgb, ${primaryColor} 54%, var(--qi-border));
                 }
                 ${hostSelector} .qi-log-line {
                     display: grid;
