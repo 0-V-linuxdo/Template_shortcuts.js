@@ -58,7 +58,11 @@ export function createController(userOptions = {}) {
             let overlayRootEl = null;
             let backdropEl = null;
             let panelEl = null;
+            let headerEl = null;
             let logEl = null;
+            let inputBodyEl = null;
+            let inputActionsEl = null;
+            let logActionsEl = null;
             let runConfigGroupEl = null;
             let activeLoopLogGroupEl = null;
             let activeLoopLogBodyEl = null;
@@ -756,13 +760,42 @@ export function createController(userOptions = {}) {
                 return Math.round(Math.min(num, max));
             }
 
+            function measureElementHeightPx(el) {
+                const value = Number(el?.offsetHeight);
+                if (!Number.isFinite(value) || value <= 0) return 0;
+                return Math.round(value);
+            }
+
+            function measureScrollableElementHeightPx(el) {
+                const value = Number(el?.scrollHeight);
+                if (!Number.isFinite(value) || value <= 0) return 0;
+                return Math.round(value);
+            }
+
+            function getActiveTabDesiredHeightPx() {
+                const headerHeight = measureElementHeightPx(headerEl);
+                const panelBorderHeight = Math.max(0, Math.round((Number(panelEl?.offsetHeight) || 0) - (Number(panelEl?.clientHeight) || 0)));
+
+                if (activeTab === "log") {
+                    const logHeight = measureScrollableElementHeightPx(logEl);
+                    const actionsHeight = measureElementHeightPx(logActionsEl);
+                    return headerHeight + logHeight + actionsHeight + panelBorderHeight;
+                }
+
+                const bodyHeight = measureScrollableElementHeightPx(inputBodyEl);
+                const actionsHeight = measureElementHeightPx(inputActionsEl);
+                return headerHeight + bodyHeight + actionsHeight + panelBorderHeight;
+            }
+
             function syncPanelHeight() {
                 if (!panelEl) return;
                 const maxHeight = getPanelMaxHeightPx();
                 if (maxHeight > 0) {
                     panelEl.style.maxHeight = `${maxHeight}px`;
                 }
-                const next = clampPanelHeightPx(panelEl.scrollHeight);
+                const desiredHeight = getActiveTabDesiredHeightPx();
+                const fallbackHeight = Number(panelEl.scrollHeight);
+                const next = clampPanelHeightPx(desiredHeight || fallbackHeight);
                 if (!next) return;
                 panelEl.style.height = `${next}px`;
             }
@@ -2863,9 +2896,9 @@ export function createController(userOptions = {}) {
                 panelEl.className = "qi-panel";
                 panelEl.addEventListener("click", (e) => e.stopPropagation());
 
-                const header = globalThis.document.createElement("div");
-                header.className = "qi-header";
-                header.addEventListener("pointerdown", onHeaderPointerDown);
+                headerEl = globalThis.document.createElement("div");
+                headerEl.className = "qi-header";
+                headerEl.addEventListener("pointerdown", onHeaderPointerDown);
                 const title = globalThis.document.createElement("div");
                 title.className = "qi-title";
                 title.textContent = titleText;
@@ -2876,8 +2909,8 @@ export function createController(userOptions = {}) {
                 closeBtn.title = labels.aria?.close || DEFAULT_LABELS.aria.close;
                 closeBtn.setAttribute("aria-label", labels.aria?.close || DEFAULT_LABELS.aria.close);
                 closeBtn.addEventListener("click", () => close());
-                header.appendChild(title);
-                header.appendChild(closeBtn);
+                headerEl.appendChild(title);
+                headerEl.appendChild(closeBtn);
 
                 const tabs = globalThis.document.createElement("div");
                 tabs.className = "qi-tabs";
@@ -2896,7 +2929,7 @@ export function createController(userOptions = {}) {
 
                 tabs.appendChild(tabInputBtn);
                 tabs.appendChild(tabLogBtn);
-                header.insertBefore(tabs, closeBtn);
+                headerEl.insertBefore(tabs, closeBtn);
 
                 const content = globalThis.document.createElement("div");
                 content.className = "qi-content";
@@ -2905,8 +2938,8 @@ export function createController(userOptions = {}) {
                 inputPanel.className = "qi-tab-panel";
                 inputPanel.setAttribute("data-active", "1");
 
-                const body = globalThis.document.createElement("div");
-                body.className = "qi-body";
+                inputBodyEl = globalThis.document.createElement("div");
+                inputBodyEl.className = "qi-body";
 
                 const imageRow = globalThis.document.createElement("div");
                 imageRow.className = "qi-row";
@@ -3145,19 +3178,19 @@ export function createController(userOptions = {}) {
                 hint.className = "qi-hint";
                 hint.textContent = labels.hints?.flow || DEFAULT_LABELS.hints.flow;
 
-                body.appendChild(imageRow);
-                body.appendChild(textRow);
-                body.appendChild(hotkeyRow);
-                body.appendChild(loopRow);
-                body.appendChild(newChatRow);
-                body.appendChild(delayRow);
-                body.appendChild(optionsRow);
-                body.appendChild(hint);
+                inputBodyEl.appendChild(imageRow);
+                inputBodyEl.appendChild(textRow);
+                inputBodyEl.appendChild(hotkeyRow);
+                inputBodyEl.appendChild(loopRow);
+                inputBodyEl.appendChild(newChatRow);
+                inputBodyEl.appendChild(delayRow);
+                inputBodyEl.appendChild(optionsRow);
+                inputBodyEl.appendChild(hint);
 
-                const inputActions = createPlayerActionsBar();
+                inputActionsEl = createPlayerActionsBar();
 
-                inputPanel.appendChild(body);
-                inputPanel.appendChild(inputActions);
+                inputPanel.appendChild(inputBodyEl);
+                inputPanel.appendChild(inputActionsEl);
 
                 const logPanel = globalThis.document.createElement("div");
                 logPanel.className = "qi-tab-panel";
@@ -3166,10 +3199,10 @@ export function createController(userOptions = {}) {
                 logEl = globalThis.document.createElement("div");
                 logEl.className = "qi-log";
 
-                const logActions = createPlayerActionsBar();
+                logActionsEl = createPlayerActionsBar();
 
                 logPanel.appendChild(logEl);
-                logPanel.appendChild(logActions);
+                logPanel.appendChild(logActionsEl);
 
                 content.appendChild(inputPanel);
                 content.appendChild(logPanel);
@@ -3189,7 +3222,7 @@ export function createController(userOptions = {}) {
                 tabInputBtn.addEventListener("click", () => setActiveTab?.("input"));
                 tabLogBtn.addEventListener("click", () => setActiveTab?.("log"));
 
-                panelEl.appendChild(header);
+                panelEl.appendChild(headerEl);
                 panelEl.appendChild(content);
 
                 backdropEl.appendChild(panelEl);
