@@ -122,7 +122,9 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     left: 50%;
                     top: 50%;
                     transform: translate(-50%, -50%);
-                    width: min(330px, 96vw);
+                    width: 330px;
+                    max-width: calc(100vw - 36px);
+                    max-width: calc(100dvw - 36px);
                     max-height: calc(100vh - 36px);
                     max-height: calc(100dvh - 36px);
                     overflow: hidden;
