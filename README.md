@@ -1,11 +1,11 @@
 # Template_shortcuts.js (release)
 
-Generated release-branch assets for the Template shortcuts userscript family.
+Generated legacy release assets for the Template shortcuts userscript family.
 
 ## Contents
 
-- `dist/esm/`: ESM core bundle and per-site entry bundles
-- `Site_JS/`: installable userscript bootstrap files
+- `Template_JS/`: shared Template core referenced by site userscripts via `@require`
+- `Site_JS/`: installable site userscripts
 - `Site_Icon/`: icons referenced by release userscript metadata
 
 ## Source Of Truth
