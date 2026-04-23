@@ -45,6 +45,7 @@ const USERSCRIPT_MENU_BRIDGE_KEY = "__TEMPLATE_SHORTCUTS_MENU_BRIDGE__";
 const USERSCRIPT_MENU_EVENT_NAME = "__templateShortcutsMenuCommand";
 const USERSCRIPT_MENU_MESSAGE_SOURCE = "template-shortcuts-userscript";
 const USERSCRIPT_MENU_VALUE_KEY_PREFIX = "__templateShortcutsMenuPendingValue::";
+const USERSCRIPT_MENU_PAGE_TOKEN_STORAGE_KEY_PREFIX = "__templateShortcutsMenuPageToken::";
 
 export function renderUserscriptBootstrap({
     siteId = "",
@@ -68,11 +69,47 @@ export function renderUserscriptBootstrap({
     const BOOTSTRAP_MENU_COMMANDS = Object.freeze(${bootstrapMenuCommandsJson});
     const MENU_MESSAGE_SOURCE = ${JSON.stringify(USERSCRIPT_MENU_MESSAGE_SOURCE)};
     const MENU_PENDING_VALUE_KEY = ${JSON.stringify(`${USERSCRIPT_MENU_VALUE_KEY_PREFIX}${normalizedSiteId}`)};
-    const MENU_PAGE_TOKEN = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+    const MENU_PAGE_TOKEN_STORAGE_KEY = ${JSON.stringify(`${USERSCRIPT_MENU_PAGE_TOKEN_STORAGE_KEY_PREFIX}${normalizedSiteId}`)};
+    const MENU_PAGE_TOKEN = resolveMenuPageToken();
     const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
 
     function getGlobalScope() {
         return typeof globalThis !== 'undefined' ? globalThis : null;
+    }
+
+    function createRuntimeToken() {
+        return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+    }
+
+    function getSessionStorageSafe() {
+        const scope = getGlobalScope();
+        try {
+            return scope?.sessionStorage || null;
+        } catch {
+            return null;
+        }
+    }
+
+    // Menu callbacks may run in a fresh userscript instance, so route by a
+    // tab-stable sessionStorage token instead of a per-instance token.
+    function resolveMenuPageToken() {
+        const storage = getSessionStorageSafe();
+        if (storage && MENU_PAGE_TOKEN_STORAGE_KEY) {
+            try {
+                const existing = String(storage.getItem(MENU_PAGE_TOKEN_STORAGE_KEY) || '').trim();
+                if (existing) return existing;
+            } catch {}
+        }
+
+        const token = createRuntimeToken();
+        if (storage && MENU_PAGE_TOKEN_STORAGE_KEY) {
+            try {
+                storage.setItem(MENU_PAGE_TOKEN_STORAGE_KEY, token);
+                const persisted = String(storage.getItem(MENU_PAGE_TOKEN_STORAGE_KEY) || '').trim();
+                if (persisted) return persisted;
+            } catch {}
+        }
+        return token;
     }
 
     function getDirectUserscriptApi(name) {
@@ -168,7 +205,7 @@ export function renderUserscriptBootstrap({
         const unregister = getUserscriptApi('GM_unregisterMenuCommand');
         const addValueChangeListener = getUserscriptApi('GM_addValueChangeListener');
         const removeValueChangeListener = getUserscriptApi('GM_removeValueChangeListener');
-        const commandHandlers = new Map();
+        let settingsHandler = null;
         const commands = new Map();
         const commandConfigs = new Map();
         const commandStateListenerIds = new Map();
@@ -350,30 +387,16 @@ export function renderUserscriptBootstrap({
             }
         }
 
-        function setCommandHandler(commandKey, handler) {
-            const key = normalizeCommandKey(commandKey);
-            if (!key) return false;
-            if (typeof handler === 'function') {
-                commandHandlers.set(key, handler);
-                return true;
-            }
-            commandHandlers.delete(key);
-            return false;
-        }
-
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandConfig = commandConfigs.get(key) || null;
-            const directHandler = commandHandlers.get(key) || null;
-            if (typeof directHandler === 'function') {
+            const hasDirectSettingsHandler = key === "settings" && typeof settingsHandler === 'function';
+            if (hasDirectSettingsHandler) {
                 try {
-                    directHandler();
-                    if (isStatefulCommand(commandConfig)) {
-                        refreshCommandLabel(key);
-                    }
+                    settingsHandler();
                     return;
                 } catch (error) {
-                    console.error(\`[\${SITE_LABEL}] bootstrap menu handler failed for "\${key}".\`, error);
+                    console.error(\`[\${SITE_LABEL}] settings menu handler failed.\`, error);
                 }
             }
             const commandId = createCommandId(key);
@@ -465,9 +488,9 @@ export function renderUserscriptBootstrap({
             unregisterCommand,
             consumePending,
             dispatchCommand,
-            setCommandHandler,
             setSettingsHandler(handler) {
-                return setCommandHandler("settings", handler);
+                settingsHandler = typeof handler === 'function' ? handler : null;
+                return settingsHandler !== null;
             },
             getSettingsCommandId() {
                 return commands.get("settings")?.commandId ?? null;
