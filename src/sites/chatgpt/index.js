@@ -52,6 +52,9 @@
     // ChatGPT 元素选择器
     const SELECTORS = {
         composerPlusBtn: "button[data-testid='composer-plus-btn']",
+        aspectRatioBtn: 'button[aria-label="Choose image aspect ratio"]',
+        aspectRatioMenuRoot: "div[role='menu'][data-radix-menu-content]",
+        aspectRatioMenuItem: "[role='menuitemradio']",
         moreSubmenuItem: "div[role='menuitem']",
         popupMenuItem: "[role='menuitem'], [role='menuitemradio']"
     };
@@ -98,6 +101,20 @@
                     requireDataState: "open"
                 }
             }
+        }
+    });
+
+    const aspectRatioMenu = TemplateUtils.menu.createMenuController({
+        trigger: {
+            selectors: [SELECTORS.aspectRatioBtn]
+        },
+        root: {
+            type: "arialabelledby",
+            selector: SELECTORS.aspectRatioMenuRoot
+        },
+        timing: {
+            openDelayMs: 250,
+            stepDelayMs: 250
         }
     });
 
@@ -2154,6 +2171,14 @@
         return token || "onestep";
     }
 
+    function isPlainObject(value) {
+        return !!value && typeof value === "object" && !Array.isArray(value);
+    }
+
+    function getShortcutDataObject(shortcut) {
+        return isPlainObject(shortcut?.data) ? shortcut.data : {};
+    }
+
     function hasValidTextMatch(textMatch) {
         if (typeof textMatch === "string") return !!textMatch.trim();
         if (textMatch instanceof RegExp) return true;
@@ -2162,11 +2187,70 @@
         return false;
     }
 
+    function createPlainTextOrJsonDataAdapter({
+        fieldName,
+        label,
+        placeholder,
+        fieldTextKeys = ["textMatch"],
+        legacyRootTextKeys = []
+    } = {}) {
+        return {
+            label,
+            placeholder,
+            format: (data) => {
+                const raw = isPlainObject(data) ? data : {};
+                const keys = Object.keys(raw);
+                if (keys.length === 0) return "";
+
+                const fieldValue = raw[fieldName];
+                if (typeof fieldValue === "string" && fieldValue.trim()) {
+                    return fieldValue.trim();
+                }
+
+                if (isPlainObject(fieldValue)) {
+                    const fieldKeys = Object.keys(fieldValue);
+                    const plainTextValue = fieldTextKeys
+                        .map((key) => {
+                            const candidate = fieldValue[key];
+                            return typeof candidate === "string" && candidate.trim() ? candidate.trim() : "";
+                        })
+                        .find(Boolean);
+                    if (plainTextValue && fieldKeys.every(key => fieldTextKeys.includes(key))) {
+                        return plainTextValue;
+                    }
+                }
+
+                if (keys.length === 1) {
+                    const legacyRootKey = keys[0];
+                    if (legacyRootTextKeys.includes(legacyRootKey) && typeof raw[legacyRootKey] === "string" && raw[legacyRootKey].trim()) {
+                        return raw[legacyRootKey].trim();
+                    }
+                }
+
+                try {
+                    return JSON.stringify(raw, null, 2);
+                } catch {
+                    return "";
+                }
+            },
+            parse: (text) => {
+                const trimmed = String(text ?? "").trim();
+                if (!trimmed) return {};
+                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                    const parsed = JSON.parse(trimmed);
+                    if (!isPlainObject(parsed)) throw new Error("data must be an object");
+                    return parsed;
+                }
+                return { [fieldName]: trimmed };
+            }
+        };
+    }
+
     function getChatgptMenuActionSpec(shortcut) {
-        const data = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : {};
+        const data = getShortcutDataObject(shortcut);
         const rawMenu = data.menu;
 
-        const menu = (rawMenu && typeof rawMenu === "object" && !Array.isArray(rawMenu))
+        const menu = isPlainObject(rawMenu)
             ? rawMenu
             : (rawMenu !== undefined ? { textMatch: rawMenu } : data);
 
@@ -2230,6 +2314,50 @@
         };
     }
 
+    function getChatgptAspectRatioActionSpec(shortcut) {
+        const data = getShortcutDataObject(shortcut);
+        const rawAspectRatio = data.aspectRatio;
+
+        const aspectRatio = isPlainObject(rawAspectRatio)
+            ? rawAspectRatio
+            : (rawAspectRatio !== undefined ? { textMatch: rawAspectRatio } : data);
+
+        const selector = typeof aspectRatio.selector === "string" && aspectRatio.selector.trim()
+            ? aspectRatio.selector.trim()
+            : SELECTORS.aspectRatioMenuItem;
+
+        const fallbackToFirst = !!aspectRatio.fallbackToFirst;
+        const waitForItem = (aspectRatio.waitForItem !== undefined) ? !!aspectRatio.waitForItem : true;
+        const textMatch = (aspectRatio.keyword !== undefined) ? aspectRatio.keyword : aspectRatio.textMatch;
+
+        if (!fallbackToFirst && !hasValidTextMatch(textMatch)) {
+            console.warn("[ChatGPT Shortcut] chatgptAspectRatio: missing textMatch; set data.aspectRatio = \"1:1\" (or use data.aspectRatio.textMatch).");
+            return null;
+        }
+
+        return {
+            selector,
+            textMatch: fallbackToFirst ? null : textMatch,
+            fallbackToFirst,
+            waitForItem
+        };
+    }
+
+    const CHATGPT_MENU_DATA_ADAPTER = createPlainTextOrJsonDataAdapter({
+        fieldName: "menu",
+        label: "菜单关键词（或粘贴 JSON，高级用法）:",
+        placeholder: "例如: Web / Canvas / Thinking / Create image",
+        fieldTextKeys: ["keyword", "textMatch"],
+        legacyRootTextKeys: ["textMatch"]
+    });
+
+    const CHATGPT_ASPECT_RATIO_DATA_ADAPTER = createPlainTextOrJsonDataAdapter({
+        fieldName: "aspectRatio",
+        label: "图片比例关键词（或粘贴 JSON，高级用法）:",
+        placeholder: "例如: 1:1 / Square 1:1",
+        fieldTextKeys: ["textMatch"]
+    });
+
     const CUSTOM_ACTIONS = {
         chatgptMenu: ({ shortcut, engine }) => {
             const spec = getChatgptMenuActionSpec(shortcut);
@@ -2261,6 +2389,20 @@
                 }
             }
         },
+        chatgptAspectRatio: ({ shortcut, engine }) => {
+            const spec = getChatgptAspectRatioActionSpec(shortcut);
+            if (!spec) return false;
+            const ctx = { engine };
+            const triggerEl = aspectRatioMenu.getTriggerElement(ctx);
+            const triggerId = String(triggerEl?.getAttribute?.("id") || "").trim();
+            if (!triggerEl || !triggerId) return false;
+            return aspectRatioMenu.oneStepClick(ctx, {
+                selector: spec.selector,
+                textMatch: spec.textMatch,
+                fallbackToFirst: spec.fallbackToFirst,
+                waitForItem: spec.waitForItem
+            });
+        },
         quickInput: ({ engine }) => {
             ensureQuickInputController(engine)?.toggle?.();
         }
@@ -2279,6 +2421,18 @@
     };
 
     const createShortcut = (overrides) => ({ ...baseShortcut, ...overrides });
+    const CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY = "chatgpt-aspect-square-1-1";
+
+    function createChatgptSquareAspectRatioShortcut() {
+        return createShortcut({
+            key: CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY,
+            name: "Square 1:1",
+            actionType: "custom",
+            customAction: "chatgptAspectRatio",
+            data: { aspectRatio: "1:1" },
+            hotkey: "CTRL+SHIFT+1"
+        });
+    }
 
     // ChatGPT 默认快捷键配置
     const defaultShortcuts = [
@@ -2347,6 +2501,7 @@
             data: { menu: "Create image" },
             hotkey: "CTRL+I"
         }),
+        createChatgptSquareAspectRatioShortcut(),
         createShortcut({
             name: "Deep research",
             actionType: "custom",
@@ -2415,46 +2570,8 @@
 
 	        // 自定义动作 data 编辑器适配：让用户直接输入关键词（无需 JSON）
 	        customActionDataAdapters: {
-	            chatgptMenu: {
-	                label: "菜单关键词（或粘贴 JSON，高级用法）:",
-	                placeholder: "例如: Web / Canvas / Thinking / Create image",
-	                format: (data) => {
-	                    const raw = (data && typeof data === "object" && !Array.isArray(data)) ? data : {};
-	                    const keys = Object.keys(raw);
-	                    if (keys.length === 0) return "";
-
-	                    const menu = raw.menu;
-	                    if (typeof menu === "string" && menu.trim()) return menu.trim();
-
-	                    if (menu && typeof menu === "object" && !Array.isArray(menu)) {
-	                        const menuKeys = Object.keys(menu);
-	                        const keyword = (typeof menu.keyword === "string" && menu.keyword.trim())
-	                            ? menu.keyword.trim()
-	                            : ((typeof menu.textMatch === "string" && menu.textMatch.trim()) ? menu.textMatch.trim() : "");
-	                        if (keyword && menuKeys.every(k => ["keyword", "textMatch"].includes(k))) return keyword;
-	                    }
-
-	                    if (keys.length === 1 && keys[0] === "textMatch" && typeof raw.textMatch === "string" && raw.textMatch.trim()) {
-	                        return raw.textMatch.trim();
-	                    }
-
-	                    try {
-	                        return JSON.stringify(raw, null, 2);
-	                    } catch {
-	                        return "";
-	                    }
-	                },
-	                parse: (text) => {
-	                    const trimmed = String(text ?? "").trim();
-	                    if (!trimmed) return {};
-	                    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-	                        const parsed = JSON.parse(trimmed);
-	                        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("data must be an object");
-	                        return parsed;
-	                    }
-	                    return { menu: trimmed };
-	                }
-	            }
+	            chatgptMenu: CHATGPT_MENU_DATA_ADAPTER,
+	            chatgptAspectRatio: CHATGPT_ASPECT_RATIO_DATA_ADAPTER
 	        },
 
 	        // 主题颜色 - 使用ChatGPT的主题色
@@ -2471,6 +2588,21 @@
         },
 
         // 其余参数保持默认（Template 内置：URL模版解析、中文文案、响应式断点等）
+    });
+
+    function ensureChatgptManagedShortcut(engineApi, { key, createShortcutItem } = {}) {
+        if (!engineApi || typeof createShortcutItem !== "function") return;
+        const shortcutKey = String(key || "").trim();
+        if (!shortcutKey) return;
+        const current = Array.isArray(engineApi.getShortcuts?.()) ? engineApi.getShortcuts() : [];
+        const exists = current.some(shortcut => String(shortcut?.key || "").trim() === shortcutKey);
+        if (exists) return;
+        engineApi.setShortcuts([...current, createShortcutItem()]);
+    }
+
+    ensureChatgptManagedShortcut(engine, {
+        key: CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY,
+        createShortcutItem: createChatgptSquareAspectRatioShortcut
     });
 
     // 初始化引擎
