@@ -430,6 +430,16 @@ async function startSite(runtime = {}) {
       if (!composerEl) return "";
       return String(composerEl.innerText || composerEl.textContent || "").replace(/\u200B/g, "").replace(/\r/g, "").trim();
     }
+    function normalizeChatGPTComposerText(value) {
+      return String(value ?? "").replace(/\u200B/g, "").replace(/\u00A0/g, " ").replace(/\r\n?/g, "\n").replace(/\n+$/g, "");
+    }
+    function getChatGPTComposerComparableText(composerEl) {
+      if (!composerEl) return "";
+      return normalizeChatGPTComposerText(composerEl.innerText || composerEl.textContent || "");
+    }
+    function isChatGPTComposerTextMatch(composerEl, expectedText) {
+      return getChatGPTComposerComparableText(composerEl) === normalizeChatGPTComposerText(expectedText);
+    }
     function selectAllChatGPTComposerContent(composerEl) {
       if (!composerEl || typeof document.createRange !== "function") return false;
       try {
@@ -463,12 +473,13 @@ async function startSite(runtime = {}) {
     }
     function dispatchChatGPTComposerInput(composerEl, { inputType = "insertText", data = null } = {}) {
       if (!composerEl) return false;
+      const eventData = typeof data === "string" && data.length > 4096 ? null : data;
       try {
         composerEl.dispatchEvent(new InputEvent("input", {
           bubbles: true,
           cancelable: true,
           inputType,
-          data
+          data: eventData
         }));
         return true;
       } catch {
@@ -527,12 +538,13 @@ async function startSite(runtime = {}) {
         composerEl.focus?.();
       } catch {
       }
-      moveChatGPTComposerCaretToEnd(composerEl);
+      if (!isChatGPTComposerTextMatch(composerEl, "")) selectAllChatGPTComposerContent(composerEl);
+      else moveChatGPTComposerCaretToEnd(composerEl);
       const fired = dispatchPasteEvent(composerEl, dt);
       if (fired) {
         dispatchChatGPTComposerInput(composerEl, { inputType: "insertFromPaste", data: plainText });
       }
-      return fired;
+      return fired && isChatGPTComposerTextMatch(composerEl, plainText);
     }
     function setChatGPTInputValue(composerEl, value) {
       const urlGuard = getChatGPTUrlGuardResult();
@@ -542,7 +554,7 @@ async function startSite(runtime = {}) {
       const text = String(value ?? "");
       if (composer.isContentEditable || composer.contentEditable === "true") {
         clearChatGPTInputValue(composer);
-        if (!text) return true;
+        if (!text) return isChatGPTComposerTextMatch(composer, "");
         try {
           composer.focus?.();
         } catch {
@@ -557,18 +569,20 @@ async function startSite(runtime = {}) {
             inserted = !!genericSetInputValue(composer, text);
           } catch {
           }
+          inserted = inserted || isChatGPTComposerTextMatch(composer, text);
         }
         if (!inserted) {
           try {
             selectAllChatGPTComposerContent(composer);
-            inserted = !!document.execCommand?.("insertText", false, text);
+            document.execCommand?.("insertText", false, text);
           } catch {
           }
+          inserted = isChatGPTComposerTextMatch(composer, text);
         }
         if (!inserted) {
           try {
             composer.textContent = text;
-            inserted = true;
+            inserted = isChatGPTComposerTextMatch(composer, text);
           } catch {
           }
         }
@@ -576,7 +590,7 @@ async function startSite(runtime = {}) {
           inputType: inserted ? "insertText" : "insertReplacementText",
           data: text
         });
-        return inserted || !!getChatGPTComposerPlainText(composer);
+        return inserted;
       }
       try {
         if (typeof genericSetInputValue === "function") {
@@ -602,40 +616,46 @@ async function startSite(runtime = {}) {
           TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true });
         } catch {
         }
-        let cleared = false;
-        try {
+        let cleared = isChatGPTComposerTextMatch(composer, "");
+        if (!cleared) try {
           if (selectAllChatGPTComposerContent(composer)) {
-            cleared = !!document.execCommand?.("delete", false, null);
-            if (!cleared) {
-              cleared = !!document.execCommand?.("insertText", false, "");
-            }
+            document.execCommand?.("delete", false, null);
           }
         } catch {
         }
+        cleared = isChatGPTComposerTextMatch(composer, "");
+        if (!cleared) try {
+          if (selectAllChatGPTComposerContent(composer)) {
+            document.execCommand?.("insertText", false, "");
+          }
+        } catch {
+        }
+        cleared = isChatGPTComposerTextMatch(composer, "");
         if (!cleared) {
           try {
             if (selectAllChatGPTComposerContent(composer)) {
               window.getSelection?.()?.deleteFromDocument?.();
-              cleared = true;
             }
           } catch {
           }
+          cleared = isChatGPTComposerTextMatch(composer, "");
         }
         if (!cleared && typeof genericClearInputValue === "function") {
           try {
             cleared = !!genericClearInputValue(composer);
           } catch {
           }
+          cleared = cleared || isChatGPTComposerTextMatch(composer, "");
         }
         if (!cleared) {
           try {
             composer.textContent = "";
-            cleared = true;
+            cleared = isChatGPTComposerTextMatch(composer, "");
           } catch {
           }
         }
         dispatchChatGPTComposerInput(composer, { inputType: "deleteContentBackward", data: null });
-        return cleared || !getChatGPTComposerPlainText(composer);
+        return cleared;
       }
       try {
         if (typeof genericClearInputValue === "function") {
