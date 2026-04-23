@@ -487,6 +487,9 @@ function renderUserscriptHeader(siteEntry) {
   for (const match of matches) {
     lines.push(formatMetadataLine("match", match));
   }
+  if (metadata.noframes === true) {
+    lines.push(formatMetadataLine("noframes", ""));
+  }
   lines.push("");
 
   if (metadata.injectInto) {
@@ -616,7 +619,8 @@ export async function build() {
       siteId: siteEntry.siteId,
       displayName: siteEntry.displayName,
       resourceNames: siteEntry.resourceNames,
-      bootstrapMenuCommands: siteEntry.bootstrapMenuCommands
+      bootstrapMenuCommands: siteEntry.bootstrapMenuCommands,
+      topLevelOnly: siteEntry?.metadata?.noframes === true
     }).trimEnd();
     const userscriptText = [
       headerText,
