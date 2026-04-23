@@ -177,17 +177,18 @@ export const SITE_MANIFEST = Object.freeze([
         sourceEntry: "src/sites/grok/index.js",
         userscriptOutput: "Site_JS/[Grok] 快捷键跳转 20250927.user.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260423] v1.0.0",
+            name: "[Grok] 快捷键跳转 [20260424] v1.0.1",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260423] v1.0.0",
-            updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            version: "[20260424] v1.0.1",
+            updateLog: "1.0.1: 新增 Grok 侧边栏后台保持显示，并在 viewport 宽度 <= 1024px 时自动抑制后台自动展开。",
             match: [
                 "https://grok.dairoot.cn/*",
                 "https://grok.com/*"
             ],
             grant: [
                 "GM_registerMenuCommand",
+                "GM_unregisterMenuCommand",
                 "GM_getValue",
                 "GM_setValue",
                 "GM_xmlhttpRequest"
