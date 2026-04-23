@@ -151,7 +151,7 @@
         const unregister = getUserscriptApi('GM_unregisterMenuCommand');
         const addValueChangeListener = getUserscriptApi('GM_addValueChangeListener');
         const removeValueChangeListener = getUserscriptApi('GM_removeValueChangeListener');
-        let settingsHandler = null;
+        const commandHandlers = new Map();
         const commands = new Map();
         const commandConfigs = new Map();
         const commandStateListenerIds = new Map();
@@ -333,16 +333,30 @@
             }
         }
 
+        function setCommandHandler(commandKey, handler) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return false;
+            if (typeof handler === 'function') {
+                commandHandlers.set(key, handler);
+                return true;
+            }
+            commandHandlers.delete(key);
+            return false;
+        }
+
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandConfig = commandConfigs.get(key) || null;
-            const hasDirectSettingsHandler = key === "settings" && typeof settingsHandler === 'function';
-            if (hasDirectSettingsHandler) {
+            const directHandler = commandHandlers.get(key) || null;
+            if (typeof directHandler === 'function') {
                 try {
-                    settingsHandler();
+                    directHandler();
+                    if (isStatefulCommand(commandConfig)) {
+                        refreshCommandLabel(key);
+                    }
                     return;
                 } catch (error) {
-                    console.error(`[${SITE_LABEL}] settings menu handler failed.`, error);
+                    console.error(`[${SITE_LABEL}] bootstrap menu handler failed for "${key}".`, error);
                 }
             }
             const commandId = createCommandId(key);
@@ -434,9 +448,9 @@
             unregisterCommand,
             consumePending,
             dispatchCommand,
+            setCommandHandler,
             setSettingsHandler(handler) {
-                settingsHandler = typeof handler === 'function' ? handler : null;
-                return settingsHandler !== null;
+                return setCommandHandler("settings", handler);
             },
             getSettingsCommandId() {
                 return commands.get("settings")?.commandId ?? null;
