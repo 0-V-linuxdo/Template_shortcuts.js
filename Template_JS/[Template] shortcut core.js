@@ -8309,6 +8309,8 @@ ${displayTargetText}`;
       loopMarker: (i, loopCount) => `—— 第 ${i}/${loopCount} 次 ——`,
       composerNotFound: "未找到输入框：请先点击一次输入框再运行。",
       textInserted: (ok) => ok ? "已输入文字。" : "输入文字失败。",
+      textRetrying: (stage, attempt = 1, maxAttempts = 1) => `文字校验失败${stage ? `（${stage}）` : ""}：准备自动重试 ${attempt}/${maxAttempts} 次。`,
+      textNotReady: (stage) => `文字未真正写入输入框${stage ? `（${stage}）` : ""}：自动补救后仍失败，已停止当前运行，避免发送空内容。`,
       hotkeyTriggered: (hotkey, ok) => ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}`,
       waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
       resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `图片就绪等待超时：当前识别到 ${currentCount} / ${expectedCount} 张，准备清空当前附件并整组重传（第 ${attempt}/${maxAttempts} 次）。`,
@@ -8675,6 +8677,14 @@ ${displayTargetText}`;
     if (!Number.isFinite(num)) return fallback;
     return Math.min(max, Math.max(min, num));
   }
+  function normalizeComposerText(value, { trimTrailingEditorNewlines = false } = {}) {
+    let text = String(value ?? "");
+    text = text.replace(/\r\n?/g, "\n").replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "");
+    if (trimTrailingEditorNewlines) {
+      text = text.replace(/\n+$/g, "");
+    }
+    return text;
+  }
   function normalizeHotkeyString2(raw) {
     return String(raw ?? "").trim().replace(/\s+/g, "");
   }
@@ -8819,6 +8829,27 @@ ${displayTargetText}`;
       }
     }
     return best;
+  }
+  function getComposerText(el) {
+    if (!el) return "";
+    const tag = (el.tagName || "").toUpperCase();
+    if (tag === "TEXTAREA" || tag === "INPUT") {
+      try {
+        return String(el.value ?? "");
+      } catch {
+      }
+    }
+    if (el.isContentEditable || el.contentEditable === "true") {
+      try {
+        return String(el.innerText || el.textContent || "");
+      } catch {
+      }
+    }
+    try {
+      return String(el.textContent || "");
+    } catch {
+      return "";
+    }
   }
   function setInputValue(el, value) {
     if (!el) return false;
@@ -10279,6 +10310,8 @@ ${displayTargetText}`;
       focusComposer: typeof rawAdapter.focusComposer === "function" ? rawAdapter.focusComposer : (opts) => focusComposer({ ...opts || {}, shouldIgnore: (el) => isInsideOverlay(el) }),
       setInputValue: typeof rawAdapter.setInputValue === "function" ? rawAdapter.setInputValue : setInputValue,
       clearComposerValue: typeof rawAdapter.clearComposerValue === "function" ? rawAdapter.clearComposerValue : clearInputValue,
+      getComposerText: typeof rawAdapter.getComposerText === "function" ? rawAdapter.getComposerText : getComposerText,
+      getTextObservationRoots: typeof rawAdapter.getTextObservationRoots === "function" ? rawAdapter.getTextObservationRoots : null,
       attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
       clearAttachments: typeof rawAdapter.clearAttachments === "function" ? rawAdapter.clearAttachments : null,
       waitForReadyToSend: typeof rawAdapter.waitForReadyToSend === "function" ? rawAdapter.waitForReadyToSend : null,
@@ -10439,6 +10472,84 @@ ${displayTargetText}`;
       }),
       now: runtimeTiming.now
     });
+    const TEXT_COMMIT_SETTLE_MS = 200;
+    const TEXT_COMMIT_POLL_MS = 120;
+    const TEXT_COMMIT_OBSERVED_ATTRIBUTES = Object.freeze([
+      "class",
+      "style",
+      "value",
+      "placeholder",
+      "data-state",
+      "aria-hidden",
+      "hidden"
+    ]);
+    function isComposerNodeConnected(node) {
+      if (!node) return false;
+      try {
+        if (typeof node.isConnected === "boolean") return node.isConnected;
+      } catch {
+      }
+      try {
+        return !!globalThis.document?.contains?.(node);
+      } catch {
+        return false;
+      }
+    }
+    function resolveComposerForTextRead(composerEl) {
+      if (composerEl && !isInsideOverlay(composerEl) && isComposerNodeConnected(composerEl) && isElementVisible(composerEl)) {
+        return composerEl;
+      }
+      const fallback = findComposerElement({ shouldIgnore: (el) => isInsideOverlay(el) });
+      return fallback || composerEl || null;
+    }
+    function readComposerTextForVerification(composerEl) {
+      const resolvedComposer = resolveComposerForTextRead(composerEl);
+      try {
+        return String(adapter.getComposerText?.(resolvedComposer) ?? "");
+      } catch {
+        return "";
+      }
+    }
+    function getTextObservationRootsForVerification(composerEl) {
+      const roots = [];
+      const seen = /* @__PURE__ */ new Set();
+      const resolvedComposer = resolveComposerForTextRead(composerEl);
+      const pushRoot = (node) => {
+        if (!node || seen.has(node)) return;
+        const nodeType = Number(node?.nodeType) || 0;
+        if (!(nodeType === 1 || nodeType === 9 || nodeType === 11)) return;
+        seen.add(node);
+        roots.push(node);
+      };
+      pushRoot(resolvedComposer);
+      try {
+        pushRoot(resolvedComposer?.parentElement || null);
+      } catch {
+      }
+      try {
+        pushRoot(resolvedComposer?.closest?.("form") || null);
+      } catch {
+      }
+      if (typeof adapter.getTextObservationRoots === "function") {
+        let customRoots = null;
+        try {
+          customRoots = adapter.getTextObservationRoots(resolvedComposer);
+        } catch {
+        }
+        for (const root of Array.isArray(customRoots) ? customRoots : [customRoots]) {
+          pushRoot(root);
+        }
+      }
+      pushRoot(globalThis.document?.body || globalThis.document || null);
+      return roots;
+    }
+    function getTextCommitTimeoutMs(text) {
+      const length = normalizeComposerText(text).length;
+      return Math.max(1500, Math.min(8e3, 800 + length * 2));
+    }
+    function normalizeTextCommitValue(text) {
+      return normalizeComposerText(text, { trimTrailingEditorNewlines: true });
+    }
     function appendRuntimeLog(text, options2 = {}) {
       if (!text) return;
       if (activeLoopLogBodyEl) {
@@ -12078,6 +12189,135 @@ ${displayTargetText}`;
         }
         return "";
       }
+      function buildTextCommitFailureDetail(stageLabel, state, expectedText) {
+        if (!state?.composer) {
+          return labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound;
+        }
+        const actualLength = String(state?.actualText || "").length;
+        const expectedLength = String(expectedText || "").length;
+        return `文字校验失败${stageLabel ? `（${stageLabel}）` : ""}：当前检测到 ${actualLength} / ${expectedLength} 个字符。`;
+      }
+      async function attemptSetPromptText(composerEl, text) {
+        try {
+          return await adapter.setInputValue(composerEl, text);
+        } catch {
+          return false;
+        }
+      }
+      async function attemptClearPromptText(composerEl) {
+        try {
+          return await adapter.clearComposerValue(composerEl);
+        } catch {
+          return false;
+        }
+      }
+      async function waitForPromptCommit(composerEl, prompt, { stageLabel = "" } = {}) {
+        const expectedText = normalizeTextCommitValue(prompt);
+        let composerRef = composerEl;
+        let lastState = null;
+        const computeState = () => {
+          const resolvedComposer = resolveComposerForTextRead(composerRef);
+          if (resolvedComposer) composerRef = resolvedComposer;
+          const actualText = normalizeTextCommitValue(readComposerTextForVerification(composerRef));
+          lastState = {
+            composer: composerRef,
+            actualText,
+            expectedText,
+            ok: actualText === expectedText,
+            stateKey: `${actualText.length}:${actualText === expectedText ? 1 : 0}`
+          };
+          return lastState;
+        };
+        const observed = await waitForObservedState({
+          resolveRoots: () => getTextObservationRootsForVerification(composerRef),
+          computeState,
+          isSatisfied: (state2) => !!state2?.ok,
+          timeoutMs: getTextCommitTimeoutMs(prompt),
+          settleMs: TEXT_COMMIT_SETTLE_MS,
+          pollFallbackMs: TEXT_COMMIT_POLL_MS,
+          attributeFilter: TEXT_COMMIT_OBSERVED_ATTRIBUTES,
+          shouldCancel,
+          runtime
+        });
+        const state = observed?.state || computeState();
+        if (observed?.cancelled) {
+          return {
+            ok: false,
+            cancelled: true,
+            composer: state?.composer || composerRef,
+            state,
+            expectedText
+          };
+        }
+        return {
+          ok: !!observed?.ok,
+          cancelled: false,
+          composer: state?.composer || composerRef,
+          state,
+          expectedText,
+          message: observed?.ok ? "" : buildTextCommitFailureDetail(stageLabel, state, expectedText)
+        };
+      }
+      async function ensurePromptCommitted(composerEl, prompt, {
+        stageLabel = "",
+        shouldInsertFirst = false,
+        successLog = "",
+        recoveryFocusTimeoutMs = 6e3
+      } = {}) {
+        let composerRef = composerEl;
+        if (shouldInsertFirst) {
+          await attemptSetPromptText(composerRef, prompt);
+        }
+        let verification = await waitForPromptCommit(composerRef, prompt, { stageLabel });
+        if (verification?.composer) composerRef = verification.composer;
+        if (verification?.cancelled) {
+          return { ok: false, cancelled: true, composer: composerRef };
+        }
+        if (verification?.ok) {
+          if (successLog) appendLoopLog(successLog, { level: "ok" });
+          return { ok: true, cancelled: false, composer: composerRef };
+        }
+        const retryMsg = labels.messages?.textRetrying ? labels.messages.textRetrying(stageLabel, 1, 1) : typeof DEFAULT_LABELS.messages.textRetrying === "function" ? DEFAULT_LABELS.messages.textRetrying(stageLabel, 1, 1) : DEFAULT_LABELS.messages.textRetrying;
+        if (retryMsg) appendLoopLog(retryMsg, { level: "warn" });
+        composerRef = await adapter.focusComposer({
+          timeoutMs: recoveryFocusTimeoutMs,
+          intervalMs: 120,
+          shouldCancel,
+          runtime
+        }) || composerRef;
+        if (!composerRef) {
+          return {
+            ok: false,
+            cancelled: !!cancelRun,
+            composer: composerEl,
+            message: labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound
+          };
+        }
+        await attemptClearPromptText(composerRef);
+        if (!await waitStep(60, 40)) {
+          return { ok: false, cancelled: true, composer: composerRef };
+        }
+        await attemptSetPromptText(composerRef, prompt);
+        verification = await waitForPromptCommit(composerRef, prompt, { stageLabel });
+        if (verification?.composer) composerRef = verification.composer;
+        if (verification?.cancelled) {
+          return { ok: false, cancelled: true, composer: composerRef };
+        }
+        if (verification?.ok) {
+          if (successLog) appendLoopLog(successLog, { level: "ok" });
+          return { ok: true, cancelled: false, composer: composerRef, recovered: true };
+        }
+        const notReadyMsg = labels.messages?.textNotReady ? labels.messages.textNotReady(stageLabel) : typeof DEFAULT_LABELS.messages.textNotReady === "function" ? DEFAULT_LABELS.messages.textNotReady(stageLabel) : DEFAULT_LABELS.messages.textNotReady;
+        if (notReadyMsg) appendLoopLog(notReadyMsg, { level: "error" });
+        const detail = String(verification?.message || "").trim();
+        if (detail) appendLoopLog(detail, { level: "error" });
+        return {
+          ok: false,
+          cancelled: false,
+          composer: composerRef,
+          message: notReadyMsg || detail
+        };
+      }
       function pickImagesForRepair(allImages, currentCount, missingCount) {
         const list = Array.isArray(allImages) ? allImages.filter(Boolean) : [];
         const need = Math.max(0, Math.min(list.length, Number(missingCount) || 0));
@@ -12246,7 +12486,7 @@ ${displayTargetText}`;
           if (focusedUrlReady === "cancelled") markRunCancelled();
           break;
         }
-        if (cfg.clearBeforeRun) adapter.clearComposerValue(composer);
+        if (cfg.clearBeforeRun) await attemptClearPromptText(composer);
         if (!await waitStep(cfg.stepDelayMs)) {
           markRunCancelled();
           break;
@@ -12287,9 +12527,22 @@ ${displayTargetText}`;
             if (beforeTextReady === "cancelled") markRunCancelled();
             break;
           }
-          const okText = adapter.setInputValue(composer, promptText);
-          const msg = labels.messages?.textInserted ? labels.messages.textInserted(okText) : DEFAULT_LABELS.messages.textInserted(okText);
-          appendLoopLog(msg, { level: okText ? "ok" : "error" });
+          const textInsertedMsg = labels.messages?.textInserted ? labels.messages.textInserted(true) : DEFAULT_LABELS.messages.textInserted(true);
+          const textCommitResult = await ensurePromptCommitted(composer, promptText, {
+            stageLabel: "文字输入后",
+            shouldInsertFirst: true,
+            successLog: textInsertedMsg
+          });
+          if (textCommitResult?.composer) composer = textCommitResult.composer;
+          if (textCommitResult?.cancelled) {
+            markRunCancelled();
+            break;
+          }
+          if (!textCommitResult?.ok) {
+            markRunFailed();
+            cancelRun = true;
+            break;
+          }
           if (!await waitStep(cfg.stepDelayMs)) {
             markRunCancelled();
             break;
@@ -12339,6 +12592,21 @@ ${displayTargetText}`;
         if (beforeSendReady !== true) {
           if (beforeSendReady === "cancelled") markRunCancelled();
           break;
+        }
+        if (promptText.trim()) {
+          const textCommitResult = await ensurePromptCommitted(composer, promptText, {
+            stageLabel: "发送前"
+          });
+          if (textCommitResult?.composer) composer = textCommitResult.composer;
+          if (textCommitResult?.cancelled) {
+            markRunCancelled();
+            break;
+          }
+          if (!textCommitResult?.ok) {
+            markRunFailed();
+            cancelRun = true;
+            break;
+          }
         }
         const okSend = await adapter.sendMessage(composer);
         const sendCompletedAtMs = runtime.now();
@@ -12784,12 +13052,14 @@ ${displayTargetText}`;
     }),
     dom: Object.freeze({
       clampInt: clampInt2,
+      normalizeComposerText,
       normalizeHotkeyString: normalizeHotkeyString2,
       normalizeHotkeyFallback: normalizeHotkeyFallback2,
       getKeyEventProps,
       simulateKeystroke,
       isElementVisible,
       pickBestComposerCandidate,
+      getComposerText,
       findComposerElement,
       focusComposer,
       setInputValue,
