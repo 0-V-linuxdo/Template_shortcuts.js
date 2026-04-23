@@ -10358,7 +10358,11 @@ ${displayTargetText}`;
     let overlayRootEl = null;
     let backdropEl = null;
     let panelEl = null;
+    let headerEl = null;
     let logEl = null;
+    let inputBodyEl = null;
+    let inputActionsEl = null;
+    let logActionsEl = null;
     let runConfigGroupEl = null;
     let activeLoopLogGroupEl = null;
     let activeLoopLogBodyEl = null;
@@ -10990,13 +10994,37 @@ ${displayTargetText}`;
       if (!Number.isFinite(max) || max <= 0) return Math.round(num);
       return Math.round(Math.min(num, max));
     }
+    function measureElementHeightPx(el) {
+      const value = Number(el?.offsetHeight);
+      if (!Number.isFinite(value) || value <= 0) return 0;
+      return Math.round(value);
+    }
+    function measureScrollableElementHeightPx(el) {
+      const value = Number(el?.scrollHeight);
+      if (!Number.isFinite(value) || value <= 0) return 0;
+      return Math.round(value);
+    }
+    function getActiveTabDesiredHeightPx() {
+      const headerHeight = measureElementHeightPx(headerEl);
+      const panelBorderHeight = Math.max(0, Math.round((Number(panelEl?.offsetHeight) || 0) - (Number(panelEl?.clientHeight) || 0)));
+      if (activeTab === "log") {
+        const logHeight = measureScrollableElementHeightPx(logEl);
+        const actionsHeight2 = measureElementHeightPx(logActionsEl);
+        return headerHeight + logHeight + actionsHeight2 + panelBorderHeight;
+      }
+      const bodyHeight = measureScrollableElementHeightPx(inputBodyEl);
+      const actionsHeight = measureElementHeightPx(inputActionsEl);
+      return headerHeight + bodyHeight + actionsHeight + panelBorderHeight;
+    }
     function syncPanelHeight() {
       if (!panelEl) return;
       const maxHeight = getPanelMaxHeightPx();
       if (maxHeight > 0) {
         panelEl.style.maxHeight = `${maxHeight}px`;
       }
-      const next = clampPanelHeightPx(panelEl.scrollHeight);
+      const desiredHeight = getActiveTabDesiredHeightPx();
+      const fallbackHeight = Number(panelEl.scrollHeight);
+      const next = clampPanelHeightPx(desiredHeight || fallbackHeight);
       if (!next) return;
       panelEl.style.height = `${next}px`;
     }
@@ -11133,30 +11161,30 @@ ${displayTargetText}`;
       const detailText = String(detail ?? "").trim();
       const useCollapsible = !!(collapsible && detailText);
       const lineEl = globalThis.document?.createElement?.("div");
-      const headerEl = globalThis.document?.createElement?.(useCollapsible ? "button" : "div");
+      const headerEl2 = globalThis.document?.createElement?.(useCollapsible ? "button" : "div");
       const timeEl = globalThis.document?.createElement?.("span");
       const dividerEl = globalThis.document?.createElement?.("span");
       const messageEl = globalThis.document?.createElement?.("span");
-      if (!lineEl || !headerEl || !timeEl || !dividerEl || !messageEl) return null;
+      if (!lineEl || !headerEl2 || !timeEl || !dividerEl || !messageEl) return null;
       const normalized = normalizeLogStatus(level);
       lineEl.className = `qi-log-status-card qi-log-status-${normalized}`;
       if (useCollapsible) {
         lineEl.classList.add("qi-log-status-collapsible");
         try {
-          headerEl.type = "button";
-          headerEl.setAttribute("aria-expanded", open2 ? "true" : "false");
+          headerEl2.type = "button";
+          headerEl2.setAttribute("aria-expanded", open2 ? "true" : "false");
         } catch {
         }
       }
-      headerEl.className = useCollapsible ? "qi-log-status-summary" : "qi-log-status-header";
+      headerEl2.className = useCollapsible ? "qi-log-status-summary" : "qi-log-status-header";
       timeEl.className = "qi-log-status-time";
       timeEl.textContent = `[${time}]`;
       dividerEl.className = "qi-log-status-divider";
       messageEl.className = "qi-log-status-divider-label";
       messageEl.textContent = String(text ?? "");
       dividerEl.appendChild(messageEl);
-      headerEl.appendChild(timeEl);
-      headerEl.appendChild(dividerEl);
+      headerEl2.appendChild(timeEl);
+      headerEl2.appendChild(dividerEl);
       if (useCollapsible) {
         const bodyEl = globalThis.document?.createElement?.("div");
         const detailEl = globalThis.document?.createElement?.("div");
@@ -11165,12 +11193,12 @@ ${displayTargetText}`;
         detailEl.className = "qi-log-status-detail";
         detailEl.textContent = detailText;
         bodyEl.appendChild(detailEl);
-        lineEl.appendChild(headerEl);
+        lineEl.appendChild(headerEl2);
         lineEl.appendChild(bodyEl);
-        initCollapsibleRoot(lineEl, headerEl, bodyEl, { open: open2 });
+        initCollapsibleRoot(lineEl, headerEl2, bodyEl, { open: open2 });
         return lineEl;
       }
-      lineEl.appendChild(headerEl);
+      lineEl.appendChild(headerEl2);
       if (detailText) {
         const bodyEl = globalThis.document?.createElement?.("div");
         const detailEl = globalThis.document?.createElement?.("div");
@@ -12832,9 +12860,9 @@ ${displayTargetText}`;
       panelEl = globalThis.document.createElement("div");
       panelEl.className = "qi-panel";
       panelEl.addEventListener("click", (e) => e.stopPropagation());
-      const header = globalThis.document.createElement("div");
-      header.className = "qi-header";
-      header.addEventListener("pointerdown", onHeaderPointerDown);
+      headerEl = globalThis.document.createElement("div");
+      headerEl.className = "qi-header";
+      headerEl.addEventListener("pointerdown", onHeaderPointerDown);
       const title = globalThis.document.createElement("div");
       title.className = "qi-title";
       title.textContent = titleText;
@@ -12845,8 +12873,8 @@ ${displayTargetText}`;
       closeBtn.title = labels.aria?.close || DEFAULT_LABELS.aria.close;
       closeBtn.setAttribute("aria-label", labels.aria?.close || DEFAULT_LABELS.aria.close);
       closeBtn.addEventListener("click", () => close());
-      header.appendChild(title);
-      header.appendChild(closeBtn);
+      headerEl.appendChild(title);
+      headerEl.appendChild(closeBtn);
       const tabs = globalThis.document.createElement("div");
       tabs.className = "qi-tabs";
       const tabInputBtn = globalThis.document.createElement("button");
@@ -12861,14 +12889,14 @@ ${displayTargetText}`;
       tabLogBtn.setAttribute("data-active", "0");
       tabs.appendChild(tabInputBtn);
       tabs.appendChild(tabLogBtn);
-      header.insertBefore(tabs, closeBtn);
+      headerEl.insertBefore(tabs, closeBtn);
       const content = globalThis.document.createElement("div");
       content.className = "qi-content";
       const inputPanel = globalThis.document.createElement("div");
       inputPanel.className = "qi-tab-panel";
       inputPanel.setAttribute("data-active", "1");
-      const body = globalThis.document.createElement("div");
-      body.className = "qi-body";
+      inputBodyEl = globalThis.document.createElement("div");
+      inputBodyEl.className = "qi-body";
       const imageRow = globalThis.document.createElement("div");
       imageRow.className = "qi-row";
       const imageLabelStack = globalThis.document.createElement("div");
@@ -13091,25 +13119,25 @@ ${displayTargetText}`;
       const hint = globalThis.document.createElement("div");
       hint.className = "qi-hint";
       hint.textContent = labels.hints?.flow || DEFAULT_LABELS.hints.flow;
-      body.appendChild(imageRow);
-      body.appendChild(textRow);
-      body.appendChild(hotkeyRow);
-      body.appendChild(loopRow);
-      body.appendChild(newChatRow);
-      body.appendChild(delayRow);
-      body.appendChild(optionsRow);
-      body.appendChild(hint);
-      const inputActions = createPlayerActionsBar();
-      inputPanel.appendChild(body);
-      inputPanel.appendChild(inputActions);
+      inputBodyEl.appendChild(imageRow);
+      inputBodyEl.appendChild(textRow);
+      inputBodyEl.appendChild(hotkeyRow);
+      inputBodyEl.appendChild(loopRow);
+      inputBodyEl.appendChild(newChatRow);
+      inputBodyEl.appendChild(delayRow);
+      inputBodyEl.appendChild(optionsRow);
+      inputBodyEl.appendChild(hint);
+      inputActionsEl = createPlayerActionsBar();
+      inputPanel.appendChild(inputBodyEl);
+      inputPanel.appendChild(inputActionsEl);
       const logPanel = globalThis.document.createElement("div");
       logPanel.className = "qi-tab-panel";
       logPanel.setAttribute("data-active", "0");
       logEl = globalThis.document.createElement("div");
       logEl.className = "qi-log";
-      const logActions = createPlayerActionsBar();
+      logActionsEl = createPlayerActionsBar();
       logPanel.appendChild(logEl);
-      logPanel.appendChild(logActions);
+      logPanel.appendChild(logActionsEl);
       content.appendChild(inputPanel);
       content.appendChild(logPanel);
       activeTab = "input";
@@ -13126,7 +13154,7 @@ ${displayTargetText}`;
       };
       tabInputBtn.addEventListener("click", () => setActiveTab?.("input"));
       tabLogBtn.addEventListener("click", () => setActiveTab?.("log"));
-      panelEl.appendChild(header);
+      panelEl.appendChild(headerEl);
       panelEl.appendChild(content);
       backdropEl.appendChild(panelEl);
       overlayRootEl.appendChild(backdropEl);
