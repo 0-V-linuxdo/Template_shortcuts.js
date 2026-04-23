@@ -52,15 +52,27 @@
     // ChatGPT 元素选择器
     const SELECTORS = {
         composerPlusBtn: "button[data-testid='composer-plus-btn']",
+        popupMenuRoot: "div[role='menu'][data-radix-menu-content]",
         aspectRatioBtn: 'button[aria-label="Choose image aspect ratio"]',
         aspectRatioBtnFallback: 'button.composer-btn[aria-haspopup="menu"], button[aria-haspopup="menu"]',
         aspectRatioMenuRoot: "div[role='menu'][data-radix-menu-content]",
         aspectRatioMenuItem: "[role='menuitemradio']",
-        moreSubmenuItem: "div[role='menuitem']",
-        popupMenuItem: "[role='menuitem'], [role='menuitemradio']"
+        moreSubmenuItem: "div[role='menuitem'][data-has-submenu]",
+        popupMenuItem: "[role='menuitem'], [role='menuitemradio']",
+        composerModeBtn: "button.__composer-pill[aria-haspopup='menu'], [data-testid='composer-footer-actions'] button[aria-haspopup='menu']",
+        composerModeMenuRoot: "div[role='menu'][data-radix-menu-content]",
+        composerModeMenuItem: "[role='menuitem'], [role='menuitemradio']"
     };
 
     const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
+
+    function normalizeChatgptUiText(value) {
+        return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+    }
+
+    function isMoreMenuLabel(rawText) {
+        return normalizeChatgptUiText(rawText) === "more";
+    }
 
     // ===== ChatGPT 特有功能模块开始：1step Canvas / Web =====
 
@@ -78,9 +90,8 @@
             ]
         },
         root: {
-            type: "ariaControls",
-            requireRole: "menu",
-            requireDataState: "open"
+            type: "ariaLabelledBy",
+            selector: SELECTORS.popupMenuRoot
         },
         timing: {
             openDelayMs: 250,
@@ -92,8 +103,8 @@
                     searchRoot: "parentRoot",
                     action: "hover",
                     candidates: [
-                        { selector: "div[role='menuitem'][data-has-submenu]" },
-                        { selector: SELECTORS.moreSubmenuItem, textMatch: "More" }
+                        { selector: SELECTORS.moreSubmenuItem, textMatch: isMoreMenuLabel, pick: "last" },
+                        { selector: "div[role='menuitem']", textMatch: isMoreMenuLabel, pick: "last" }
                     ]
                 },
                 root: {
@@ -2237,16 +2248,13 @@
     const chatgptEventUtils = TemplateUtils?.events || {};
     const normalizeAspectRatioText = typeof chatgptDomUtils.normalizeText === "function"
         ? chatgptDomUtils.normalizeText
-        : (value) => String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+        : normalizeChatgptUiText;
     const safeQueryAll = typeof chatgptDomUtils.safeQuerySelectorAll === "function"
         ? chatgptDomUtils.safeQuerySelectorAll
         : (root, selector) => {
             const base = root && typeof root.querySelectorAll === "function" ? root : document;
             try { return Array.from(base.querySelectorAll(selector)); } catch { return []; }
         };
-    const findFirstMatch = typeof chatgptDomUtils.findFirst === "function"
-        ? chatgptDomUtils.findFirst
-        : null;
     const isVisibleElement = typeof chatgptDomUtils.isVisible === "function"
         ? chatgptDomUtils.isVisible
         : (element) => {
@@ -2276,15 +2284,18 @@
     const ASPECT_RATIO_VALUE_REGEX = /\b(?:1:1|3:4|4:3|9:16|16:9)\b/i;
     const ASPECT_RATIO_LABEL_REGEX = /choose image aspect ratio/i;
     const ASPECT_RATIO_MENU_HINT_REGEX = /\b(?:square|portrait|story|landscape|widescreen|auto)\b/i;
+    const COMPOSER_MODE_TRIGGER_HINT_REGEX = /\b(?:thinking|extended)\b/i;
 
     function getAspectRatioComparableText(value) {
         return normalizeAspectRatioText(String(value || ""));
     }
 
-    function getAspectRatioElementText(element) {
+    function getChatgptUiElementText(element) {
         if (!element) return "";
         const ariaLabel = element.getAttribute?.("aria-label");
         if (ariaLabel && String(ariaLabel).trim()) return String(ariaLabel);
+        const title = element.getAttribute?.("title");
+        if (title && String(title).trim()) return String(title);
         try {
             return String(element.textContent || "");
         } catch {
@@ -2292,9 +2303,48 @@
         }
     }
 
+    function chatgptMenuTextMatches(rawText, matcher, element = null) {
+        if (matcher == null) return true;
+        if (typeof matcher === "function") {
+            try {
+                return !!matcher(rawText, element);
+            } catch {
+                return false;
+            }
+        }
+        if (matcher instanceof RegExp) {
+            try {
+                return matcher.test(String(rawText || ""));
+            } catch {
+                return false;
+            }
+        }
+        if (Array.isArray(matcher)) {
+            return matcher.some(item => chatgptMenuTextMatches(rawText, item, element));
+        }
+        const text = getAspectRatioComparableText(rawText);
+        const target = getAspectRatioComparableText(matcher);
+        return target ? text.includes(target) : true;
+    }
+
+    function findVisibleMenuItem(root, selector, {
+        textMatch = null,
+        fallbackToFirst = false
+    } = {}) {
+        const items = safeQueryAll(root, selector).filter(isVisibleElement);
+        if (items.length === 0) return null;
+        if (!textMatch) return items[0] || null;
+        for (const item of items) {
+            if (chatgptMenuTextMatches(getChatgptUiElementText(item), textMatch, item)) {
+                return item;
+            }
+        }
+        return fallbackToFirst ? (items[0] || null) : null;
+    }
+
     function scoreAspectRatioTriggerCandidate(element) {
         if (!element || !isVisibleElement(element)) return -1;
-        const rawText = getAspectRatioElementText(element);
+        const rawText = getChatgptUiElementText(element);
         const text = getAspectRatioComparableText(rawText);
         if (ASPECT_RATIO_LABEL_REGEX.test(rawText)) return 300;
         if (ASPECT_RATIO_LABEL_REGEX.test(text)) return 280;
@@ -2335,14 +2385,14 @@
 
     function isAspectRatioMenuCandidate(menuElement) {
         if (!menuElement || !isVisibleElement(menuElement)) return false;
-        const menuText = getAspectRatioComparableText(getAspectRatioElementText(menuElement));
+        const menuText = getAspectRatioComparableText(getChatgptUiElementText(menuElement));
         if (ASPECT_RATIO_LABEL_REGEX.test(menuText)) return true;
 
         const items = safeQueryAll(menuElement, SELECTORS.aspectRatioMenuItem);
         if (items.length === 0) return false;
         let hits = 0;
         for (const item of items) {
-            const label = getAspectRatioElementText(item);
+            const label = getChatgptUiElementText(item);
             if (!label) continue;
             if (
                 ASPECT_RATIO_VALUE_REGEX.test(label) ||
@@ -2407,13 +2457,143 @@
         const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
         do {
             const menuRoot = findAspectRatioMenuRoot(triggerEl);
-            if (menuRoot && typeof findFirstMatch === "function") {
-                const target = findFirstMatch(menuRoot, selector, { textMatch, fallbackToFirst });
+            if (menuRoot) {
+                const target = findVisibleMenuItem(menuRoot, selector, { textMatch, fallbackToFirst });
                 if (target) {
                     return !!simulateClickElement(target, { nativeFallback: true });
                 }
             }
 
+            if (!waitForItem || Date.now() >= deadline) break;
+            await sleepMenuStep(intervalMs);
+        } while (true);
+
+        return false;
+    }
+
+    function isComposerModeRequest(textMatch) {
+        return chatgptMenuTextMatches("thinking", textMatch) || chatgptMenuTextMatches("extended", textMatch);
+    }
+
+    function scoreComposerModeTriggerCandidate(element, { preferredTextMatch = null } = {}) {
+        if (!element || !isVisibleElement(element)) return -1;
+        if (element.matches?.(SELECTORS.composerPlusBtn)) return -1;
+        if (element.matches?.(SELECTORS.aspectRatioBtn)) return -1;
+
+        const rawText = getChatgptUiElementText(element);
+        const normalizedText = getAspectRatioComparableText(rawText);
+        const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+        if (!rawText && !ariaLabel) return -1;
+        if (ASPECT_RATIO_LABEL_REGEX.test(rawText) || ASPECT_RATIO_VALUE_REGEX.test(rawText)) return -1;
+
+        let score = 0;
+        if (COMPOSER_MODE_TRIGGER_HINT_REGEX.test(rawText) || COMPOSER_MODE_TRIGGER_HINT_REGEX.test(normalizedText)) score += 240;
+        if (/\bmode\b/i.test(ariaLabel)) score += 180;
+        if (String(element.className || "").includes("__composer-pill")) score += 120;
+        if (preferredTextMatch && chatgptMenuTextMatches(rawText, preferredTextMatch, element)) score += 80;
+        if (normalizedText) score += 20;
+        return score > 0 ? score : -1;
+    }
+
+    function findComposerModeTriggerElement(textMatch = null) {
+        const seen = new Set();
+        const candidates = [];
+        for (const element of safeQueryAll(document, SELECTORS.composerModeBtn)) {
+            if (!element || seen.has(element)) continue;
+            seen.add(element);
+            const score = scoreComposerModeTriggerCandidate(element, { preferredTextMatch: textMatch });
+            if (score < 0) continue;
+            let bottom = 0;
+            try { bottom = Number(element.getBoundingClientRect?.().bottom || 0); } catch {}
+            candidates.push({ element, score, bottom });
+        }
+        candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.bottom - a.bottom;
+        });
+        return candidates[0]?.element || null;
+    }
+
+    function isComposerModeMenuCandidate(menuElement, { textMatch = null } = {}) {
+        if (!menuElement || !isVisibleElement(menuElement)) return false;
+        const items = safeQueryAll(menuElement, SELECTORS.composerModeMenuItem).filter(isVisibleElement);
+        if (items.length === 0) return false;
+        if (textMatch && items.some(item => chatgptMenuTextMatches(getChatgptUiElementText(item), textMatch, item))) {
+            return true;
+        }
+        const menuText = getAspectRatioComparableText(getChatgptUiElementText(menuElement));
+        if (COMPOSER_MODE_TRIGGER_HINT_REGEX.test(menuText)) return true;
+        return items.some(item => COMPOSER_MODE_TRIGGER_HINT_REGEX.test(getChatgptUiElementText(item)));
+    }
+
+    function findComposerModeMenuRoot(triggerEl = null, { textMatch = null } = {}) {
+        if (triggerEl) {
+            const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+            if (controlsId) {
+                const controlledMenu = document.getElementById(controlsId);
+                if (isComposerModeMenuCandidate(controlledMenu, { textMatch })) return controlledMenu;
+            }
+
+            const triggerId = String(triggerEl.getAttribute?.("id") || "").trim();
+            if (triggerId) {
+                const selector = `${SELECTORS.composerModeMenuRoot}[aria-labelledby="${escapeAttributeSelector(triggerId)}"]`;
+                const labelledMenu = document.querySelector(selector);
+                if (isComposerModeMenuCandidate(labelledMenu, { textMatch })) return labelledMenu;
+            }
+        }
+
+        const visibleMenus = safeQueryAll(document, SELECTORS.composerModeMenuRoot)
+            .filter(menu => isComposerModeMenuCandidate(menu, { textMatch }));
+        if (visibleMenus.length === 0) return null;
+        visibleMenus.sort((a, b) => {
+            const aBottom = Number(a.getBoundingClientRect?.().bottom || 0);
+            const bBottom = Number(b.getBoundingClientRect?.().bottom || 0);
+            return bBottom - aBottom;
+        });
+        return visibleMenus[0] || null;
+    }
+
+    async function ensureComposerModeMenuOpen(triggerEl, {
+        textMatch = null,
+        timeoutMs = 2500,
+        intervalMs = 120
+    } = {}) {
+        if (!triggerEl) return null;
+        const existing = findComposerModeMenuRoot(triggerEl, { textMatch });
+        if (existing) return existing;
+        if (!simulateClickElement(triggerEl, { nativeFallback: true })) return null;
+
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() < deadline) {
+            const menuRoot = findComposerModeMenuRoot(triggerEl, { textMatch });
+            if (menuRoot) return menuRoot;
+            await sleepMenuStep(intervalMs);
+        }
+        return findComposerModeMenuRoot(triggerEl, { textMatch });
+    }
+
+    async function clickComposerModeMenuItem({
+        selector = SELECTORS.composerModeMenuItem,
+        textMatch,
+        fallbackToFirst = false,
+        waitForItem = true,
+        timeoutMs = 2500,
+        intervalMs = 120
+    } = {}) {
+        const triggerEl = findComposerModeTriggerElement(textMatch);
+        const existingMenuRoot = findComposerModeMenuRoot(triggerEl, { textMatch });
+        if (!triggerEl && !existingMenuRoot) return false;
+
+        const menuRoot = existingMenuRoot || await ensureComposerModeMenuOpen(triggerEl, { textMatch, timeoutMs, intervalMs });
+        if (!menuRoot) return false;
+
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        do {
+            const currentRoot = findComposerModeMenuRoot(triggerEl, { textMatch }) || menuRoot;
+            const target = currentRoot
+                ? findVisibleMenuItem(currentRoot, selector, { textMatch, fallbackToFirst })
+                : null;
+            if (target && simulateClickElement(target, { nativeFallback: true })) return true;
             if (!waitForItem || Date.now() >= deadline) break;
             await sleepMenuStep(intervalMs);
         } while (true);
@@ -2439,6 +2619,7 @@
         const action = normalizeMenuAction(menu.action);
         const allowFirstItem = !!menu.allowFirstItem;
         let textMatch = (menu.keyword !== undefined) ? menu.keyword : menu.textMatch;
+        const preferModeMenu = !!menu.preferModeMenu;
 
         const openSubmenus = [];
         const searchSubmenus = menu.searchSubmenus;
@@ -2485,7 +2666,8 @@
             openSubmenus: normalizedOpenSubmenus,
             fallbackToFirst,
             waitForItem,
-            submenuKey
+            submenuKey,
+            preferModeMenu
         };
     }
 
@@ -2534,9 +2716,10 @@
     });
 
     const CUSTOM_ACTIONS = {
-        chatgptMenu: ({ shortcut, engine }) => {
+        chatgptMenu: async ({ shortcut, engine }) => {
             const spec = getChatgptMenuActionSpec(shortcut);
             if (!spec) return false;
+            const shouldTryModeMenu = spec.preferModeMenu || isComposerModeRequest(spec.textMatch);
             switch (spec.action) {
                 case "open": {
                     return popupMenu.ensureOpen({ engine });
@@ -2545,12 +2728,30 @@
                     return popupMenu.ensureSubmenuOpen({ engine }, spec.submenuKey);
                 }
                 case "click": {
+                    if (shouldTryModeMenu) {
+                        const modeClicked = await clickComposerModeMenuItem({
+                            selector: spec.selector,
+                            textMatch: spec.textMatch,
+                            fallbackToFirst: spec.fallbackToFirst,
+                            waitForItem: spec.waitForItem
+                        });
+                        if (modeClicked) return true;
+                    }
                     return popupMenu.clickInOpenMenus(
                         { engine },
                         { selector: spec.selector, textMatch: spec.textMatch, fallbackToFirst: spec.fallbackToFirst, waitForItem: spec.waitForItem }
                     );
                 }
                 default: {
+                    if (shouldTryModeMenu) {
+                        const modeClicked = await clickComposerModeMenuItem({
+                            selector: spec.selector,
+                            textMatch: spec.textMatch,
+                            fallbackToFirst: spec.fallbackToFirst,
+                            waitForItem: spec.waitForItem
+                        });
+                        if (modeClicked) return true;
+                    }
                     return popupMenu.oneStepClick(
                         { engine },
                         {
