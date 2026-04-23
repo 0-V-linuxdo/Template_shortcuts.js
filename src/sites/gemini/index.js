@@ -2637,7 +2637,7 @@
         conversationMenu: conversationMenuAction,
         modelPicker: modelPickerAction,
         quickInput: ({ engine }) => {
-            ensureQuickInputController(engine)?.open?.();
+            ensureQuickInputController(engine)?.toggle?.();
         }
     };
 

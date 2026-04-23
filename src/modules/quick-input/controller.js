@@ -3266,6 +3266,10 @@ export function createController(userOptions = {}) {
                 try { if (activeTab === "input") imageDropEl?.focus?.(); } catch {}
             }
 
+            function isOpen() {
+                return !!overlayEl && overlayEl.getAttribute("data-open") === "1";
+            }
+
             function close() {
                 if (!overlayEl) return;
                 if (dragPointerId !== null && dragMoved && panelEl) {
@@ -3280,5 +3284,13 @@ export function createController(userOptions = {}) {
                 setOverlayVisibility(false);
             }
 
-            return Object.freeze({ open, close });
+            function toggle() {
+                if (isOpen()) {
+                    close();
+                    return;
+                }
+                open();
+            }
+
+            return Object.freeze({ open, close, isOpen, toggle });
 }

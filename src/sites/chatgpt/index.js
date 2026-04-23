@@ -2262,7 +2262,7 @@
             }
         },
         quickInput: ({ engine }) => {
-            ensureQuickInputController(engine)?.open?.();
+            ensureQuickInputController(engine)?.toggle?.();
         }
     };
     // ===== ChatGPT 特有功能模块结束 =====
