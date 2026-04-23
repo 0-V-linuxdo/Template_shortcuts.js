@@ -51,47 +51,11 @@
     const BOOTSTRAP_MENU_COMMANDS = Object.freeze([]);
     const MENU_MESSAGE_SOURCE = "template-shortcuts-userscript";
     const MENU_PENDING_VALUE_KEY = "__templateShortcutsMenuPendingValue::linux-do";
-    const MENU_PAGE_TOKEN_STORAGE_KEY = "__templateShortcutsMenuPageToken::linux-do";
-    const MENU_PAGE_TOKEN = resolveMenuPageToken();
+    const MENU_PAGE_TOKEN = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
     const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
 
     function getGlobalScope() {
         return typeof globalThis !== 'undefined' ? globalThis : null;
-    }
-
-    function createRuntimeToken() {
-        return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-    }
-
-    function getSessionStorageSafe() {
-        const scope = getGlobalScope();
-        try {
-            return scope?.sessionStorage || null;
-        } catch {
-            return null;
-        }
-    }
-
-    // Menu callbacks may run in a fresh userscript instance, so route by a
-    // tab-stable sessionStorage token instead of a per-instance token.
-    function resolveMenuPageToken() {
-        const storage = getSessionStorageSafe();
-        if (storage && MENU_PAGE_TOKEN_STORAGE_KEY) {
-            try {
-                const existing = String(storage.getItem(MENU_PAGE_TOKEN_STORAGE_KEY) || '').trim();
-                if (existing) return existing;
-            } catch {}
-        }
-
-        const token = createRuntimeToken();
-        if (storage && MENU_PAGE_TOKEN_STORAGE_KEY) {
-            try {
-                storage.setItem(MENU_PAGE_TOKEN_STORAGE_KEY, token);
-                const persisted = String(storage.getItem(MENU_PAGE_TOKEN_STORAGE_KEY) || '').trim();
-                if (persisted) return persisted;
-            } catch {}
-        }
-        return token;
     }
 
     function getDirectUserscriptApi(name) {
