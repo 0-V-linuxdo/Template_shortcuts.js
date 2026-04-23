@@ -9968,20 +9968,21 @@ ${displayTargetText}`;
                     color: var(--qi-text);
                     overflow-x: hidden;
                     overflow-y: auto;
-                    flex: 1 1 0;
+                    flex: 1 1 auto;
                     min-height: 0;
-                    height: 0;
                     white-space: pre-wrap;
                     line-height: 1.35;
-                    display: grid;
-                    align-content: start;
-                    gap: 6px;
+                    display: block;
                     scrollbar-gutter: stable both-edges;
                     scrollbar-width: thin;
                     scrollbar-color: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border)) transparent;
                 }
                 ${hostSelector} .qi-log > * {
+                    display: block;
                     min-width: 0;
+                }
+                ${hostSelector} .qi-log > * + * {
+                    margin-top: 6px;
                 }
                 ${hostSelector} .qi-log::-webkit-scrollbar {
                     width: 8px;
@@ -10046,10 +10047,14 @@ ${displayTargetText}`;
                     display: flex;
                     align-items: center;
                     gap: 10px;
+                    width: 100%;
+                    border: 0;
+                    background: transparent;
                     padding: 9px 16px;
                     cursor: pointer;
-                    list-style: none;
+                    text-align: left;
                     font-weight: 650;
+                    line-height: 1.35;
                     color: var(--qi-text-strong);
                     user-select: none;
                     -webkit-user-select: none;
@@ -10069,9 +10074,6 @@ ${displayTargetText}`;
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-warn .qi-log-group-summary {
                     color: var(--qi-warn);
-                }
-                ${hostSelector} .qi-log-group-summary::-webkit-details-marker {
-                    display: none;
                 }
                 ${hostSelector} .qi-log-group-summary:hover {
                     background: var(--qi-hover);
@@ -10121,23 +10123,26 @@ ${displayTargetText}`;
                     overflow: hidden;
                     text-overflow: ellipsis;
                 }
-                ${hostSelector} .qi-log-group[open] .qi-log-group-summary {
+                ${hostSelector} .qi-log-group[data-open="1"] .qi-log-group-summary {
                     border-bottom: 1px solid var(--qi-border);
                 }
-                ${hostSelector} .qi-log-group.qi-log-group-config[open] .qi-log-group-summary {
+                ${hostSelector} .qi-log-group.qi-log-group-config[data-open="1"] .qi-log-group-summary {
                     border-bottom-color: color-mix(in srgb, ${primaryColor} 28%, var(--qi-border));
                 }
-                ${hostSelector} .qi-log-group.qi-log-group-status-info[open] .qi-log-group-summary {
+                ${hostSelector} .qi-log-group.qi-log-group-status-info[data-open="1"] .qi-log-group-summary {
                     border-bottom-color: color-mix(in srgb, ${primaryColor} 28%, var(--qi-border));
                 }
-                ${hostSelector} .qi-log-group.qi-log-group-status-ok[open] .qi-log-group-summary {
+                ${hostSelector} .qi-log-group.qi-log-group-status-ok[data-open="1"] .qi-log-group-summary {
                     border-bottom-color: color-mix(in srgb, var(--qi-success) 28%, var(--qi-border));
                 }
-                ${hostSelector} .qi-log-group.qi-log-group-status-error[open] .qi-log-group-summary {
+                ${hostSelector} .qi-log-group.qi-log-group-status-error[data-open="1"] .qi-log-group-summary {
                     border-bottom-color: color-mix(in srgb, var(--qi-error) 24%, var(--qi-border));
                 }
-                ${hostSelector} .qi-log-group.qi-log-group-status-warn[open] .qi-log-group-summary {
+                ${hostSelector} .qi-log-group.qi-log-group-status-warn[data-open="1"] .qi-log-group-summary {
                     border-bottom-color: color-mix(in srgb, var(--qi-warn) 28%, var(--qi-border));
+                }
+                ${hostSelector} .qi-log-group[data-open="0"] .qi-log-group-body {
+                    display: none;
                 }
                 ${hostSelector} .qi-log-group-body {
                     padding: 8px 12px 10px 20px;
@@ -10212,22 +10217,23 @@ ${displayTargetText}`;
                     display: flex;
                     align-items: center;
                     gap: 10px;
+                    width: 100%;
+                    border: 0;
+                    background: transparent;
                     padding: 9px 16px;
-                    list-style: none;
+                    text-align: left;
+                    line-height: 1.35;
                     user-select: none;
                     -webkit-user-select: none;
                 }
                 ${hostSelector} .qi-log-status-summary {
                     cursor: pointer;
                 }
-                ${hostSelector} .qi-log-status-summary::-webkit-details-marker {
-                    display: none;
-                }
-                ${hostSelector} .qi-log-status-summary::marker {
-                    content: "";
-                }
                 ${hostSelector} .qi-log-status-summary:hover {
                     background: var(--qi-hover);
+                }
+                ${hostSelector} .qi-log-status-collapsible[data-open="0"] .qi-log-status-body {
+                    display: none;
                 }
                 ${hostSelector} .qi-log-status-divider {
                     min-width: 0;
@@ -11066,6 +11072,37 @@ ${displayTargetText}`;
       } catch {
       }
     }
+    function setCollapsibleOpenState(rootEl, open2, { scheduleLayout = false } = {}) {
+      if (!rootEl) return;
+      const nextOpen = !!open2;
+      try {
+        rootEl.setAttribute("data-open", nextOpen ? "1" : "0");
+      } catch {
+      }
+      const toggleEl = rootEl.__qiToggleButton || null;
+      const bodyEl = rootEl.__qiToggleBody || null;
+      try {
+        toggleEl?.setAttribute?.("aria-expanded", nextOpen ? "true" : "false");
+      } catch {
+      }
+      try {
+        if (bodyEl) bodyEl.hidden = !nextOpen;
+      } catch {
+      }
+      if (scheduleLayout) schedulePanelLayout();
+    }
+    function initCollapsibleRoot(rootEl, toggleEl, bodyEl, { open: open2 = false } = {}) {
+      if (!rootEl || !toggleEl || !bodyEl) return;
+      rootEl.__qiToggleButton = toggleEl;
+      rootEl.__qiToggleBody = bodyEl;
+      setCollapsibleOpenState(rootEl, open2);
+      toggleEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const currentOpen = rootEl.getAttribute?.("data-open") === "1";
+        setCollapsibleOpenState(rootEl, !currentOpen, { scheduleLayout: true });
+      });
+    }
     function createLogLineElement(text, { level = "info", time = getLogTimestamp() } = {}) {
       const lineEl = globalThis.document?.createElement?.("div");
       const timeEl = globalThis.document?.createElement?.("span");
@@ -11092,8 +11129,8 @@ ${displayTargetText}`;
     function createStatusLogElement(text, { level = "info", time = getLogTimestamp(), detail = "", collapsible = false, open: open2 = true } = {}) {
       const detailText = String(detail ?? "").trim();
       const useCollapsible = !!(collapsible && detailText);
-      const lineEl = globalThis.document?.createElement?.(useCollapsible ? "details" : "div");
-      const headerEl = globalThis.document?.createElement?.(useCollapsible ? "summary" : "div");
+      const lineEl = globalThis.document?.createElement?.("div");
+      const headerEl = globalThis.document?.createElement?.(useCollapsible ? "button" : "div");
       const timeEl = globalThis.document?.createElement?.("span");
       const dividerEl = globalThis.document?.createElement?.("span");
       const messageEl = globalThis.document?.createElement?.("span");
@@ -11102,7 +11139,11 @@ ${displayTargetText}`;
       lineEl.className = `qi-log-status-card qi-log-status-${normalized}`;
       if (useCollapsible) {
         lineEl.classList.add("qi-log-status-collapsible");
-        lineEl.open = !!open2;
+        try {
+          headerEl.type = "button";
+          headerEl.setAttribute("aria-expanded", open2 ? "true" : "false");
+        } catch {
+        }
       }
       headerEl.className = useCollapsible ? "qi-log-status-summary" : "qi-log-status-header";
       timeEl.className = "qi-log-status-time";
@@ -11123,6 +11164,7 @@ ${displayTargetText}`;
         bodyEl.appendChild(detailEl);
         lineEl.appendChild(headerEl);
         lineEl.appendChild(bodyEl);
+        initCollapsibleRoot(lineEl, headerEl, bodyEl, { open: open2 });
         return lineEl;
       }
       lineEl.appendChild(headerEl);
@@ -11150,20 +11192,14 @@ ${displayTargetText}`;
       if (!logEl) return;
       let groups = [];
       try {
-        groups = Array.from(logEl.querySelectorAll(".qi-log-group-loop[open]"));
+        groups = Array.from(logEl.querySelectorAll(".qi-log-group-loop[data-open='1']"));
       } catch {
         groups = [];
       }
       for (const group of groups) {
-        try {
-          group.open = false;
-        } catch {
-          try {
-            group.removeAttribute("open");
-          } catch {
-          }
-        }
+        setCollapsibleOpenState(group, false);
       }
+      if (groups.length) schedulePanelLayout();
     }
     function normalizeLogGroupLabel(title) {
       const raw = String(title ?? "").trim();
@@ -11172,8 +11208,8 @@ ${displayTargetText}`;
       return stripped || raw;
     }
     function createLogGroup(title, { variant = "", open: open2 = false } = {}) {
-      const groupEl = globalThis.document?.createElement?.("details");
-      const summaryEl = globalThis.document?.createElement?.("summary");
+      const groupEl = globalThis.document?.createElement?.("div");
+      const summaryEl = globalThis.document?.createElement?.("button");
       const timeEl = globalThis.document?.createElement?.("span");
       const dividerEl = globalThis.document?.createElement?.("span");
       const labelEl = globalThis.document?.createElement?.("span");
@@ -11181,7 +11217,11 @@ ${displayTargetText}`;
       if (!groupEl || !summaryEl || !timeEl || !dividerEl || !labelEl || !bodyEl) return null;
       const time = getLogTimestamp();
       groupEl.className = `qi-log-group${variant ? ` qi-log-group-${variant}` : ""}`;
-      groupEl.open = !!open2;
+      try {
+        summaryEl.type = "button";
+        summaryEl.setAttribute("aria-expanded", open2 ? "true" : "false");
+      } catch {
+      }
       summaryEl.className = "qi-log-group-summary";
       timeEl.className = "qi-log-group-time";
       timeEl.textContent = `[${time}]`;
@@ -11194,6 +11234,7 @@ ${displayTargetText}`;
       summaryEl.appendChild(dividerEl);
       groupEl.appendChild(summaryEl);
       groupEl.appendChild(bodyEl);
+      initCollapsibleRoot(groupEl, summaryEl, bodyEl, { open: open2 });
       return { groupEl, bodyEl, time };
     }
     function createLogGroupDetailElement(text, { level = "info" } = {}) {
