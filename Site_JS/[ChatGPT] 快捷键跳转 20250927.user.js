@@ -1087,17 +1087,33 @@
         if (composerContainer) return composerContainer;
         return findBestChatGPTDropzone(composerEl);
       }
+      function isChatGPTAttachmentCard(el) {
+        if (!el) return false;
+        if (isInsideQuickInputOverlay(el)) return false;
+        if (!isElementVisible(el)) return false;
+        try {
+          return !!el.querySelector(
+            "button[aria-label*='Remove file'], button[aria-label*='删除文件'], button[aria-label*='移除文件'], button[aria-label*='Edit image'], button[aria-label*='编辑图片'], img, [style*='background-image']"
+          );
+        } catch {
+          return false;
+        }
+      }
       function findChatGPTAttachmentCard(el) {
         if (!el || typeof el.closest !== "function") return null;
-        try {
-          const groupCard = el.closest(".group.text-token-text-primary.relative.inline-block");
-          if (groupCard) return groupCard;
-        } catch {
-        }
-        try {
-          const roundedCard = el.closest("[class*='rounded-2xl']");
-          if (roundedCard) return roundedCard;
-        } catch {
+        const selectors = [
+          ".group.text-token-text-primary.relative.inline-block",
+          "[role='group'][aria-label][class*='group/file-tile']",
+          "[role='group'][aria-label]",
+          "[class*='rounded-2xl']",
+          "[class*='rounded-xl']"
+        ];
+        for (const selector of selectors) {
+          try {
+            const candidate = el.closest(selector);
+            if (candidate && isChatGPTAttachmentCard(candidate)) return candidate;
+          } catch {
+          }
         }
         return null;
       }
@@ -1206,13 +1222,11 @@
         let fileCount = 0;
         let removeCount = 0;
         try {
-          const headerItems = Array.from(scope.querySelectorAll(".group.text-token-text-primary.relative.inline-block")).filter((card) => card && !isInsideQuickInputOverlay(card)).filter((card) => isElementVisible(card)).filter((card) => {
-            try {
-              return !!card.querySelector("button[aria-label*='Remove file'], button[aria-label*='Edit image'], [style*='background-image']");
-            } catch {
-              return false;
-            }
-          });
+          const headerItems = Array.from(scope.querySelectorAll([
+            ".group.text-token-text-primary.relative.inline-block",
+            "[role='group'][aria-label][class*='group/file-tile']",
+            "[role='group'][aria-label]"
+          ].join(", "))).filter((card) => card && !isInsideQuickInputOverlay(card)).filter((card) => isElementVisible(card)).filter((card) => isChatGPTAttachmentCard(card));
           for (const card of headerItems) cards.add(card);
         } catch {
         }
@@ -1267,7 +1281,7 @@
               if (!el) continue;
               if (isInsideQuickInputOverlay(el)) continue;
               if (!isElementVisible(el)) continue;
-              if (el.closest?.("[class*='grid-area:header'], [class*='grid-area\\:header']") || el.closest?.(".group.text-token-text-primary.relative.inline-block")) {
+              if (el.closest?.("[class*='grid-area:header'], [class*='grid-area\\:header']") || el.closest?.(".group.text-token-text-primary.relative.inline-block") || el.closest?.("[role='group'][aria-label][class*='group/file-tile']") || el.closest?.("[role='group'][aria-label]")) {
                 fileCount++;
               }
             }
@@ -1279,7 +1293,9 @@
             const imgSelectors = [
               "img[alt='Uploaded image']",
               "[data-testid*='file'] img",
-              "[class*='preview'] img"
+              "[class*='preview'] img",
+              "[class*='group/file-tile'] img",
+              "[role='group'][aria-label] img"
             ].join(", ");
             const imgs = Array.from(scope.querySelectorAll(imgSelectors));
             for (const img of imgs) {
