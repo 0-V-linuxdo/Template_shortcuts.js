@@ -64,13 +64,39 @@
     };
 
     const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
+    const CHATGPT_MORE_MENU_ICON_IDS = ["f6d0e2"];
 
     function normalizeChatgptUiText(value) {
         return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
     }
 
-    function isMoreMenuLabel(rawText) {
-        return normalizeChatgptUiText(rawText) === "more";
+    function getSvgUseHrefValue(useElement) {
+        if (!useElement || typeof useElement.getAttribute !== "function") return "";
+        return String(
+            useElement.getAttribute("href")
+            || useElement.getAttribute("xlink:href")
+            || useElement.href?.baseVal
+            || ""
+        ).trim();
+    }
+
+    function getChatgptMenuLeadingIconId(menuItem) {
+        if (!menuItem || typeof menuItem.querySelector !== "function") return "";
+        const useElement = menuItem.querySelector("div.icon use");
+        const href = getSvgUseHrefValue(useElement);
+        if (!href) return "";
+        const hashIndex = href.lastIndexOf("#");
+        const iconId = hashIndex >= 0 ? href.slice(hashIndex + 1) : href;
+        return String(iconId || "").trim().toLowerCase();
+    }
+
+    function isMoreMenuIconMatch(_rawText, element) {
+        if (!element || typeof element.getAttribute !== "function") return false;
+        const hasSubmenu = element.hasAttribute("data-has-submenu")
+            || normalizeChatgptUiText(element.getAttribute("aria-haspopup")) === "menu";
+        if (!hasSubmenu) return false;
+        const iconId = getChatgptMenuLeadingIconId(element);
+        return !!iconId && CHATGPT_MORE_MENU_ICON_IDS.includes(iconId);
     }
 
     // ===== ChatGPT 特有功能模块开始：1step Canvas / Web =====
@@ -103,8 +129,8 @@
                     searchRoot: "parentRoot",
                     action: "hover",
                     candidates: [
-                        { selector: SELECTORS.moreSubmenuItem, textMatch: isMoreMenuLabel, pick: "last" },
-                        { selector: "div[role='menuitem']", textMatch: isMoreMenuLabel, pick: "last" }
+                        { selector: SELECTORS.moreSubmenuItem, textMatch: isMoreMenuIconMatch, pick: "last" },
+                        { selector: "div[role='menuitem']", textMatch: isMoreMenuIconMatch, pick: "last" }
                     ]
                 },
                 root: {
