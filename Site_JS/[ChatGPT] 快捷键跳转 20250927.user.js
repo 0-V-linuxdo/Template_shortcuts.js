@@ -437,14 +437,181 @@
         if (!composer) return "";
         return genericNormalizeComposerText(genericGetComposerText(composer), { trimTrailingEditorNewlines });
       }
+      const CHATGPT_TEXT_ATTEMPT_TIMEOUT_MS = 700;
+      const CHATGPT_TEXT_ATTEMPT_SETTLE_MS = 100;
+      const CHATGPT_TEXT_ATTEMPT_POLL_MS = 80;
+      const CHATGPT_TEXT_INSERT_CHUNK_SIZE = 64;
+      const CHATGPT_TEXT_INSERT_CHUNK_DELAY_MS = 12;
+      const CHATGPT_FALLBACK_TEXTAREA_SELECTOR = "textarea.wcDTda_fallbackTextarea[name='prompt-textarea'], textarea[name='prompt-textarea']";
+      const CHATGPT_TEXT_BLOCK_SELECTOR = "p, li, blockquote, pre, h1, h2, h3, h4, h5, h6";
+      const CHATGPT_TEXT_OBSERVED_ATTRIBUTES = Object.freeze([
+        "class",
+        "style",
+        "value",
+        "placeholder",
+        "data-placeholder",
+        "data-state",
+        "aria-hidden",
+        "hidden"
+      ]);
+      function normalizeChatGPTCommittedText(value) {
+        return genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines: true });
+      }
+      function ensureChatGPTComposerScaffold(composerEl) {
+        if (!composerEl) return false;
+        try {
+          if (composerEl.querySelector?.(CHATGPT_TEXT_BLOCK_SELECTOR)) {
+            return true;
+          }
+        } catch {
+        }
+        try {
+          if ((composerEl.childNodes?.length || 0) > 0) {
+            return true;
+          }
+        } catch {
+        }
+        try {
+          const doc = composerEl.ownerDocument || document;
+          const paragraph = doc.createElement("p");
+          const br = doc.createElement("br");
+          br.className = "ProseMirror-trailingBreak";
+          paragraph.appendChild(br);
+          composerEl.appendChild(paragraph);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      function findChatGPTComposerTextNode(root, { backwards = false } = {}) {
+        if (!root || typeof document.createTreeWalker !== "function") return null;
+        const textFilter = globalThis.NodeFilter || { SHOW_TEXT: 4, FILTER_ACCEPT: 1, FILTER_SKIP: 3 };
+        const walker = document.createTreeWalker(
+          root,
+          textFilter.SHOW_TEXT,
+          {
+            acceptNode(node) {
+              return String(node?.nodeValue || "").length > 0 ? textFilter.FILTER_ACCEPT : textFilter.FILTER_SKIP;
+            }
+          }
+        );
+        if (!backwards) {
+          return walker.nextNode();
+        }
+        let last = null;
+        let current = walker.nextNode();
+        while (current) {
+          last = current;
+          current = walker.nextNode();
+        }
+        return last;
+      }
+      function getChatGPTComposerBoundaryPoint(composerEl, { position = "end" } = {}) {
+        const composer = resolveLiveChatGPTComposerElement(composerEl) || composerEl || null;
+        if (!composer) return null;
+        ensureChatGPTComposerScaffold(composer);
+        const backwards = String(position || "").toLowerCase() !== "start";
+        let blocks = [];
+        try {
+          blocks = Array.from(composer.querySelectorAll(CHATGPT_TEXT_BLOCK_SELECTOR));
+        } catch {
+          blocks = [];
+        }
+        const target = backwards ? blocks[blocks.length - 1] || composer : blocks[0] || composer;
+        const textNode = findChatGPTComposerTextNode(target, { backwards });
+        if (textNode) {
+          return {
+            node: textNode,
+            offset: backwards ? String(textNode.nodeValue || "").length : 0
+          };
+        }
+        let brs = [];
+        try {
+          brs = Array.from(target.querySelectorAll?.("br") || []);
+        } catch {
+          brs = [];
+        }
+        const br = backwards ? brs[brs.length - 1] : brs[0];
+        if (br?.parentNode) {
+          const parent = br.parentNode;
+          const offset = Math.max(0, Array.prototype.indexOf.call(parent.childNodes, br));
+          return { node: parent, offset };
+        }
+        return {
+          node: target,
+          offset: backwards ? target.childNodes?.length || 0 : 0
+        };
+      }
+      function setChatGPTComposerCollapsedSelection(composerEl, position = "end") {
+        if (!composerEl || typeof document.createRange !== "function") return false;
+        try {
+          const composer = resolveLiveChatGPTComposerElement(composerEl) || composerEl;
+          composer.focus?.();
+          const selection = window.getSelection?.();
+          if (!selection) return false;
+          const point = getChatGPTComposerBoundaryPoint(composer, { position });
+          if (!point?.node) return false;
+          const range = document.createRange();
+          range.setStart(point.node, point.offset);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      function findChatGPTFallbackTextarea(composerEl) {
+        const composer = resolveLiveChatGPTComposerElement(composerEl) || composerEl || null;
+        const scopes = [];
+        const seen = /* @__PURE__ */ new Set();
+        const pushScope = (scope) => {
+          if (!scope || seen.has(scope)) return;
+          seen.add(scope);
+          scopes.push(scope);
+        };
+        pushScope(composer?.parentElement || null);
+        try {
+          pushScope(composer?.closest?.("[class*='prosemirror-parent']") || null);
+        } catch {
+        }
+        try {
+          pushScope(composer?.closest?.("form") || null);
+        } catch {
+        }
+        pushScope(document);
+        for (const scope of scopes) {
+          try {
+            const candidates = Array.from(scope.querySelectorAll(CHATGPT_FALLBACK_TEXTAREA_SELECTOR));
+            for (const textarea of candidates) {
+              if (!textarea) continue;
+              if (isInsideQuickInputOverlay(textarea)) continue;
+              return textarea;
+            }
+          } catch {
+          }
+        }
+        return null;
+      }
       function selectAllChatGPTComposerContent(composerEl) {
         if (!composerEl || typeof document.createRange !== "function") return false;
         try {
-          composerEl.focus?.();
+          const composer = resolveLiveChatGPTComposerElement(composerEl) || composerEl;
+          composer.focus?.();
           const selection = window.getSelection?.();
           if (!selection) return false;
+          const startPoint = getChatGPTComposerBoundaryPoint(composer, { position: "start" });
+          const endPoint = getChatGPTComposerBoundaryPoint(composer, { position: "end" });
           const range = document.createRange();
-          range.selectNodeContents(composerEl);
+          if (startPoint?.node && endPoint?.node) {
+            range.setStart(startPoint.node, startPoint.offset);
+            range.setEnd(endPoint.node, endPoint.offset);
+            if (range.collapsed) {
+              range.selectNodeContents(composer);
+            }
+          } else {
+            range.selectNodeContents(composer);
+          }
           selection.removeAllRanges();
           selection.addRange(range);
           return true;
@@ -453,20 +620,7 @@
         }
       }
       function moveChatGPTComposerCaretToEnd(composerEl) {
-        if (!composerEl || typeof document.createRange !== "function") return false;
-        try {
-          composerEl.focus?.();
-          const selection = window.getSelection?.();
-          if (!selection) return false;
-          const range = document.createRange();
-          range.selectNodeContents(composerEl);
-          range.collapse(false);
-          selection.removeAllRanges();
-          selection.addRange(range);
-          return true;
-        } catch {
-          return false;
-        }
+        return setChatGPTComposerCollapsedSelection(composerEl, "end");
       }
       function dispatchChatGPTComposerInput(composerEl, { inputType = "insertText", data = null } = {}) {
         if (!composerEl) return false;
@@ -541,52 +695,172 @@
         fired = dispatchInputFromPaste(composerEl, dt) || fired;
         return fired;
       }
-      function setChatGPTInputValue(composerEl, value) {
+      function splitChatGPTTextIntoChunks(text, { chunkSize = CHATGPT_TEXT_INSERT_CHUNK_SIZE } = {}) {
+        const normalized = String(text ?? "").replace(/\r\n?/g, "\n");
+        const chars = Array.from(normalized);
+        const size = Math.max(1, Number(chunkSize) || CHATGPT_TEXT_INSERT_CHUNK_SIZE);
+        const chunks = [];
+        for (let index = 0; index < chars.length; index += size) {
+          chunks.push(chars.slice(index, index + size).join(""));
+        }
+        return chunks;
+      }
+      function setChatGPTTextareaValue(textareaEl, text) {
+        if (!textareaEl) return false;
+        try {
+          const desc = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+          if (desc?.set) {
+            desc.set.call(textareaEl, text);
+          } else {
+            textareaEl.value = text;
+          }
+          return true;
+        } catch {
+          try {
+            textareaEl.value = text;
+            return true;
+          } catch {
+            return false;
+          }
+        }
+      }
+      async function waitForChatGPTComposerTextMatch(composerEl, expectedText, { timeoutMs = CHATGPT_TEXT_ATTEMPT_TIMEOUT_MS } = {}) {
+        const normalizedExpected = normalizeChatGPTCommittedText(expectedText);
+        let composerRef = composerEl;
+        const computeState = () => {
+          const resolvedComposer = resolveLiveChatGPTComposerElement(composerRef) || composerRef || null;
+          if (resolvedComposer) composerRef = resolvedComposer;
+          const actualText = normalizeChatGPTCommittedText(getChatGPTComposerPlainText(composerRef, { trimTrailingEditorNewlines: true }));
+          return {
+            composer: composerRef,
+            actualText,
+            expectedText: normalizedExpected,
+            ok: actualText === normalizedExpected
+          };
+        };
+        const observed = await waitForObservedState({
+          resolveRoots: () => getChatGPTTextObservationRoots(composerRef),
+          computeState,
+          isSatisfied: (state2) => !!state2?.ok,
+          timeoutMs,
+          settleMs: CHATGPT_TEXT_ATTEMPT_SETTLE_MS,
+          pollFallbackMs: CHATGPT_TEXT_ATTEMPT_POLL_MS,
+          attributeFilter: CHATGPT_TEXT_OBSERVED_ATTRIBUTES
+        });
+        const state = observed?.state || computeState();
+        return {
+          ok: !!state?.ok,
+          composer: state?.composer || composerRef,
+          actualText: state?.actualText || "",
+          expectedText: normalizedExpected
+        };
+      }
+      async function tryInsertTextIntoChatGPTComposerViaExecCommand(composerEl, text) {
+        const composer = resolveLiveChatGPTComposerElement(composerEl) || composerEl || null;
+        const plainText = String(text ?? "");
+        if (!composer || !plainText) return false;
+        let inserted = false;
+        const chunks = splitChatGPTTextIntoChunks(plainText);
+        for (const chunk of chunks) {
+          const liveComposer = resolveLiveChatGPTComposerElement(composer) || composer;
+          if (!liveComposer) return false;
+          ensureChatGPTComposerScaffold(liveComposer);
+          try {
+            liveComposer.focus?.();
+          } catch {
+          }
+          try {
+            TemplateUtils?.events?.simulateClick?.(liveComposer, { nativeFallback: true });
+          } catch {
+          }
+          if (!moveChatGPTComposerCaretToEnd(liveComposer)) return false;
+          const beforeText = genericNormalizeComposerText(getChatGPTComposerPlainText(liveComposer));
+          let executed = false;
+          try {
+            executed = !!document.execCommand?.("insertText", false, chunk);
+          } catch {
+          }
+          if (!executed) return false;
+          await sleep(CHATGPT_TEXT_INSERT_CHUNK_DELAY_MS);
+          const afterText = genericNormalizeComposerText(getChatGPTComposerPlainText(liveComposer));
+          if (afterText === beforeText) {
+            return false;
+          }
+          inserted = true;
+        }
+        return inserted;
+      }
+      async function tryBridgeTextViaChatGPTFallbackTextarea(composerEl, text) {
+        const plainText = String(text ?? "");
+        if (!plainText) return false;
+        const textarea = findChatGPTFallbackTextarea(composerEl);
+        if (!textarea) return false;
+        try {
+          textarea.dispatchEvent(new InputEvent("beforeinput", {
+            bubbles: true,
+            cancelable: true,
+            inputType: "insertText",
+            data: plainText
+          }));
+        } catch {
+        }
+        if (!setChatGPTTextareaValue(textarea, plainText)) return false;
+        try {
+          textarea.dispatchEvent(new InputEvent("input", {
+            bubbles: true,
+            cancelable: false,
+            inputType: "insertText",
+            data: plainText
+          }));
+        } catch {
+          try {
+            textarea.dispatchEvent(new Event("input", { bubbles: true, cancelable: false }));
+          } catch {
+          }
+        }
+        try {
+          textarea.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch {
+        }
+        return true;
+      }
+      async function setChatGPTInputValue(composerEl, value) {
         const urlGuard = getChatGPTUrlGuardResult();
         if (!urlGuard.ok) return false;
-        const composer = resolveChatGPTComposerElement(composerEl, { requireVisible: false });
+        let composer = resolveChatGPTComposerElement(composerEl, { requireVisible: false });
         if (!composer) return false;
         const text = String(value ?? "");
         if (composer.isContentEditable || composer.contentEditable === "true") {
-          clearChatGPTInputValue(composer);
+          await clearChatGPTInputValue(composer);
           if (!text) return true;
-          try {
-            composer.focus?.();
-          } catch {
-          }
-          try {
-            TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true });
-          } catch {
-          }
-          const insertedViaPaste = tryPasteTextIntoChatGPTComposer(composer, text);
-          let inserted = insertedViaPaste;
-          if (!inserted && typeof genericSetInputValue === "function") {
+          const attempts = [
+            () => tryInsertTextIntoChatGPTComposerViaExecCommand(composer, text),
+            () => tryBridgeTextViaChatGPTFallbackTextarea(composer, text),
+            () => Promise.resolve(tryPasteTextIntoChatGPTComposer(composer, text))
+          ];
+          for (let index = 0; index < attempts.length; index++) {
+            composer = resolveLiveChatGPTComposerElement(composer) || composer;
+            if (!composer) return false;
             try {
-              inserted = !!genericSetInputValue(composer, text);
+              composer.focus?.();
             } catch {
             }
-          }
-          if (!inserted) {
             try {
-              selectAllChatGPTComposerContent(composer);
-              inserted = !!document.execCommand?.("insertText", false, text);
+              TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true });
             } catch {
             }
-          }
-          if (!inserted) {
-            try {
-              composer.textContent = text;
-              inserted = true;
-            } catch {
+            const inserted = await attempts[index]();
+            const matched = await waitForChatGPTComposerTextMatch(composer, text);
+            if (matched?.composer) composer = matched.composer;
+            if (inserted && matched?.ok) {
+              return true;
+            }
+            if (index < attempts.length - 1) {
+              await clearChatGPTInputValue(composer);
+              await sleep(20);
             }
           }
-          if (!insertedViaPaste) {
-            dispatchChatGPTComposerInput(composer, {
-              inputType: inserted ? "insertText" : "insertReplacementText",
-              data: text
-            });
-          }
-          return inserted;
+          return false;
         }
         try {
           if (typeof genericSetInputValue === "function") {
