@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Grok] 快捷键跳转 [20260424] v1.0.1
+// @name         [Grok] 快捷键跳转 [20260424] v1.0.2
 // @namespace    0_V userscripts/[Grok] 快捷键跳转
 // @description  为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 
-// @version      [20260424] v1.0.1
-// @update-log   1.0.1: 新增 Grok 侧边栏后台保持显示，并在 viewport 宽度 <= 1024px 时自动抑制后台自动展开。
+// @version      [20260424] v1.0.2
+// @update-log   1.0.2: 修复 Grok 侧边栏状态误判导致的展开/折叠来回横跳；继续保留 viewport 宽度 <= 1024px 的后台自动展开抑制。
 
 // @match        https://grok.dairoot.cn/*
 // @match        https://grok.com/*
@@ -109,24 +109,26 @@
       "https://grok.com/images/favicon-dark.png"
     ];
     const SELECTORS = Object.freeze({
-      sidebarToggle: 'button[data-sidebar="trigger"][type="button"]'
+      sidebarToggle: 'button[data-sidebar="trigger"][type="button"]',
+      sidebarProvider: '[data-variant="sidebar"][data-side]',
+      sidebarRoot: '[data-sidebar="sidebar"]'
     });
     const SIDEBAR_VISIBILITY_STORAGE_KEY = "grok_keep_sidebar_visible_v1";
     const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
     const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
     const SIDEBAR_OPEN_SELECTORS = [
-      '[data-sidebar="sidebar"][data-state="expanded"]',
-      '[data-sidebar="sidebar"][data-state="open"]',
-      '[data-sidebar="sidebar"][data-state="opened"]',
-      '[data-sidebar="sidebar"][aria-expanded="true"]'
+      `${SELECTORS.sidebarProvider}[data-state="expanded"]`,
+      `${SELECTORS.sidebarProvider}[data-state="open"]`,
+      `${SELECTORS.sidebarProvider}[data-state="opened"]`,
+      `${SELECTORS.sidebarProvider}[aria-expanded="true"]`
     ];
     const SIDEBAR_CLOSED_SELECTORS = [
-      '[data-sidebar="sidebar"][data-state="collapsed"]',
-      '[data-sidebar="sidebar"][data-state="closed"]',
-      '[data-sidebar="sidebar"][data-state="close"]',
-      '[data-sidebar="sidebar"][aria-expanded="false"]',
-      '[data-sidebar="sidebar"][data-collapsible="offcanvas"]',
-      '[data-sidebar="sidebar"][data-collapsible="icon"]'
+      `${SELECTORS.sidebarProvider}[data-state="collapsed"]`,
+      `${SELECTORS.sidebarProvider}[data-state="closed"]`,
+      `${SELECTORS.sidebarProvider}[data-state="close"]`,
+      `${SELECTORS.sidebarProvider}[aria-expanded="false"]`,
+      `${SELECTORS.sidebarProvider}[data-collapsible="offcanvas"]`,
+      `${SELECTORS.sidebarProvider}[data-collapsible="icon"]`
     ];
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
     let sidebarVisibilityMenuCommandId = null;
@@ -269,6 +271,14 @@
     function getSidebarToggleButton() {
       return getFirstVisibleBySelector(SELECTORS.sidebarToggle, { fallbackToFirst: true });
     }
+    function getSidebarProviderElement(fromElement = null) {
+      const directProvider = fromElement?.closest?.(SELECTORS.sidebarProvider);
+      if (directProvider) return directProvider;
+      const sidebarRoot = fromElement?.closest?.(SELECTORS.sidebarRoot) || getFirstVisibleBySelector(SELECTORS.sidebarRoot, { fallbackToFirst: true });
+      const providerFromRoot = sidebarRoot?.closest?.(SELECTORS.sidebarProvider);
+      if (providerFromRoot) return providerFromRoot;
+      return getFirstVisibleBySelector(SELECTORS.sidebarProvider, { fallbackToFirst: true });
+    }
     function parseBooleanAttr(value) {
       const token = String(value ?? "").trim().toLowerCase();
       if (token === "true") return true;
@@ -284,35 +294,46 @@
     }
     function readSidebarStateFromElement(element) {
       if (!element) return null;
+      const isSidebarTrigger = element.matches?.(SELECTORS.sidebarToggle) || String(element.getAttribute?.("data-sidebar") || "").trim().toLowerCase() === "trigger";
       const expanded = parseBooleanAttr(element.getAttribute?.("aria-expanded"));
       if (expanded !== null) return expanded;
       const hidden = parseBooleanAttr(element.getAttribute?.("aria-hidden"));
       if (hidden !== null) return !hidden;
-      const stateAttr = String(element.getAttribute?.("data-state") || "").trim().toLowerCase();
-      if (stateAttr === "expanded" || stateAttr === "open" || stateAttr === "opened") return true;
-      if (stateAttr === "collapsed" || stateAttr === "close" || stateAttr === "closed") return false;
-      const collapsibleAttr = String(element.getAttribute?.("data-collapsible") || "").trim().toLowerCase();
-      if (collapsibleAttr === "offcanvas" || collapsibleAttr === "icon") return false;
+      if (!isSidebarTrigger) {
+        const stateAttr = String(element.getAttribute?.("data-state") || "").trim().toLowerCase();
+        if (stateAttr === "expanded" || stateAttr === "open" || stateAttr === "opened") return true;
+        if (stateAttr === "collapsed" || stateAttr === "close" || stateAttr === "closed") return false;
+        const collapsibleAttr = String(element.getAttribute?.("data-collapsible") || "").trim().toLowerCase();
+        if (collapsibleAttr === "offcanvas" || collapsibleAttr === "icon") return false;
+      }
       return inferSidebarStateFromClassName(element.className || "");
     }
     function readSidebarStateFromToggle(button) {
       if (!button) return null;
-      const directState = readSidebarStateFromElement(button);
-      if (directState !== null) return directState;
+      const provider = getSidebarProviderElement(button);
+      const providerState = readSidebarStateFromElement(provider);
+      if (providerState !== null) return providerState;
+      const directExpanded = parseBooleanAttr(button.getAttribute?.("aria-expanded"));
+      if (directExpanded !== null) return directExpanded;
+      const directPressed = parseBooleanAttr(button.getAttribute?.("aria-pressed"));
+      if (directPressed !== null) return directPressed;
       const ariaLabel = String(button.getAttribute?.("aria-label") || "").trim().toLowerCase();
       if (/(open|expand|show).*(menu|navigation|sidebar|side nav|panel)/.test(ariaLabel)) return false;
       if (/(close|collapse|hide).*(menu|navigation|sidebar|side nav|panel)/.test(ariaLabel)) return true;
       const controlsId = String(button.getAttribute?.("aria-controls") || "").trim();
       if (controlsId) {
         const controlled = document.getElementById(controlsId);
-        const controlledState = readSidebarStateFromElement(controlled);
+        const controlledState = readSidebarStateFromElement(getSidebarProviderElement(controlled) || controlled);
         if (controlledState !== null) return controlledState;
       }
-      const host = button.closest?.('[data-sidebar="sidebar"], [data-sidebar="rail"], [class*="sidebar"], [class*="sidenav"]');
-      return readSidebarStateFromElement(host);
+      const host = button.closest?.(`${SELECTORS.sidebarRoot}, [data-sidebar="rail"], [class*="sidebar"], [class*="sidenav"]`);
+      return readSidebarStateFromElement(getSidebarProviderElement(host) || host);
     }
     function isSidebarOpen() {
-      const sidebarRoot = getFirstVisibleBySelector('[data-sidebar="sidebar"]', { fallbackToFirst: true });
+      const sidebarProvider = getSidebarProviderElement();
+      const providerState = readSidebarStateFromElement(sidebarProvider);
+      if (providerState !== null) return providerState;
+      const sidebarRoot = getFirstVisibleBySelector(SELECTORS.sidebarRoot, { fallbackToFirst: true });
       const rootState = readSidebarStateFromElement(sidebarRoot);
       if (rootState !== null) return rootState;
       for (const selector of SIDEBAR_OPEN_SELECTORS) {
