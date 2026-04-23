@@ -1560,14 +1560,15 @@
           ".attachment-preview-wrapper",
           ".uploader-file-preview-container",
           "uploader-file-preview-container",
-          ".file-preview-wrapper"
+          ".file-preview-wrapper",
+          ".text-input-field.with-file-preview"
         ];
         for (const selector of selectors) {
           try {
             const candidates = Array.from(container.querySelectorAll(selector)).filter((el) => el && !isInsideQuickInputOverlay(el)).filter((el) => isElementVisible2(el));
             for (const candidate of candidates) {
               try {
-                if (candidate.querySelector("button[data-test-id='cancel-button'], img[data-test-id='image-preview'], uploader-file-preview, .file-preview-chip")) {
+                if (candidate.querySelector("button[data-test-id='cancel-button'], button.cancel-button, img[data-test-id='image-preview'], uploader-file-preview, .file-preview-chip, .file-preview-container")) {
                   return candidate;
                 }
               } catch {
@@ -1579,12 +1580,43 @@
         }
         return container;
       }
-      function getGeminiRemoveAttachmentButtons(containerEl) {
+      function getGeminiAttachmentPreviewCards(containerEl) {
         const scope = getGeminiAttachmentScope(containerEl);
+        const selectors = [
+          "uploader-file-preview",
+          ".file-preview-chip",
+          ".file-preview-container"
+        ].join(", ");
         try {
-          return Array.from(scope.querySelectorAll("button[data-test-id='cancel-button']")).filter((btn) => btn && !isInsideQuickInputOverlay(btn) && isElementVisible2(btn));
+          return Array.from(scope.querySelectorAll(selectors)).filter((card) => card && !isInsideQuickInputOverlay(card)).filter((card) => isElementVisible2(card));
         } catch {
           return [];
+        }
+      }
+      function getGeminiRemoveAttachmentButtons(containerEl) {
+        const scope = getGeminiAttachmentScope(containerEl);
+        const previewCards = getGeminiAttachmentPreviewCards(scope);
+        const ordered = [];
+        const seen = /* @__PURE__ */ new Set();
+        const pushButton = (button) => {
+          if (!button || seen.has(button)) return;
+          if (isInsideQuickInputOverlay(button)) return;
+          if (button.disabled) return;
+          seen.add(button);
+          ordered.push(button);
+        };
+        for (const card of previewCards) {
+          try {
+            pushButton(card.querySelector("button[data-test-id='cancel-button'], button.cancel-button"));
+          } catch {
+          }
+        }
+        try {
+          const buttons = Array.from(scope.querySelectorAll("button[data-test-id='cancel-button'], button.cancel-button"));
+          for (const button of buttons) pushButton(button);
+          return ordered;
+        } catch {
+          return ordered;
         }
       }
       function getGeminiObservationRoots({ containerEl = null, composerEl = null } = {}) {
