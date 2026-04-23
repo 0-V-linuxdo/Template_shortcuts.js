@@ -1670,6 +1670,8 @@ export async function startSite(runtime = {}) {
         const collectFileInputsFromOpenShadows = dom?.collectFileInputsFromOpenShadows;
         const trySetFileInputFiles = dom?.trySetFileInputFiles;
         const waitForObservedState = dom?.waitForObservedState;
+        const genericSetInputValue = typeof dom?.setInputValue === "function" ? dom.setInputValue : null;
+        const genericClearInputValue = typeof dom?.clearInputValue === "function" ? dom.clearInputValue : null;
 
         if (
             typeof focusComposer !== "function" ||
@@ -1752,6 +1754,213 @@ export async function startSite(runtime = {}) {
             }
             await sleep(ms);
             return runtimeWaitIfPaused(runtime, { shouldCancel: cancelFn });
+        }
+
+        function createGeminiDataTransfer({ text = "", files = [] } = {}) {
+            if (typeof DataTransfer !== "function") return null;
+            try {
+                const dt = new DataTransfer();
+                const plainText = String(text ?? "");
+                if (plainText) {
+                    try { dt.setData("text/plain", plainText); } catch { }
+                }
+                for (const file of Array.from(files || [])) {
+                    if (!(file instanceof File)) continue;
+                    try { dt.items.add(file); } catch { }
+                }
+                try { dt.effectAllowed = "copy"; } catch { }
+                try { dt.dropEffect = "copy"; } catch { }
+                return dt;
+            } catch {
+                return null;
+            }
+        }
+
+        function normalizeGeminiComposerText(value) {
+            return String(value ?? "")
+                .replace(/\u200B/g, "")
+                .replace(/\u00A0/g, " ")
+                .replace(/\r\n?/g, "\n")
+                .replace(/\n+$/g, "");
+        }
+
+        function getGeminiComposerComparableText(composerEl) {
+            if (!composerEl) return "";
+            const tag = String(composerEl.tagName || "").toUpperCase();
+            if (tag === "TEXTAREA" || tag === "INPUT") {
+                return normalizeGeminiComposerText(composerEl.value || "");
+            }
+            return normalizeGeminiComposerText(composerEl.innerText || composerEl.textContent || "");
+        }
+
+        function isGeminiComposerTextMatch(composerEl, expectedText) {
+            return getGeminiComposerComparableText(composerEl) === normalizeGeminiComposerText(expectedText);
+        }
+
+        function resolveGeminiComposerElement(composerEl, { requireVisible = true } = {}) {
+            const isEditableCandidate = (el) => {
+                if (!el) return false;
+                if (isInsideQuickInputOverlay(el)) return false;
+                const tag = String(el.tagName || "").toUpperCase();
+                const editable = tag === "TEXTAREA" || tag === "INPUT" || el.isContentEditable || el.contentEditable === "true";
+                if (!editable) return false;
+                return !requireVisible || isElementVisible(el);
+            };
+
+            if (isEditableCandidate(composerEl)) return composerEl;
+            if (isEditableCandidate(document.activeElement)) return document.activeElement;
+
+            const selectors = [
+                "rich-textarea [contenteditable='true'][role='textbox']",
+                ".text-input-field [contenteditable='true'][role='textbox']",
+                "rich-textarea [contenteditable='true']",
+                ".text-input-field [contenteditable='true']",
+                ".text-input-field textarea",
+                ".text-input-field input[type='text']"
+            ];
+
+            for (const selector of selectors) {
+                try {
+                    const candidates = Array.from(document.querySelectorAll(selector));
+                    for (const candidate of candidates) {
+                        if (isEditableCandidate(candidate)) return candidate;
+                    }
+                } catch { }
+            }
+
+            return null;
+        }
+
+        function dispatchGeminiComposerInput(composerEl, { inputType = "insertText", data = null } = {}) {
+            if (!composerEl) return false;
+            const eventData = typeof data === "string" && data.length > 4096 ? null : data;
+            try {
+                composerEl.dispatchEvent(new InputEvent("input", {
+                    bubbles: true,
+                    cancelable: true,
+                    inputType,
+                    data: eventData
+                }));
+                return true;
+            } catch {
+                try {
+                    composerEl.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+        }
+
+        function collectGeminiTextPasteTargets(composerEl) {
+            const targets = [];
+            if (composerEl) targets.push(composerEl);
+            try {
+                const rich = composerEl?.closest?.("rich-textarea");
+                if (rich) targets.push(rich);
+            } catch { }
+            try {
+                const field = composerEl?.closest?.(".text-input-field");
+                if (field) targets.push(field);
+            } catch { }
+            try {
+                const active = document.activeElement;
+                if (active) targets.push(active);
+            } catch { }
+
+            const uniq = [];
+            const seen = new Set();
+            for (const target of targets) {
+                if (!target || seen.has(target)) continue;
+                if (isInsideQuickInputOverlay(target)) continue;
+                seen.add(target);
+                uniq.push(target);
+            }
+            return uniq;
+        }
+
+        function tryPasteTextIntoGeminiComposer(composerEl, text) {
+            if (!composerEl) return false;
+            const plainText = String(text ?? "");
+            if (!plainText) return false;
+
+            const dt = createGeminiDataTransfer({ text: plainText });
+            if (!dt) return false;
+
+            try { composerEl.focus?.(); } catch { }
+            try { TemplateUtils?.events?.simulateClick?.(composerEl, { nativeFallback: true }); } catch { }
+
+            for (const target of collectGeminiTextPasteTargets(composerEl)) {
+                let fired = false;
+                fired = dispatchBeforeInputFromPaste(target, dt) || fired;
+                fired = dispatchPasteEvent(target, dt) || fired;
+                fired = dispatchInputFromPaste(target, dt) || fired;
+                if (!fired) continue;
+
+                dispatchGeminiComposerInput(composerEl, { inputType: "insertFromPaste", data: plainText });
+                if (isGeminiComposerTextMatch(composerEl, plainText)) return true;
+            }
+
+            return false;
+        }
+
+        function clearGeminiInputValue(composerEl) {
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false });
+            if (!composer) return false;
+
+            try { composer.focus?.(); } catch { }
+            try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
+
+            let cleared = isGeminiComposerTextMatch(composer, "");
+            if (!cleared && typeof genericClearInputValue === "function") {
+                try { cleared = !!genericClearInputValue(composer); } catch { }
+                cleared = cleared || isGeminiComposerTextMatch(composer, "");
+            }
+
+            if (!cleared) {
+                try {
+                    composer.textContent = "";
+                    cleared = isGeminiComposerTextMatch(composer, "");
+                } catch { }
+            }
+
+            dispatchGeminiComposerInput(composer, { inputType: "deleteContentBackward", data: null });
+            return cleared;
+        }
+
+        function setGeminiInputValue(composerEl, value) {
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false });
+            if (!composer) return false;
+            const text = String(value ?? "");
+
+            clearGeminiInputValue(composer);
+            if (!text) return isGeminiComposerTextMatch(composer, "");
+
+            try { composer.focus?.(); } catch { }
+            try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
+
+            let inserted = false;
+            if (composer.isContentEditable || composer.contentEditable === "true") {
+                inserted = tryPasteTextIntoGeminiComposer(composer, text);
+            }
+
+            if (!inserted && typeof genericSetInputValue === "function") {
+                try { inserted = !!genericSetInputValue(composer, text); } catch { }
+                inserted = inserted || isGeminiComposerTextMatch(composer, text);
+            }
+
+            if (!inserted) {
+                try {
+                    composer.textContent = text;
+                    inserted = isGeminiComposerTextMatch(composer, text);
+                } catch { }
+            }
+
+            dispatchGeminiComposerInput(composer, {
+                inputType: inserted ? "insertText" : "insertReplacementText",
+                data: text
+            });
+            return inserted;
         }
 
         function findGeminiDropzone(composerEl) {
@@ -2632,6 +2841,8 @@ export async function startSite(runtime = {}) {
         }
 
         return Object.freeze({
+            setInputValue: setGeminiInputValue,
+            clearComposerValue: clearGeminiInputValue,
             attachImages: attachImagesToComposer,
             clearAttachments: clearGeminiAttachments,
             waitForReadyToSend: waitForGeminiReadyToSend,

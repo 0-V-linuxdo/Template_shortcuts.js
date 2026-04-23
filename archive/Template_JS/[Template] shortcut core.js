@@ -8849,6 +8849,148 @@ ${displayTargetText}`;
     }
     return best;
   }
+  function normalizeEditableText(value) {
+    return String(value ?? "").replace(/\u200B/g, "").replace(/\u00A0/g, " ").replace(/\r\n?/g, "\n");
+  }
+  function normalizeEditableComparisonText(value) {
+    return normalizeEditableText(value).replace(/\n+$/g, "");
+  }
+  function readEditableValue(el) {
+    if (!el) return "";
+    const tag = (el.tagName || "").toUpperCase();
+    if (tag === "TEXTAREA" || tag === "INPUT") {
+      try {
+        return String(el.value ?? "");
+      } catch {
+        return "";
+      }
+    }
+    if (el.isContentEditable) {
+      try {
+        return String(el.innerText || el.textContent || "");
+      } catch {
+        return "";
+      }
+    }
+    return "";
+  }
+  function isEditableValueMatch(el, expected) {
+    return normalizeEditableComparisonText(readEditableValue(el)) === normalizeEditableComparisonText(expected);
+  }
+  function dispatchEditableInput(el, { text = "", inputType = "insertReplacementText" } = {}) {
+    if (!el) return false;
+    const data = typeof text === "string" && text.length <= 4096 ? text : null;
+    try {
+      el.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        cancelable: true,
+        data,
+        inputType
+      }));
+      return true;
+    } catch {
+      try {
+        el.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
+  function dispatchEditableChange(el) {
+    if (!el) return false;
+    try {
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function selectContentEditableText(el, { collapseToEnd = false } = {}) {
+    if (!el || !el.isContentEditable) return false;
+    if (typeof globalThis.document?.createRange !== "function") return false;
+    try {
+      el.focus?.();
+      const selection = globalThis.getSelection?.() || globalThis.document?.getSelection?.() || null;
+      if (!selection) return false;
+      const range = globalThis.document.createRange();
+      range.selectNodeContents(el);
+      if (collapseToEnd) range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function clearContentEditableDomValue(el) {
+    if (!el || !el.isContentEditable) return false;
+    try {
+      el.focus?.();
+    } catch {
+    }
+    let cleared = isEditableValueMatch(el, "");
+    if (!cleared && selectContentEditableText(el)) {
+      try {
+        globalThis.document?.execCommand?.("delete", false, null);
+      } catch {
+      }
+      cleared = isEditableValueMatch(el, "");
+    }
+    if (!cleared && selectContentEditableText(el)) {
+      try {
+        globalThis.document?.execCommand?.("insertText", false, "");
+      } catch {
+      }
+      cleared = isEditableValueMatch(el, "");
+    }
+    if (!cleared) {
+      try {
+        el.textContent = "";
+        cleared = isEditableValueMatch(el, "");
+      } catch {
+      }
+    }
+    return cleared;
+  }
+  function splitEditableTextIntoChunks(text, maxChunkSize = 1024) {
+    const content = String(text ?? "");
+    const size = Math.max(64, Number(maxChunkSize) || 1024);
+    if (!content) return [];
+    if (content.length <= size) return [content];
+    const chunks = [];
+    let start = 0;
+    while (start < content.length) {
+      let end = Math.min(content.length, start + size);
+      if (end < content.length) {
+        const newline = content.lastIndexOf("\n", end);
+        if (newline > start + Math.floor(size * 0.25)) end = newline + 1;
+      }
+      chunks.push(content.slice(start, end));
+      start = end;
+    }
+    return chunks;
+  }
+  function insertContentEditableTextInChunks(el, text, { maxChunkSize = 1024 } = {}) {
+    if (!el || !el.isContentEditable) return false;
+    const content = String(text ?? "");
+    if (!content) return clearContentEditableDomValue(el);
+    const chunks = splitEditableTextIntoChunks(content, maxChunkSize);
+    if (!chunks.length) return false;
+    try {
+      el.focus?.();
+    } catch {
+    }
+    if (!selectContentEditableText(el)) return false;
+    for (let index = 0; index < chunks.length; index++) {
+      if (index > 0 && !selectContentEditableText(el, { collapseToEnd: true })) return false;
+      try {
+        globalThis.document?.execCommand?.("insertText", false, chunks[index]);
+      } catch {
+      }
+    }
+    return isEditableValueMatch(el, content);
+  }
   function setInputValue(el, value) {
     if (!el) return false;
     const text = String(value ?? "");
@@ -8866,42 +9008,54 @@ ${displayTargetText}`;
           return false;
         }
       }
-      try {
-        el.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: true, data: text, inputType: "insertReplacementText" }));
-      } catch {
-        try {
-          el.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
-        } catch {
-        }
-      }
-      try {
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      } catch {
-      }
-      return true;
+      dispatchEditableInput(el, { text, inputType: "insertReplacementText" });
+      dispatchEditableChange(el);
+      return isEditableValueMatch(el, text);
     }
     if (el.isContentEditable) {
       try {
-        el.focus();
-        globalThis.document?.execCommand?.("selectAll", false);
-        globalThis.document?.execCommand?.("insertText", false, text);
+        el.focus?.();
       } catch {
+      }
+      if (!text) {
+        const cleared = clearContentEditableDomValue(el);
+        dispatchEditableInput(el, { text: "", inputType: "deleteContentBackward" });
+        return cleared;
+      }
+      let inserted = false;
+      if (selectContentEditableText(el)) {
+        try {
+          globalThis.document?.execCommand?.("insertText", false, text);
+        } catch {
+        }
+        inserted = isEditableValueMatch(el, text);
+      }
+      if (!inserted) {
+        clearContentEditableDomValue(el);
+        inserted = insertContentEditableTextInChunks(el, text);
+      }
+      if (!inserted) {
         try {
           el.textContent = text;
+          inserted = isEditableValueMatch(el, text);
         } catch {
-          return false;
         }
       }
-      try {
-        el.dispatchEvent(new InputEvent("input", { bubbles: true }));
-      } catch {
-      }
-      return true;
+      dispatchEditableInput(el, { text, inputType: inserted ? "insertText" : "insertReplacementText" });
+      return inserted;
     }
     return false;
   }
   function clearInputValue(el) {
-    return setInputValue(el, "");
+    if (!el) return false;
+    const tag = (el.tagName || "").toUpperCase();
+    if (tag === "TEXTAREA" || tag === "INPUT") return setInputValue(el, "");
+    if (el.isContentEditable) {
+      const cleared = clearContentEditableDomValue(el);
+      dispatchEditableInput(el, { text: "", inputType: "deleteContentBackward" });
+      return cleared;
+    }
+    return false;
   }
   function findComposerElement({ shouldIgnore = null } = {}) {
     const ignore = typeof shouldIgnore === "function" ? shouldIgnore : null;
