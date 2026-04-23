@@ -12,6 +12,19 @@ function clampInt(value, { min = 0, max = 9999, fallback = 0 } = {}) {
             return Math.min(max, Math.max(min, num));
         }
 
+        function normalizeComposerText(value, { trimTrailingEditorNewlines = false } = {}) {
+            let text = String(value ?? "");
+            text = text
+                .replace(/\r\n?/g, "\n")
+                .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "");
+
+            if (trimTrailingEditorNewlines) {
+                text = text.replace(/\n+$/g, "");
+            }
+
+            return text;
+        }
+
         function normalizeHotkeyString(raw) {
             return String(raw ?? "").trim().replace(/\s+/g, "");
         }
@@ -170,6 +183,21 @@ function clampInt(value, { min = 0, max = 9999, fallback = 0 } = {}) {
                 } catch {}
             }
             return best;
+        }
+
+        function getComposerText(el) {
+            if (!el) return "";
+
+            const tag = (el.tagName || "").toUpperCase();
+            if (tag === "TEXTAREA" || tag === "INPUT") {
+                try { return String(el.value ?? ""); } catch { }
+            }
+
+            if (el.isContentEditable || el.contentEditable === "true") {
+                try { return String(el.innerText || el.textContent || ""); } catch { }
+            }
+
+            try { return String(el.textContent || ""); } catch { return ""; }
         }
 
         function setInputValue(el, value) {
@@ -490,12 +518,14 @@ function clampInt(value, { min = 0, max = 9999, fallback = 0 } = {}) {
 
 export {
     clampInt,
+    normalizeComposerText,
     normalizeHotkeyString,
     normalizeHotkeyFallback,
     getKeyEventProps,
     simulateKeystroke,
     isElementVisible,
     pickBestComposerCandidate,
+    getComposerText,
     findComposerElement,
     focusComposer,
     setInputValue,

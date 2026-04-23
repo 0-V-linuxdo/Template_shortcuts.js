@@ -156,6 +156,8 @@ const STEP_DELAY_MAX_MS = 30000;
                 loopMarker: (i, loopCount) => `—— 第 ${i}/${loopCount} 次 ——`,
                 composerNotFound: "未找到输入框：请先点击一次输入框再运行。",
                 textInserted: (ok) => (ok ? "已输入文字。" : "输入文字失败。"),
+                textRetrying: (stage, attempt = 1, maxAttempts = 1) => `文字校验失败${stage ? `（${stage}）` : ""}：准备自动重试 ${attempt}/${maxAttempts} 次。`,
+                textNotReady: (stage) => `文字未真正写入输入框${stage ? `（${stage}）` : ""}：自动补救后仍失败，已停止当前运行，避免发送空内容。`,
                 hotkeyTriggered: (hotkey, ok) => (ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}`),
                 waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
                 resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `图片就绪等待超时：当前识别到 ${currentCount} / ${expectedCount} 张，准备清空当前附件并整组重传（第 ${attempt}/${maxAttempts} 次）。`,

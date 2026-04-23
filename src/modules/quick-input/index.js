@@ -4,7 +4,7 @@
 
 import { createController } from "./controller.js";
 import { safeStoreGet, safeStoreSet } from "./storage.js";
-import { clampInt, normalizeHotkeyString, normalizeHotkeyFallback, getKeyEventProps, simulateKeystroke, isElementVisible, pickBestComposerCandidate, findComposerElement, focusComposer, setInputValue, clearInputValue, dispatchPasteEvent, dispatchBeforeInputFromPaste, dispatchInputFromPaste, dispatchDragEvent, collectFileInputs, collectFileInputsFromOpenShadows, trySetFileInputFiles, isInsideOverlayTree } from "./dom.js";
+import { clampInt, normalizeComposerText, normalizeHotkeyString, normalizeHotkeyFallback, getKeyEventProps, simulateKeystroke, isElementVisible, pickBestComposerCandidate, getComposerText, findComposerElement, focusComposer, setInputValue, clearInputValue, dispatchPasteEvent, dispatchBeforeInputFromPaste, dispatchInputFromPaste, dispatchDragEvent, collectFileInputs, collectFileInputsFromOpenShadows, trySetFileInputFiles, isInsideOverlayTree } from "./dom.js";
 import { waitForObservedState, executeEngineShortcutByHotkey } from "./runtime.js";
 
 export const quickInput = Object.freeze({
@@ -16,12 +16,14 @@ export const quickInput = Object.freeze({
     }),
     dom: Object.freeze({
         clampInt,
+        normalizeComposerText,
         normalizeHotkeyString,
         normalizeHotkeyFallback,
         getKeyEventProps,
         simulateKeystroke,
         isElementVisible,
         pickBestComposerCandidate,
+        getComposerText,
         findComposerElement,
         focusComposer,
         setInputValue,

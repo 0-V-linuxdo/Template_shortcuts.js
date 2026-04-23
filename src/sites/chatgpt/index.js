@@ -109,9 +109,34 @@
 
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+        function fallbackNormalizeComposerText(value, { trimTrailingEditorNewlines = false } = {}) {
+            let text = String(value ?? "");
+            text = text
+                .replace(/\r\n?/g, "\n")
+                .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "");
+            if (trimTrailingEditorNewlines) {
+                text = text.replace(/\n+$/g, "");
+            }
+            return text;
+        }
+
+        function fallbackGetComposerText(el) {
+            if (!el) return "";
+            const tag = (el.tagName || "").toUpperCase();
+            if (tag === "TEXTAREA" || tag === "INPUT") {
+                try { return String(el.value ?? ""); } catch { }
+            }
+            if (el.isContentEditable || el.contentEditable === "true") {
+                try { return String(el.innerText || el.textContent || ""); } catch { }
+            }
+            try { return String(el.textContent || ""); } catch { return ""; }
+        }
+
         const simulateKeystroke = dom?.simulateKeystroke;
         const isElementVisible = dom?.isElementVisible;
         const dispatchPasteEvent = dom?.dispatchPasteEvent;
+        const dispatchBeforeInputFromPaste = dom?.dispatchBeforeInputFromPaste;
+        const dispatchInputFromPaste = dom?.dispatchInputFromPaste;
         const dispatchDragEvent = dom?.dispatchDragEvent;
         const collectFileInputs = dom?.collectFileInputs;
         const collectFileInputsFromOpenShadows = dom?.collectFileInputsFromOpenShadows;
@@ -119,11 +144,15 @@
         const waitForObservedState = dom?.waitForObservedState;
         const genericSetInputValue = typeof dom?.setInputValue === "function" ? dom.setInputValue : null;
         const genericClearInputValue = typeof dom?.clearInputValue === "function" ? dom.clearInputValue : null;
+        const genericGetComposerText = typeof dom?.getComposerText === "function" ? dom.getComposerText : fallbackGetComposerText;
+        const genericNormalizeComposerText = typeof dom?.normalizeComposerText === "function" ? dom.normalizeComposerText : fallbackNormalizeComposerText;
 
         if (
             typeof simulateKeystroke !== "function" ||
             typeof isElementVisible !== "function" ||
             typeof dispatchPasteEvent !== "function" ||
+            typeof dispatchBeforeInputFromPaste !== "function" ||
+            typeof dispatchInputFromPaste !== "function" ||
             typeof dispatchDragEvent !== "function" ||
             typeof collectFileInputs !== "function" ||
             typeof collectFileInputsFromOpenShadows !== "function" ||
@@ -280,6 +309,10 @@
             return null;
         }
 
+        function resolveLiveChatGPTComposerElement(composerEl) {
+            return findChatGPTComposerElement() || resolveChatGPTComposerElement(composerEl, { requireVisible: false });
+        }
+
         // ===== ChatGPT 输出状态检测与新建对话 =====
 
         function isChatGPTStreaming() {
@@ -400,12 +433,10 @@
             }
         }
 
-        function getChatGPTComposerPlainText(composerEl) {
-            if (!composerEl) return "";
-            return String(composerEl.innerText || composerEl.textContent || "")
-                .replace(/\u200B/g, "")
-                .replace(/\r/g, "")
-                .trim();
+        function getChatGPTComposerPlainText(composerEl, { trimTrailingEditorNewlines = false } = {}) {
+            const composer = resolveLiveChatGPTComposerElement(composerEl);
+            if (!composer) return "";
+            return genericNormalizeComposerText(genericGetComposerText(composer), { trimTrailingEditorNewlines });
         }
 
         function selectAllChatGPTComposerContent(composerEl) {
@@ -504,10 +535,10 @@
             try { composerEl.focus?.(); } catch { }
             moveChatGPTComposerCaretToEnd(composerEl);
 
-            const fired = dispatchPasteEvent(composerEl, dt);
-            if (fired) {
-                dispatchChatGPTComposerInput(composerEl, { inputType: "insertFromPaste", data: plainText });
-            }
+            let fired = false;
+            fired = dispatchBeforeInputFromPaste(composerEl, dt) || fired;
+            fired = dispatchPasteEvent(composerEl, dt) || fired;
+            fired = dispatchInputFromPaste(composerEl, dt) || fired;
             return fired;
         }
 
@@ -526,7 +557,8 @@
                 try { composer.focus?.(); } catch { }
                 try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
 
-                let inserted = tryPasteTextIntoChatGPTComposer(composer, text);
+                const insertedViaPaste = tryPasteTextIntoChatGPTComposer(composer, text);
+                let inserted = insertedViaPaste;
 
                 if (!inserted && typeof genericSetInputValue === "function") {
                     try { inserted = !!genericSetInputValue(composer, text); } catch { }
@@ -546,12 +578,14 @@
                     } catch { }
                 }
 
-                dispatchChatGPTComposerInput(composer, {
-                    inputType: inserted ? "insertText" : "insertReplacementText",
-                    data: text
-                });
+                if (!insertedViaPaste) {
+                    dispatchChatGPTComposerInput(composer, {
+                        inputType: inserted ? "insertText" : "insertReplacementText",
+                        data: text
+                    });
+                }
 
-                return inserted || !!getChatGPTComposerPlainText(composer);
+                return inserted;
             }
 
             // 回退：普通 textarea/input
@@ -782,6 +816,28 @@
                 } catch { }
             }
 
+            return roots;
+        }
+
+        function getChatGPTTextObservationRoots(composerEl) {
+            const roots = [];
+            const seen = new Set();
+            const composer = resolveLiveChatGPTComposerElement(composerEl) || composerEl || null;
+            const pushRoot = (node) => {
+                if (!node || seen.has(node)) return;
+                const nodeType = Number(node?.nodeType) || 0;
+                if (!(nodeType === 1 || nodeType === 9 || nodeType === 11)) return;
+                seen.add(node);
+                roots.push(node);
+            };
+
+            pushRoot(composer);
+            const observedRoots = getChatGPTObservationRoots({
+                containerEl: composer ? findChatGPTComposerContainer(composer) : null,
+                composerEl: composer
+            });
+            for (const root of observedRoots) pushRoot(root);
+            pushRoot(document.body || document || null);
             return roots;
         }
 
@@ -1617,6 +1673,8 @@
             }),
             setInputValue: setChatGPTInputValue,
             clearComposerValue: clearChatGPTInputValue,
+            getComposerText: getChatGPTComposerPlainText,
+            getTextObservationRoots: getChatGPTTextObservationRoots,
             attachImages: attachImagesToComposer,
             clearAttachments: clearChatGPTAttachments,
             waitForReadyToSend: waitForChatGPTReadyToSend,

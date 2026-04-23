@@ -5,7 +5,7 @@
 import { sleep, deepMerge } from "../shared/base.js";
 import { cancelAnimationFrameSafe, getDomConstructor, getGlobalScope, requestAnimationFrameSafe } from "../shared/platform/browser.js";
 import { getDraftStorageKey, loadDraft, saveDraft, readFileAsDataUrl, dataUrlToFile, normalizeDraftImageEntry, normalizeDraftImages, normalizeImageFiles } from "./storage.js";
-import { clampInt, normalizeHotkeyString, normalizeHotkeyFallback, getKeyEventProps, simulateKeystroke, isElementVisible, pickBestComposerCandidate, findComposerElement, focusComposer, setInputValue, clearInputValue, dispatchPasteEvent, dispatchBeforeInputFromPaste, dispatchInputFromPaste, dispatchDragEvent, collectFileInputs, collectFileInputsFromOpenShadows, trySetFileInputFiles, isInsideOverlayTree } from "./dom.js";
+import { clampInt, normalizeComposerText, normalizeHotkeyString, normalizeHotkeyFallback, getComposerText, getKeyEventProps, simulateKeystroke, isElementVisible, pickBestComposerCandidate, findComposerElement, focusComposer, setInputValue, clearInputValue, dispatchPasteEvent, dispatchBeforeInputFromPaste, dispatchInputFromPaste, dispatchDragEvent, collectFileInputs, collectFileInputsFromOpenShadows, trySetFileInputFiles, isInsideOverlayTree } from "./dom.js";
 import { STEP_DELAY_MAX_MS, LOOP_DELAY_MAX_MS, DELAY_UNIT_FACTORS, DELAY_UNIT_LABELS, QUICK_INPUT_SVG_NS, DEFAULT_LABELS, DEFAULT_CONFIG, normalizeImageRecovery, normalizeDelayUnit, inferDelayUnitFromMs, convertDelayInputToMs, clampDelayMs, formatDelayInputValue, formatDelayWithUnit, loadConfig, saveConfig } from "./config.js";
 import { executeEngineShortcutByHotkey, sleepWithCancel, waitForObservedState } from "./runtime.js";
 import { ensureQuickInputStyle } from "./style.js";
@@ -33,6 +33,8 @@ export function createController(userOptions = {}) {
                     focusComposer({ ...(opts || {}), shouldIgnore: (el) => isInsideOverlay(el) }),
                 setInputValue: typeof rawAdapter.setInputValue === "function" ? rawAdapter.setInputValue : setInputValue,
                 clearComposerValue: typeof rawAdapter.clearComposerValue === "function" ? rawAdapter.clearComposerValue : clearInputValue,
+                getComposerText: typeof rawAdapter.getComposerText === "function" ? rawAdapter.getComposerText : getComposerText,
+                getTextObservationRoots: typeof rawAdapter.getTextObservationRoots === "function" ? rawAdapter.getTextObservationRoots : null,
                 attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
                 clearAttachments: typeof rawAdapter.clearAttachments === "function" ? rawAdapter.clearAttachments : null,
                 waitForReadyToSend: typeof rawAdapter.waitForReadyToSend === "function" ? rawAdapter.waitForReadyToSend : null,
@@ -216,6 +218,87 @@ export function createController(userOptions = {}) {
                 }),
                 now: runtimeTiming.now
             });
+
+            const TEXT_COMMIT_SETTLE_MS = 200;
+            const TEXT_COMMIT_POLL_MS = 120;
+            const TEXT_COMMIT_OBSERVED_ATTRIBUTES = Object.freeze([
+                "class",
+                "style",
+                "value",
+                "placeholder",
+                "data-state",
+                "aria-hidden",
+                "hidden"
+            ]);
+
+            function isComposerNodeConnected(node) {
+                if (!node) return false;
+                try {
+                    if (typeof node.isConnected === "boolean") return node.isConnected;
+                } catch { }
+                try { return !!globalThis.document?.contains?.(node); } catch { return false; }
+            }
+
+            function resolveComposerForTextRead(composerEl) {
+                if (
+                    composerEl &&
+                    !isInsideOverlay(composerEl) &&
+                    isComposerNodeConnected(composerEl) &&
+                    isElementVisible(composerEl)
+                ) {
+                    return composerEl;
+                }
+                const fallback = findComposerElement({ shouldIgnore: (el) => isInsideOverlay(el) });
+                return fallback || composerEl || null;
+            }
+
+            function readComposerTextForVerification(composerEl) {
+                const resolvedComposer = resolveComposerForTextRead(composerEl);
+                try {
+                    return String(adapter.getComposerText?.(resolvedComposer) ?? "");
+                } catch {
+                    return "";
+                }
+            }
+
+            function getTextObservationRootsForVerification(composerEl) {
+                const roots = [];
+                const seen = new Set();
+                const resolvedComposer = resolveComposerForTextRead(composerEl);
+                const pushRoot = (node) => {
+                    if (!node || seen.has(node)) return;
+                    const nodeType = Number(node?.nodeType) || 0;
+                    if (!(nodeType === 1 || nodeType === 9 || nodeType === 11)) return;
+                    seen.add(node);
+                    roots.push(node);
+                };
+
+                pushRoot(resolvedComposer);
+                try { pushRoot(resolvedComposer?.parentElement || null); } catch { }
+                try { pushRoot(resolvedComposer?.closest?.("form") || null); } catch { }
+
+                if (typeof adapter.getTextObservationRoots === "function") {
+                    let customRoots = null;
+                    try {
+                        customRoots = adapter.getTextObservationRoots(resolvedComposer);
+                    } catch { }
+                    for (const root of Array.isArray(customRoots) ? customRoots : [customRoots]) {
+                        pushRoot(root);
+                    }
+                }
+
+                pushRoot(globalThis.document?.body || globalThis.document || null);
+                return roots;
+            }
+
+            function getTextCommitTimeoutMs(text) {
+                const length = normalizeComposerText(text).length;
+                return Math.max(1500, Math.min(8000, 800 + length * 2));
+            }
+
+            function normalizeTextCommitValue(text) {
+                return normalizeComposerText(text, { trimTrailingEditorNewlines: true });
+            }
 
             function appendRuntimeLog(text, options = {}) {
                 if (!text) return;
@@ -2051,6 +2134,162 @@ export function createController(userOptions = {}) {
                     return "";
                 }
 
+                function buildTextCommitFailureDetail(stageLabel, state, expectedText) {
+                    if (!state?.composer) {
+                        return labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound;
+                    }
+                    const actualLength = String(state?.actualText || "").length;
+                    const expectedLength = String(expectedText || "").length;
+                    return `文字校验失败${stageLabel ? `（${stageLabel}）` : ""}：当前检测到 ${actualLength} / ${expectedLength} 个字符。`;
+                }
+
+                async function attemptSetPromptText(composerEl, text) {
+                    try {
+                        return await adapter.setInputValue(composerEl, text);
+                    } catch {
+                        return false;
+                    }
+                }
+
+                async function attemptClearPromptText(composerEl) {
+                    try {
+                        return await adapter.clearComposerValue(composerEl);
+                    } catch {
+                        return false;
+                    }
+                }
+
+                async function waitForPromptCommit(composerEl, prompt, { stageLabel = "" } = {}) {
+                    const expectedText = normalizeTextCommitValue(prompt);
+                    let composerRef = composerEl;
+                    let lastState = null;
+
+                    const computeState = () => {
+                        const resolvedComposer = resolveComposerForTextRead(composerRef);
+                        if (resolvedComposer) composerRef = resolvedComposer;
+                        const actualText = normalizeTextCommitValue(readComposerTextForVerification(composerRef));
+                        lastState = {
+                            composer: composerRef,
+                            actualText,
+                            expectedText,
+                            ok: actualText === expectedText,
+                            stateKey: `${actualText.length}:${actualText === expectedText ? 1 : 0}`
+                        };
+                        return lastState;
+                    };
+
+                    const observed = await waitForObservedState({
+                        resolveRoots: () => getTextObservationRootsForVerification(composerRef),
+                        computeState,
+                        isSatisfied: (state) => !!state?.ok,
+                        timeoutMs: getTextCommitTimeoutMs(prompt),
+                        settleMs: TEXT_COMMIT_SETTLE_MS,
+                        pollFallbackMs: TEXT_COMMIT_POLL_MS,
+                        attributeFilter: TEXT_COMMIT_OBSERVED_ATTRIBUTES,
+                        shouldCancel,
+                        runtime
+                    });
+
+                    const state = observed?.state || computeState();
+                    if (observed?.cancelled) {
+                        return {
+                            ok: false,
+                            cancelled: true,
+                            composer: state?.composer || composerRef,
+                            state,
+                            expectedText
+                        };
+                    }
+
+                    return {
+                        ok: !!observed?.ok,
+                        cancelled: false,
+                        composer: state?.composer || composerRef,
+                        state,
+                        expectedText,
+                        message: observed?.ok ? "" : buildTextCommitFailureDetail(stageLabel, state, expectedText)
+                    };
+                }
+
+                async function ensurePromptCommitted(composerEl, prompt, {
+                    stageLabel = "",
+                    shouldInsertFirst = false,
+                    successLog = "",
+                    recoveryFocusTimeoutMs = 6000
+                } = {}) {
+                    let composerRef = composerEl;
+
+                    if (shouldInsertFirst) {
+                        await attemptSetPromptText(composerRef, prompt);
+                    }
+
+                    let verification = await waitForPromptCommit(composerRef, prompt, { stageLabel });
+                    if (verification?.composer) composerRef = verification.composer;
+                    if (verification?.cancelled) {
+                        return { ok: false, cancelled: true, composer: composerRef };
+                    }
+                    if (verification?.ok) {
+                        if (successLog) appendLoopLog(successLog, { level: "ok" });
+                        return { ok: true, cancelled: false, composer: composerRef };
+                    }
+
+                    const retryMsg = labels.messages?.textRetrying
+                        ? labels.messages.textRetrying(stageLabel, 1, 1)
+                        : (typeof DEFAULT_LABELS.messages.textRetrying === "function"
+                            ? DEFAULT_LABELS.messages.textRetrying(stageLabel, 1, 1)
+                            : DEFAULT_LABELS.messages.textRetrying);
+                    if (retryMsg) appendLoopLog(retryMsg, { level: "warn" });
+
+                    composerRef = await adapter.focusComposer({
+                        timeoutMs: recoveryFocusTimeoutMs,
+                        intervalMs: 120,
+                        shouldCancel,
+                        runtime
+                    }) || composerRef;
+
+                    if (!composerRef) {
+                        return {
+                            ok: false,
+                            cancelled: !!cancelRun,
+                            composer: composerEl,
+                            message: labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound
+                        };
+                    }
+
+                    await attemptClearPromptText(composerRef);
+                    if (!(await waitStep(60, 40))) {
+                        return { ok: false, cancelled: true, composer: composerRef };
+                    }
+
+                    await attemptSetPromptText(composerRef, prompt);
+                    verification = await waitForPromptCommit(composerRef, prompt, { stageLabel });
+                    if (verification?.composer) composerRef = verification.composer;
+                    if (verification?.cancelled) {
+                        return { ok: false, cancelled: true, composer: composerRef };
+                    }
+                    if (verification?.ok) {
+                        if (successLog) appendLoopLog(successLog, { level: "ok" });
+                        return { ok: true, cancelled: false, composer: composerRef, recovered: true };
+                    }
+
+                    const notReadyMsg = labels.messages?.textNotReady
+                        ? labels.messages.textNotReady(stageLabel)
+                        : (typeof DEFAULT_LABELS.messages.textNotReady === "function"
+                            ? DEFAULT_LABELS.messages.textNotReady(stageLabel)
+                            : DEFAULT_LABELS.messages.textNotReady);
+                    if (notReadyMsg) appendLoopLog(notReadyMsg, { level: "error" });
+
+                    const detail = String(verification?.message || "").trim();
+                    if (detail) appendLoopLog(detail, { level: "error" });
+
+                    return {
+                        ok: false,
+                        cancelled: false,
+                        composer: composerRef,
+                        message: notReadyMsg || detail
+                    };
+                }
+
                 function pickImagesForRepair(allImages, currentCount, missingCount) {
                     const list = Array.isArray(allImages) ? allImages.filter(Boolean) : [];
                     const need = Math.max(0, Math.min(list.length, Number(missingCount) || 0));
@@ -2265,7 +2504,7 @@ export function createController(userOptions = {}) {
                         break;
                     }
 
-                    if (cfg.clearBeforeRun) adapter.clearComposerValue(composer);
+                    if (cfg.clearBeforeRun) await attemptClearPromptText(composer);
                     if (!(await waitStep(cfg.stepDelayMs))) {
                         markRunCancelled();
                         break;
@@ -2313,11 +2552,24 @@ export function createController(userOptions = {}) {
                             break;
                         }
 
-                        const okText = adapter.setInputValue(composer, promptText);
-                        const msg = labels.messages?.textInserted
-                            ? labels.messages.textInserted(okText)
-                            : DEFAULT_LABELS.messages.textInserted(okText);
-                        appendLoopLog(msg, { level: okText ? "ok" : "error" });
+                        const textInsertedMsg = labels.messages?.textInserted
+                            ? labels.messages.textInserted(true)
+                            : DEFAULT_LABELS.messages.textInserted(true);
+                        const textCommitResult = await ensurePromptCommitted(composer, promptText, {
+                            stageLabel: "文字输入后",
+                            shouldInsertFirst: true,
+                            successLog: textInsertedMsg
+                        });
+                        if (textCommitResult?.composer) composer = textCommitResult.composer;
+                        if (textCommitResult?.cancelled) {
+                            markRunCancelled();
+                            break;
+                        }
+                        if (!textCommitResult?.ok) {
+                            markRunFailed();
+                            cancelRun = true;
+                            break;
+                        }
                         if (!(await waitStep(cfg.stepDelayMs))) {
                             markRunCancelled();
                             break;
@@ -2375,6 +2627,21 @@ export function createController(userOptions = {}) {
                     if (beforeSendReady !== true) {
                         if (beforeSendReady === "cancelled") markRunCancelled();
                         break;
+                    }
+                    if (promptText.trim()) {
+                        const textCommitResult = await ensurePromptCommitted(composer, promptText, {
+                            stageLabel: "发送前"
+                        });
+                        if (textCommitResult?.composer) composer = textCommitResult.composer;
+                        if (textCommitResult?.cancelled) {
+                            markRunCancelled();
+                            break;
+                        }
+                        if (!textCommitResult?.ok) {
+                            markRunFailed();
+                            cancelRun = true;
+                            break;
+                        }
                     }
                     const okSend = await adapter.sendMessage(composer);
                     const sendCompletedAtMs = runtime.now();
