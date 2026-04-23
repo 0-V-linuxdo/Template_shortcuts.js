@@ -70,21 +70,18 @@ export const SITE_MANIFEST = Object.freeze([
             }
         ],
         "metadata": {
-            "name": "[ChatGPT] 快捷键跳转 [20260423] v1.0.5",
+            "name": "[ChatGPT] 快捷键跳转 [20260423] v1.0.4",
             "namespace": "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             "description": "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            "version": "[20260423] v1.0.5",
-            "updateLog": "1.0.5: 修复 ChatGPT 菜单桥接，补回 settings fallback，并补齐 CustomEvent / GM value change 的兜底处理。",
+            "version": "[20260423] v1.0.4",
+            "updateLog": "1.0.4: 删除站点侧冗余 settings 分支，统一改由 core menuBridge 直连处理，并消费早期 pending 点击。",
             "match": [
                 "https://chatgpt.com/*"
             ],
             "grant": [
                 "GM_registerMenuCommand",
-                "GM_unregisterMenuCommand",
                 "GM_getValue",
                 "GM_setValue",
-                "GM_addValueChangeListener",
-                "GM_removeValueChangeListener",
                 "GM_xmlhttpRequest"
             ],
             "connect": [
