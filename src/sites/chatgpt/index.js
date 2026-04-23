@@ -52,7 +52,6 @@
     // ChatGPT 元素选择器
     const SELECTORS = {
         composerPlusBtn: "button[data-testid='composer-plus-btn']",
-        popupMenuRoot: "div[role='menu'][data-radix-menu-content]",
         aspectRatioBtn: 'button[aria-label="Choose image aspect ratio"]',
         aspectRatioBtnFallback: 'button.composer-btn[aria-haspopup="menu"], button[aria-haspopup="menu"]',
         aspectRatioMenuRoot: "div[role='menu'][data-radix-menu-content]",
@@ -90,8 +89,7 @@
             ]
         },
         root: {
-            type: "ariaLabelledBy",
-            selector: SELECTORS.popupMenuRoot,
+            type: "ariaControls",
             requireRole: "menu",
             requireDataState: "open"
         },
