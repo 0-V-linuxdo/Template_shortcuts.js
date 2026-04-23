@@ -44,6 +44,24 @@ export async function startSite(runtime = {}) {
         }
     }
 
+    function gmAddValueChangeListenerLocal(key, handler) {
+        const fn = getUserscriptApi("GM_addValueChangeListener");
+        if (typeof fn !== "function") return null;
+        try {
+            return fn(key, handler);
+        } catch {
+            return null;
+        }
+    }
+
+    function gmRemoveValueChangeListenerLocal(listenerId) {
+        const fn = getUserscriptApi("GM_removeValueChangeListener");
+        if (typeof fn !== "function") return;
+        try {
+            fn(listenerId);
+        } catch { }
+    }
+
     function gmGetValueLocal(key, fallback) {
         const fn = getUserscriptApi("GM_getValue");
         if (typeof fn !== "function") return fallback;
@@ -125,6 +143,7 @@ export async function startSite(runtime = {}) {
         quickInput: "quickInput"
     });
     let menuCommandPollTimer = null;
+    let menuCommandValueListenerId = null;
     const handledMenuCommandIds = [];
     const handledMenuCommandIdSet = new Set();
 
@@ -1818,23 +1837,57 @@ export async function startSite(runtime = {}) {
         })));
     }
 
+    function bindMenuCommandValueChanges(engine) {
+        if (!bootstrapMenuManaged || !menuPendingValueKey) return false;
+        if (menuCommandValueListenerId !== null) return true;
+        const listenerId = gmAddValueChangeListenerLocal(menuPendingValueKey, () => {
+            consumePendingMenuCommands(engine);
+        });
+        if (listenerId === null || listenerId === undefined) return false;
+        menuCommandValueListenerId = listenerId;
+        return true;
+    }
+
+    function unbindMenuCommandValueChanges() {
+        if (menuCommandValueListenerId === null) return;
+        gmRemoveValueChangeListenerLocal(menuCommandValueListenerId);
+        menuCommandValueListenerId = null;
+    }
+
+    function handleMenuCommandPayload(engine, detail) {
+        if (!detail || typeof detail !== "object") return false;
+        if (detail.source !== menuCommandMessageSource) return false;
+        if (detail.type !== menuCommandMessageType) return false;
+        if (detail.siteId !== runtime?.siteId) return false;
+        if (menuPageToken && detail.pageToken && detail.pageToken !== menuPageToken) return false;
+        return handleMenuCommandWithId(engine, detail.commandKey, detail.commandId);
+    }
+
     function bindMenuCommandMessages(engine) {
         if (!bootstrapMenuManaged || !menuCommandMessageType || !menuCommandMessageSource) return;
-        if (typeof window === "undefined" || !window || typeof window.addEventListener !== "function") return;
+        const canListenOnWindow = typeof window !== "undefined" && window && typeof window.addEventListener === "function";
+        const canListenOnDocument = typeof document !== "undefined" && document && typeof document.addEventListener === "function";
+        if (!canListenOnWindow && !canListenOnDocument) return;
 
-        window.addEventListener("message", (event) => {
-            const detail = event?.data;
-            if (!detail || typeof detail !== "object") return;
-            if (detail.source !== menuCommandMessageSource) return;
-            if (detail.type !== menuCommandMessageType) return;
-            if (detail.siteId !== runtime?.siteId) return;
-            if (menuPageToken && detail.pageToken && detail.pageToken !== menuPageToken) return;
-            handleMenuCommandWithId(engine, detail.commandKey, detail.commandId);
-        });
+        if (canListenOnWindow) {
+            window.addEventListener("message", (event) => {
+                handleMenuCommandPayload(engine, event?.data);
+            });
+            window.addEventListener(menuCommandMessageType, (event) => {
+                handleMenuCommandPayload(engine, event?.detail);
+            });
+        }
+
+        if (canListenOnDocument) {
+            document.addEventListener(menuCommandMessageType, (event) => {
+                handleMenuCommandPayload(engine, event?.detail);
+            });
+        }
     }
 
     function startMenuCommandPolling(engine) {
         if (!bootstrapMenuManaged) return;
+        if (menuCommandValueListenerId !== null) return;
         if (typeof window === "undefined" || !window) return;
         const drain = () => {
             consumePendingMenuCommands(engine);
@@ -2225,26 +2278,18 @@ export async function startSite(runtime = {}) {
         // 其余参数保持默认（Template 内置：URL模版解析、中文文案、响应式断点等）
     });
 
-    if (bootstrapMenuManaged && menuBridge?.managedByBootstrap && typeof menuBridge.setCommandHandler === "function") {
-        menuBridge.setCommandHandler(MENU_COMMAND_KEYS.quickInput, () => {
-            ensureQuickInputController(engine)?.open?.();
-        });
-    }
-
     // 初始化引擎
     engine.init();
     bindMenuCommandMessages(engine);
-    startMenuCommandPolling(engine);
+    const hasMenuCommandValueListener = bindMenuCommandValueChanges(engine);
+    if (!hasMenuCommandValueListener) {
+        startMenuCommandPolling(engine);
+    }
     if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
         window.addEventListener("pagehide", stopMenuCommandPolling, { once: true });
         window.addEventListener("beforeunload", stopMenuCommandPolling, { once: true });
-        if (menuBridge?.managedByBootstrap && typeof menuBridge.setCommandHandler === "function") {
-            const clearQuickInputHandler = () => {
-                try { menuBridge.setCommandHandler(MENU_COMMAND_KEYS.quickInput, null); } catch { }
-            };
-            window.addEventListener("pagehide", clearQuickInputHandler, { once: true });
-            window.addEventListener("beforeunload", clearQuickInputHandler, { once: true });
-        }
+        window.addEventListener("pagehide", unbindMenuCommandValueChanges, { once: true });
+        window.addEventListener("beforeunload", unbindMenuCommandValueChanges, { once: true });
     } else {
         gmRegisterMenuCommandLocal("ChatGPT - 快捷输入", () => {
             ensureQuickInputController(engine)?.open?.();
