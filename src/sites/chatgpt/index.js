@@ -477,23 +477,6 @@ export async function startSite(runtime = {}) {
                 .trim();
         }
 
-        function normalizeChatGPTComposerText(value) {
-            return String(value ?? "")
-                .replace(/\u200B/g, "")
-                .replace(/\u00A0/g, " ")
-                .replace(/\r\n?/g, "\n")
-                .replace(/\n+$/g, "");
-        }
-
-        function getChatGPTComposerComparableText(composerEl) {
-            if (!composerEl) return "";
-            return normalizeChatGPTComposerText(composerEl.innerText || composerEl.textContent || "");
-        }
-
-        function isChatGPTComposerTextMatch(composerEl, expectedText) {
-            return getChatGPTComposerComparableText(composerEl) === normalizeChatGPTComposerText(expectedText);
-        }
-
         function selectAllChatGPTComposerContent(composerEl) {
             if (!composerEl || typeof document.createRange !== "function") return false;
             try {
@@ -529,13 +512,12 @@ export async function startSite(runtime = {}) {
 
         function dispatchChatGPTComposerInput(composerEl, { inputType = "insertText", data = null } = {}) {
             if (!composerEl) return false;
-            const eventData = typeof data === "string" && data.length > 4096 ? null : data;
             try {
                 composerEl.dispatchEvent(new InputEvent("input", {
                     bubbles: true,
                     cancelable: true,
                     inputType,
-                    data: eventData
+                    data
                 }));
                 return true;
             } catch {
@@ -589,14 +571,13 @@ export async function startSite(runtime = {}) {
             if (!dt) return false;
 
             try { composerEl.focus?.(); } catch { }
-            if (!isChatGPTComposerTextMatch(composerEl, "")) selectAllChatGPTComposerContent(composerEl);
-            else moveChatGPTComposerCaretToEnd(composerEl);
+            moveChatGPTComposerCaretToEnd(composerEl);
 
             const fired = dispatchPasteEvent(composerEl, dt);
             if (fired) {
                 dispatchChatGPTComposerInput(composerEl, { inputType: "insertFromPaste", data: plainText });
             }
-            return fired && isChatGPTComposerTextMatch(composerEl, plainText);
+            return fired;
         }
 
         function setChatGPTInputValue(composerEl, value) {
@@ -609,7 +590,7 @@ export async function startSite(runtime = {}) {
             // ChatGPT 使用 ProseMirror (contenteditable div)
             if (composer.isContentEditable || composer.contentEditable === "true") {
                 clearChatGPTInputValue(composer);
-                if (!text) return isChatGPTComposerTextMatch(composer, "");
+                if (!text) return true;
 
                 try { composer.focus?.(); } catch { }
                 try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
@@ -618,21 +599,19 @@ export async function startSite(runtime = {}) {
 
                 if (!inserted && typeof genericSetInputValue === "function") {
                     try { inserted = !!genericSetInputValue(composer, text); } catch { }
-                    inserted = inserted || isChatGPTComposerTextMatch(composer, text);
                 }
 
                 if (!inserted) {
                     try {
                         selectAllChatGPTComposerContent(composer);
-                        document.execCommand?.("insertText", false, text);
+                        inserted = !!document.execCommand?.("insertText", false, text);
                     } catch { }
-                    inserted = isChatGPTComposerTextMatch(composer, text);
                 }
 
                 if (!inserted) {
                     try {
                         composer.textContent = text;
-                        inserted = isChatGPTComposerTextMatch(composer, text);
+                        inserted = true;
                     } catch { }
                 }
 
@@ -641,7 +620,7 @@ export async function startSite(runtime = {}) {
                     data: text
                 });
 
-                return inserted;
+                return inserted || !!getChatGPTComposerPlainText(composer);
             }
 
             // 回退：普通 textarea/input
@@ -666,45 +645,39 @@ export async function startSite(runtime = {}) {
                 try { composer.focus?.(); } catch { }
                 try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
 
-                let cleared = isChatGPTComposerTextMatch(composer, "");
+                let cleared = false;
 
-                if (!cleared) try {
+                try {
                     if (selectAllChatGPTComposerContent(composer)) {
-                        document.execCommand?.("delete", false, null);
+                        cleared = !!document.execCommand?.("delete", false, null);
+                        if (!cleared) {
+                            cleared = !!document.execCommand?.("insertText", false, "");
+                        }
                     }
                 } catch { }
-                cleared = isChatGPTComposerTextMatch(composer, "");
-
-                if (!cleared) try {
-                    if (selectAllChatGPTComposerContent(composer)) {
-                        document.execCommand?.("insertText", false, "");
-                    }
-                } catch { }
-                cleared = isChatGPTComposerTextMatch(composer, "");
 
                 if (!cleared) {
                     try {
                         if (selectAllChatGPTComposerContent(composer)) {
                             window.getSelection?.()?.deleteFromDocument?.();
+                            cleared = true;
                         }
                     } catch { }
-                    cleared = isChatGPTComposerTextMatch(composer, "");
                 }
 
                 if (!cleared && typeof genericClearInputValue === "function") {
                     try { cleared = !!genericClearInputValue(composer); } catch { }
-                    cleared = cleared || isChatGPTComposerTextMatch(composer, "");
                 }
 
                 if (!cleared) {
                     try {
                         composer.textContent = "";
-                        cleared = isChatGPTComposerTextMatch(composer, "");
+                        cleared = true;
                     } catch { }
                 }
 
                 dispatchChatGPTComposerInput(composer, { inputType: "deleteContentBackward", data: null });
-                return cleared;
+                return cleared || !getChatGPTComposerPlainText(composer);
             }
 
             try {
