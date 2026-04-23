@@ -432,11 +432,6 @@
           return null;
         }
       }
-      function getChatGPTComposerPlainText(composerEl, { trimTrailingEditorNewlines = false } = {}) {
-        const composer = resolveLiveChatGPTComposerElement(composerEl);
-        if (!composer) return "";
-        return genericNormalizeComposerText(genericGetComposerText(composer), { trimTrailingEditorNewlines });
-      }
       const CHATGPT_TEXT_ATTEMPT_TIMEOUT_MS = 700;
       const CHATGPT_TEXT_ATTEMPT_SETTLE_MS = 100;
       const CHATGPT_TEXT_ATTEMPT_POLL_MS = 80;
@@ -454,6 +449,90 @@
         "aria-hidden",
         "hidden"
       ]);
+      function isChatGPTStructuredTextElement(node) {
+        const tag = String(node?.tagName || "").toUpperCase();
+        return tag === "P" || tag === "LI" || tag === "BLOCKQUOTE" || tag === "PRE" || tag === "UL" || tag === "OL" || tag === "H1" || tag === "H2" || tag === "H3" || tag === "H4" || tag === "H5" || tag === "H6";
+      }
+      function isChatGPTTrailingBreak(node) {
+        if (!node || String(node.tagName || "").toUpperCase() !== "BR") return false;
+        try {
+          if (!node.classList?.contains("ProseMirror-trailingBreak")) return false;
+        } catch {
+          return false;
+        }
+        const parent = node.parentElement || null;
+        if (!parent) return true;
+        const siblings = Array.from(parent.childNodes || []).filter(Boolean);
+        return siblings[siblings.length - 1] === node;
+      }
+      function serializeChatGPTInlineText(node, { preserveWhitespace = false } = {}) {
+        if (!node) return "";
+        const nodeType = Number(node.nodeType) || 0;
+        if (nodeType === 3) {
+          return String(node.nodeValue || "");
+        }
+        if (nodeType !== 1) return "";
+        const tag = String(node.tagName || "").toUpperCase();
+        if (tag === "BR") {
+          return isChatGPTTrailingBreak(node) ? "" : "\n";
+        }
+        const nextPreserveWhitespace = preserveWhitespace || tag === "PRE";
+        let text = "";
+        for (const child of Array.from(node.childNodes || [])) {
+          text += serializeChatGPTInlineText(child, { preserveWhitespace: nextPreserveWhitespace });
+        }
+        if (nextPreserveWhitespace) return text;
+        return text;
+      }
+      function serializeChatGPTStructuredText(node) {
+        if (!node) return "";
+        const nodeType = Number(node.nodeType) || 0;
+        if (nodeType === 3) {
+          return String(node.nodeValue || "");
+        }
+        if (nodeType !== 1) return "";
+        const tag = String(node.tagName || "").toUpperCase();
+        if (tag === "UL" || tag === "OL") {
+          const items = Array.from(node.children || []).filter((child) => String(child?.tagName || "").toUpperCase() === "LI").map((child) => serializeChatGPTStructuredText(child));
+          return items.join("\n");
+        }
+        const structuredChildren = Array.from(node.childNodes || []).filter((child) => isChatGPTStructuredTextElement(child));
+        if (structuredChildren.length > 0) {
+          return structuredChildren.map((child) => serializeChatGPTStructuredText(child)).join("\n");
+        }
+        return serializeChatGPTInlineText(node, { preserveWhitespace: tag === "PRE" });
+      }
+      function serializeChatGPTComposerText(composerEl) {
+        if (!composerEl) return "";
+        const topLevelBlocks = Array.from(composerEl.childNodes || []).filter((child) => isChatGPTStructuredTextElement(child));
+        if (topLevelBlocks.length > 0) {
+          return topLevelBlocks.map((child) => serializeChatGPTStructuredText(child)).join("\n");
+        }
+        return serializeChatGPTInlineText(composerEl);
+      }
+      function readChatGPTFallbackTextareaValue(composerEl) {
+        const textarea = findChatGPTFallbackTextarea(composerEl);
+        if (!textarea) return "";
+        try {
+          return String(textarea.value ?? "");
+        } catch {
+          return "";
+        }
+      }
+      function getChatGPTComposerPlainText(composerEl, { trimTrailingEditorNewlines = false } = {}) {
+        const composer = resolveLiveChatGPTComposerElement(composerEl);
+        if (!composer) return "";
+        let text = "";
+        const fallbackText = readChatGPTFallbackTextareaValue(composer);
+        if (fallbackText) {
+          text = fallbackText;
+        } else if (composer.isContentEditable || composer.contentEditable === "true") {
+          text = serializeChatGPTComposerText(composer);
+        } else {
+          text = genericGetComposerText(composer);
+        }
+        return genericNormalizeComposerText(text, { trimTrailingEditorNewlines });
+      }
       function normalizeChatGPTCommittedText(value) {
         return genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines: true });
       }
