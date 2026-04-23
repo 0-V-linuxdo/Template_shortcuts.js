@@ -9355,7 +9355,8 @@ ${displayTargetText}`;
                     top: 50%;
                     transform: translate(-50%, -50%);
                     width: min(330px, 96vw);
-                    max-height: min(86vh, 860px);
+                    max-height: calc(100vh - 36px);
+                    max-height: calc(100dvh - 36px);
                     overflow: hidden;
                     background: var(--qi-surface);
                     color: var(--qi-text-strong);
@@ -9965,17 +9966,35 @@ ${displayTargetText}`;
                     padding: 10px 14px;
                     font-size: 12px;
                     color: var(--qi-text);
-                    overflow: auto;
-                    flex: 1;
+                    overflow-x: hidden;
+                    overflow-y: auto;
+                    flex: 1 1 0;
                     min-height: 0;
+                    height: 0;
                     white-space: pre-wrap;
                     line-height: 1.35;
                     display: grid;
                     align-content: start;
                     gap: 6px;
+                    scrollbar-gutter: stable both-edges;
+                    scrollbar-width: thin;
+                    scrollbar-color: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border)) transparent;
                 }
                 ${hostSelector} .qi-log > * {
                     min-width: 0;
+                }
+                ${hostSelector} .qi-log::-webkit-scrollbar {
+                    width: 8px;
+                }
+                ${hostSelector} .qi-log::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                ${hostSelector} .qi-log::-webkit-scrollbar-thumb {
+                    border-radius: 999px;
+                    background: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border));
+                }
+                ${hostSelector} .qi-log::-webkit-scrollbar-thumb:hover {
+                    background: color-mix(in srgb, ${primaryColor} 54%, var(--qi-border));
                 }
                 ${hostSelector} .qi-log-line {
                     display: grid;
@@ -10369,6 +10388,8 @@ ${displayTargetText}`;
     let draftPersistToken = 0;
     let draftRestorePromise = null;
     let draftWriteChain = Promise.resolve(null);
+    let panelLayoutRaf = 0;
+    let pendingLogScrollToBottom = false;
     let dragPointerId = null;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
@@ -10378,6 +10399,7 @@ ${displayTargetText}`;
     let dragStartTop = 0;
     let dragMoved = false;
     let dragRaf = 0;
+    const PANEL_VIEWPORT_MARGIN_PX = 36;
     let dragNextLeft = 0;
     let dragNextTop = 0;
     let dragRestore = null;
@@ -10940,25 +10962,49 @@ ${displayTargetText}`;
         verificationMessage
       };
     }
+    function getPanelViewportHeightPx() {
+      const visualHeight = Number(globalThis.visualViewport?.height);
+      if (Number.isFinite(visualHeight) && visualHeight > 0) return visualHeight;
+      const innerHeight = Number(globalThis.innerHeight);
+      if (Number.isFinite(innerHeight) && innerHeight > 0) return innerHeight;
+      return 0;
+    }
+    function getPanelMaxHeightPx() {
+      const viewportHeight = getPanelViewportHeightPx();
+      if (!viewportHeight) return 0;
+      return Math.max(0, Math.round(viewportHeight - PANEL_VIEWPORT_MARGIN_PX));
+    }
     function clampPanelHeightPx(value) {
       const num = Number(value);
       if (!Number.isFinite(num) || num <= 0) return 0;
-      const max = Math.min(globalThis.innerHeight * 0.86, 860);
+      const max = getPanelMaxHeightPx();
       if (!Number.isFinite(max) || max <= 0) return Math.round(num);
       return Math.round(Math.min(num, max));
     }
-    function syncPanelMinHeight() {
+    function syncPanelHeight() {
       if (!panelEl) return;
-      let rect;
-      try {
-        rect = panelEl.getBoundingClientRect();
-      } catch {
-        rect = null;
+      const maxHeight = getPanelMaxHeightPx();
+      if (maxHeight > 0) {
+        panelEl.style.maxHeight = `${maxHeight}px`;
       }
-      if (!rect) return;
-      const next = clampPanelHeightPx(rect.height);
+      const next = clampPanelHeightPx(panelEl.scrollHeight);
       if (!next) return;
-      panelEl.style.minHeight = `${next}px`;
+      panelEl.style.height = `${next}px`;
+    }
+    function flushScheduledPanelLayout() {
+      panelLayoutRaf = 0;
+      syncPanelHeight();
+      if (pendingLogScrollToBottom && logEl && activeTab === "log" && overlayEl?.getAttribute?.("data-open") === "1") {
+        logEl.scrollTop = logEl.scrollHeight;
+        pendingLogScrollToBottom = false;
+      }
+    }
+    function schedulePanelLayout({ scrollLogToBottom: scrollLogToBottom2 = false } = {}) {
+      if (scrollLogToBottom2) pendingLogScrollToBottom = true;
+      if (panelLayoutRaf) return;
+      panelLayoutRaf = requestAnimationFrameSafe(() => {
+        flushScheduledPanelLayout();
+      });
     }
     function setImportantStyle(el, name, value) {
       if (!el?.style?.setProperty) return;
@@ -10995,7 +11041,7 @@ ${displayTargetText}`;
     }
     function scrollLogToBottom() {
       if (!logEl) return;
-      logEl.scrollTop = logEl.scrollHeight;
+      schedulePanelLayout({ scrollLogToBottom: true });
     }
     function clearActiveLoopLogTarget() {
       activeLoopLogGroupEl = null;
@@ -11222,6 +11268,7 @@ ${displayTargetText}`;
       runConfigGroupEl = null;
       pendingFinalStatusDetail = "";
       clearActiveLoopLogTarget();
+      schedulePanelLayout();
     }
     function revokeImageUrls() {
       for (const url of imageObjectUrls) {
@@ -13025,14 +13072,13 @@ ${displayTargetText}`;
       setActiveTab = (nextTab) => {
         const key = String(nextTab || "").trim().toLowerCase();
         const next = key === "log" ? "log" : "input";
-        const prev = activeTab;
-        if (prev === "input" && next === "log") syncPanelMinHeight();
         activeTab = next;
         const inputActive = next === "input";
         tabInputBtn.setAttribute("data-active", inputActive ? "1" : "0");
         tabLogBtn.setAttribute("data-active", inputActive ? "0" : "1");
         inputPanel.setAttribute("data-active", inputActive ? "1" : "0");
         logPanel.setAttribute("data-active", inputActive ? "0" : "1");
+        schedulePanelLayout({ scrollLogToBottom: !inputActive });
       };
       tabInputBtn.addEventListener("click", () => setActiveTab?.("input"));
       tabLogBtn.addEventListener("click", () => setActiveTab?.("log"));
@@ -13071,7 +13117,7 @@ ${displayTargetText}`;
       startThemeAutoSync();
       requestAnimationFrameSafe(() => {
         applyStoredPanelPos();
-        syncPanelMinHeight();
+        schedulePanelLayout({ scrollLogToBottom: activeTab === "log" });
       });
       try {
         if (activeTab === "input") imageDropEl?.focus?.();
