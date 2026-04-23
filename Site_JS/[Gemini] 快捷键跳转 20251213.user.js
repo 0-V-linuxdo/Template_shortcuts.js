@@ -2430,7 +2430,7 @@
       conversationMenu: conversationMenuAction,
       modelPicker: modelPickerAction,
       quickInput: ({ engine: engine2 }) => {
-        ensureQuickInputController(engine2)?.open?.();
+        ensureQuickInputController(engine2)?.toggle?.();
       }
     };
     function formatMenuDataAdapter(data) {

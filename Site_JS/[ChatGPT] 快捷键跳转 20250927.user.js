@@ -2106,7 +2106,7 @@
         }
       },
       quickInput: ({ engine: engine2 }) => {
-        ensureQuickInputController(engine2)?.open?.();
+        ensureQuickInputController(engine2)?.toggle?.();
       }
     };
     const baseShortcut = {

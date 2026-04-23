@@ -11074,10 +11074,10 @@ ${displayTargetText}`;
       setImportantStyle(overlayEl, "-webkit-text-size-adjust", "100%");
       setImportantStyle(overlayEl, "text-size-adjust", "100%");
     }
-    function setOverlayVisibility(isOpen) {
+    function setOverlayVisibility(isOpen2) {
       if (!overlayEl) return;
-      overlayEl.setAttribute("data-open", isOpen ? "1" : "0");
-      setImportantStyle(overlayEl, "display", isOpen ? "block" : "none");
+      overlayEl.setAttribute("data-open", isOpen2 ? "1" : "0");
+      setImportantStyle(overlayEl, "display", isOpen2 ? "block" : "none");
     }
     function getLogTimestamp(date = /* @__PURE__ */ new Date()) {
       return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
@@ -13202,6 +13202,9 @@ ${displayTargetText}`;
       } catch {
       }
     }
+    function isOpen() {
+      return !!overlayEl && overlayEl.getAttribute("data-open") === "1";
+    }
     function close() {
       if (!overlayEl) return;
       if (dragPointerId !== null && dragMoved && panelEl) {
@@ -13215,7 +13218,14 @@ ${displayTargetText}`;
       stopThemeAutoSync();
       setOverlayVisibility(false);
     }
-    return Object.freeze({ open, close });
+    function toggle() {
+      if (isOpen()) {
+        close();
+        return;
+      }
+      open();
+    }
+    return Object.freeze({ open, close, isOpen, toggle });
   }
 
   // src/modules/quick-input/index.js
