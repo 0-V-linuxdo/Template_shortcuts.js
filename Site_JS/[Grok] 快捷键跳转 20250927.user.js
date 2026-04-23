@@ -1,15 +1,16 @@
 // ==UserScript==
-// @name         [Grok] 快捷键跳转 [20260423] v1.0.0
+// @name         [Grok] 快捷键跳转 [20260424] v1.0.1
 // @namespace    0_V userscripts/[Grok] 快捷键跳转
 // @description  为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 
-// @version      [20260423] v1.0.0
-// @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @version      [20260424] v1.0.1
+// @update-log   1.0.1: 新增 Grok 侧边栏后台保持显示，并在 viewport 宽度 <= 1024px 时自动抑制后台自动展开。
 
 // @match        https://grok.dairoot.cn/*
 // @match        https://grok.com/*
 
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -42,11 +43,51 @@
   // src/sites/grok/index.js
   (function() {
     "use strict";
+    function gmGetValueLocal(key, fallback) {
+      if (typeof GM_getValue !== "function") return fallback;
+      try {
+        const value = GM_getValue(key, fallback);
+        return value === void 0 ? fallback : value;
+      } catch {
+        return fallback;
+      }
+    }
+    function gmSetValueLocal(key, value) {
+      if (typeof GM_setValue !== "function") return;
+      try {
+        GM_setValue(key, value);
+      } catch {
+      }
+    }
+    function gmRegisterMenuCommandLocal(label, handler) {
+      if (typeof GM_registerMenuCommand !== "function") return null;
+      try {
+        return GM_registerMenuCommand(label, handler);
+      } catch {
+        return null;
+      }
+    }
+    function gmUnregisterMenuCommandLocal(commandId) {
+      if (typeof GM_unregisterMenuCommand !== "function") return;
+      try {
+        GM_unregisterMenuCommand(commandId);
+      } catch {
+      }
+    }
+    function getLocalStorageLocal() {
+      try {
+        return globalThis.localStorage || null;
+      } catch {
+        return null;
+      }
+    }
     const ShortcutTemplate = window.ShortcutTemplate;
     if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== "function") {
       console.error("[Grok Shortcut] Template module not found.");
       return;
     }
+    const LOG_TAG = "[Grok Shortcut Script]";
+    const TemplateUtils = ShortcutTemplate?.utils || {};
     const defaultIconURL = "https://grok.com/images/favicon-light.png";
     const defaultIcons = [
       { name: "Grok", url: "https://grok.com/images/favicon-light.png" },
@@ -67,6 +108,29 @@
       "https://grok.com/images/favicon-light.png",
       "https://grok.com/images/favicon-dark.png"
     ];
+    const SELECTORS = Object.freeze({
+      sidebarToggle: 'button[data-sidebar="trigger"][type="button"]'
+    });
+    const SIDEBAR_VISIBILITY_STORAGE_KEY = "grok_keep_sidebar_visible_v1";
+    const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
+    const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
+    const SIDEBAR_OPEN_SELECTORS = [
+      '[data-sidebar="sidebar"][data-state="expanded"]',
+      '[data-sidebar="sidebar"][data-state="open"]',
+      '[data-sidebar="sidebar"][data-state="opened"]',
+      '[data-sidebar="sidebar"][aria-expanded="true"]'
+    ];
+    const SIDEBAR_CLOSED_SELECTORS = [
+      '[data-sidebar="sidebar"][data-state="collapsed"]',
+      '[data-sidebar="sidebar"][data-state="closed"]',
+      '[data-sidebar="sidebar"][data-state="close"]',
+      '[data-sidebar="sidebar"][aria-expanded="false"]',
+      '[data-sidebar="sidebar"][data-collapsible="offcanvas"]',
+      '[data-sidebar="sidebar"][data-collapsible="icon"]'
+    ];
+    let keepSidebarVisible = getKeepSidebarVisibleSetting();
+    let sidebarVisibilityMenuCommandId = null;
+    let sidebarWarmupTimer = null;
     const defaultShortcuts = [
       {
         name: "用户切换",
@@ -104,7 +168,7 @@
       {
         name: "Sidebar",
         actionType: "selector",
-        selector: 'button[data-sidebar="trigger"][type="button"]',
+        selector: SELECTORS.sidebarToggle,
         url: "",
         urlMethod: "current",
         urlAdvanced: "href",
@@ -124,6 +188,256 @@
         icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%22-1%20-1%2025%2025%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M3.33965%2017L11.9999%2022L20.6602%2017V7L11.9999%202L3.33965%207V17Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M11.9999%2012L3.4999%207M11.9999%2012L12%2021.5M11.9999%2012L20.5%207%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E"
       }
     ];
+    function getLocalBooleanFallback(key, fallback) {
+      const storage = getLocalStorageLocal();
+      const normalizedKey = String(key ?? "").trim();
+      if (!storage || !normalizedKey) return fallback;
+      try {
+        const raw = storage.getItem(normalizedKey);
+        if (raw == null) return fallback;
+        if (raw === "true" || raw === "1") return true;
+        if (raw === "false" || raw === "0") return false;
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === "boolean") return parsed;
+      } catch {
+      }
+      return fallback;
+    }
+    function setLocalBooleanFallback(key, value) {
+      const storage = getLocalStorageLocal();
+      const normalizedKey = String(key ?? "").trim();
+      if (!storage || !normalizedKey) return;
+      try {
+        storage.setItem(normalizedKey, JSON.stringify(!!value));
+      } catch {
+      }
+    }
+    function getKeepSidebarVisibleSetting() {
+      const localFallback = getLocalBooleanFallback(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
+      try {
+        const value = gmGetValueLocal(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
+        if (value && typeof value.then === "function") return localFallback;
+        return value === true || value === "true";
+      } catch {
+      }
+      return localFallback;
+    }
+    function setKeepSidebarVisibleSetting(value) {
+      try {
+        gmSetValueLocal(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
+      } catch {
+      }
+      setLocalBooleanFallback(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
+    }
+    function getSidebarVisibilityMenuLabel() {
+      return `Grok - 保持侧边栏显示: ${keepSidebarVisible ? "开" : "关"}`;
+    }
+    function registerSidebarVisibilityMenuCommand() {
+      if (sidebarVisibilityMenuCommandId !== null) {
+        try {
+          gmUnregisterMenuCommandLocal(sidebarVisibilityMenuCommandId);
+        } catch {
+        }
+      }
+      sidebarVisibilityMenuCommandId = gmRegisterMenuCommandLocal(getSidebarVisibilityMenuLabel(), () => {
+        setSidebarVisibilityPreference(!keepSidebarVisible);
+      });
+    }
+    function isElementVisible(el) {
+      if (!el) return false;
+      if (el.offsetParent !== null) return true;
+      try {
+        const rect = el.getBoundingClientRect?.();
+        return !!rect && rect.width > 0 && rect.height > 0;
+      } catch {
+        return false;
+      }
+    }
+    function getFirstVisibleBySelector(selector, { fallbackToFirst = false } = {}) {
+      if (typeof selector !== "string" || !selector.trim()) return null;
+      let all = [];
+      try {
+        all = Array.from(document.querySelectorAll(selector));
+      } catch {
+        return null;
+      }
+      for (const el of all) {
+        if (isElementVisible(el)) return el;
+      }
+      return fallbackToFirst ? all[0] || null : null;
+    }
+    function getSidebarToggleButton() {
+      return getFirstVisibleBySelector(SELECTORS.sidebarToggle, { fallbackToFirst: true });
+    }
+    function parseBooleanAttr(value) {
+      const token = String(value ?? "").trim().toLowerCase();
+      if (token === "true") return true;
+      if (token === "false") return false;
+      return null;
+    }
+    function inferSidebarStateFromClassName(value) {
+      const token = String(value ?? "").toLowerCase();
+      if (!token) return null;
+      if (/(sidebar|sidenav)[-_a-z0-9]*(collapsed|closed|hidden)/.test(token)) return false;
+      if (/(sidebar|sidenav)[-_a-z0-9]*(expanded|opened|open|visible)/.test(token)) return true;
+      return null;
+    }
+    function readSidebarStateFromElement(element) {
+      if (!element) return null;
+      const expanded = parseBooleanAttr(element.getAttribute?.("aria-expanded"));
+      if (expanded !== null) return expanded;
+      const hidden = parseBooleanAttr(element.getAttribute?.("aria-hidden"));
+      if (hidden !== null) return !hidden;
+      const stateAttr = String(element.getAttribute?.("data-state") || "").trim().toLowerCase();
+      if (stateAttr === "expanded" || stateAttr === "open" || stateAttr === "opened") return true;
+      if (stateAttr === "collapsed" || stateAttr === "close" || stateAttr === "closed") return false;
+      const collapsibleAttr = String(element.getAttribute?.("data-collapsible") || "").trim().toLowerCase();
+      if (collapsibleAttr === "offcanvas" || collapsibleAttr === "icon") return false;
+      return inferSidebarStateFromClassName(element.className || "");
+    }
+    function readSidebarStateFromToggle(button) {
+      if (!button) return null;
+      const directState = readSidebarStateFromElement(button);
+      if (directState !== null) return directState;
+      const ariaLabel = String(button.getAttribute?.("aria-label") || "").trim().toLowerCase();
+      if (/(open|expand|show).*(menu|navigation|sidebar|side nav|panel)/.test(ariaLabel)) return false;
+      if (/(close|collapse|hide).*(menu|navigation|sidebar|side nav|panel)/.test(ariaLabel)) return true;
+      const controlsId = String(button.getAttribute?.("aria-controls") || "").trim();
+      if (controlsId) {
+        const controlled = document.getElementById(controlsId);
+        const controlledState = readSidebarStateFromElement(controlled);
+        if (controlledState !== null) return controlledState;
+      }
+      const host = button.closest?.('[data-sidebar="sidebar"], [data-sidebar="rail"], [class*="sidebar"], [class*="sidenav"]');
+      return readSidebarStateFromElement(host);
+    }
+    function isSidebarOpen() {
+      const sidebarRoot = getFirstVisibleBySelector('[data-sidebar="sidebar"]', { fallbackToFirst: true });
+      const rootState = readSidebarStateFromElement(sidebarRoot);
+      if (rootState !== null) return rootState;
+      for (const selector of SIDEBAR_OPEN_SELECTORS) {
+        const el = getFirstVisibleBySelector(selector);
+        if (el) return true;
+      }
+      for (const selector of SIDEBAR_CLOSED_SELECTORS) {
+        const el = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
+        if (el) return false;
+      }
+      const button = getSidebarToggleButton();
+      const fromToggle = readSidebarStateFromToggle(button);
+      if (fromToggle !== null) return fromToggle;
+      return null;
+    }
+    function clickSidebarToggleButton() {
+      const button = getSidebarToggleButton();
+      if (!button) return false;
+      try {
+        const clicked = TemplateUtils?.events?.simulateClick?.(button, { nativeFallback: true });
+        if (clicked) return true;
+      } catch {
+      }
+      try {
+        button.click();
+        return true;
+      } catch {
+      }
+      return false;
+    }
+    function getViewportWidth() {
+      const width = Number(window.innerWidth) || Number(document.documentElement?.clientWidth) || 0;
+      return width > 0 ? width : 0;
+    }
+    function isSidebarAutoExpandSuppressedByViewport() {
+      const width = getViewportWidth();
+      return width > 0 && width <= SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH;
+    }
+    function shouldWarmupSidebarInBackground() {
+      return keepSidebarVisible && !isSidebarAutoExpandSuppressedByViewport();
+    }
+    function ensureSidebarVisible() {
+      if (!keepSidebarVisible) return false;
+      const open = isSidebarOpen();
+      if (open === true) return true;
+      if (open === false) return clickSidebarToggleButton();
+      return false;
+    }
+    function stopSidebarWarmup() {
+      if (sidebarWarmupTimer === null) return;
+      try {
+        clearInterval(sidebarWarmupTimer);
+      } catch {
+      }
+      sidebarWarmupTimer = null;
+    }
+    function startSidebarWarmup({ attempts = 20, intervalMs = 500 } = {}) {
+      stopSidebarWarmup();
+      if (!shouldWarmupSidebarInBackground()) return;
+      let remaining = Math.max(1, Number(attempts) || 1);
+      const interval = Math.max(150, Number(intervalMs) || 500);
+      const tick = () => {
+        if (!shouldWarmupSidebarInBackground()) {
+          stopSidebarWarmup();
+          return;
+        }
+        const open = isSidebarOpen();
+        if (open === true) {
+          stopSidebarWarmup();
+          return;
+        }
+        ensureSidebarVisible();
+        remaining -= 1;
+        if (remaining <= 0) stopSidebarWarmup();
+      };
+      tick();
+      sidebarWarmupTimer = window.setInterval(tick, interval);
+    }
+    function setSidebarVisibilityPreference(nextValue) {
+      keepSidebarVisible = !!nextValue;
+      setKeepSidebarVisibleSetting(keepSidebarVisible);
+      if (keepSidebarVisible) {
+        if (shouldWarmupSidebarInBackground()) {
+          startSidebarWarmup();
+        } else {
+          stopSidebarWarmup();
+        }
+      } else {
+        stopSidebarWarmup();
+      }
+      console.info(`${LOG_TAG} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
+      registerSidebarVisibilityMenuCommand();
+      return keepSidebarVisible;
+    }
+    function setupKeepSidebarVisible() {
+      let wasSidebarAutoExpandSuppressed = isSidebarAutoExpandSuppressedByViewport();
+      window.addEventListener("load", () => {
+        setTimeout(() => startSidebarWarmup(), 650);
+      }, { once: true });
+      if (document.readyState === "complete") {
+        setTimeout(() => startSidebarWarmup(), 800);
+      }
+      let lastUrl = location.href;
+      const observer = new MutationObserver(() => {
+        const currentUrl = location.href;
+        if (currentUrl !== lastUrl) {
+          lastUrl = currentUrl;
+          startSidebarWarmup();
+        }
+      });
+      observer.observe(document.documentElement || document, { subtree: true, childList: true });
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") startSidebarWarmup();
+      });
+      window.addEventListener("resize", () => {
+        const suppressed = isSidebarAutoExpandSuppressedByViewport();
+        if (suppressed === wasSidebarAutoExpandSuppressed) return;
+        wasSidebarAutoExpandSuppressed = suppressed;
+        if (suppressed) {
+          stopSidebarWarmup();
+          return;
+        }
+        if (keepSidebarVisible) startSidebarWarmup();
+      });
+    }
     const engine = ShortcutTemplate.createShortcutEngine({
       // 基本配置
       menuCommandLabel: "Grok - 设置快捷键",
@@ -151,7 +465,7 @@
         primary: "#5D5CDE"
       },
       // 日志标签
-      consoleTag: "[Grok Shortcut Script]",
+      consoleTag: LOG_TAG,
       // 图标缓存绕过规则（对Grok图标不使用缓存）
       shouldBypassIconCache: (url) => {
         return url && url.startsWith("https://grok.com/");
@@ -191,5 +505,7 @@
       }
     });
     engine.init();
+    setupKeepSidebarVisible();
+    registerSidebarVisibilityMenuCommand();
   })();
 })();
