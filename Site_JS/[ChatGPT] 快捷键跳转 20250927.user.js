@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260424] v1.0.2
+// @name         [ChatGPT] 快捷键跳转 [20260424] v1.0.3
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260424] v1.0.2
-// @update-log   1.0.2: 兼容 ChatGPT 新版输入框工具栏；修复 More 子菜单误定位导致 Canvas 失效，并为独立的 Thinking/Extended 模式入口增加兼容。
+// @version      [20260424] v1.0.3
+// @update-log   1.0.3: 修复 ChatGPT 主菜单在新版工具栏下被误判为已打开、导致无法正常展开的问题；补齐 ariaLabelledBy 菜单的打开态识别。
 
 // @match        https://chatgpt.com/*
 
@@ -109,7 +109,9 @@
       },
       root: {
         type: "ariaLabelledBy",
-        selector: SELECTORS.popupMenuRoot
+        selector: SELECTORS.popupMenuRoot,
+        requireRole: "menu",
+        requireDataState: "open"
       },
       timing: {
         openDelayMs: 250,

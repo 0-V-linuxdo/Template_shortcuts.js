@@ -466,7 +466,7 @@
     openDelayMs: 250,
     stepDelayMs: 250
   });
-  function safeQuerySelector2(root, selector) {
+  function safeQuerySelector(root, selector) {
     const base = root && typeof root.querySelector === "function" ? root : getDocument();
     if (!base || !selector) return null;
     try {
@@ -633,7 +633,7 @@
   async function waitForElement(root, selector, { timeoutMs = DEFAULT_TIMING.waitTimeoutMs, intervalMs = DEFAULT_TIMING.pollIntervalMs } = {}) {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
-      const el = safeQuerySelector2(root, selector);
+      const el = safeQuerySelector(root, selector);
       if (el) return el;
       await sleep(intervalMs);
     }
@@ -908,7 +908,7 @@
     function clickElement(selector) {
       const sel = typeof selector === "string" ? selector.trim() : "";
       if (!sel) return;
-      const element = safeQuerySelector2(document, sel) || document.querySelector(sel);
+      const element = safeQuerySelector(document, sel) || document.querySelector(sel);
       if (!element) {
         if (typeof showAlert === "function") {
           const tpl = options?.text?.builtins?.elementNotFound || "无法找到元素: {selector}";
@@ -7557,13 +7557,27 @@ ${displayTargetText}`;
       if (!triggerEl) return null;
       const type = String(rootConfig.type || "ariaControls").toLowerCase();
       const requireVisible = rootConfig.requireVisible !== false;
+      const requireRole = rootConfig.requireRole;
+      const requireDataState = rootConfig.requireDataState;
+      function menuMatchesRootConstraints(menu2) {
+        if (!menu2) return false;
+        if (requireRole) {
+          const role = menu2.getAttribute && menu2.getAttribute("role") || "";
+          if (role !== requireRole) return false;
+        }
+        if (requireDataState) {
+          const state = (menu2.getAttribute && menu2.getAttribute("data-state") || "").toLowerCase();
+          if (state && state !== String(requireDataState).toLowerCase()) return false;
+        }
+        if (requireVisible && !isVisible(menu2)) return false;
+        return true;
+      }
       if (type === "selector") {
         const selectors = resolveSelectorListFromSpec(ctx, rootConfig.selectors || rootConfig.selector || []);
-        const all = selectors.flatMap((sel) => safeQuerySelectorAll(doc, sel));
-        const visible = requireVisible ? all.filter(isVisible) : all;
+        const matches = selectors.flatMap((sel) => safeQuerySelectorAll(doc, sel)).filter(menuMatchesRootConstraints);
         const pick = String(rootConfig.pick || (requireVisible ? "last" : "last")).toLowerCase();
-        if (pick === "first") return visible[0] || all[0] || null;
-        return visible[visible.length - 1] || all[all.length - 1] || null;
+        if (pick === "first") return matches[0] || null;
+        return matches[matches.length - 1] || null;
       }
       if (type === "arialabelledby") {
         const baseSelector = rootConfig.selector || "";
@@ -7571,12 +7585,11 @@ ${displayTargetText}`;
         if (id2 && baseSelector) {
           const selector = `${baseSelector}[aria-labelledby="${escapeForAttributeSelector(id2)}"]`;
           const menu2 = safeQuerySelector(doc, selector);
-          if (menu2 && (!requireVisible || isVisible(menu2))) return menu2;
+          if (menuMatchesRootConstraints(menu2)) return menu2;
         }
         if (!baseSelector) return null;
-        const menus = safeQuerySelectorAll(doc, baseSelector);
-        const visibleMenus = requireVisible ? menus.filter(isVisible) : menus;
-        return visibleMenus[visibleMenus.length - 1] || menus[menus.length - 1] || null;
+        const menus = safeQuerySelectorAll(doc, baseSelector).filter(menuMatchesRootConstraints);
+        return menus[menus.length - 1] || null;
       }
       const controlsAttr = rootConfig.controlsAttr || "aria-controls";
       const expandedAttr = rootConfig.expandedAttr || "aria-expanded";
@@ -7587,18 +7600,7 @@ ${displayTargetText}`;
       if (!id) return null;
       const menu = doc.getElementById(id);
       if (!menu) return null;
-      const requireRole = rootConfig.requireRole;
-      if (requireRole) {
-        const role = menu.getAttribute && menu.getAttribute("role") || "";
-        if (role !== requireRole) return null;
-      }
-      const requireDataState = rootConfig.requireDataState;
-      if (requireDataState) {
-        const state = (menu.getAttribute && menu.getAttribute("data-state") || "").toLowerCase();
-        if (state && state !== String(requireDataState).toLowerCase()) return null;
-      }
-      if (requireVisible && !isVisible(menu)) return null;
-      return menu;
+      return menuMatchesRootConstraints(menu) ? menu : null;
     }
     function isOpen(ctx) {
       return !!getRootElement(ctx);
@@ -7735,7 +7737,7 @@ ${displayTargetText}`;
     timing: DEFAULT_TIMING,
     sleep,
     dom: Object.freeze({
-      safeQuerySelector: safeQuerySelector2,
+      safeQuerySelector,
       safeQuerySelectorAll,
       isVisible,
       escapeForAttributeSelector,
