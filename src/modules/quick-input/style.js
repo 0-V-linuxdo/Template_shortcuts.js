@@ -731,7 +731,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     display: block;
                 }
                 ${hostSelector} .qi-log {
-                    padding: 10px 14px;
+                    padding: 10px 10px 12px;
                     font-size: 12px;
                     color: var(--qi-text);
                     overflow-x: hidden;
@@ -744,7 +744,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     flex-direction: column;
                     align-items: stretch;
                     gap: 10px;
-                    scrollbar-gutter: stable both-edges;
+                    scrollbar-gutter: stable;
                     scrollbar-width: thin;
                     scrollbar-color: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border)) transparent;
                 }
@@ -820,7 +820,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     width: 100%;
                     border: 0;
                     background: transparent;
-                    padding: 9px 16px;
+                    padding: 9px 12px;
                     cursor: pointer;
                     text-align: left;
                     font-weight: 650;
@@ -915,13 +915,13 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     display: none;
                 }
                 ${hostSelector} .qi-log-group-body {
-                    padding: 10px 14px 12px 20px;
+                    padding: 10px 12px 12px;
                     display: flex;
                     flex-direction: column;
                     gap: 8px;
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-body {
-                    padding: 10px 12px 12px 16px;
+                    padding: 10px 12px 12px;
                     background: var(--qi-surface);
                     background: color-mix(in srgb, ${primaryColor} 4%, var(--qi-surface));
                 }
@@ -991,7 +991,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     width: 100%;
                     border: 0;
                     background: transparent;
-                    padding: 9px 16px;
+                    padding: 9px 12px;
                     text-align: left;
                     line-height: 1.35;
                     user-select: none;
@@ -1039,7 +1039,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 }
                 ${hostSelector} .qi-log-status-body {
                     display: block;
-                    padding: 0 16px 12px 16px;
+                    padding: 0 12px 12px;
                 }
                 ${hostSelector} .qi-log-status-detail {
                     min-width: 0;
