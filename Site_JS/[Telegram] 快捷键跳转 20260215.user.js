@@ -51,47 +51,11 @@
     const BOOTSTRAP_MENU_COMMANDS = Object.freeze([]);
     const MENU_MESSAGE_SOURCE = "template-shortcuts-userscript";
     const MENU_PENDING_VALUE_KEY = "__templateShortcutsMenuPendingValue::telegram";
-    const MENU_PAGE_TOKEN_STORAGE_KEY = "__templateShortcutsMenuPageToken::telegram";
-    const MENU_PAGE_TOKEN = resolveMenuPageToken();
+    const MENU_PAGE_TOKEN = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
     const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
 
     function getGlobalScope() {
         return typeof globalThis !== 'undefined' ? globalThis : null;
-    }
-
-    function createRuntimeToken() {
-        return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-    }
-
-    function getSessionStorageSafe() {
-        const scope = getGlobalScope();
-        try {
-            return scope?.sessionStorage || null;
-        } catch {
-            return null;
-        }
-    }
-
-    // Menu callbacks may run in a fresh userscript instance, so route by a
-    // tab-stable sessionStorage token instead of a per-instance token.
-    function resolveMenuPageToken() {
-        const storage = getSessionStorageSafe();
-        if (storage && MENU_PAGE_TOKEN_STORAGE_KEY) {
-            try {
-                const existing = String(storage.getItem(MENU_PAGE_TOKEN_STORAGE_KEY) || '').trim();
-                if (existing) return existing;
-            } catch {}
-        }
-
-        const token = createRuntimeToken();
-        if (storage && MENU_PAGE_TOKEN_STORAGE_KEY) {
-            try {
-                storage.setItem(MENU_PAGE_TOKEN_STORAGE_KEY, token);
-                const persisted = String(storage.getItem(MENU_PAGE_TOKEN_STORAGE_KEY) || '').trim();
-                if (persisted) return persisted;
-            } catch {}
-        }
-        return token;
     }
 
     function getDirectUserscriptApi(name) {
@@ -187,7 +151,7 @@
         const unregister = getUserscriptApi('GM_unregisterMenuCommand');
         const addValueChangeListener = getUserscriptApi('GM_addValueChangeListener');
         const removeValueChangeListener = getUserscriptApi('GM_removeValueChangeListener');
-        let settingsHandler = null;
+        const commandHandlers = new Map();
         const commands = new Map();
         const commandConfigs = new Map();
         const commandStateListenerIds = new Map();
@@ -369,16 +333,30 @@
             }
         }
 
+        function setCommandHandler(commandKey, handler) {
+            const key = normalizeCommandKey(commandKey);
+            if (!key) return false;
+            if (typeof handler === 'function') {
+                commandHandlers.set(key, handler);
+                return true;
+            }
+            commandHandlers.delete(key);
+            return false;
+        }
+
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandConfig = commandConfigs.get(key) || null;
-            const hasDirectSettingsHandler = key === "settings" && typeof settingsHandler === 'function';
-            if (hasDirectSettingsHandler) {
+            const directHandler = commandHandlers.get(key) || null;
+            if (typeof directHandler === 'function') {
                 try {
-                    settingsHandler();
+                    directHandler();
+                    if (isStatefulCommand(commandConfig)) {
+                        refreshCommandLabel(key);
+                    }
                     return;
                 } catch (error) {
-                    console.error(`[${SITE_LABEL}] settings menu handler failed.`, error);
+                    console.error(`[${SITE_LABEL}] bootstrap menu handler failed for "${key}".`, error);
                 }
             }
             const commandId = createCommandId(key);
@@ -470,9 +448,9 @@
             unregisterCommand,
             consumePending,
             dispatchCommand,
+            setCommandHandler,
             setSettingsHandler(handler) {
-                settingsHandler = typeof handler === 'function' ? handler : null;
-                return settingsHandler !== null;
+                return setCommandHandler("settings", handler);
             },
             getSettingsCommandId() {
                 return commands.get("settings")?.commandId ?? null;
