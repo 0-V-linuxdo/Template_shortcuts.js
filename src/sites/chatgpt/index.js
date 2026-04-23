@@ -60,7 +60,10 @@
         popupMenuItem: "[role='menuitem'], [role='menuitemradio']",
         composerModeBtn: "button.__composer-pill[aria-haspopup='menu'], [data-testid='composer-footer-actions'] button[aria-haspopup='menu']",
         composerModeMenuRoot: "div[role='menu'][data-radix-menu-content]",
-        composerModeMenuItem: "[role='menuitem'], [role='menuitemradio']"
+        composerModeMenuItem: "[role='menuitem'], [role='menuitemradio']",
+        topModelSelectorBtn: "button[data-testid='model-switcher-dropdown-button'], button[aria-label='Model selector']",
+        topModelMenuRoot: "div[role='menu'][data-radix-menu-content]",
+        topModelMenuItem: "[role='menuitem'], [role='menuitemradio']"
     };
 
     const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
@@ -139,6 +142,23 @@
                     requireDataState: "open"
                 }
             }
+        }
+    });
+
+    const topModelSelectorMenu = TemplateUtils.menu.createMenuController({
+        trigger: {
+            selectors: [
+                SELECTORS.topModelSelectorBtn
+            ]
+        },
+        root: {
+            type: "ariaControls",
+            requireRole: "menu",
+            requireDataState: "open"
+        },
+        timing: {
+            openDelayMs: 250,
+            stepDelayMs: 250
         }
     });
 
@@ -2311,6 +2331,9 @@
     const ASPECT_RATIO_LABEL_REGEX = /choose image aspect ratio/i;
     const ASPECT_RATIO_MENU_HINT_REGEX = /\b(?:square|portrait|story|landscape|widescreen|auto)\b/i;
     const COMPOSER_MODE_TRIGGER_HINT_REGEX = /\b(?:thinking|extended)\b/i;
+    const THINKING_EFFORT_TRIGGER_ARIA_REGEX = /\b(?:thinking effort|mode)\b/i;
+    const THINKING_EFFORT_EXTENDED_TEXT_MATCH = ["extended thinking", "extended"];
+    const TOP_MODEL_THINKING_TEXT_MATCH = ["thinking"];
 
     function getAspectRatioComparableText(value) {
         return normalizeAspectRatioText(String(value || ""));
@@ -2501,6 +2524,34 @@
         return chatgptMenuTextMatches("thinking", textMatch) || chatgptMenuTextMatches("extended", textMatch);
     }
 
+    function isThinkingShortcutRequest(textMatch) {
+        return chatgptMenuTextMatches("thinking", textMatch) && !chatgptMenuTextMatches("extended", textMatch);
+    }
+
+    function isThinkingEffortTriggerCandidate(element) {
+        if (!element || !isVisibleElement(element)) return false;
+        if (element.matches?.(SELECTORS.composerPlusBtn)) return false;
+        if (element.matches?.(SELECTORS.aspectRatioBtn)) return false;
+
+        const rawText = getChatgptUiElementText(element);
+        const normalizedText = getAspectRatioComparableText(rawText);
+        const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+        if (!rawText && !ariaLabel) return false;
+        if (ASPECT_RATIO_LABEL_REGEX.test(rawText) || ASPECT_RATIO_VALUE_REGEX.test(rawText)) return false;
+
+        return (
+            COMPOSER_MODE_TRIGGER_HINT_REGEX.test(rawText)
+            || COMPOSER_MODE_TRIGGER_HINT_REGEX.test(normalizedText)
+            || THINKING_EFFORT_TRIGGER_ARIA_REGEX.test(ariaLabel)
+        );
+    }
+
+    function isTopModelThinkingMenuItem(rawText, element) {
+        const dataTestId = String(element?.getAttribute?.("data-testid") || "").trim().toLowerCase();
+        if (dataTestId.includes("thinking")) return true;
+        return chatgptMenuTextMatches(rawText, TOP_MODEL_THINKING_TEXT_MATCH, element);
+    }
+
     function scoreComposerModeTriggerCandidate(element, { preferredTextMatch = null } = {}) {
         if (!element || !isVisibleElement(element)) return -1;
         if (element.matches?.(SELECTORS.composerPlusBtn)) return -1;
@@ -2528,6 +2579,26 @@
             if (!element || seen.has(element)) continue;
             seen.add(element);
             const score = scoreComposerModeTriggerCandidate(element, { preferredTextMatch: textMatch });
+            if (score < 0) continue;
+            let bottom = 0;
+            try { bottom = Number(element.getBoundingClientRect?.().bottom || 0); } catch {}
+            candidates.push({ element, score, bottom });
+        }
+        candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.bottom - a.bottom;
+        });
+        return candidates[0]?.element || null;
+    }
+
+    function findThinkingEffortTriggerElement() {
+        const seen = new Set();
+        const candidates = [];
+        for (const element of safeQueryAll(document, SELECTORS.composerModeBtn)) {
+            if (!element || seen.has(element)) continue;
+            seen.add(element);
+            if (!isThinkingEffortTriggerCandidate(element)) continue;
+            const score = scoreComposerModeTriggerCandidate(element, { preferredTextMatch: THINKING_EFFORT_EXTENDED_TEXT_MATCH });
             if (score < 0) continue;
             let bottom = 0;
             try { bottom = Number(element.getBoundingClientRect?.().bottom || 0); } catch {}
@@ -2599,6 +2670,7 @@
     }
 
     async function clickComposerModeMenuItem({
+        triggerEl = null,
         selector = SELECTORS.composerModeMenuItem,
         textMatch,
         fallbackToFirst = false,
@@ -2606,16 +2678,16 @@
         timeoutMs = 2500,
         intervalMs = 120
     } = {}) {
-        const triggerEl = findComposerModeTriggerElement(textMatch);
-        const existingMenuRoot = findComposerModeMenuRoot(triggerEl, { textMatch });
-        if (!triggerEl && !existingMenuRoot) return false;
+        const resolvedTriggerEl = triggerEl || findComposerModeTriggerElement(textMatch);
+        const existingMenuRoot = findComposerModeMenuRoot(resolvedTriggerEl, { textMatch });
+        if (!resolvedTriggerEl && !existingMenuRoot) return false;
 
-        const menuRoot = existingMenuRoot || await ensureComposerModeMenuOpen(triggerEl, { textMatch, timeoutMs, intervalMs });
+        const menuRoot = existingMenuRoot || await ensureComposerModeMenuOpen(resolvedTriggerEl, { textMatch, timeoutMs, intervalMs });
         if (!menuRoot) return false;
 
         const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
         do {
-            const currentRoot = findComposerModeMenuRoot(triggerEl, { textMatch }) || menuRoot;
+            const currentRoot = findComposerModeMenuRoot(resolvedTriggerEl, { textMatch }) || menuRoot;
             const target = currentRoot
                 ? findVisibleMenuItem(currentRoot, selector, { textMatch, fallbackToFirst })
                 : null;
@@ -2625,6 +2697,40 @@
         } while (true);
 
         return false;
+    }
+
+    async function clickThinkingEffortExtended({
+        selector = SELECTORS.composerModeMenuItem,
+        waitForItem = true
+    } = {}) {
+        const triggerEl = findThinkingEffortTriggerElement();
+        if (!triggerEl) return null;
+        const clicked = await clickComposerModeMenuItem({
+            triggerEl,
+            selector,
+            textMatch: THINKING_EFFORT_EXTENDED_TEXT_MATCH,
+            fallbackToFirst: false,
+            waitForItem
+        });
+        return !!clicked;
+    }
+
+    async function clickTopModelSelectorThinking({
+        engine,
+        selector = SELECTORS.topModelMenuItem,
+        waitForItem = true
+    } = {}) {
+        const ctx = { engine };
+        const triggerEl = topModelSelectorMenu.getTriggerElement(ctx);
+        if (!triggerEl) return null;
+
+        const clicked = await topModelSelectorMenu.oneStepClick(ctx, {
+            selector,
+            textMatch: isTopModelThinkingMenuItem,
+            fallbackToFirst: false,
+            waitForItem
+        });
+        return clicked ? true : null;
     }
 
     function getChatgptMenuActionSpec(shortcut) {
@@ -2745,7 +2851,28 @@
         chatgptMenu: async ({ shortcut, engine }) => {
             const spec = getChatgptMenuActionSpec(shortcut);
             if (!spec) return false;
-            const shouldTryModeMenu = spec.preferModeMenu || isComposerModeRequest(spec.textMatch);
+            const isThinkingShortcut = isThinkingShortcutRequest(spec.textMatch);
+            if (isThinkingShortcut) {
+                const thinkingEffortClicked = await clickThinkingEffortExtended({
+                    selector: spec.selector,
+                    waitForItem: spec.waitForItem
+                });
+                if (thinkingEffortClicked !== null) {
+                    if (!thinkingEffortClicked) {
+                        console.warn("[ChatGPT Shortcut] chatgptMenu: Thinking effort selector found, but selecting Extended failed.");
+                    }
+                    return !!thinkingEffortClicked;
+                }
+
+                const topModelThinkingClicked = await clickTopModelSelectorThinking({
+                    engine,
+                    selector: spec.selector,
+                    waitForItem: spec.waitForItem
+                });
+                if (topModelThinkingClicked) return true;
+            }
+
+            const shouldTryModeMenu = !isThinkingShortcut && (spec.preferModeMenu || isComposerModeRequest(spec.textMatch));
             switch (spec.action) {
                 case "open": {
                     return popupMenu.ensureOpen({ engine });
