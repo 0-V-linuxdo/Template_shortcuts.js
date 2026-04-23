@@ -740,17 +740,18 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     min-height: 0;
                     white-space: pre-wrap;
                     line-height: 1.35;
-                    display: block;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 8px;
                     scrollbar-gutter: stable both-edges;
                     scrollbar-width: thin;
                     scrollbar-color: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border)) transparent;
                 }
                 ${hostSelector} .qi-log > * {
                     display: block;
+                    flex: 0 0 auto;
                     min-width: 0;
-                }
-                ${hostSelector} .qi-log > * + * {
-                    margin-top: 6px;
                 }
                 ${hostSelector} .qi-log::-webkit-scrollbar {
                     width: 8px;
@@ -968,6 +969,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 ${hostSelector} .qi-log-group-detail.qi-error { color: var(--qi-error); }
                 ${hostSelector} .qi-log-group-detail.qi-ok { color: var(--qi-success); }
                 ${hostSelector} .qi-log-status-card {
+                    margin: 0;
                     border-radius: 12px;
                     border: 1px solid var(--qi-border);
                     background: var(--qi-surface-alt);
