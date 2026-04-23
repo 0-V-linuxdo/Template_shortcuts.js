@@ -1,3 +1,19 @@
+// src/sites/shared/resolve-template-core.js
+async function resolveShortcutTemplate(runtime = {}) {
+  const directTemplate = runtime?.templateCore;
+  if (directTemplate && typeof directTemplate === "object") {
+    return directTemplate;
+  }
+  const preloadedCoreModule = runtime?.coreModule;
+  if (preloadedCoreModule && typeof preloadedCoreModule === "object") {
+    return preloadedCoreModule?.default || preloadedCoreModule || null;
+  }
+  const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
+  if (!coreUrl) return null;
+  const importedCoreModule = await import(coreUrl);
+  return importedCoreModule?.default || importedCoreModule || null;
+}
+
 // src/sites/gemini/index.js
 async function startSite(runtime = {}) {
   function getUserscriptApi(name) {
@@ -83,9 +99,7 @@ async function startSite(runtime = {}) {
       return null;
     }
   }
-  const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
-  const coreModule = coreUrl ? await import(coreUrl) : null;
-  const ShortcutTemplate = coreModule?.default || coreModule || null;
+  const ShortcutTemplate = await resolveShortcutTemplate(runtime);
   if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== "function") {
     console.error("[Gemini Shortcut] Template module not found.");
     return;
@@ -2539,11 +2553,14 @@ async function startSite(runtime = {}) {
     })));
   }
   function bindMenuCommandValueChanges(engine2) {
-    if (!bootstrapMenuManaged || !menuPendingValueKey) return;
-    if (menuCommandValueListenerId !== null) return;
-    menuCommandValueListenerId = gmAddValueChangeListenerLocal(menuPendingValueKey, () => {
+    if (!bootstrapMenuManaged || !menuPendingValueKey) return false;
+    if (menuCommandValueListenerId !== null) return true;
+    const listenerId = gmAddValueChangeListenerLocal(menuPendingValueKey, () => {
       consumePendingMenuCommands(engine2);
     });
+    if (listenerId === null || listenerId === void 0) return false;
+    menuCommandValueListenerId = listenerId;
+    return true;
   }
   function unbindMenuCommandValueChanges() {
     if (menuCommandValueListenerId === null) return;
@@ -2565,6 +2582,7 @@ async function startSite(runtime = {}) {
   }
   function startMenuCommandPolling(engine2) {
     if (!bootstrapMenuManaged) return;
+    if (menuCommandValueListenerId !== null) return;
     if (typeof window === "undefined" || !window) return;
     const drain = () => {
       consumePendingMenuCommands(engine2);
@@ -2657,8 +2675,10 @@ async function startSite(runtime = {}) {
   engine.init();
   setupKeepSidebarVisible();
   bindMenuCommandMessages(engine);
-  bindMenuCommandValueChanges(engine);
-  startMenuCommandPolling(engine);
+  const hasMenuCommandValueListener = bindMenuCommandValueChanges(engine);
+  if (!hasMenuCommandValueListener) {
+    startMenuCommandPolling(engine);
+  }
   if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
     window.addEventListener("pagehide", stopMenuCommandPolling, { once: true });
     window.addEventListener("beforeunload", stopMenuCommandPolling, { once: true });

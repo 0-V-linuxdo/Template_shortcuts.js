@@ -1,3 +1,19 @@
+// src/sites/shared/resolve-template-core.js
+async function resolveShortcutTemplate(runtime = {}) {
+  const directTemplate = runtime?.templateCore;
+  if (directTemplate && typeof directTemplate === "object") {
+    return directTemplate;
+  }
+  const preloadedCoreModule = runtime?.coreModule;
+  if (preloadedCoreModule && typeof preloadedCoreModule === "object") {
+    return preloadedCoreModule?.default || preloadedCoreModule || null;
+  }
+  const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
+  if (!coreUrl) return null;
+  const importedCoreModule = await import(coreUrl);
+  return importedCoreModule?.default || importedCoreModule || null;
+}
+
 // src/sites/chatgpt/index.js
 async function startSite(runtime = {}) {
   function getUserscriptApi(name) {
@@ -50,9 +66,7 @@ async function startSite(runtime = {}) {
     } catch {
     }
   }
-  const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
-  const coreModule = coreUrl ? await import(coreUrl) : null;
-  const ShortcutTemplate = coreModule?.default || coreModule || null;
+  const ShortcutTemplate = await resolveShortcutTemplate(runtime);
   if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== "function") {
     console.error("[ChatGPT Shortcut] Template module not found.");
     return;
