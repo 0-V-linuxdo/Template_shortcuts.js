@@ -731,7 +731,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     display: block;
                 }
                 ${hostSelector} .qi-log {
-                    padding: 10px 10px 12px;
+                    padding: 8px 6px 10px;
                     font-size: 12px;
                     color: var(--qi-text);
                     overflow-x: hidden;
@@ -744,13 +744,15 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     flex-direction: column;
                     align-items: stretch;
                     gap: 10px;
-                    scrollbar-gutter: stable;
+                    scrollbar-gutter: auto;
                     scrollbar-width: thin;
                     scrollbar-color: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border)) transparent;
                 }
                 ${hostSelector} .qi-log > * {
                     display: block;
                     flex: 0 0 auto;
+                    width: 100%;
+                    align-self: stretch;
                     min-width: 0;
                 }
                 ${hostSelector} .qi-log::-webkit-scrollbar {
@@ -785,6 +787,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 }
                 ${hostSelector} .qi-log-group {
                     margin: 0;
+                    width: 100%;
                     border: 1px solid var(--qi-border);
                     border-radius: 12px;
                     background: var(--qi-surface-alt);
@@ -816,11 +819,11 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     position: relative;
                     display: flex;
                     align-items: center;
-                    gap: 10px;
+                    gap: 8px;
                     width: 100%;
                     border: 0;
                     background: transparent;
-                    padding: 9px 12px;
+                    padding: 8px 10px;
                     cursor: pointer;
                     text-align: left;
                     font-weight: 650;
@@ -874,13 +877,13 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     flex: 1 1 auto;
                     display: flex;
                     align-items: center;
-                    gap: 12px;
+                    gap: 8px;
                 }
                 ${hostSelector} .qi-log-group-divider::before,
                 ${hostSelector} .qi-log-group-divider::after {
                     content: "";
                     flex: 1 1 0;
-                    min-width: 18px;
+                    min-width: 10px;
                     height: 1px;
                     background: currentColor;
                     opacity: 0.42;
@@ -915,13 +918,13 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     display: none;
                 }
                 ${hostSelector} .qi-log-group-body {
-                    padding: 10px 12px 12px;
+                    padding: 8px 10px 10px;
                     display: flex;
                     flex-direction: column;
                     gap: 8px;
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-body {
-                    padding: 10px 12px 12px;
+                    padding: 8px 10px 10px;
                     background: var(--qi-surface);
                     background: color-mix(in srgb, ${primaryColor} 4%, var(--qi-surface));
                 }
@@ -971,6 +974,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 ${hostSelector} .qi-log-group-detail.qi-ok { color: var(--qi-success); }
                 ${hostSelector} .qi-log-status-card {
                     margin: 0;
+                    width: 100%;
                     border-radius: 12px;
                     border: 1px solid var(--qi-border);
                     background: var(--qi-surface-alt);
@@ -987,11 +991,11 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     position: relative;
                     display: flex;
                     align-items: center;
-                    gap: 10px;
+                    gap: 8px;
                     width: 100%;
                     border: 0;
                     background: transparent;
-                    padding: 9px 12px;
+                    padding: 8px 10px;
                     text-align: left;
                     line-height: 1.35;
                     user-select: none;
@@ -1011,13 +1015,13 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     flex: 1 1 auto;
                     display: flex;
                     align-items: center;
-                    gap: 12px;
+                    gap: 8px;
                 }
                 ${hostSelector} .qi-log-status-divider::before,
                 ${hostSelector} .qi-log-status-divider::after {
                     content: "";
                     flex: 1 1 0;
-                    min-width: 18px;
+                    min-width: 10px;
                     height: 1px;
                     background: currentColor;
                     opacity: 0.42;
@@ -1039,7 +1043,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 }
                 ${hostSelector} .qi-log-status-body {
                     display: block;
-                    padding: 0 12px 12px;
+                    padding: 0 10px 10px;
                 }
                 ${hostSelector} .qi-log-status-detail {
                     min-width: 0;
