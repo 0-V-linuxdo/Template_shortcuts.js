@@ -120,7 +120,7 @@ const STEP_DELAY_MAX_MS = 30000;
                 flow: "流程：插入图片/文字 → (触发快捷键) → 发送 → (循环)"
             }),
             options: Object.freeze({
-                clearBeforeRun: "运行前清空输入框"
+                clearBeforeRun: "运行前清空输入框与附件"
             }),
             delayUnits: Object.freeze({
                 ms: "毫秒",

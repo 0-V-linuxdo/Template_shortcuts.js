@@ -2159,6 +2159,43 @@ export function createController(userOptions = {}) {
                     }
                 }
 
+                async function prepareComposerForRun(composerEl) {
+                    let composerRef = composerEl;
+
+                    if (adapter.clearAttachments) {
+                        const clearResult = await clearImageAttachments(composerRef);
+                        if (clearResult?.cancelled) {
+                            return {
+                                ok: false,
+                                cancelled: true,
+                                composer: composerRef,
+                                message: String(clearResult?.message || "").trim()
+                            };
+                        }
+                        if (!clearResult?.ok) {
+                            const failedMsg = String(clearResult?.message || "").trim()
+                                || labels.messages?.clearAttachmentsFailed
+                                || DEFAULT_LABELS.messages.clearAttachmentsFailed;
+                            return {
+                                ok: false,
+                                cancelled: false,
+                                composer: composerRef,
+                                message: failedMsg
+                            };
+                        }
+
+                        composerRef = await adapter.focusComposer({
+                            timeoutMs: 4000,
+                            intervalMs: 120,
+                            shouldCancel,
+                            runtime
+                        }) || composerRef;
+                    }
+
+                    await attemptClearPromptText(composerRef);
+                    return { ok: true, cancelled: false, composer: composerRef };
+                }
+
                 async function waitForPromptCommit(composerEl, prompt, { stageLabel = "" } = {}) {
                     const expectedText = normalizeTextCommitValue(prompt);
                     let composerRef = composerEl;
@@ -2504,7 +2541,27 @@ export function createController(userOptions = {}) {
                         break;
                     }
 
-                    if (cfg.clearBeforeRun) await attemptClearPromptText(composer);
+                    if (cfg.clearBeforeRun) {
+                        const prepareResult = await prepareComposerForRun(composer);
+                        if (prepareResult?.composer) composer = prepareResult.composer;
+                        if (prepareResult?.cancelled) {
+                            markRunCancelled();
+                            break;
+                        }
+                        if (!prepareResult?.ok) {
+                            markRunFailed();
+                            cancelRun = true;
+                            appendLoopLog(
+                                String(
+                                    prepareResult?.message
+                                    || labels.messages?.clearAttachmentsFailed
+                                    || DEFAULT_LABELS.messages.clearAttachmentsFailed
+                                ),
+                                { level: "error" }
+                            );
+                            break;
+                        }
+                    }
                     if (!(await waitStep(cfg.stepDelayMs))) {
                         markRunCancelled();
                         break;
