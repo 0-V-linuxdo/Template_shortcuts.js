@@ -9975,7 +9975,7 @@ ${displayTargetText}`;
                     display: flex;
                     flex-direction: column;
                     align-items: stretch;
-                    gap: 8px;
+                    gap: 10px;
                     scrollbar-gutter: stable both-edges;
                     scrollbar-width: thin;
                     scrollbar-color: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border)) transparent;
@@ -10003,6 +10003,7 @@ ${displayTargetText}`;
                     grid-template-columns: max-content minmax(0, 1fr);
                     column-gap: 10px;
                     align-items: start;
+                    padding-block: 2px;
                     white-space: normal;
                 }
                 ${hostSelector} .qi-log-time {
@@ -10146,10 +10147,10 @@ ${displayTargetText}`;
                     display: none;
                 }
                 ${hostSelector} .qi-log-group-body {
-                    padding: 8px 12px 10px 20px;
+                    padding: 10px 14px 12px 20px;
                     display: flex;
                     flex-direction: column;
-                    gap: 4px;
+                    gap: 8px;
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-body {
                     padding: 10px 12px 12px 16px;
