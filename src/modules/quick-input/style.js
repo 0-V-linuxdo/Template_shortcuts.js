@@ -738,9 +738,12 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     min-height: 0;
                     white-space: pre-wrap;
                     line-height: 1.35;
-                    display: flex;
-                    flex-direction: column;
+                    display: grid;
+                    align-content: start;
                     gap: 6px;
+                }
+                ${hostSelector} .qi-log > * {
+                    min-width: 0;
                 }
                 ${hostSelector} .qi-log-line {
                     display: grid;
