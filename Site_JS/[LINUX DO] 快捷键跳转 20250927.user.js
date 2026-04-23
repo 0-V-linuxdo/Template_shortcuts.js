@@ -16,7 +16,7 @@
 // @connect      *
 
 // @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/linux.do_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260410.1.1.0
+// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260423.1.1.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

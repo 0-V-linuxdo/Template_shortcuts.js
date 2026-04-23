@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260410] v1.1.0
+// @name         [Template] 快捷键跳转 [20260423] v1.1.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260410] v1.1.0
-// @update-log   1.1.0: 完成 Template 原生 ESM 迁移，归档核心同步切换到最新发布元数据。
+// @version      [20260423] v1.1.0
+// @update-log   1.1.0: 修复 QuickInput 的长文本校验、旧附件预清理与日志面板高度/滚动问题，提升发布版稳定性。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -32,7 +32,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260410";
+  var TEMPLATE_VERSION = "20260423";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
