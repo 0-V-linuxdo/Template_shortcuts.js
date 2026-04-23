@@ -2,10 +2,10 @@
  * Site Entry · [Perplexity] 快捷键跳转
  * -------------------------------------------------------------------------- */
 
-import { resolveShortcutTemplate } from "../shared/resolve-template-core.js";
+(function() {
+    'use strict';
 
-export async function startSite(runtime = {}) {
-    const ShortcutTemplate = await resolveShortcutTemplate(runtime);
+    const ShortcutTemplate = window.ShortcutTemplate;
 
     // 检查模版依赖
     if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== 'function') {
@@ -217,4 +217,4 @@ export async function startSite(runtime = {}) {
 
     // 初始化引擎
     engine.init();
-}
+})();

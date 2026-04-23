@@ -2,10 +2,10 @@
  * Site Entry · [Le Chat] 快捷键跳转
  * -------------------------------------------------------------------------- */
 
-import { resolveShortcutTemplate } from "../shared/resolve-template-core.js";
+(function() {
+    'use strict';
 
-export async function startSite(runtime = {}) {
-    const ShortcutTemplate = await resolveShortcutTemplate(runtime);
+    const ShortcutTemplate = window.ShortcutTemplate;
 
     if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== 'function') {
         console.error('[Le Chat Shortcut] Template module not found.');
@@ -180,4 +180,4 @@ export async function startSite(runtime = {}) {
     });
 
     engine.init();
-}
+})();

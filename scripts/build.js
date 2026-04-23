@@ -5,8 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
 
-import { SITE_MANIFEST, releaseDistEsm } from "../src/sites/manifest.js";
-import { renderUserscriptBootstrap } from "../src/userscript/entry.js";
+import { SITE_MANIFEST, releaseTemplateCore } from "../src/sites/manifest.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -17,16 +16,10 @@ const scriptsDir = path.join(repoRoot, "scripts");
 const headerTemplatePath = path.join(userscriptDir, "header.txt");
 const templateArchiveEntryPath = path.join(userscriptDir, "template-archive-entry.js");
 const notesPath = path.join(repoRoot, "notes.md");
-const archiveDir = path.join(repoRoot, "archive");
-const distDir = path.join(repoRoot, "dist");
-const distEsmDir = path.join(distDir, "esm");
-const distEsmSitesDir = path.join(distEsmDir, "sites");
+const templateJsDir = path.join(repoRoot, "Template_JS");
+const templateCorePath = path.join(templateJsDir, "[Template] shortcut core.js");
 const siteJsDir = path.join(repoRoot, "Site_JS");
-const archiveTemplateJsDir = path.join(archiveDir, "Template_JS");
-const templateCorePath = path.join(archiveTemplateJsDir, "[Template] shortcut core.js");
-const coreEntryPath = path.join(modulesDir, "index.js");
-const DIST_ESM_OUTPUT_PREFIX = "dist/esm/";
-const RELEASE_CORE_RESOURCE_URL = releaseDistEsm("template-core.js");
+const distEsmDir = path.join(repoRoot, "dist", "esm");
 
 const BROWSER_BUILD_OPTIONS = Object.freeze({
   bundle: true,
@@ -67,6 +60,17 @@ function extractBuildDate(headerText) {
     rawName.match(/\[(\d{8})\]/) ||
     (versionMatch ? versionMatch[1].match(/\[(\d{8})\]/) : null);
   return dateMatch ? dateMatch[1] : formatDateYYYYMMDD();
+}
+
+function extractRequireVersionToken(headerText) {
+  const versionMatch = String(headerText).match(/^\/\/\s*@version\s+(.+)$/m);
+  const rawVersion = versionMatch ? versionMatch[1].trim() : "";
+  const dateMatch = rawVersion.match(/\[(\d{8})\]/);
+  const semverMatch = rawVersion.match(/\bv([0-9][0-9A-Za-z.\-_]*)\b/i);
+  if (dateMatch && semverMatch) return `${dateMatch[1]}.${semverMatch[1]}`;
+  if (dateMatch) return dateMatch[1];
+  if (semverMatch) return semverMatch[1];
+  return extractBuildDate(headerText);
 }
 
 function applyBuildReplacements(text, { version } = {}) {
@@ -124,19 +128,12 @@ function scanImportSpecifiers(sourceText) {
 function resolveImportTarget(importerPath, specifier) {
   if (!specifier.startsWith(".")) return null;
   const resolved = path.resolve(path.dirname(importerPath), specifier);
-
-  const directCandidates = [
-    resolved,
-    `${resolved}.js`,
-    path.join(resolved, "index.js")
-  ];
-
+  const directCandidates = [resolved, `${resolved}.js`, path.join(resolved, "index.js")];
   for (const candidate of directCandidates) {
     if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
       return candidate;
     }
   }
-
   return null;
 }
 
@@ -237,13 +234,7 @@ async function enforceStandaloneModuleSyntax(filePaths) {
 
 function enforceFacadeImportRules(moduleFiles, extraFiles = []) {
   const bannedTargets = new Map([
-    [
-      path.resolve(modulesDir, "index.js"),
-      new Set([
-        path.resolve(userscriptDir, "entry.js"),
-        path.resolve(templateArchiveEntryPath)
-      ])
-    ],
+    [path.resolve(modulesDir, "index.js"), new Set([path.resolve(templateArchiveEntryPath)])],
     [path.resolve(modulesDir, "core", "utils", "index.js"), new Set([path.resolve(modulesDir, "index.js")])],
     [path.resolve(modulesDir, "quick-input", "index.js"), new Set([path.resolve(modulesDir, "index.js")])]
   ]);
@@ -259,9 +250,7 @@ function enforceFacadeImportRules(moduleFiles, extraFiles = []) {
       const allowedImporters = bannedTargets.get(path.resolve(targetPath));
       if (!allowedImporters) continue;
       if (!allowedImporters.has(path.resolve(importerPath))) {
-        offenders.push(
-          `${toRepoRelative(importerPath)} -> ${toRepoRelative(targetPath)}`
-        );
+        offenders.push(`${toRepoRelative(importerPath)} -> ${toRepoRelative(targetPath)}`);
       }
     }
   }
@@ -283,9 +272,7 @@ function enforceSharedLayerRules(moduleFiles) {
       const targetPath = resolveImportTarget(absImporter, specifier);
       if (!targetPath) continue;
       if (!path.resolve(targetPath).startsWith(sharedDir)) {
-        offenders.push(
-          `${toRepoRelative(absImporter)} -> ${toRepoRelative(targetPath)}`
-        );
+        offenders.push(`${toRepoRelative(absImporter)} -> ${toRepoRelative(targetPath)}`);
       }
     }
   }
@@ -305,8 +292,7 @@ function enforceNoImportCycles(filePaths) {
     const state = visitState.get(node);
     if (state === "visiting") {
       const cycleStart = stack.indexOf(node);
-      const cyclePath = [...stack.slice(cycleStart), node];
-      cycles.push(cyclePath);
+      cycles.push([...stack.slice(cycleStart), node]);
       return;
     }
     if (state === "done") return;
@@ -333,58 +319,6 @@ function enforceNoImportCycles(filePaths) {
   }
 }
 
-function enforceNoLegacyGlobalTemplateAccess(filePaths) {
-  const offenders = [];
-  const pattern = /\b(?:window|globalThis)\.ShortcutTemplate\b/;
-
-  for (const filePath of filePaths) {
-    const lines = findLineNumbers(readUtf8(filePath), pattern);
-    if (lines.length > 0) {
-      offenders.push(`${toRepoRelative(filePath)}:${lines.join(",")}`);
-    }
-  }
-
-  if (offenders.length > 0) {
-    throw new Error(
-      `Legacy global ShortcutTemplate access is forbidden in src/sites:\n- ${offenders.join("\n- ")}\n`
-    );
-  }
-}
-
-function enforceStartSiteExport(filePaths) {
-  const offenders = [];
-  const pattern = /export\s+(?:async\s+)?function\s+startSite\b|export\s*\{[^}]*\bstartSite\b[^}]*\}/;
-
-  for (const filePath of filePaths) {
-    if (!pattern.test(readUtf8(filePath))) {
-      offenders.push(toRepoRelative(filePath));
-    }
-  }
-
-  if (offenders.length > 0) {
-    throw new Error(`Site entry is missing startSite export:\n- ${offenders.join("\n- ")}\n`);
-  }
-}
-
-function enforceNoStaticCoreImports(filePaths) {
-  const offenders = [];
-
-  for (const filePath of filePaths) {
-    const specs = scanImportSpecifiers(readUtf8(filePath));
-    for (const specifier of specs) {
-      const targetPath = resolveImportTarget(filePath, specifier);
-      if (!targetPath) continue;
-      if (path.resolve(targetPath).startsWith(path.resolve(modulesDir))) {
-        offenders.push(`${toRepoRelative(filePath)} -> ${toRepoRelative(targetPath)}`);
-      }
-    }
-  }
-
-  if (offenders.length > 0) {
-    throw new Error(`Site entries must load core through runtime.moduleUrls.core, not static imports:\n- ${offenders.join("\n- ")}\n`);
-  }
-}
-
 function ensureManifestIntegrity(entries) {
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error("SITE_MANIFEST must contain at least one site entry");
@@ -393,42 +327,35 @@ function ensureManifestIntegrity(entries) {
   const seenSiteIds = new Set();
   const seenSourceEntries = new Set();
   const seenUserscriptOutputs = new Set();
-  const seenModuleOutputs = new Set();
 
   for (const entry of entries) {
     const siteId = typeof entry?.siteId === "string" ? entry.siteId.trim() : "";
     const sourceEntry = typeof entry?.sourceEntry === "string" ? entry.sourceEntry.trim() : "";
-    const moduleOutput = typeof entry?.moduleOutput === "string" ? entry.moduleOutput.trim() : "";
     const userscriptOutput = typeof entry?.userscriptOutput === "string" ? entry.userscriptOutput.trim() : "";
     const metadata = entry?.metadata && typeof entry.metadata === "object" ? entry.metadata : null;
 
     if (!siteId) throw new Error(`Invalid siteId in SITE_MANIFEST entry: ${JSON.stringify(entry)}`);
     if (!sourceEntry) throw new Error(`Missing sourceEntry for site "${siteId}"`);
-    if (!moduleOutput) throw new Error(`Missing moduleOutput for site "${siteId}"`);
     if (!userscriptOutput) throw new Error(`Missing userscriptOutput for site "${siteId}"`);
     if (!metadata) throw new Error(`Missing metadata object for site "${siteId}"`);
 
     if (seenSiteIds.has(siteId)) throw new Error(`Duplicate siteId in SITE_MANIFEST: ${siteId}`);
     if (seenSourceEntries.has(sourceEntry)) throw new Error(`Duplicate sourceEntry in SITE_MANIFEST: ${sourceEntry}`);
-    if (seenUserscriptOutputs.has(userscriptOutput)) throw new Error(`Duplicate userscriptOutput in SITE_MANIFEST: ${userscriptOutput}`);
-    if (seenModuleOutputs.has(moduleOutput)) throw new Error(`Duplicate moduleOutput in SITE_MANIFEST: ${moduleOutput}`);
+    if (seenUserscriptOutputs.has(userscriptOutput)) {
+      throw new Error(`Duplicate userscriptOutput in SITE_MANIFEST: ${userscriptOutput}`);
+    }
 
     seenSiteIds.add(siteId);
     seenSourceEntries.add(sourceEntry);
     seenUserscriptOutputs.add(userscriptOutput);
-    seenModuleOutputs.add(moduleOutput);
 
-    const sourceEntryPath = path.join(repoRoot, sourceEntry);
-    enforcePathExists(sourceEntryPath, `Site source entry for "${siteId}"`);
+    enforcePathExists(path.join(repoRoot, sourceEntry), `Site source entry for "${siteId}"`);
 
     if (!Array.isArray(metadata.match) || metadata.match.length === 0) {
       throw new Error(`Site "${siteId}" must declare at least one @match rule`);
     }
     if (!Array.isArray(metadata.grant) || metadata.grant.length === 0) {
       throw new Error(`Site "${siteId}" must declare at least one @grant rule`);
-    }
-    if (!entry?.resourceNames || typeof entry.resourceNames !== "object") {
-      throw new Error(`Site "${siteId}" must declare resourceNames`);
     }
   }
 }
@@ -451,25 +378,11 @@ function formatMetadataLine(name, value) {
   return `// @${String(name).padEnd(13, " ")}${value}`;
 }
 
-function resolveReleaseDistEsmUrl(outputPath) {
-  const normalizedOutputPath = String(outputPath || "").trim().replace(/\\/g, "/");
-  if (!normalizedOutputPath.startsWith(DIST_ESM_OUTPUT_PREFIX)) {
-    throw new Error(`Expected dist/esm output path, received: ${outputPath}`);
-  }
-  return releaseDistEsm(normalizedOutputPath.slice(DIST_ESM_OUTPUT_PREFIX.length));
-}
-
-function renderUserscriptHeader(siteEntry) {
+function renderUserscriptHeader(siteEntry, templateCoreRequireUrl) {
   const metadata = siteEntry.metadata || {};
-  const grants = Array.from(
-    new Set([
-      ...(Array.isArray(metadata.grant) ? metadata.grant : []),
-      "GM_getResourceURL"
-    ])
-  );
   const matches = Array.isArray(metadata.match) ? metadata.match : [];
+  const grants = Array.from(new Set(Array.isArray(metadata.grant) ? metadata.grant : []));
   const connects = Array.isArray(metadata.connect) ? metadata.connect : [];
-  const siteResourceUrl = resolveReleaseDistEsmUrl(siteEntry.moduleOutput);
   const lines = [
     "// ==UserScript==",
     formatMetadataLine("name", metadata.name || siteEntry.displayName || siteEntry.siteId),
@@ -501,45 +414,53 @@ function renderUserscriptHeader(siteEntry) {
   for (const connect of connects) {
     lines.push(formatMetadataLine("connect", connect));
   }
-
   if (connects.length > 0) lines.push("");
+
   if (metadata.icon) lines.push(formatMetadataLine("icon", metadata.icon));
-  lines.push(formatMetadataLine("resource", `${siteEntry.resourceNames.core} ${RELEASE_CORE_RESOURCE_URL}`));
-  lines.push(formatMetadataLine("resource", `${siteEntry.resourceNames.site} ${siteResourceUrl}`));
+  lines.push(formatMetadataLine("require", templateCoreRequireUrl));
   lines.push("// ==/UserScript==");
   return lines.join("\n");
 }
 
-function assertBuiltCore(coreText) {
-  if (/\b(?:window|globalThis)\.ShortcutTemplate\b/.test(coreText)) {
-    throw new Error("Built core bundle must not expose global ShortcutTemplate");
+function assertBuiltTemplateCore(coreText) {
+  if (!/\b(?:window|globalThis)\.ShortcutTemplate\b/.test(coreText)) {
+    throw new Error("Built template core must expose global ShortcutTemplate");
   }
 }
 
-function assertBuiltSiteModule(siteEntry, siteModuleText) {
-  if (/\b(?:window|globalThis)\.ShortcutTemplate\b/.test(siteModuleText)) {
-    throw new Error(`Built site module still contains legacy global ShortcutTemplate access: ${siteEntry.siteId}`);
+function assertBuiltUserscript(siteEntry, userscriptText, templateCoreRequireUrl) {
+  if (!/^\/\/\s*@require\b/m.test(userscriptText)) {
+    throw new Error(`Generated userscript is missing @require: ${siteEntry.userscriptOutput}`);
   }
-}
-
-function assertBuiltUserscript(siteEntry, userscriptText) {
-  if (/@require\b/.test(userscriptText)) {
-    throw new Error(`Generated userscript still contains @require: ${siteEntry.userscriptOutput}`);
+  if (/^\/\/\s*@resource\b/m.test(userscriptText)) {
+    throw new Error(`Generated userscript still contains @resource: ${siteEntry.userscriptOutput}`);
   }
-  if (!/@resource\b/.test(userscriptText)) {
-    throw new Error(`Generated userscript is missing @resource metadata: ${siteEntry.userscriptOutput}`);
-  }
-  if (/\.\.\/dist\/esm\//.test(userscriptText)) {
-    throw new Error(`Generated userscript still contains local dist/esm resource paths: ${siteEntry.userscriptOutput}`);
+  if (/\bGM_getResourceURL\b/.test(userscriptText)) {
+    throw new Error(`Generated userscript still references GM_getResourceURL: ${siteEntry.userscriptOutput}`);
   }
 
-  const expectedCoreResource = formatMetadataLine("resource", `${siteEntry.resourceNames.core} ${RELEASE_CORE_RESOURCE_URL}`);
-  const expectedSiteResource = formatMetadataLine("resource", `${siteEntry.resourceNames.site} ${resolveReleaseDistEsmUrl(siteEntry.moduleOutput)}`);
-  if (!userscriptText.includes(expectedCoreResource)) {
-    throw new Error(`Generated userscript is missing expected core resource URL: ${siteEntry.userscriptOutput}`);
+  const bodyText = userscriptText.includes("// ==/UserScript==")
+    ? userscriptText.split("// ==/UserScript==").slice(1).join("// ==/UserScript==")
+    : userscriptText;
+  const forbiddenPatterns = [
+    { label: "startSite()", regex: /\bstartSite\s*\(/ },
+    { label: "resolveShortcutTemplate()", regex: /\bresolveShortcutTemplate\s*\(/ },
+    { label: "bootstrapMenuManaged", regex: /\bbootstrapMenuManaged\b/ },
+    { label: "menuBridge", regex: /\bmenuBridge\b/ },
+    { label: "bootstrap userscript resolver", regex: /__TEMPLATE_SHORTCUTS_GET_USERSCRIPT_API__/ }
+  ];
+
+  for (const forbidden of forbiddenPatterns) {
+    if (forbidden.regex.test(bodyText)) {
+      throw new Error(
+        `Generated userscript still contains forbidden ${forbidden.label}: ${siteEntry.userscriptOutput}`
+      );
+    }
   }
-  if (!userscriptText.includes(expectedSiteResource)) {
-    throw new Error(`Generated userscript is missing expected site resource URL: ${siteEntry.userscriptOutput}`);
+
+  const expectedRequire = formatMetadataLine("require", templateCoreRequireUrl);
+  if (!userscriptText.includes(expectedRequire)) {
+    throw new Error(`Generated userscript is missing expected core require URL: ${siteEntry.userscriptOutput}`);
   }
 }
 
@@ -551,7 +472,6 @@ export async function build() {
   enforcePathExists(headerTemplatePath, "Template archive header");
   enforcePathExists(templateArchiveEntryPath, "Template archive entry");
   enforcePathExists(notesPath, "notes.md");
-  enforcePathExists(coreEntryPath, "Core ESM entry");
 
   const moduleFiles = walkJsFiles(modulesDir).sort();
   const siteEntryFiles = SITE_MANIFEST.map((entry) => path.join(repoRoot, entry.sourceEntry)).sort();
@@ -563,39 +483,28 @@ export async function build() {
   await enforceStandaloneModuleSyntax(syntaxCheckFiles);
   enforceNoCommonJsPatterns(syntaxCheckFiles);
   enforceNoDirectInnerHTML(moduleFiles);
-  enforceFacadeImportRules(moduleFiles, [...siteEntryFiles, ...userscriptFiles]);
+  enforceFacadeImportRules(moduleFiles, userscriptFiles);
   enforceSharedLayerRules(moduleFiles);
   enforceNoImportCycles([...moduleFiles, ...allSiteFiles, ...userscriptFiles]);
-  enforceNoLegacyGlobalTemplateAccess(siteEntryFiles);
-  enforceStartSiteExport(siteEntryFiles);
-  enforceNoStaticCoreImports(siteEntryFiles);
 
   const templateHeader = ensureTrailingNewline(readUtf8(headerTemplatePath).trimEnd());
   const notice = readUtf8(notesPath).trimEnd();
   const buildVersion = extractBuildDate(templateHeader);
-  const builtCore = applyBuildReplacements(await bundleJavaScript(coreEntryPath, "esm"), {
-    version: buildVersion
-  });
-  const builtTemplateArchive = applyBuildReplacements(
+  const templateRequireVersion = extractRequireVersionToken(templateHeader);
+  const templateCoreRequireUrl = `${releaseTemplateCore()}?v=${encodeURIComponent(templateRequireVersion)}`;
+  const builtTemplateCore = applyBuildReplacements(
     await bundleJavaScript(templateArchiveEntryPath, "iife"),
     { version: buildVersion }
   );
-  assertBuiltCore(builtCore);
+  assertBuiltTemplateCore(builtTemplateCore);
 
-  fs.mkdirSync(distEsmDir, { recursive: true });
-  fs.mkdirSync(distEsmSitesDir, { recursive: true });
+  fs.rmSync(distEsmDir, { recursive: true, force: true });
+  fs.mkdirSync(templateJsDir, { recursive: true });
   fs.mkdirSync(siteJsDir, { recursive: true });
-  fs.mkdirSync(archiveTemplateJsDir, { recursive: true });
 
-  const coreOutputPath = path.join(distEsmDir, "template-core.js");
-  fs.writeFileSync(coreOutputPath, ensureTrailingNewline(builtCore.trimEnd()), "utf8");
   fs.writeFileSync(
     templateCorePath,
-    [
-      templateHeader.trimEnd(),
-      notice,
-      builtTemplateArchive.trimEnd()
-    ].join("\n\n") + "\n",
+    [templateHeader.trimEnd(), notice, builtTemplateCore.trimEnd()].join("\n\n") + "\n",
     "utf8"
   );
 
@@ -603,44 +512,23 @@ export async function build() {
 
   for (const siteEntry of SITE_MANIFEST) {
     const sourceEntryPath = path.join(repoRoot, siteEntry.sourceEntry);
-    const moduleOutputPath = path.join(repoRoot, siteEntry.moduleOutput);
     const userscriptOutputPath = path.join(repoRoot, siteEntry.userscriptOutput);
-
-    const siteModuleText = await bundleJavaScript(sourceEntryPath, "esm");
-    assertBuiltSiteModule(siteEntry, siteModuleText);
-    fs.mkdirSync(path.dirname(moduleOutputPath), { recursive: true });
-    fs.writeFileSync(moduleOutputPath, ensureTrailingNewline(siteModuleText.trimEnd()), "utf8");
-
-    const headerText = renderUserscriptHeader(siteEntry).trimEnd();
-    const bootstrapText = renderUserscriptBootstrap({
-      siteId: siteEntry.siteId,
-      displayName: siteEntry.displayName,
-      resourceNames: siteEntry.resourceNames,
-      bootstrapMenuCommands: siteEntry.bootstrapMenuCommands
-    }).trimEnd();
+    const siteScriptText = await bundleJavaScript(sourceEntryPath, "iife");
     const userscriptText = [
-      headerText,
+      renderUserscriptHeader(siteEntry, templateCoreRequireUrl).trimEnd(),
       notice,
-      bootstrapText
+      siteScriptText.trimEnd()
     ].join("\n\n") + "\n";
 
-    assertBuiltUserscript(siteEntry, userscriptText);
+    assertBuiltUserscript(siteEntry, userscriptText, templateCoreRequireUrl);
     fs.mkdirSync(path.dirname(userscriptOutputPath), { recursive: true });
     fs.writeFileSync(userscriptOutputPath, userscriptText, "utf8");
-
-    builtSiteOutputs.push({
-      siteId: siteEntry.siteId,
-      moduleOutputPath,
-      userscriptOutputPath
-    });
+    builtSiteOutputs.push({ siteId: siteEntry.siteId, userscriptOutputPath });
   }
 
-  process.stdout.write(`Built core: ${toRepoRelative(coreOutputPath)}\n`);
-  process.stdout.write(`Built template archive: ${toRepoRelative(templateCorePath)}\n`);
+  process.stdout.write(`Built template core: ${toRepoRelative(templateCorePath)}\n`);
   for (const builtSite of builtSiteOutputs) {
-    process.stdout.write(
-      `Built site: ${builtSite.siteId} -> ${toRepoRelative(builtSite.moduleOutputPath)} | ${toRepoRelative(builtSite.userscriptOutputPath)}\n`
-    );
+    process.stdout.write(`Built site: ${builtSite.siteId} -> ${toRepoRelative(builtSite.userscriptOutputPath)}\n`);
   }
 }
 

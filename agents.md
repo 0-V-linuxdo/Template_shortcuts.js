@@ -1,8 +1,8 @@
 /* ===================== IMPORTANT · NOTICE · START =====================
  *
  * 1. [编辑指引 | Edit Guidance]
- *    • ⚠️ 这是一个自动生成的项目产物说明：请在 `src/modules/` 与 `src/sites/` 目录下修改源码，然后运行 `npm run build` 重新生成 `dist/esm/` 与 `Site_JS/`。
- *    • ⚠️ This project now treats `src/modules/` and `src/sites/` as the source of truth. Run `npm run build` to regenerate `dist/esm/` and `Site_JS/`.
+ *    • ⚠️ 这是一个自动生成的项目产物说明：请在 `src/modules/` 与 `src/sites/` 目录下修改源码，然后运行 `npm run build` 重新生成 `Template_JS/` 与 `Site_JS/`。
+ *    • ⚠️ This project now treats `src/modules/` and `src/sites/` as the source of truth. Run `npm run build` to regenerate `Template_JS/` and `Site_JS/`.
  *
  * ----------------------------------------------------------------------
  *

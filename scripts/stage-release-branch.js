@@ -10,7 +10,7 @@ import { RELEASE_PUBLISH_CONFIG, RELEASE_SITE_ICON_FILES } from "../src/sites/ma
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const distEsmDir = path.join(repoRoot, "dist", "esm");
+const templateJsDir = path.join(repoRoot, "Template_JS");
 const siteJsDir = path.join(repoRoot, "Site_JS");
 const siteIconDir = path.join(repoRoot, "Site_Icon");
 const licensePath = path.join(repoRoot, "LICENSE");
@@ -98,12 +98,12 @@ function configureGitIdentity(targetPath) {
 function renderReleaseReadme() {
   return `# ${RELEASE_PUBLISH_CONFIG.repository} (${RELEASE_PUBLISH_CONFIG.releaseBranch})
 
-Generated release-branch assets for the Template shortcuts userscript family.
+Generated legacy release assets for the Template shortcuts userscript family.
 
 ## Contents
 
-- \`dist/esm/\`: ESM core bundle and per-site entry bundles
-- \`Site_JS/\`: installable userscript bootstrap files
+- \`Template_JS/\`: shared Template core referenced by site userscripts via \`@require\`
+- \`Site_JS/\`: installable site userscripts
 - \`Site_Icon/\`: icons referenced by release userscript metadata
 
 ## Source Of Truth
@@ -159,12 +159,12 @@ Options:
 }
 
 function stageReleaseBranch(targetRoot) {
-  ensurePathExists(distEsmDir, "Built dist/esm output");
+  ensurePathExists(templateJsDir, "Built Template_JS output");
   ensurePathExists(siteJsDir, "Built Site_JS output");
 
   const targetIsGitRepo = isGitRepository(targetRoot);
   resetReleaseTargetRoot(targetRoot, { preserveGitMetadata: targetIsGitRepo });
-  copyDir(distEsmDir, path.join(targetRoot, "dist", "esm"));
+  copyDir(templateJsDir, path.join(targetRoot, "Template_JS"));
   copyDir(siteJsDir, path.join(targetRoot, "Site_JS"));
 
   const targetIconDir = path.join(targetRoot, "Site_Icon");
@@ -179,7 +179,7 @@ function stageReleaseBranch(targetRoot) {
 
   process.stdout.write(
     `Staged release branch contents: ${targetRoot}\n` +
-    `  - dist/esm\n` +
+    `  - Template_JS\n` +
     `  - Site_JS\n` +
     `  - Site_Icon (${RELEASE_SITE_ICON_FILES.length} files)\n` +
     (configuredGitIdentity

@@ -2,10 +2,10 @@
  * Site Entry · [哔哩哔哩] 快捷键跳转
  * -------------------------------------------------------------------------- */
 
-import { resolveShortcutTemplate } from "../shared/resolve-template-core.js";
+(function() {
+    'use strict';
 
-export async function startSite(runtime = {}) {
-    const ShortcutTemplate = await resolveShortcutTemplate(runtime);
+    const ShortcutTemplate = window.ShortcutTemplate;
 
     // 检查模版是否正确加载
     if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== 'function') {
@@ -253,4 +253,4 @@ export async function startSite(runtime = {}) {
     if (typeof window !== 'undefined') {
         window.bilibiliShortcutEngine = engine;
     }
-}
+})();

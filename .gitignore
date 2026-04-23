@@ -6,6 +6,7 @@ node_modules/
 .vscode/
 
 /dist/esm/
+/Template_JS/
 /Site_JS/
 
 /template-shortcuts-dev/

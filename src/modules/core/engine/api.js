@@ -266,27 +266,7 @@ import { gmRegisterMenuCommand } from "../../shared/platform/userscript.js";
                 state.destroyDragCss = injectDragCss();
 
                 const menuLabel = options.menuCommandLabel || options.text.menuLabelFallback;
-                const bootstrapMenuBridge = options?.menuBridge;
-                const bootstrapMenuManaged = options?.bootstrapMenuManaged === true || bootstrapMenuBridge?.managedByBootstrap === true;
-                if (!state.menuCommandRegistered && bootstrapMenuManaged) {
-                    if (bootstrapMenuBridge?.managedByBootstrap && typeof bootstrapMenuBridge.setSettingsHandler === "function") {
-                        try {
-                            bootstrapMenuBridge.setSettingsHandler(settingsPanelLayer.openSettingsPanel);
-                        } catch {}
-                        if (typeof bootstrapMenuBridge.consumePending === "function") {
-                            let pendingSettingsCount = 0;
-                            try {
-                                pendingSettingsCount = Number(bootstrapMenuBridge.consumePending("settings")) || 0;
-                            } catch {}
-                            if (pendingSettingsCount > 0) {
-                                try {
-                                    settingsPanelLayer.openSettingsPanel();
-                                } catch {}
-                            }
-                        }
-                    }
-                    state.menuCommandRegistered = true;
-                } else if (!state.menuCommandRegistered) {
+                if (!state.menuCommandRegistered) {
                     const commandId = gmRegisterMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
                     if (commandId !== null && commandId !== undefined) {
                         state.menuCommandRegistered = true;
@@ -308,9 +288,6 @@ import { gmRegisterMenuCommand } from "../../shared/platform/userscript.js";
                 if (typeof state.destroyDarkModeObserver === "function") {
                     try { state.destroyDarkModeObserver(); } catch {}
                     state.destroyDarkModeObserver = null;
-                }
-                if (options?.menuBridge?.managedByBootstrap && typeof options.menuBridge.setSettingsHandler === "function") {
-                    try { options.menuBridge.setSettingsHandler(null); } catch {}
                 }
                 uiShared.layout.disableScrollLock();
             }

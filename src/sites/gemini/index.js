@@ -2,102 +2,51 @@
  * Site Entry · [Gemini] 快捷键跳转
  * -------------------------------------------------------------------------- */
 
-import { resolveShortcutTemplate } from "../shared/resolve-template-core.js";
-
-export async function startSite(runtime = {}) {
-    function getUserscriptApi(name) {
-        const runtimeGetter = typeof runtime?.getUserscriptApi === "function" ? runtime.getUserscriptApi : null;
-        if (runtimeGetter) {
-            try {
-                const runtimeApi = runtimeGetter(name);
-                if (typeof runtimeApi === "function") return runtimeApi;
-            } catch { }
-        }
-
-        const scope = typeof globalThis !== "undefined" ? globalThis : null;
-        if (!scope) return null;
-
-        const direct = scope[name];
-        if (typeof direct === "function") return direct.bind(scope);
-
-        const gm = scope.GM;
-        if (gm && typeof gm === "object") {
-            const altName = name.replace(/^GM_/, "");
-            const directGm = gm[altName];
-            if (typeof directGm === "function") return directGm.bind(gm);
-
-            const lowerCamel = altName.charAt(0).toLowerCase() + altName.slice(1);
-            const camelGm = gm[lowerCamel];
-            if (typeof camelGm === "function") return camelGm.bind(gm);
-        }
-
-        return null;
-    }
+(function() {
+    'use strict';
 
     function gmGetValueLocal(key, fallback) {
-        const fn = getUserscriptApi("GM_getValue");
-        if (typeof fn !== "function") return fallback;
+        if (typeof GM_getValue !== "function") return fallback;
         try {
-            return fn(key, fallback);
+            const value = GM_getValue(key, fallback);
+            return value === undefined ? fallback : value;
         } catch {
             return fallback;
         }
     }
 
     function gmSetValueLocal(key, value) {
-        const fn = getUserscriptApi("GM_setValue");
-        if (typeof fn !== "function") return;
+        if (typeof GM_setValue !== "function") return;
         try {
-            fn(key, value);
+            GM_setValue(key, value);
         } catch { }
     }
 
     function gmRegisterMenuCommandLocal(label, handler) {
-        const fn = getUserscriptApi("GM_registerMenuCommand");
-        if (typeof fn !== "function") return null;
+        if (typeof GM_registerMenuCommand !== "function") return null;
         try {
-            return fn(label, handler);
+            return GM_registerMenuCommand(label, handler);
         } catch {
             return null;
         }
     }
 
     function gmUnregisterMenuCommandLocal(commandId) {
-        const fn = getUserscriptApi("GM_unregisterMenuCommand");
-        if (typeof fn !== "function") return;
+        if (typeof GM_unregisterMenuCommand !== "function") return;
         try {
-            fn(commandId);
-        } catch { }
-    }
-
-    function gmAddValueChangeListenerLocal(key, handler) {
-        const fn = getUserscriptApi("GM_addValueChangeListener");
-        if (typeof fn !== "function") return null;
-        try {
-            return fn(key, handler);
-        } catch {
-            return null;
-        }
-    }
-
-    function gmRemoveValueChangeListenerLocal(listenerId) {
-        const fn = getUserscriptApi("GM_removeValueChangeListener");
-        if (typeof fn !== "function") return;
-        try {
-            fn(listenerId);
+            GM_unregisterMenuCommand(commandId);
         } catch { }
     }
 
     function getLocalStorageLocal() {
-        const scope = typeof globalThis !== "undefined" ? globalThis : null;
         try {
-            return scope?.localStorage || null;
+            return globalThis.localStorage || null;
         } catch {
             return null;
         }
     }
 
-    const ShortcutTemplate = await resolveShortcutTemplate(runtime);
+    const ShortcutTemplate = window.ShortcutTemplate;
 
     if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== 'function') {
         console.error('[Gemini Shortcut] Template module not found.');
@@ -106,25 +55,6 @@ export async function startSite(runtime = {}) {
 
     const LOG_TAG = "[Gemini Shortcut Script]";
     const defaultIconURL = "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg";
-    const bootstrapMenuManaged = runtime?.bootstrapMenuManaged === true;
-    const menuBridge = (runtime?.menuBridge && typeof runtime.menuBridge === "object") ? runtime.menuBridge : null;
-    const menuCommandMessageType = (typeof runtime?.menuMessageType === "string" && runtime.menuMessageType.trim())
-        ? runtime.menuMessageType.trim()
-        : "";
-    const menuCommandMessageSource = (typeof runtime?.menuMessageSource === "string" && runtime.menuMessageSource.trim())
-        ? runtime.menuMessageSource.trim()
-        : "";
-    const menuPendingValueKey = (typeof runtime?.menuPendingValueKey === "string" && runtime.menuPendingValueKey.trim())
-        ? runtime.menuPendingValueKey.trim()
-        : "";
-    const menuPageToken = (typeof runtime?.menuPageToken === "string" && runtime.menuPageToken.trim())
-        ? runtime.menuPageToken.trim()
-        : "";
-    const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1000;
-    const MENU_COMMAND_KEYS = Object.freeze({
-        quickInput: "quickInput",
-        sidebarVisibility: "sidebarVisibility"
-    });
 
     const defaultIcons = [
         { name: "Gemini", url: "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg" },
@@ -233,10 +163,6 @@ export async function startSite(runtime = {}) {
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
     let sidebarVisibilityMenuCommandId = null;
     let sidebarWarmupTimer = null;
-    let menuCommandPollTimer = null;
-    let menuCommandValueListenerId = null;
-    const handledMenuCommandIds = [];
-    const handledMenuCommandIdSet = new Set();
 
     const baseShortcut = Object.freeze({
         url: "",
@@ -388,10 +314,9 @@ export async function startSite(runtime = {}) {
 
     function getKeepSidebarVisibleSetting() {
         const localFallback = getLocalBooleanFallback(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
-        const fn = getUserscriptApi("GM_getValue");
-        if (typeof fn !== "function") return localFallback;
+        if (typeof GM_getValue !== "function") return localFallback;
         try {
-            const value = fn(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
+            const value = GM_getValue(SIDEBAR_VISIBILITY_STORAGE_KEY, DEFAULT_KEEP_SIDEBAR_VISIBLE);
             if (value && typeof value.then === "function") return localFallback;
             return value === true || value === "true";
         } catch { }
@@ -410,8 +335,6 @@ export async function startSite(runtime = {}) {
     }
 
     function registerSidebarVisibilityMenuCommand() {
-        if (bootstrapMenuManaged) return;
-
         if (sidebarVisibilityMenuCommandId !== null) {
             try {
                 gmUnregisterMenuCommandLocal(sidebarVisibilityMenuCommandId);
@@ -2737,176 +2660,15 @@ export async function startSite(runtime = {}) {
         };
     }
 
-    function handleMenuCommand(engine, commandKey) {
-        return handleMenuCommandWithId(engine, commandKey, "");
-    }
-
-    function markMenuCommandHandled(commandId) {
-        const id = String(commandId || "").trim();
-        if (!id) return true;
-        if (handledMenuCommandIdSet.has(id)) return false;
-        handledMenuCommandIdSet.add(id);
-        handledMenuCommandIds.push(id);
-        while (handledMenuCommandIds.length > 120) {
-            const staleId = handledMenuCommandIds.shift();
-            if (!staleId) continue;
-            handledMenuCommandIdSet.delete(staleId);
-        }
-        return true;
-    }
-
-    function handleMenuCommandWithId(engine, commandKey, commandId = "") {
-        if (!markMenuCommandHandled(commandId)) return false;
-        const key = String(commandKey || "").trim();
-        if (!key) return false;
-
-        switch (key) {
-            case MENU_COMMAND_KEYS.quickInput:
-                ensureQuickInputController(engine)?.open?.();
-                return true;
-            case MENU_COMMAND_KEYS.sidebarVisibility:
-                setSidebarVisibilityPreference(!keepSidebarVisible);
-                return true;
-            default:
-                return false;
-        }
-    }
-
     function registerGeminiMenuCommands(engine) {
-        if (bootstrapMenuManaged) return;
-
         gmRegisterMenuCommandLocal("Gemini - 快捷输入", () => {
             ensureQuickInputController(engine)?.open?.();
         });
         registerSidebarVisibilityMenuCommand();
     }
 
-    function normalizePendingMenuEntries(entries) {
-        const now = Date.now();
-        const normalized = [];
-        const seenIds = new Set();
-        for (const entry of Array.isArray(entries) ? entries : []) {
-            const commandId = typeof entry?.id === "string" ? entry.id.trim() : "";
-            const commandKey = typeof entry?.key === "string" ? entry.key.trim() : "";
-            const pageToken = typeof entry?.pageToken === "string" ? entry.pageToken.trim() : "";
-            const createdAt = Number(entry?.createdAt);
-            if (!commandId || !commandKey || !pageToken) continue;
-            if (!Number.isFinite(createdAt)) continue;
-            if ((now - createdAt) > MENU_COMMAND_MAX_AGE_MS) continue;
-            if (seenIds.has(commandId)) continue;
-            seenIds.add(commandId);
-            normalized.push({ commandId, commandKey, pageToken, createdAt });
-        }
-        if (normalized.length <= 48) return normalized;
-        return normalized.slice(normalized.length - 48);
-    }
-
-    function readPendingMenuEntries() {
-        if (!menuPendingValueKey) return [];
-        return normalizePendingMenuEntries(gmGetValueLocal(menuPendingValueKey, []));
-    }
-
-    function writePendingMenuEntries(entries) {
-        if (!menuPendingValueKey) return;
-        gmSetValueLocal(menuPendingValueKey, normalizePendingMenuEntries(entries).map((entry) => ({
-            id: entry.commandId,
-            key: entry.commandKey,
-            pageToken: entry.pageToken,
-            createdAt: entry.createdAt
-        })));
-    }
-
-    function bindMenuCommandValueChanges(engine) {
-        if (!bootstrapMenuManaged || !menuPendingValueKey) return false;
-        if (menuCommandValueListenerId !== null) return true;
-        const listenerId = gmAddValueChangeListenerLocal(menuPendingValueKey, () => {
-            consumePendingMenuCommands(engine);
-        });
-        if (listenerId === null || listenerId === undefined) return false;
-        menuCommandValueListenerId = listenerId;
-        return true;
-    }
-
-    function unbindMenuCommandValueChanges() {
-        if (menuCommandValueListenerId === null) return;
-        gmRemoveValueChangeListenerLocal(menuCommandValueListenerId);
-        menuCommandValueListenerId = null;
-    }
-
-    function bindMenuCommandMessages(engine) {
-        if (!bootstrapMenuManaged || !menuCommandMessageType || !menuCommandMessageSource) return;
-        if (typeof window === "undefined" || !window || typeof window.addEventListener !== "function") return;
-
-        window.addEventListener("message", (event) => {
-            const detail = event?.data;
-            if (!detail || typeof detail !== "object") return;
-            if (detail.source !== menuCommandMessageSource) return;
-            if (detail.type !== menuCommandMessageType) return;
-            if (detail.siteId !== runtime?.siteId) return;
-            if (menuPageToken && detail.pageToken && detail.pageToken !== menuPageToken) return;
-            handleMenuCommandWithId(engine, detail.commandKey, detail.commandId);
-        });
-    }
-
-    function startMenuCommandPolling(engine) {
-        if (!bootstrapMenuManaged) return;
-        if (menuCommandValueListenerId !== null) return;
-        if (typeof window === "undefined" || !window) return;
-        const drain = () => {
-            consumePendingMenuCommands(engine);
-        };
-
-        drain();
-        try {
-            if (menuCommandPollTimer !== null) {
-                clearInterval(menuCommandPollTimer);
-            }
-        } catch { }
-        menuCommandPollTimer = window.setInterval(drain, 350);
-
-        if (typeof window.addEventListener === "function") {
-            window.addEventListener("focus", drain);
-        }
-        if (typeof document !== "undefined" && document && typeof document.addEventListener === "function") {
-            document.addEventListener("visibilitychange", () => {
-                if (document.visibilityState === "visible") {
-                    drain();
-                }
-            });
-        }
-    }
-
-    function stopMenuCommandPolling() {
-        if (menuCommandPollTimer === null) return;
-        try {
-            clearInterval(menuCommandPollTimer);
-        } catch { }
-        menuCommandPollTimer = null;
-    }
-
-    function consumePendingMenuCommands(engine) {
-        if (!bootstrapMenuManaged) return;
-        const pendingEntries = readPendingMenuEntries();
-        if (pendingEntries.length === 0) return;
-        const remainingEntries = [];
-        let didMutatePendingEntries = false;
-        for (const entry of pendingEntries) {
-            if (entry.pageToken !== menuPageToken) {
-                remainingEntries.push(entry);
-                continue;
-            }
-            didMutatePendingEntries = true;
-            handleMenuCommandWithId(engine, entry.commandKey, entry.commandId);
-        }
-        if (didMutatePendingEntries || remainingEntries.length !== pendingEntries.length) {
-            writePendingMenuEntries(remainingEntries);
-        }
-    }
-
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: "Gemini - 设置快捷键",
-        bootstrapMenuManaged,
-        menuBridge,
         panelTitle: "Gemini - 自定义快捷键",
         storageKeys: {
             shortcuts: "gemini_shortcuts_v2",
@@ -2946,17 +2708,5 @@ export async function startSite(runtime = {}) {
 
     engine.init();
     setupKeepSidebarVisible();
-    bindMenuCommandMessages(engine);
-    const hasMenuCommandValueListener = bindMenuCommandValueChanges(engine);
-    if (!hasMenuCommandValueListener) {
-        startMenuCommandPolling(engine);
-    }
-    if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
-        window.addEventListener("pagehide", stopMenuCommandPolling, { once: true });
-        window.addEventListener("beforeunload", stopMenuCommandPolling, { once: true });
-        window.addEventListener("pagehide", unbindMenuCommandValueChanges, { once: true });
-        window.addEventListener("beforeunload", unbindMenuCommandValueChanges, { once: true });
-    }
-    consumePendingMenuCommands(engine);
     registerGeminiMenuCommands(engine);
-}
+})();
