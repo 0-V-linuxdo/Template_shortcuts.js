@@ -495,8 +495,19 @@ export function renderUserscriptBootstrap({
         return url;
     }
 
+    function canImportResourceUrlDirectly(url) {
+        const value = String(url || "").trim().toLowerCase();
+        return value.startsWith("blob:") || value.startsWith("data:");
+    }
+
     async function prepareModuleUrl(name) {
         const rawUrl = await getResourceUrl(name);
+        if (canImportResourceUrlDirectly(rawUrl)) {
+            return {
+                rawUrl,
+                moduleUrl: rawUrl
+            };
+        }
 
         try {
             const response = await fetch(rawUrl);
@@ -523,8 +534,10 @@ export function renderUserscriptBootstrap({
     const menuBridge = createMenuBridge();
 
     async function main() {
-        const preparedCore = await prepareModuleUrl(RESOURCE_NAMES.core);
-        const preparedSite = await prepareModuleUrl(RESOURCE_NAMES.site);
+        const [preparedCore, preparedSite] = await Promise.all([
+            prepareModuleUrl(RESOURCE_NAMES.core),
+            prepareModuleUrl(RESOURCE_NAMES.site)
+        ]);
         const resourceUrls = Object.freeze({
             core: preparedCore.rawUrl,
             site: preparedSite.rawUrl
@@ -534,7 +547,11 @@ export function renderUserscriptBootstrap({
             site: preparedSite.moduleUrl
         });
 
-        const siteModule = await import(moduleUrls.site);
+        const [coreModule, siteModule] = await Promise.all([
+            import(moduleUrls.core),
+            import(moduleUrls.site)
+        ]);
+        const templateCore = coreModule?.default || coreModule || null;
         const startSite = typeof siteModule?.startSite === 'function'
             ? siteModule.startSite
             : (typeof siteModule?.default === 'function' ? siteModule.default : null);
@@ -549,6 +566,8 @@ export function renderUserscriptBootstrap({
             resourceNames: RESOURCE_NAMES,
             resourceUrls,
             moduleUrls,
+            coreModule,
+            templateCore,
             bootstrapMenuManaged: BOOTSTRAP_MENU_COMMANDS.length > 0,
             menuMessageType: ${JSON.stringify(USERSCRIPT_MENU_EVENT_NAME)},
             menuMessageSource: ${JSON.stringify(USERSCRIPT_MENU_MESSAGE_SOURCE)},

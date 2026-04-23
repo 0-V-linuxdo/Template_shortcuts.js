@@ -2,6 +2,8 @@
  * Site Entry · [Gemini] 快捷键跳转
  * -------------------------------------------------------------------------- */
 
+import { resolveShortcutTemplate } from "../shared/resolve-template-core.js";
+
 export async function startSite(runtime = {}) {
     function getUserscriptApi(name) {
         const runtimeGetter = typeof runtime?.getUserscriptApi === "function" ? runtime.getUserscriptApi : null;
@@ -95,9 +97,7 @@ export async function startSite(runtime = {}) {
         }
     }
 
-    const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
-    const coreModule = coreUrl ? await import(coreUrl) : null;
-    const ShortcutTemplate = coreModule?.default || coreModule || null;
+    const ShortcutTemplate = await resolveShortcutTemplate(runtime);
 
     if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== 'function') {
         console.error('[Gemini Shortcut] Template module not found.');
@@ -2817,11 +2817,14 @@ export async function startSite(runtime = {}) {
     }
 
     function bindMenuCommandValueChanges(engine) {
-        if (!bootstrapMenuManaged || !menuPendingValueKey) return;
-        if (menuCommandValueListenerId !== null) return;
-        menuCommandValueListenerId = gmAddValueChangeListenerLocal(menuPendingValueKey, () => {
+        if (!bootstrapMenuManaged || !menuPendingValueKey) return false;
+        if (menuCommandValueListenerId !== null) return true;
+        const listenerId = gmAddValueChangeListenerLocal(menuPendingValueKey, () => {
             consumePendingMenuCommands(engine);
         });
+        if (listenerId === null || listenerId === undefined) return false;
+        menuCommandValueListenerId = listenerId;
+        return true;
     }
 
     function unbindMenuCommandValueChanges() {
@@ -2847,6 +2850,7 @@ export async function startSite(runtime = {}) {
 
     function startMenuCommandPolling(engine) {
         if (!bootstrapMenuManaged) return;
+        if (menuCommandValueListenerId !== null) return;
         if (typeof window === "undefined" || !window) return;
         const drain = () => {
             consumePendingMenuCommands(engine);
@@ -2943,8 +2947,10 @@ export async function startSite(runtime = {}) {
     engine.init();
     setupKeepSidebarVisible();
     bindMenuCommandMessages(engine);
-    bindMenuCommandValueChanges(engine);
-    startMenuCommandPolling(engine);
+    const hasMenuCommandValueListener = bindMenuCommandValueChanges(engine);
+    if (!hasMenuCommandValueListener) {
+        startMenuCommandPolling(engine);
+    }
     if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
         window.addEventListener("pagehide", stopMenuCommandPolling, { once: true });
         window.addEventListener("beforeunload", stopMenuCommandPolling, { once: true });

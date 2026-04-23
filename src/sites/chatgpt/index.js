@@ -2,6 +2,8 @@
  * Site Entry · [ChatGPT] 快捷键跳转
  * -------------------------------------------------------------------------- */
 
+import { resolveShortcutTemplate } from "../shared/resolve-template-core.js";
+
 export async function startSite(runtime = {}) {
     function getUserscriptApi(name) {
         const runtimeGetter = typeof runtime?.getUserscriptApi === "function" ? runtime.getUserscriptApi : null;
@@ -60,9 +62,7 @@ export async function startSite(runtime = {}) {
         } catch { }
     }
 
-    const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
-    const coreModule = coreUrl ? await import(coreUrl) : null;
-    const ShortcutTemplate = coreModule?.default || coreModule || null;
+    const ShortcutTemplate = await resolveShortcutTemplate(runtime);
 
     // 检查模板是否正确加载
     if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== 'function') {

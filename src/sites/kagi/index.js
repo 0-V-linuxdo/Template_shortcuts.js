@@ -2,10 +2,10 @@
  * Site Entry · [Kagi] 快捷键跳转
  * -------------------------------------------------------------------------- */
 
+import { resolveShortcutTemplate } from "../shared/resolve-template-core.js";
+
 export async function startSite(runtime = {}) {
-    const coreUrl = typeof runtime?.moduleUrls?.core === "string" ? runtime.moduleUrls.core.trim() : "";
-    const coreModule = coreUrl ? await import(coreUrl) : null;
-    const ShortcutTemplate = coreModule?.default || coreModule || null;
+    const ShortcutTemplate = await resolveShortcutTemplate(runtime);
 
     if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== 'function') {
         console.error('[Kagi Shortcut] Template module not found.');
