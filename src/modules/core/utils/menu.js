@@ -3,7 +3,7 @@
  * -------------------------------------------------------------------------- */
 
 import { sleep } from "../../shared/base.js";
-import { DEFAULT_TIMING, safeQuerySelectorAll, isVisible, normalizeText, matchText, getElementLabelText, findFirst, waitFor, escapeForAttributeSelector } from "./dom.js";
+import { DEFAULT_TIMING, safeQuerySelector, safeQuerySelectorAll, isVisible, normalizeText, matchText, getElementLabelText, findFirst, waitFor, escapeForAttributeSelector } from "./dom.js";
 import { resolveShortcutField } from "./shortcuts.js";
 import { simulateClick, simulateHover } from "./events.js";
 
@@ -169,14 +169,32 @@ function resolveSelectorListFromSpec(ctx, spec) {
 
                 const type = String(rootConfig.type || "ariaControls").toLowerCase();
                 const requireVisible = rootConfig.requireVisible !== false;
+                const requireRole = rootConfig.requireRole;
+                const requireDataState = rootConfig.requireDataState;
+
+                function menuMatchesRootConstraints(menu) {
+                    if (!menu) return false;
+
+                    if (requireRole) {
+                        const role = (menu.getAttribute && menu.getAttribute("role")) || "";
+                        if (role !== requireRole) return false;
+                    }
+
+                    if (requireDataState) {
+                        const state = (menu.getAttribute && menu.getAttribute("data-state") || "").toLowerCase();
+                        if (state && state !== String(requireDataState).toLowerCase()) return false;
+                    }
+
+                    if (requireVisible && !isVisible(menu)) return false;
+                    return true;
+                }
 
                 if (type === "selector") {
                     const selectors = resolveSelectorListFromSpec(ctx, rootConfig.selectors || rootConfig.selector || []);
-                    const all = selectors.flatMap(sel => safeQuerySelectorAll(doc, sel));
-                    const visible = requireVisible ? all.filter(isVisible) : all;
+                    const matches = selectors.flatMap(sel => safeQuerySelectorAll(doc, sel)).filter(menuMatchesRootConstraints);
                     const pick = String(rootConfig.pick || (requireVisible ? "last" : "last")).toLowerCase();
-                    if (pick === "first") return visible[0] || all[0] || null;
-                    return visible[visible.length - 1] || all[all.length - 1] || null;
+                    if (pick === "first") return matches[0] || null;
+                    return matches[matches.length - 1] || null;
                 }
 
                 if (type === "arialabelledby") {
@@ -185,12 +203,11 @@ function resolveSelectorListFromSpec(ctx, spec) {
                     if (id && baseSelector) {
                         const selector = `${baseSelector}[aria-labelledby="${escapeForAttributeSelector(id)}"]`;
                         const menu = safeQuerySelector(doc, selector);
-                        if (menu && (!requireVisible || isVisible(menu))) return menu;
+                        if (menuMatchesRootConstraints(menu)) return menu;
                     }
                     if (!baseSelector) return null;
-                    const menus = safeQuerySelectorAll(doc, baseSelector);
-                    const visibleMenus = requireVisible ? menus.filter(isVisible) : menus;
-                    return visibleMenus[visibleMenus.length - 1] || menus[menus.length - 1] || null;
+                    const menus = safeQuerySelectorAll(doc, baseSelector).filter(menuMatchesRootConstraints);
+                    return menus[menus.length - 1] || null;
                 }
 
                 const controlsAttr = rootConfig.controlsAttr || "aria-controls";
@@ -204,20 +221,7 @@ function resolveSelectorListFromSpec(ctx, spec) {
                 const menu = doc.getElementById(id);
                 if (!menu) return null;
 
-                const requireRole = rootConfig.requireRole;
-                if (requireRole) {
-                    const role = (menu.getAttribute && menu.getAttribute("role")) || "";
-                    if (role !== requireRole) return null;
-                }
-
-                const requireDataState = rootConfig.requireDataState;
-                if (requireDataState) {
-                    const state = (menu.getAttribute && menu.getAttribute("data-state") || "").toLowerCase();
-                    if (state && state !== String(requireDataState).toLowerCase()) return null;
-                }
-
-                if (requireVisible && !isVisible(menu)) return null;
-                return menu;
+                return menuMatchesRootConstraints(menu) ? menu : null;
             }
 
             function isOpen(ctx) {

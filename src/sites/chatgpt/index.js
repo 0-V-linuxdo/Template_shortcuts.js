@@ -91,7 +91,9 @@
         },
         root: {
             type: "ariaLabelledBy",
-            selector: SELECTORS.popupMenuRoot
+            selector: SELECTORS.popupMenuRoot,
+            requireRole: "menu",
+            requireDataState: "open"
         },
         timing: {
             openDelayMs: 250,
