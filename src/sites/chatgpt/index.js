@@ -53,6 +53,7 @@
     const SELECTORS = {
         composerPlusBtn: "button[data-testid='composer-plus-btn']",
         aspectRatioBtn: 'button[aria-label="Choose image aspect ratio"]',
+        aspectRatioBtnFallback: 'button.composer-btn[aria-haspopup="menu"], button[aria-haspopup="menu"]',
         aspectRatioMenuRoot: "div[role='menu'][data-radix-menu-content]",
         aspectRatioMenuItem: "[role='menuitemradio']",
         moreSubmenuItem: "div[role='menuitem']",
@@ -101,20 +102,6 @@
                     requireDataState: "open"
                 }
             }
-        }
-    });
-
-    const aspectRatioMenu = TemplateUtils.menu.createMenuController({
-        trigger: {
-            selectors: [SELECTORS.aspectRatioBtn]
-        },
-        root: {
-            type: "arialabelledby",
-            selector: SELECTORS.aspectRatioMenuRoot
-        },
-        timing: {
-            openDelayMs: 250,
-            stepDelayMs: 250
         }
     });
 
@@ -2246,6 +2233,194 @@
         };
     }
 
+    const chatgptDomUtils = TemplateUtils?.dom || {};
+    const chatgptEventUtils = TemplateUtils?.events || {};
+    const normalizeAspectRatioText = typeof chatgptDomUtils.normalizeText === "function"
+        ? chatgptDomUtils.normalizeText
+        : (value) => String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+    const safeQueryAll = typeof chatgptDomUtils.safeQuerySelectorAll === "function"
+        ? chatgptDomUtils.safeQuerySelectorAll
+        : (root, selector) => {
+            const base = root && typeof root.querySelectorAll === "function" ? root : document;
+            try { return Array.from(base.querySelectorAll(selector)); } catch { return []; }
+        };
+    const findFirstMatch = typeof chatgptDomUtils.findFirst === "function"
+        ? chatgptDomUtils.findFirst
+        : null;
+    const isVisibleElement = typeof chatgptDomUtils.isVisible === "function"
+        ? chatgptDomUtils.isVisible
+        : (element) => {
+            if (!element) return false;
+            try {
+                return !!(element.offsetWidth || element.offsetHeight || element.getClientRects?.().length);
+            } catch {
+                return false;
+            }
+        };
+    const simulateClickElement = typeof chatgptEventUtils.simulateClick === "function"
+        ? chatgptEventUtils.simulateClick
+        : (element) => {
+            try {
+                element?.click?.();
+                return true;
+            } catch {
+                return false;
+            }
+        };
+    const escapeAttributeSelector = typeof chatgptDomUtils.escapeForAttributeSelector === "function"
+        ? chatgptDomUtils.escapeForAttributeSelector
+        : (value) => String(value || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const sleepMenuStep = typeof TemplateUtils?.sleep === "function"
+        ? TemplateUtils.sleep
+        : (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const ASPECT_RATIO_VALUE_REGEX = /\b(?:1:1|3:4|4:3|9:16|16:9)\b/i;
+    const ASPECT_RATIO_LABEL_REGEX = /choose image aspect ratio/i;
+    const ASPECT_RATIO_MENU_HINT_REGEX = /\b(?:square|portrait|story|landscape|widescreen|auto)\b/i;
+
+    function getAspectRatioComparableText(value) {
+        return normalizeAspectRatioText(String(value || ""));
+    }
+
+    function getAspectRatioElementText(element) {
+        if (!element) return "";
+        const ariaLabel = element.getAttribute?.("aria-label");
+        if (ariaLabel && String(ariaLabel).trim()) return String(ariaLabel);
+        try {
+            return String(element.textContent || "");
+        } catch {
+            return "";
+        }
+    }
+
+    function scoreAspectRatioTriggerCandidate(element) {
+        if (!element || !isVisibleElement(element)) return -1;
+        const rawText = getAspectRatioElementText(element);
+        const text = getAspectRatioComparableText(rawText);
+        if (ASPECT_RATIO_LABEL_REGEX.test(rawText)) return 300;
+        if (ASPECT_RATIO_LABEL_REGEX.test(text)) return 280;
+
+        const hasComposerBtnClass = (() => {
+            try { return element.classList?.contains("composer-btn") || false; } catch { return false; }
+        })();
+        const hasRatioValue = ASPECT_RATIO_VALUE_REGEX.test(rawText) || ASPECT_RATIO_VALUE_REGEX.test(text);
+        const hasMenuHint = ASPECT_RATIO_MENU_HINT_REGEX.test(rawText) || ASPECT_RATIO_MENU_HINT_REGEX.test(text);
+        if (hasComposerBtnClass && hasRatioValue) return 240;
+        if (hasComposerBtnClass && hasMenuHint) return 200;
+        if (hasRatioValue) return 140;
+        if (hasMenuHint) return 100;
+        return -1;
+    }
+
+    function findAspectRatioTriggerElement() {
+        const seen = new Set();
+        const candidates = [];
+        for (const selector of [SELECTORS.aspectRatioBtn, SELECTORS.aspectRatioBtnFallback]) {
+            for (const element of safeQueryAll(document, selector)) {
+                if (!element || seen.has(element)) continue;
+                seen.add(element);
+                const score = scoreAspectRatioTriggerCandidate(element);
+                if (score < 0) continue;
+                let bottom = 0;
+                try { bottom = Number(element.getBoundingClientRect?.().bottom || 0); } catch {}
+                candidates.push({ element, score, bottom });
+            }
+        }
+
+        candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.bottom - a.bottom;
+        });
+        return candidates[0]?.element || null;
+    }
+
+    function isAspectRatioMenuCandidate(menuElement) {
+        if (!menuElement || !isVisibleElement(menuElement)) return false;
+        const menuText = getAspectRatioComparableText(getAspectRatioElementText(menuElement));
+        if (ASPECT_RATIO_LABEL_REGEX.test(menuText)) return true;
+
+        const items = safeQueryAll(menuElement, SELECTORS.aspectRatioMenuItem);
+        if (items.length === 0) return false;
+        let hits = 0;
+        for (const item of items) {
+            const label = getAspectRatioElementText(item);
+            if (!label) continue;
+            if (
+                ASPECT_RATIO_VALUE_REGEX.test(label) ||
+                ASPECT_RATIO_MENU_HINT_REGEX.test(label) ||
+                ASPECT_RATIO_LABEL_REGEX.test(label)
+            ) {
+                hits += 1;
+            }
+        }
+        return hits >= 2;
+    }
+
+    function findAspectRatioMenuRoot(triggerEl = null) {
+        if (triggerEl) {
+            const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+            if (controlsId) {
+                const controlledMenu = document.getElementById(controlsId);
+                if (isAspectRatioMenuCandidate(controlledMenu)) return controlledMenu;
+            }
+
+            const triggerId = String(triggerEl.getAttribute?.("id") || "").trim();
+            if (triggerId) {
+                const selector = `${SELECTORS.aspectRatioMenuRoot}[aria-labelledby="${escapeAttributeSelector(triggerId)}"]`;
+                const labelledMenu = document.querySelector(selector);
+                if (isAspectRatioMenuCandidate(labelledMenu)) return labelledMenu;
+            }
+        }
+
+        const visibleMenus = safeQueryAll(document, SELECTORS.aspectRatioMenuRoot).filter(isAspectRatioMenuCandidate);
+        if (visibleMenus.length === 0) return null;
+        visibleMenus.sort((a, b) => {
+            const aBottom = Number(a.getBoundingClientRect?.().bottom || 0);
+            const bBottom = Number(b.getBoundingClientRect?.().bottom || 0);
+            return bBottom - aBottom;
+        });
+        return visibleMenus[0] || null;
+    }
+
+    async function ensureAspectRatioMenuOpen(triggerEl, { timeoutMs = 2500, intervalMs = 120 } = {}) {
+        if (!triggerEl) return null;
+        const existing = findAspectRatioMenuRoot(triggerEl);
+        if (existing) return existing;
+
+        if (!simulateClickElement(triggerEl, { nativeFallback: true })) return null;
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() < deadline) {
+            const menuRoot = findAspectRatioMenuRoot(triggerEl);
+            if (menuRoot) return menuRoot;
+            await sleepMenuStep(intervalMs);
+        }
+        return findAspectRatioMenuRoot(triggerEl);
+    }
+
+    async function clickAspectRatioMenuItem(triggerEl, {
+        selector,
+        textMatch,
+        fallbackToFirst = false,
+        waitForItem = true,
+        timeoutMs = 2500,
+        intervalMs = 120
+    } = {}) {
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        do {
+            const menuRoot = findAspectRatioMenuRoot(triggerEl);
+            if (menuRoot && typeof findFirstMatch === "function") {
+                const target = findFirstMatch(menuRoot, selector, { textMatch, fallbackToFirst });
+                if (target) {
+                    return !!simulateClickElement(target, { nativeFallback: true });
+                }
+            }
+
+            if (!waitForItem || Date.now() >= deadline) break;
+            await sleepMenuStep(intervalMs);
+        } while (true);
+
+        return false;
+    }
+
     function getChatgptMenuActionSpec(shortcut) {
         const data = getShortcutDataObject(shortcut);
         const rawMenu = data.menu;
@@ -2389,19 +2564,33 @@
                 }
             }
         },
-        chatgptAspectRatio: ({ shortcut, engine }) => {
+        chatgptAspectRatio: async ({ shortcut }) => {
             const spec = getChatgptAspectRatioActionSpec(shortcut);
             if (!spec) return false;
-            const ctx = { engine };
-            const triggerEl = aspectRatioMenu.getTriggerElement(ctx);
-            const triggerId = String(triggerEl?.getAttribute?.("id") || "").trim();
-            if (!triggerEl || !triggerId) return false;
-            return aspectRatioMenu.oneStepClick(ctx, {
+            const existingMenuRoot = findAspectRatioMenuRoot();
+            const triggerEl = findAspectRatioTriggerElement();
+            if (!triggerEl && !existingMenuRoot) {
+                console.warn("[ChatGPT Shortcut] chatgptAspectRatio: aspect ratio trigger not found; make sure Create image mode is active and the ratio button is visible.");
+                return false;
+            }
+
+            const menuRoot = existingMenuRoot || await ensureAspectRatioMenuOpen(triggerEl);
+            if (!menuRoot) {
+                console.warn("[ChatGPT Shortcut] chatgptAspectRatio: menu did not open; ChatGPT composer DOM may have changed.");
+                return false;
+            }
+
+            const clicked = await clickAspectRatioMenuItem(triggerEl, {
                 selector: spec.selector,
                 textMatch: spec.textMatch,
                 fallbackToFirst: spec.fallbackToFirst,
                 waitForItem: spec.waitForItem
             });
+            if (!clicked) {
+                console.warn("[ChatGPT Shortcut] chatgptAspectRatio: matching aspect ratio item not found in open menu.");
+                return false;
+            }
+            return true;
         },
         quickInput: ({ engine }) => {
             ensureQuickInputController(engine)?.toggle?.();
