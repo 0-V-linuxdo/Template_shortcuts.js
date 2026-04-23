@@ -49,23 +49,6 @@ async function startSite(runtime = {}) {
       return null;
     }
   }
-  function gmAddValueChangeListenerLocal(key, handler) {
-    const fn = getUserscriptApi("GM_addValueChangeListener");
-    if (typeof fn !== "function") return null;
-    try {
-      return fn(key, handler);
-    } catch {
-      return null;
-    }
-  }
-  function gmRemoveValueChangeListenerLocal(listenerId) {
-    const fn = getUserscriptApi("GM_removeValueChangeListener");
-    if (typeof fn !== "function") return;
-    try {
-      fn(listenerId);
-    } catch {
-    }
-  }
   function gmGetValueLocal(key, fallback) {
     const fn = getUserscriptApi("GM_getValue");
     if (typeof fn !== "function") return fallback;
@@ -123,11 +106,9 @@ async function startSite(runtime = {}) {
   const menuPageToken = typeof runtime?.menuPageToken === "string" && runtime.menuPageToken.trim() ? runtime.menuPageToken.trim() : "";
   const MENU_COMMAND_MAX_AGE_MS = 5 * 60 * 1e3;
   const MENU_COMMAND_KEYS = Object.freeze({
-    settings: "settings",
     quickInput: "quickInput"
   });
   let menuCommandPollTimer = null;
-  let menuCommandValueListenerId = null;
   const handledMenuCommandIds = [];
   const handledMenuCommandIdSet = /* @__PURE__ */ new Set();
   const TemplateUtils = ShortcutTemplate.utils;
@@ -1659,9 +1640,6 @@ async function startSite(runtime = {}) {
     const key = String(commandKey || "").trim();
     if (!key) return false;
     switch (key) {
-      case MENU_COMMAND_KEYS.settings:
-        engine2?.openSettingsPanel?.();
-        return true;
       case MENU_COMMAND_KEYS.quickInput:
         ensureQuickInputController(engine2)?.open?.();
         return true;
@@ -1701,51 +1679,21 @@ async function startSite(runtime = {}) {
       createdAt: entry.createdAt
     })));
   }
-  function bindMenuCommandValueChanges(engine2) {
-    if (!bootstrapMenuManaged || !menuPendingValueKey) return false;
-    if (menuCommandValueListenerId !== null) return true;
-    const listenerId = gmAddValueChangeListenerLocal(menuPendingValueKey, () => {
-      consumePendingMenuCommands(engine2);
-    });
-    if (listenerId === null || listenerId === void 0) return false;
-    menuCommandValueListenerId = listenerId;
-    return true;
-  }
-  function unbindMenuCommandValueChanges() {
-    if (menuCommandValueListenerId === null) return;
-    gmRemoveValueChangeListenerLocal(menuCommandValueListenerId);
-    menuCommandValueListenerId = null;
-  }
-  function handleMenuCommandPayload(engine2, detail) {
-    if (!detail || typeof detail !== "object") return false;
-    if (detail.source !== menuCommandMessageSource) return false;
-    if (detail.type !== menuCommandMessageType) return false;
-    if (detail.siteId !== runtime?.siteId) return false;
-    if (menuPageToken && detail.pageToken && detail.pageToken !== menuPageToken) return false;
-    return handleMenuCommandWithId(engine2, detail.commandKey, detail.commandId);
-  }
   function bindMenuCommandMessages(engine2) {
     if (!bootstrapMenuManaged || !menuCommandMessageType || !menuCommandMessageSource) return;
-    const canListenOnWindow = typeof window !== "undefined" && window && typeof window.addEventListener === "function";
-    const canListenOnDocument = typeof document !== "undefined" && document && typeof document.addEventListener === "function";
-    if (!canListenOnWindow && !canListenOnDocument) return;
-    if (canListenOnWindow) {
-      window.addEventListener("message", (event) => {
-        handleMenuCommandPayload(engine2, event?.data);
-      });
-      window.addEventListener(menuCommandMessageType, (event) => {
-        handleMenuCommandPayload(engine2, event?.detail);
-      });
-    }
-    if (canListenOnDocument) {
-      document.addEventListener(menuCommandMessageType, (event) => {
-        handleMenuCommandPayload(engine2, event?.detail);
-      });
-    }
+    if (typeof window === "undefined" || !window || typeof window.addEventListener !== "function") return;
+    window.addEventListener("message", (event) => {
+      const detail = event?.data;
+      if (!detail || typeof detail !== "object") return;
+      if (detail.source !== menuCommandMessageSource) return;
+      if (detail.type !== menuCommandMessageType) return;
+      if (detail.siteId !== runtime?.siteId) return;
+      if (menuPageToken && detail.pageToken && detail.pageToken !== menuPageToken) return;
+      handleMenuCommandWithId(engine2, detail.commandKey, detail.commandId);
+    });
   }
   function startMenuCommandPolling(engine2) {
     if (!bootstrapMenuManaged) return;
-    if (menuCommandValueListenerId !== null) return;
     if (typeof window === "undefined" || !window) return;
     const drain = () => {
       consumePendingMenuCommands(engine2);
@@ -2084,15 +2032,10 @@ async function startSite(runtime = {}) {
   });
   engine.init();
   bindMenuCommandMessages(engine);
-  const hasMenuCommandValueListener = bindMenuCommandValueChanges(engine);
-  if (!hasMenuCommandValueListener) {
-    startMenuCommandPolling(engine);
-  }
+  startMenuCommandPolling(engine);
   if (bootstrapMenuManaged && typeof window !== "undefined" && window && typeof window.addEventListener === "function") {
     window.addEventListener("pagehide", stopMenuCommandPolling, { once: true });
     window.addEventListener("beforeunload", stopMenuCommandPolling, { once: true });
-    window.addEventListener("pagehide", unbindMenuCommandValueChanges, { once: true });
-    window.addEventListener("beforeunload", unbindMenuCommandValueChanges, { once: true });
   } else {
     gmRegisterMenuCommandLocal("ChatGPT - 快捷输入", () => {
       ensureQuickInputController(engine)?.open?.();
