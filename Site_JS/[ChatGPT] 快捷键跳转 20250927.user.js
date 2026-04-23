@@ -1,16 +1,19 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260423] v1.0.6
+// @name         [ChatGPT] 快捷键跳转 [20260423] v1.0.5
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260423] v1.0.6
-// @update-log   1.0.6: 撤销上版无效的 ChatGPT 菜单兜底改动，改为由 bootstrap menu bridge 直接托管 Quick Input handler。
+// @version      [20260423] v1.0.5
+// @update-log   1.0.5: 修复 ChatGPT 菜单桥接，补回 settings fallback，并补齐 CustomEvent / GM value change 的兜底处理。
 
 // @match        https://chatgpt.com/*
 
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_addValueChangeListener
+// @grant        GM_removeValueChangeListener
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getResourceURL
 
@@ -160,7 +163,7 @@
         const unregister = getUserscriptApi('GM_unregisterMenuCommand');
         const addValueChangeListener = getUserscriptApi('GM_addValueChangeListener');
         const removeValueChangeListener = getUserscriptApi('GM_removeValueChangeListener');
-        const commandHandlers = new Map();
+        let settingsHandler = null;
         const commands = new Map();
         const commandConfigs = new Map();
         const commandStateListenerIds = new Map();
@@ -342,30 +345,16 @@
             }
         }
 
-        function setCommandHandler(commandKey, handler) {
-            const key = normalizeCommandKey(commandKey);
-            if (!key) return false;
-            if (typeof handler === 'function') {
-                commandHandlers.set(key, handler);
-                return true;
-            }
-            commandHandlers.delete(key);
-            return false;
-        }
-
         function invokeCommand(commandKey) {
             const key = normalizeCommandKey(commandKey);
             const commandConfig = commandConfigs.get(key) || null;
-            const directHandler = commandHandlers.get(key) || null;
-            if (typeof directHandler === 'function') {
+            const hasDirectSettingsHandler = key === "settings" && typeof settingsHandler === 'function';
+            if (hasDirectSettingsHandler) {
                 try {
-                    directHandler();
-                    if (isStatefulCommand(commandConfig)) {
-                        refreshCommandLabel(key);
-                    }
+                    settingsHandler();
                     return;
                 } catch (error) {
-                    console.error(`[${SITE_LABEL}] bootstrap menu handler failed for "${key}".`, error);
+                    console.error(`[${SITE_LABEL}] settings menu handler failed.`, error);
                 }
             }
             const commandId = createCommandId(key);
@@ -457,9 +446,9 @@
             unregisterCommand,
             consumePending,
             dispatchCommand,
-            setCommandHandler,
             setSettingsHandler(handler) {
-                return setCommandHandler("settings", handler);
+                settingsHandler = typeof handler === 'function' ? handler : null;
+                return settingsHandler !== null;
             },
             getSettingsCommandId() {
                 return commands.get("settings")?.commandId ?? null;
