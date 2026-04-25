@@ -74,6 +74,7 @@
         ...CHATGPT_STROKE_SHORTCUT_ICON_SETS,
         newChat: createChatgptNativeShortcutIconSet("3a5c87"),
         sidebar: createChatgptNativeShortcutIconSet("836f7a"),
+        code: createChatgptNativeShortcutIconSet("ce3544"),
         trash: createChatgptNativeShortcutIconSet("3ee541"),
         upload: createChatgptNativeShortcutIconSet("712359"),
         temporaryChat: createChatgptNativeShortcutIconSet("28a8a0"),

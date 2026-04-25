@@ -1131,17 +1131,39 @@ export function createSettingsPanelLayer(ctx = {}) {
                 listContainer.appendChild(container);
             }
 
-	            function createStandardTableRow(item, index, isDark) {
-	                const row = document.createElement("tr");
-	                dnd.setupDragAndDrop(row, item, index);
+            function createShortcutIconPreview(item) {
+                const iconBox = document.createElement("span");
+                Object.assign(iconBox.style, {
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "32px",
+                    height: "32px",
+                    lineHeight: "0",
+                    verticalAlign: "middle"
+                });
+
+                const iconImg = document.createElement("img");
+                Object.assign(iconImg.style, {
+                    width: "24px",
+                    height: "24px",
+                    objectFit: "contain",
+                    display: "block",
+                    flexShrink: "0"
+                });
+                iconBox.appendChild(iconImg);
+                setIconImage(iconImg, item.icon, item.iconDark, item.iconAdaptive);
+                return iconBox;
+            }
+
+            function createStandardTableRow(item, index, isDark) {
+                const row = document.createElement("tr");
+                dnd.setupDragAndDrop(row, item, index);
 
                 const tdIcon = document.createElement("td");
                 styleTableCell(tdIcon, isDark);
                 tdIcon.style.textAlign = "center";
-                const iconImg = document.createElement("img");
-                Object.assign(iconImg.style, { width: "24px", height: "24px", objectFit: "contain", verticalAlign: "middle" });
-                setIconImage(iconImg, item.icon, item.iconDark, item.iconAdaptive);
-                tdIcon.appendChild(iconImg);
+                tdIcon.appendChild(createShortcutIconPreview(item));
 
                 const tdName = document.createElement("td");
                 tdName.textContent = item.name;
@@ -1225,12 +1247,8 @@ export function createSettingsPanelLayer(ctx = {}) {
                     flexWrap: "wrap"
                 });
 
-                const iconContainer = document.createElement("div");
+                const iconContainer = createShortcutIconPreview(item);
                 iconContainer.style.flexShrink = "0";
-                const iconImg = document.createElement("img");
-                Object.assign(iconImg.style, { width: "24px", height: "24px", objectFit: "contain" });
-                setIconImage(iconImg, item.icon, item.iconDark, item.iconAdaptive);
-                iconContainer.appendChild(iconImg);
 
                 const nameContainer = document.createElement("div");
                 Object.assign(nameContainer.style, {
