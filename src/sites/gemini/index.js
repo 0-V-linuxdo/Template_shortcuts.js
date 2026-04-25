@@ -75,6 +75,11 @@
     const SELECTORS = {
         sidebarToggle: [
             "button[data-test-id='side-nav-menu-button']",
+            "side-nav-menu-button button[data-test-id='side-nav-menu-button']",
+            "button[data-test-id='side-nav-menu-button'][jslog^='204298']",
+            "side-nav-menu-button button[jslog^='204298']",
+            "side-nav-menu-button button:has(mat-icon[fonticon='menu'])",
+            "side-nav-menu-button button:has(mat-icon[data-mat-icon-name='menu'])",
             "side-nav-menu-button button[aria-label='Main menu']",
             "side-nav-menu-button button",
             "button[aria-label='Main menu']",
@@ -85,7 +90,11 @@
             "[data-test-id='bard-mode-menu-button'] button",
             "[data-test-id='bard-mode-menu-button']"
         ],
-        toolsButton: "toolbox-drawer button.toolbox-drawer-button",
+        toolsButton: [
+            "toolbox-drawer button.toolbox-drawer-button[aria-haspopup='menu']",
+            "button.toolbox-drawer-button[aria-haspopup='menu']",
+            "button.toolbox-drawer-button"
+        ].join(", "),
         topBarConversationActionsButton: [
             "top-bar-actions conversation-actions-icon button[data-test-id='conversation-actions-menu-icon-button']",
             "top-bar-actions button[data-test-id='conversation-actions-menu-icon-button']"
@@ -118,6 +127,147 @@
         if (/(^|[^a-z0-9])thinking([^a-z0-9]|$)/.test(token)) return "thinking";
         if (/(^|[^a-z0-9])fast([^a-z0-9]|$)/.test(token)) return "fast";
         return "";
+    }
+
+    function normalizeGeminiUiText(value) {
+        return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+    }
+
+    function normalizeGeminiMenuTargetKey(value) {
+        return String(value ?? "").trim().replace(/[\s_-]+/g, "").toLowerCase();
+    }
+
+    function normalizeGeminiToolIconName(value) {
+        return String(value ?? "").trim().toLowerCase();
+    }
+
+    function normalizeGeminiToolIconNames(value) {
+        if (Array.isArray(value)) {
+            return value.map(normalizeGeminiToolIconName).filter(Boolean);
+        }
+        const one = normalizeGeminiToolIconName(value);
+        return one ? [one] : [];
+    }
+
+    function normalizeGeminiToolStringIds(value) {
+        if (Array.isArray(value)) {
+            return value.map(item => String(item ?? "").trim()).filter(Boolean);
+        }
+        const one = String(value ?? "").trim();
+        return one ? [one] : [];
+    }
+
+    const GEMINI_TOOL_TARGETS = Object.freeze({
+        createImage: Object.freeze({
+            id: "createImage",
+            matchIds: Object.freeze(["createimage", "image"]),
+            iconNames: Object.freeze(["photo_prints"]),
+            jslogIds: Object.freeze(["271906"]),
+            featureIds: Object.freeze(["14"]),
+            aliases: Object.freeze(["Create image", "Image", "创建图片", "生成图片"])
+        }),
+        canvas: Object.freeze({
+            id: "canvas",
+            matchIds: Object.freeze(["canvas"]),
+            iconNames: Object.freeze(["note_stack_add"]),
+            jslogIds: Object.freeze(["251249"]),
+            featureIds: Object.freeze(["2"]),
+            aliases: Object.freeze(["Canvas", "画布"])
+        }),
+        deepResearch: Object.freeze({
+            id: "deepResearch",
+            matchIds: Object.freeze(["deepresearch", "research"]),
+            iconNames: Object.freeze(["travel_explore"]),
+            jslogIds: Object.freeze(["251250"]),
+            featureIds: Object.freeze(["1"]),
+            aliases: Object.freeze(["Deep research", "Research", "深度研究"])
+        }),
+        createVideo: Object.freeze({
+            id: "createVideo",
+            matchIds: Object.freeze(["createvideo", "video"]),
+            iconNames: Object.freeze(["movie"]),
+            jslogIds: Object.freeze(["255043"]),
+            featureIds: Object.freeze(["11"]),
+            aliases: Object.freeze(["Create video", "Video", "创建视频", "生成视频"])
+        }),
+        createMusic: Object.freeze({
+            id: "createMusic",
+            matchIds: Object.freeze(["createmusic", "music"]),
+            iconNames: Object.freeze(["music_note"]),
+            jslogIds: Object.freeze(["297655"]),
+            featureIds: Object.freeze(["21"]),
+            aliases: Object.freeze(["Create music", "Music", "创建音乐", "生成音乐"])
+        }),
+        learn: Object.freeze({
+            id: "learn",
+            matchIds: Object.freeze(["learn", "learning"]),
+            iconNames: Object.freeze(["auto_stories"]),
+            jslogIds: Object.freeze(["272446"]),
+            featureIds: Object.freeze(["24"]),
+            aliases: Object.freeze(["Learn", "Learning", "学习"])
+        })
+    });
+
+    const GEMINI_TOOL_TARGET_ID_ALIASES = Object.freeze(
+        Object.values(GEMINI_TOOL_TARGETS).reduce((acc, target) => {
+            for (const matchId of target.matchIds || []) acc[matchId] = target.id;
+            return acc;
+        }, {})
+    );
+
+    const GEMINI_CONVERSATION_MENU_TARGETS = Object.freeze({
+        filesInChat: Object.freeze({
+            id: "filesInChat",
+            matchIds: Object.freeze(["filesinchat", "files"]),
+            dataTestIds: Object.freeze(["studio-sidebar-button"]),
+            iconNames: Object.freeze(["home_storage"]),
+            aliases: Object.freeze(["Files in this chat", "文件"])
+        }),
+        pin: Object.freeze({
+            id: "pin",
+            matchIds: Object.freeze(["pin"]),
+            dataTestIds: Object.freeze(["pin-button"]),
+            iconNames: Object.freeze(["push_pin"]),
+            jslogIds: Object.freeze(["186001"]),
+            aliases: Object.freeze(["Pin", "固定", "置顶"])
+        }),
+        rename: Object.freeze({
+            id: "rename",
+            matchIds: Object.freeze(["rename"]),
+            dataTestIds: Object.freeze(["rename-button"]),
+            iconNames: Object.freeze(["edit"]),
+            jslogIds: Object.freeze(["186002"]),
+            aliases: Object.freeze(["Rename", "重命名"])
+        }),
+        delete: Object.freeze({
+            id: "delete",
+            matchIds: Object.freeze(["delete", "remove"]),
+            dataTestIds: Object.freeze(["delete-button"]),
+            iconNames: Object.freeze(["delete"]),
+            jslogIds: Object.freeze(["186000"]),
+            aliases: Object.freeze(["Delete", "删除"])
+        })
+    });
+
+    const GEMINI_CONVERSATION_MENU_TARGET_ID_ALIASES = Object.freeze(
+        Object.values(GEMINI_CONVERSATION_MENU_TARGETS).reduce((acc, target) => {
+            for (const matchId of target.matchIds || []) acc[matchId] = target.id;
+            return acc;
+        }, {})
+    );
+
+    function resolveGeminiToolTarget(value) {
+        const key = normalizeGeminiMenuTargetKey(value);
+        if (!key) return null;
+        const targetId = GEMINI_TOOL_TARGET_ID_ALIASES[key] || "";
+        return targetId ? (GEMINI_TOOL_TARGETS[targetId] || null) : null;
+    }
+
+    function resolveGeminiConversationMenuTarget(value) {
+        const key = normalizeGeminiMenuTargetKey(value);
+        if (!key) return null;
+        const targetId = GEMINI_CONVERSATION_MENU_TARGET_ID_ALIASES[key] || "";
+        return targetId ? (GEMINI_CONVERSATION_MENU_TARGETS[targetId] || null) : null;
     }
 
     function getCurrentModelKey() {
@@ -236,14 +386,14 @@
             actionType: "custom",
             customAction: "toolsDrawer",
             hotkey: "CTRL+C",
-            data: { path: ["Canvas"] }
+            data: { menu: { id: "canvas" } }
         }),
         createShortcut({
             name: "Image",
             actionType: "custom",
             customAction: "toolsDrawer",
             hotkey: "CTRL+I",
-            data: { path: ["Image"] }
+            data: { menu: { id: "createImage" } }
         }),
         createShortcut({
             name: "Quick Input",
@@ -257,28 +407,28 @@
             actionType: "custom",
             customAction: "toolsDrawer",
             hotkey: "CTRL+L",
-            data: { path: ["Learning"] }
+            data: { menu: { id: "learn" } }
         }),
         createShortcut({
             name: "Research",
             actionType: "custom",
             customAction: "toolsDrawer",
             hotkey: "CTRL+R",
-            data: { path: ["Research"] }
+            data: { menu: { id: "deepResearch" } }
         }),
         createShortcut({
             name: "Delete",
             actionType: "custom",
             customAction: "conversationMenu",
             hotkey: "CTRL+BACKSPACE",
-            data: { path: ["Delete"] }
+            data: { menu: { id: "delete" } }
         }),
         createShortcut({
             name: "Pin",
             actionType: "custom",
             customAction: "conversationMenu",
             hotkey: "CTRL+P",
-            data: { path: ["Pin"] }
+            data: { menu: { id: "pin" } }
         })
     ];
 
@@ -562,7 +712,7 @@
         },
         root: {
             type: "selector",
-            selector: "mat-card.toolbox-drawer-card",
+            selector: "mat-action-list#toolbox-drawer-menu[role='menu'], mat-card.toolbox-drawer-card",
             pick: "last"
         },
         timing: MENU_TIMING
@@ -945,6 +1095,157 @@
         }
     }
 
+    function getGeminiElementJslog(element) {
+        let node = element;
+        while (node && node.nodeType === 1) {
+            const value = String(node.getAttribute?.("jslog") || "").trim();
+            if (value) return value;
+            node = node.parentElement || null;
+        }
+        return "";
+    }
+
+    function getGeminiElementJslogId(element) {
+        const raw = getGeminiElementJslog(element);
+        const match = raw.match(/^\s*([0-9]+)/);
+        return match ? match[1] : "";
+    }
+
+    function getGeminiElementFeatureId(element) {
+        const raw = getGeminiElementJslog(element);
+        let found = "";
+        try {
+            for (const match of raw.matchAll(/\[\s*null\s*,\s*null\s*,\s*([0-9]+)\s*\]/g)) {
+                found = match[1] || found;
+            }
+        } catch { }
+        return found;
+    }
+
+    function getGeminiElementIconNames(element) {
+        if (!element) return [];
+        const nodes = [element];
+        try {
+            nodes.push(...Array.from(element.querySelectorAll("[fonticon], [data-mat-icon-name], mat-icon")));
+        } catch { }
+
+        const names = [];
+        for (const node of nodes) {
+            const fontIcon = normalizeGeminiToolIconName(node.getAttribute?.("fonticon"));
+            const dataIcon = normalizeGeminiToolIconName(node.getAttribute?.("data-mat-icon-name"));
+            if (fontIcon) names.push(fontIcon);
+            if (dataIcon) names.push(dataIcon);
+            if (node !== element && String(node.tagName || "").toLowerCase() === "mat-icon") {
+                const textIcon = normalizeGeminiToolIconName(node.textContent);
+                if (textIcon) names.push(textIcon);
+            }
+        }
+        return Array.from(new Set(names));
+    }
+
+    function getGeminiElementDataTestIds(element) {
+        if (!element) return [];
+        const nodes = [element];
+        try {
+            nodes.push(...Array.from(element.querySelectorAll("[data-test-id]")));
+        } catch { }
+
+        const ids = [];
+        for (const node of nodes) {
+            const id = String(node.getAttribute?.("data-test-id") || "").trim().toLowerCase();
+            if (id) ids.push(id);
+        }
+        return Array.from(new Set(ids));
+    }
+
+    function elementHasGeminiToolIconName(element, iconNames) {
+        const expected = new Set(normalizeGeminiToolIconNames(iconNames));
+        if (expected.size === 0) return false;
+        return getGeminiElementIconNames(element).some(name => expected.has(name));
+    }
+
+    function elementHasGeminiDataTestId(element, dataTestIds) {
+        const expected = new Set(normalizeGeminiToolStringIds(dataTestIds).map(id => id.toLowerCase()));
+        if (expected.size === 0) return false;
+        return getGeminiElementDataTestIds(element).some(id => expected.has(id));
+    }
+
+    function geminiMenuTextMatches(rawText, matcher, element = null) {
+        if (matcher == null) return true;
+        if (typeof matcher === "function") {
+            try {
+                return !!matcher(rawText, element);
+            } catch {
+                return false;
+            }
+        }
+        if (matcher instanceof RegExp) {
+            try {
+                return matcher.test(String(rawText || ""));
+            } catch {
+                return false;
+            }
+        }
+        if (Array.isArray(matcher)) {
+            return matcher.some(item => geminiMenuTextMatches(rawText, item, element));
+        }
+        const text = normalizeGeminiUiText(rawText);
+        const target = normalizeGeminiUiText(matcher);
+        return target ? text.includes(target) : true;
+    }
+
+    function createGeminiToolTargetMatcher(target, extraIconNames = []) {
+        const iconNames = normalizeGeminiToolIconNames([
+            ...(target?.iconNames || []),
+            ...normalizeGeminiToolIconNames(extraIconNames)
+        ]);
+        const jslogIds = normalizeGeminiToolStringIds(target?.jslogIds || []);
+        const featureIds = normalizeGeminiToolStringIds(target?.featureIds || []);
+        const aliases = Array.isArray(target?.aliases) ? target.aliases : [];
+
+        if (!target && iconNames.length === 0) return null;
+
+        return (rawText, element) => {
+            if (iconNames.length > 0 && elementHasGeminiToolIconName(element, iconNames)) return true;
+
+            const jslogId = getGeminiElementJslogId(element);
+            if (jslogId && jslogIds.includes(jslogId)) return true;
+
+            const featureId = getGeminiElementFeatureId(element);
+            if (featureId && featureIds.includes(featureId)) return true;
+
+            return aliases.length > 0 && geminiMenuTextMatches(rawText, aliases, element);
+        };
+    }
+
+    function createGeminiConversationMenuTargetMatcher(target, extraIconNames = []) {
+        const dataTestIds = normalizeGeminiToolStringIds(target?.dataTestIds || []);
+        const iconNames = normalizeGeminiToolIconNames([
+            ...(target?.iconNames || []),
+            ...normalizeGeminiToolIconNames(extraIconNames)
+        ]);
+        const jslogIds = normalizeGeminiToolStringIds(target?.jslogIds || []);
+        const aliases = Array.isArray(target?.aliases) ? target.aliases : [];
+
+        if (!target && iconNames.length === 0) return null;
+
+        return (rawText, element) => {
+            if (dataTestIds.length > 0 && elementHasGeminiDataTestId(element, dataTestIds)) return true;
+            if (iconNames.length > 0 && elementHasGeminiToolIconName(element, iconNames)) return true;
+
+            const jslogId = getGeminiElementJslogId(element);
+            if (jslogId && jslogIds.includes(jslogId)) return true;
+
+            return aliases.length > 0 && geminiMenuTextMatches(rawText, aliases, element);
+        };
+    }
+
+    function combineGeminiMenuTextMatches(...matchers) {
+        const list = matchers.filter(matcher => hasValidTextMatch(matcher));
+        if (list.length === 0) return undefined;
+        return list.length === 1 ? list[0] : list;
+    }
+
     function resolveSelectorListFromSpec(ctx, spec) {
         if (!spec) return [];
         if (Array.isArray(spec)) {
@@ -1231,7 +1532,7 @@
         return token || "onestep";
     }
 
-    const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-list-item], button.mat-mdc-list-item, [role='menuitem'], [role='menuitemradio']";
+    const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-list-item], button.mat-mdc-list-item, [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']";
     const CONVERSATION_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitem'], [role='menuitemradio']";
     const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio']";
 
@@ -1318,7 +1619,7 @@
         return { provided: false, hasLiteral: false };
     }
 
-    function getGeminiMenuActionSpec(shortcut, { menuController, defaultItemSelector } = {}) {
+    function getGeminiMenuActionSpec(shortcut, { menuController, defaultItemSelector, resolveMenuTarget = null, createMenuTargetMatcher = null, actionName = "" } = {}) {
         const data = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : {};
         const rawMenu = data.menu;
 
@@ -1330,7 +1631,24 @@
         const waitForItem = (menu.waitForItem !== undefined) ? !!menu.waitForItem : true;
         const allowFirstItem = !!menu.allowFirstItem;
 
-        let textMatch = (menu.keyword !== undefined) ? menu.keyword : menu.textMatch;
+        const hasMenuId = menu.id !== undefined && menu.id !== null && String(menu.id).trim();
+        const menuTarget = (hasMenuId && typeof resolveMenuTarget === "function")
+            ? resolveMenuTarget(menu.id)
+            : null;
+        if (hasMenuId && typeof resolveMenuTarget === "function" && !menuTarget) {
+            console.warn(`[Gemini Shortcut] ${actionName || "geminiMenu"}: unknown menu.id "${String(menu.id).trim()}"; falling back to textMatch / keyword if provided.`);
+        }
+
+        const rawTextMatch = (menu.keyword !== undefined) ? menu.keyword : menu.textMatch;
+        const extraIconNames = normalizeGeminiToolIconNames(
+            menu.iconNames !== undefined
+                ? menu.iconNames
+                : (menu.iconName !== undefined ? menu.iconName : (menu.fonticon ?? menu.fontIcon))
+        );
+        const canonicalMatch = (typeof createMenuTargetMatcher === "function")
+            ? createMenuTargetMatcher(menuTarget, extraIconNames)
+            : null;
+        let textMatch = combineGeminiMenuTextMatches(canonicalMatch, rawTextMatch);
 
         const openSubmenus = [];
         if (Array.isArray(menu.openSubmenus)) openSubmenus.push(...menu.openSubmenus);
@@ -1385,7 +1703,7 @@
 
     function ensureMenuTarget(spec, actionName) {
         if (spec.allowFirstItem || hasValidTextMatch(spec.textMatch) || spec.selectorProvided) return true;
-        console.warn(`[Gemini Shortcut] ${actionName || "geminiMenu"}: missing menu target; set data.menu = "Canvas" (or data.menu.textMatch / data.menu.keyword / data.menu.path), or set data.textMatch / data.keyword / data.path, or set data.menu.allowFirstItem=true (or data.allowFirstItem=true) to click the first item.`);
+        console.warn(`[Gemini Shortcut] ${actionName || "geminiMenu"}: missing menu target; set data.menu = { id: "canvas" } (or data.menu.textMatch / data.menu.keyword / data.menu.path), or set data.textMatch / data.keyword / data.path, or set data.menu.allowFirstItem=true (or data.allowFirstItem=true) to click the first item.`);
         return false;
     }
 
@@ -1414,9 +1732,15 @@
         return ok;
     }
 
-    function createGeminiMenuAction({ actionName, menuController, defaultItemSelector } = {}) {
+    function createGeminiMenuAction({ actionName, menuController, defaultItemSelector, resolveMenuTarget = null, createMenuTargetMatcher = null } = {}) {
         return async function geminiMenuAction({ shortcut, engine }) {
-            const spec = getGeminiMenuActionSpec(shortcut, { menuController, defaultItemSelector });
+            const spec = getGeminiMenuActionSpec(shortcut, {
+                menuController,
+                defaultItemSelector,
+                resolveMenuTarget,
+                createMenuTargetMatcher,
+                actionName
+            });
             if (!spec?.menu) return false;
 
             switch (spec.action) {
@@ -1442,7 +1766,9 @@
     const toolsDrawerMenuAction = createGeminiMenuAction({
         actionName: "toolsDrawer",
         menuController: toolsDrawerMenu,
-        defaultItemSelector: TOOLS_DRAWER_ITEM_SELECTOR
+        defaultItemSelector: TOOLS_DRAWER_ITEM_SELECTOR,
+        resolveMenuTarget: resolveGeminiToolTarget,
+        createMenuTargetMatcher: createGeminiToolTargetMatcher
     });
 
     function textLooksLikeDelete(value) {
@@ -1461,6 +1787,7 @@
 
         const texts = [];
         if (typeof shortcut?.name === "string") texts.push(shortcut.name);
+        if (menu?.id !== undefined && menu?.id !== null) texts.push(menu.id);
         if (typeof menu?.keyword === "string") texts.push(menu.keyword);
         if (typeof menu?.textMatch === "string") texts.push(menu.textMatch);
         if (typeof rawMenu === "string") texts.push(rawMenu);
@@ -1498,14 +1825,18 @@
     function findDeleteConfirmButton() {
         let dialogs = [];
         try { dialogs = Array.from(document.querySelectorAll("mat-dialog-container")); } catch { return null; }
+        let fallbackConfirmBtn = null;
         for (const dialog of dialogs) {
             if (!dialog) continue;
+            if (!isElementVisible(dialog)) continue;
             const ariaLabel = String(dialog.getAttribute?.("aria-label") || "");
             const titleText = String(dialog.querySelector?.("[data-test-id='message-dialog-title']")?.textContent || "");
-            if (!textLooksLikeDelete(ariaLabel) && !textLooksLikeDelete(titleText)) continue;
+            const looksLikeDelete = textLooksLikeDelete(ariaLabel) || textLooksLikeDelete(titleText);
 
             const confirmBtn = dialog.querySelector("button[data-test-id='confirm-button']");
-            if (confirmBtn) return confirmBtn;
+            if (confirmBtn && !fallbackConfirmBtn) fallbackConfirmBtn = confirmBtn;
+            if (looksLikeDelete && confirmBtn) return confirmBtn;
+            if (!looksLikeDelete) continue;
 
             let candidates = [];
             try { candidates = Array.from(dialog.querySelectorAll("button")); } catch { candidates = []; }
@@ -1513,7 +1844,7 @@
                 if (textLooksLikeDelete(btn.textContent || "")) return btn;
             }
         }
-        return null;
+        return fallbackConfirmBtn;
     }
 
     async function autoFocusDeleteConfirmButton({ timeoutMs = 2500, intervalMs = 80 } = {}) {
@@ -1534,13 +1865,17 @@
     const topBarConversationMenuActionBase = createGeminiMenuAction({
         actionName: "conversationMenuTopBar",
         menuController: topBarConversationMenu,
-        defaultItemSelector: CONVERSATION_ITEM_SELECTOR
+        defaultItemSelector: CONVERSATION_ITEM_SELECTOR,
+        resolveMenuTarget: resolveGeminiConversationMenuTarget,
+        createMenuTargetMatcher: createGeminiConversationMenuTargetMatcher
     });
 
     const conversationMenuActionBase = createGeminiMenuAction({
         actionName: "conversationMenu",
         menuController: conversationMenu,
-        defaultItemSelector: CONVERSATION_ITEM_SELECTOR
+        defaultItemSelector: CONVERSATION_ITEM_SELECTOR,
+        resolveMenuTarget: resolveGeminiConversationMenuTarget,
+        createMenuTargetMatcher: createGeminiConversationMenuTargetMatcher
     });
 
     const conversationMenuAction = async ({ shortcut, engine }) => {
@@ -2723,11 +3058,11 @@
         customActionDataAdapters: {
             toolsDrawer: createMenuDataAdapter({
                 label: "菜单关键词（或粘贴 JSON，高级用法）:",
-                placeholder: "例如: Canvas / Learning / Research"
+                placeholder: '例如: {"menu":{"id":"canvas"}} / Canvas'
             }),
             conversationMenu: createMenuDataAdapter({
                 label: "菜单关键词（或粘贴 JSON，高级用法）:",
-                placeholder: "例如: Pin / Delete"
+                placeholder: '例如: {"menu":{"id":"pin"}} / Delete'
             }),
             modelPicker: createMenuDataAdapter({
                 label: "模型关键词（或粘贴 JSON，高级用法）:",
