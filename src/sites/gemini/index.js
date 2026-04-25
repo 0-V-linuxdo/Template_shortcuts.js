@@ -84,6 +84,46 @@
         "https://raw.githubusercontent.com/0-V-linuxdo/Template_shortcuts.js/release/Site_Icon/gemini_keycap.svg"
     ]);
 
+    function createGeminiNativeShortcutIconSet(iconName) {
+        const normalizedIconName = String(iconName || "").trim();
+        const source = normalizedIconName ? `font-icon:${normalizedIconName}` : "";
+        return Object.freeze({
+            icon: source,
+            iconDark: source,
+            iconAdaptive: false
+        });
+    }
+
+    const GEMINI_SHORTCUT_ICON_SETS = Object.freeze({
+        newChat: createGeminiNativeShortcutIconSet("edit_square"),
+        sidebar: createGeminiNativeShortcutIconSet("menu"),
+        model: createGeminiNativeShortcutIconSet("spark"),
+        tools: createGeminiNativeShortcutIconSet("page_info"),
+        canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
+        createImage: createGeminiNativeShortcutIconSet("photo_prints"),
+        quickInput: createGeminiNativeShortcutIconSet("send"),
+        learn: createGeminiNativeShortcutIconSet("auto_stories"),
+        deepResearch: createGeminiNativeShortcutIconSet("travel_explore"),
+        delete: createGeminiNativeShortcutIconSet("delete"),
+        pin: createGeminiNativeShortcutIconSet("push_pin")
+    });
+
+    const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
+        "New Chat": "newChat",
+        "Toggle Sidebar": "sidebar",
+        "Model: Pro": "model",
+        "Model: Thinking": "model",
+        "Model: Fast": "model",
+        "Open Tools": "tools",
+        "Canvas": "canvas",
+        "Image": "createImage",
+        "Quick Input": "quickInput",
+        "Learning": "learn",
+        "Research": "deepResearch",
+        "Delete": "delete",
+        "Pin": "pin"
+    });
+
     const SELECTORS = {
         sidebarToggle: [
             "button[data-test-id='side-nav-menu-button']",
@@ -356,8 +396,13 @@
         return head + tail;
     }
 
-    const createShortcut = (overrides) => {
-        const shortcut = { ...baseShortcut, ...(overrides || {}) };
+    function getGeminiShortcutIconDefaults(iconKey) {
+        const iconSet = GEMINI_SHORTCUT_ICON_SETS[String(iconKey || "")] || null;
+        return iconSet ? { ...iconSet } : {};
+    }
+
+    const createShortcut = (overrides, iconKey = "") => {
+        const shortcut = { ...baseShortcut, ...getGeminiShortcutIconDefaults(iconKey), ...(overrides || {}) };
         const existingKey = (typeof shortcut.key === "string") ? shortcut.key.trim() : "";
         if (!existingKey && typeof shortcut.name === "string") {
             const derived = deriveShortcutKeyFromName(shortcut.name);
@@ -367,8 +412,8 @@
     };
 
     const defaultShortcuts = [
-        createShortcut({ name: "New Chat", actionType: "simulate", simulateKeys: GEMINI_NATIVE_NEW_CHAT_HOTKEY, hotkey: "CTRL+N" }),
-        createShortcut({ name: "Toggle Sidebar", actionType: "selector", selector: SELECTORS.sidebarToggle, hotkey: "CTRL+B" }),
+        createShortcut({ name: "New Chat", actionType: "simulate", simulateKeys: GEMINI_NATIVE_NEW_CHAT_HOTKEY, hotkey: "CTRL+N" }, "newChat"),
+        createShortcut({ name: "Toggle Sidebar", actionType: "selector", selector: SELECTORS.sidebarToggle, hotkey: "CTRL+B" }, "sidebar"),
 
         createShortcut({
             name: "Model: Pro",
@@ -376,80 +421,108 @@
             customAction: "modelPicker",
             hotkey: "CTRL+SHIFT+P",
             data: { menu: { selector: MODEL_PICKER_OPTION_SELECTORS.pro } }
-        }),
+        }, "model"),
         createShortcut({
             name: "Model: Thinking",
             actionType: "custom",
             customAction: "modelPicker",
             hotkey: "CTRL+SHIFT+T",
             data: { menu: { selector: MODEL_PICKER_OPTION_SELECTORS.thinking } }
-        }),
+        }, "model"),
         createShortcut({
             name: "Model: Fast",
             actionType: "custom",
             customAction: "modelPicker",
             hotkey: "CTRL+SHIFT+F",
             data: { menu: { selector: MODEL_PICKER_OPTION_SELECTORS.fast } }
-        }),
+        }, "model"),
 
-        createShortcut({ name: "Open Tools", actionType: "selector", selector: SELECTORS.toolsButton, hotkey: "CTRL+T" }),
+        createShortcut({ name: "Open Tools", actionType: "selector", selector: SELECTORS.toolsButton, hotkey: "CTRL+T" }, "tools"),
         createShortcut({
             name: "Canvas",
             actionType: "custom",
             customAction: "toolsDrawer",
             hotkey: "CTRL+C",
             data: { menu: { id: "canvas" } }
-        }),
+        }, "canvas"),
         createShortcut({
             name: "Image",
             actionType: "custom",
             customAction: "toolsDrawer",
             hotkey: "CTRL+I",
             data: { menu: { id: "createImage" } }
-        }),
+        }, "createImage"),
         createShortcut({
             name: "Quick Input",
             actionType: "custom",
             customAction: "quickInput",
             hotkey: "CTRL+SHIFT+K",
             data: {}
-        }),
+        }, "quickInput"),
         createShortcut({
             name: "Learning",
             actionType: "custom",
             customAction: "toolsDrawer",
             hotkey: "CTRL+L",
             data: { menu: { id: "learn" } }
-        }),
+        }, "learn"),
         createShortcut({
             name: "Research",
             actionType: "custom",
             customAction: "toolsDrawer",
             hotkey: "CTRL+R",
             data: { menu: { id: "deepResearch" } }
-        }),
+        }, "deepResearch"),
         createShortcut({
             name: "Delete",
             actionType: "custom",
             customAction: "conversationMenu",
             hotkey: "CTRL+BACKSPACE",
             data: { menu: { id: "delete" } }
-        }),
+        }, "delete"),
         createShortcut({
             name: "Pin",
             actionType: "custom",
             customAction: "conversationMenu",
             hotkey: "CTRL+P",
             data: { menu: { id: "pin" } }
-        })
+        }, "pin")
     ];
 
-    function isGeminiManagedShortcutIcon(value) {
+    function getGeminiDefaultShortcutIconKey(shortcut) {
+        const name = String(shortcut?.name || "").trim();
+        if (name && GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME[name]) {
+            return GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME[name];
+        }
+
+        const customAction = String(shortcut?.customAction || "").trim();
+        const data = shortcut?.data && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : {};
+        const menu = data.menu && typeof data.menu === "object" && !Array.isArray(data.menu) ? data.menu : {};
+        const menuId = String(menu.id || "").trim();
+        if (customAction === "quickInput") return "quickInput";
+        if (customAction === "modelPicker") return "model";
+        if (customAction === "toolsDrawer") {
+            if (menuId === "canvas") return "canvas";
+            if (menuId === "createImage") return "createImage";
+            if (menuId === "learn") return "learn";
+            if (menuId === "deepResearch") return "deepResearch";
+        }
+        if (customAction === "conversationMenu") {
+            if (menuId === "delete") return "delete";
+            if (menuId === "pin") return "pin";
+        }
+        return "";
+    }
+
+    function isGeminiManagedShortcutIcon(value, iconKey) {
         const icon = String(value || "").trim();
         if (!icon) return true;
         if (GEMINI_MANAGED_SHORTCUT_ICON_URLS.includes(icon)) return true;
         if (/gemini_sparkle_(?:aurora|v002)_/i.test(icon)) return true;
-        return /(?:^|\/)gemini_keycap\.svg(?:[?#].*)?$/i.test(icon);
+        if (/(?:^|\/)gemini_keycap\.svg(?:[?#].*)?$/i.test(icon)) return true;
+
+        const iconSet = GEMINI_SHORTCUT_ICON_SETS[iconKey] || null;
+        return !!iconSet && (icon === iconSet.icon || icon === iconSet.iconDark);
     }
 
     function migrateGeminiShortcutIcons() {
@@ -460,17 +533,21 @@
         const next = stored.map((shortcut) => {
             if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return shortcut;
 
-            const replaceLightIcon = isGeminiManagedShortcutIcon(shortcut.icon);
-            const replaceDarkIcon = replaceLightIcon && isGeminiManagedShortcutIcon(shortcut.iconDark);
+            const iconKey = getGeminiDefaultShortcutIconKey(shortcut);
+            const iconSet = GEMINI_SHORTCUT_ICON_SETS[iconKey] || null;
+            if (!iconSet) return shortcut;
+
+            const replaceLightIcon = isGeminiManagedShortcutIcon(shortcut.icon, iconKey);
+            const replaceDarkIcon = replaceLightIcon && isGeminiManagedShortcutIcon(shortcut.iconDark, iconKey);
             if (!replaceLightIcon && !replaceDarkIcon) return shortcut;
 
             const updated = { ...shortcut };
-            if (replaceLightIcon && updated.icon !== GEMINI_NATIVE_ICON_URL) {
-                updated.icon = GEMINI_NATIVE_ICON_URL;
+            if (replaceLightIcon && updated.icon !== iconSet.icon) {
+                updated.icon = iconSet.icon;
                 changed = true;
             }
-            if (replaceDarkIcon && String(updated.iconDark || "").trim()) {
-                updated.iconDark = "";
+            if (replaceDarkIcon && updated.iconDark !== iconSet.iconDark) {
+                updated.iconDark = iconSet.iconDark;
                 changed = true;
             }
             if ((replaceLightIcon || replaceDarkIcon) && updated.iconAdaptive) {

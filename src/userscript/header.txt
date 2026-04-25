@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260423] v1.1.0
+// @name         [Template] 快捷键跳转 [20260425] v1.1.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260423] v1.1.0
-// @update-log   1.1.0: 修复 QuickInput 的长文本校验、旧附件预清理与日志面板高度/滚动问题，提升发布版稳定性。
+// @version      [20260425] v1.1.1
+// @update-log   1.1.1: 支持 font-icon 原生字体图标渲染，便于站点快捷键复用页面内原生图标。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand

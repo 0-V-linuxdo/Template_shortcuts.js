@@ -36,6 +36,7 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
             const themeMemoryCache = enableMemoryCache ? new Map() : null; // key -> { source, adapted } | null
             const inflightThemeBuilds = new Map(); // source -> callbacks[]
             const SVG_USE_ICON_PREFIX = "svg-use:";
+            const FONT_ICON_PREFIX = "font-icon:";
             const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
             const XLINK_NAMESPACE = "http://www.w3.org/1999/xlink";
             const resolveSvgUseHref = typeof opts.resolveSvgUseHref === "function"
@@ -551,6 +552,13 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 return href ? { href } : null;
             }
 
+            function parseFontIconSource(value) {
+                const source = String(value || "").trim();
+                if (!source.startsWith(FONT_ICON_PREFIX)) return null;
+                const name = source.slice(FONT_ICON_PREFIX.length).trim();
+                return name ? { name } : null;
+            }
+
             function resolveSvgUseIconHref(rawHref, source) {
                 const href = String(rawHref || "").trim();
                 if (!href) return "";
@@ -609,6 +617,16 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                     const svg = imgEl.__stSvgUseIcon || null;
                     if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
                     imgEl.__stSvgUseIcon = null;
+                } catch {}
+                restoreOriginalImageDisplay(imgEl);
+            }
+
+            function removeFontIcon(imgEl) {
+                if (!imgEl) return;
+                try {
+                    const iconEl = imgEl.__stFontIcon || null;
+                    if (iconEl && iconEl.parentNode) iconEl.parentNode.removeChild(iconEl);
+                    imgEl.__stFontIcon = null;
                 } catch {}
                 restoreOriginalImageDisplay(imgEl);
             }
@@ -693,6 +711,73 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 imgEl.style.display = "none";
             }
 
+            function renderFontIcon(imgEl, spec, sourceMarker, deferredCount = 0) {
+                if (!imgEl || !spec) return;
+                if (!isImageSourceCurrent(imgEl, sourceMarker)) return;
+                const parent = imgEl.parentNode;
+                if (!parent) {
+                    rememberOriginalImageDisplay(imgEl);
+                    imgEl.style.display = "none";
+                    if (deferredCount < 2) {
+                        const schedule = typeof globalThis.requestAnimationFrame === "function"
+                            ? globalThis.requestAnimationFrame
+                            : (fn) => setTimeout(fn, 0);
+                        schedule(() => renderFontIcon(imgEl, spec, sourceMarker, deferredCount + 1));
+                    } else {
+                        removeFontIcon(imgEl);
+                        imgEl.src = getDefaultIconURL();
+                    }
+                    return;
+                }
+
+                const name = String(spec.name || "").trim();
+                if (!name) {
+                    removeFontIcon(imgEl);
+                    imgEl.src = getDefaultIconURL();
+                    return;
+                }
+
+                let iconEl = null;
+                try { iconEl = imgEl.__stFontIcon || null; } catch {}
+                if (!iconEl || iconEl.parentNode !== parent) {
+                    if (iconEl && iconEl.parentNode) {
+                        try { iconEl.parentNode.removeChild(iconEl); } catch {}
+                    }
+                    iconEl = document.createElement("span");
+                    try { imgEl.__stFontIcon = iconEl; } catch {}
+                    try { parent.insertBefore(iconEl, imgEl.nextSibling); } catch { parent.appendChild(iconEl); }
+                }
+
+                iconEl.className = "mat-icon notranslate gds-icon-l google-symbols mat-ligature-font mat-icon-no-color";
+                iconEl.setAttribute("aria-hidden", "true");
+                iconEl.setAttribute("data-st-icon-font", "true");
+                iconEl.textContent = name;
+                copyIconImageBoxStyle(imgEl, iconEl);
+                const fontSize = iconEl.style.height || "24px";
+                Object.assign(iconEl.style, {
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                    fontFamily: "\"Google Symbols\", \"Material Symbols Rounded\", \"Material Symbols Outlined\", \"Material Icons\", sans-serif",
+                    fontSize,
+                    fontStyle: "normal",
+                    fontWeight: "400",
+                    lineHeight: "1",
+                    letterSpacing: "normal",
+                    textTransform: "none",
+                    whiteSpace: "nowrap",
+                    wordWrap: "normal",
+                    direction: "ltr",
+                    fontFeatureSettings: "\"liga\"",
+                    WebkitFontFeatureSettings: "\"liga\"",
+                    fontVariationSettings: "\"FILL\" 0, \"wght\" 400, \"GRAD\" 0, \"opsz\" 24"
+                });
+
+                rememberOriginalImageDisplay(imgEl);
+                imgEl.style.display = "none";
+            }
+
             function setIconImage(imgEl, iconUrl, iconDarkUrl = "", iconAdaptive = false) {
                 const fallback = getDefaultIconURL();
                 if (!imgEl) return;
@@ -704,10 +789,18 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 markImageSource(imgEl, sourceMarker);
                 const svgUseSpec = parseSvgUseIconSource(source);
                 if (svgUseSpec) {
+                    removeFontIcon(imgEl);
                     renderSvgUseIcon(imgEl, svgUseSpec, sourceMarker);
                     return;
                 }
+                const fontIconSpec = parseFontIconSource(source);
+                if (fontIconSpec) {
+                    removeSvgUseIcon(imgEl);
+                    renderFontIcon(imgEl, fontIconSpec, sourceMarker);
+                    return;
+                }
                 removeSvgUseIcon(imgEl);
+                removeFontIcon(imgEl);
 
                 if (!source) {
                     imgEl.src = fallback;
