@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Gemini] 快捷键跳转 [20260425] v1.0.0
+// @name         [Gemini] 快捷键跳转 [20260425] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 
-// @version      [20260425] v1.0.0
-// @update-log   1.0.0: 工具菜单与会话菜单改用 canonical id，优先通过 data-test-id、fonticon、jslog 等语言无关信号匹配，提升多语言 UI 适配。
+// @version      [20260425] v1.0.1
+// @update-log   1.0.1: 恢复 Gemini 脚本图标到历史版本，并自动迁移已保存快捷键使用 Gemini 原生图标。
 
 // @match        https://gemini.google.com/*
 
@@ -86,9 +86,11 @@
       return;
     }
     const LOG_TAG = "[Gemini Shortcut Script]";
-    const defaultIconURL = "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg";
+    const GEMINI_NATIVE_ICON_URL = "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg";
+    const GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY = "gemini_shortcuts_v2";
+    const defaultIconURL = GEMINI_NATIVE_ICON_URL;
     const defaultIcons = [
-      { name: "Gemini", url: "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg" },
+      { name: "Gemini", url: GEMINI_NATIVE_ICON_URL },
       { name: "Google", url: "https://www.google.com/favicon.ico" },
       { name: "ChatGPT", url: "https://chatgpt.com/favicon.ico" },
       { name: "Claude", url: "https://claude.ai/favicon.ico" },
@@ -99,8 +101,17 @@
       { name: "GitHub", url: "https://github.githubassets.com/favicons/favicon.svg" }
     ];
     const protectedIconUrls = [
-      "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg"
+      GEMINI_NATIVE_ICON_URL
     ];
+    const GEMINI_MANAGED_SHORTCUT_ICON_URLS = Object.freeze([
+      GEMINI_NATIVE_ICON_URL,
+      "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg",
+      "https://gemini.google.com/favicon.ico",
+      "https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Site_Icon/gemini_keycap.svg",
+      "https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/gemini_keycap.svg",
+      "https://raw.githubusercontent.com/0-V-linuxdo/Template_shortcuts.js/main/Site_Icon/gemini_keycap.svg",
+      "https://raw.githubusercontent.com/0-V-linuxdo/Template_shortcuts.js/release/Site_Icon/gemini_keycap.svg"
+    ]);
     const SELECTORS = {
       sidebarToggle: [
         "button[data-test-id='side-nav-menu-button']",
@@ -428,6 +439,40 @@
         data: { menu: { id: "pin" } }
       })
     ];
+    function isGeminiManagedShortcutIcon(value) {
+      const icon = String(value || "").trim();
+      if (!icon) return true;
+      if (GEMINI_MANAGED_SHORTCUT_ICON_URLS.includes(icon)) return true;
+      if (/gemini_sparkle_(?:aurora|v002)_/i.test(icon)) return true;
+      return /(?:^|\/)gemini_keycap\.svg(?:[?#].*)?$/i.test(icon);
+    }
+    function migrateGeminiShortcutIcons() {
+      const stored = gmGetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
+      if (!Array.isArray(stored)) return;
+      let changed = false;
+      const next = stored.map((shortcut) => {
+        if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return shortcut;
+        const replaceLightIcon = isGeminiManagedShortcutIcon(shortcut.icon);
+        const replaceDarkIcon = replaceLightIcon && isGeminiManagedShortcutIcon(shortcut.iconDark);
+        if (!replaceLightIcon && !replaceDarkIcon) return shortcut;
+        const updated = { ...shortcut };
+        if (replaceLightIcon && updated.icon !== GEMINI_NATIVE_ICON_URL) {
+          updated.icon = GEMINI_NATIVE_ICON_URL;
+          changed = true;
+        }
+        if (replaceDarkIcon && String(updated.iconDark || "").trim()) {
+          updated.iconDark = "";
+          changed = true;
+        }
+        if ((replaceLightIcon || replaceDarkIcon) && updated.iconAdaptive) {
+          updated.iconAdaptive = false;
+          changed = true;
+        }
+        return updated;
+      });
+      if (!changed) return;
+      gmSetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
+    }
     const TemplateUtils = ShortcutTemplate.utils;
     if (!TemplateUtils?.menu?.createMenuController) {
       console.error("[Gemini Shortcut] Template utils.menu not found (update Template core).");
@@ -2782,11 +2827,12 @@
       });
       registerSidebarVisibilityMenuCommand();
     }
+    migrateGeminiShortcutIcons();
     const engine = ShortcutTemplate.createShortcutEngine({
       menuCommandLabel: "Gemini - 设置快捷键",
       panelTitle: "Gemini - 自定义快捷键",
       storageKeys: {
-        shortcuts: "gemini_shortcuts_v2",
+        shortcuts: GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY,
         iconCachePrefix: "gemini_icon_cache_v2::",
         userIcons: "gemini_user_icons_v2"
       },
