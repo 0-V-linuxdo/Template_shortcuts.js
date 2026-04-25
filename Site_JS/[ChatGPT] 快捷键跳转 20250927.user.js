@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.5
+// @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.6
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260425] v1.0.5
-// @update-log   1.0.5: 补充 ChatGPT 原生图标映射；New Chat、Toggle Sidebar、Delete Chat 改用原生 SVG sprite 图标，并继续保留用户自定义图标与旧默认图标迁移。
+// @version      [20260425] v1.0.6
+// @update-log   1.0.6: 补充 Copy Last Code Block 原生 SVG sprite 图标映射；统一设置面板图标预览容器，修复非原生图标在列表中偏左的问题。
 
 // @match        https://chatgpt.com/*
 
@@ -100,6 +100,7 @@
       ...CHATGPT_STROKE_SHORTCUT_ICON_SETS,
       newChat: createChatgptNativeShortcutIconSet("3a5c87"),
       sidebar: createChatgptNativeShortcutIconSet("836f7a"),
+      code: createChatgptNativeShortcutIconSet("ce3544"),
       trash: createChatgptNativeShortcutIconSet("3ee541"),
       upload: createChatgptNativeShortcutIconSet("712359"),
       temporaryChat: createChatgptNativeShortcutIconSet("28a8a0"),
