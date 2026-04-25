@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.0
+// @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260425] v1.0.0
-// @update-log   1.0.0: ChatGPT 内置工具快捷键改用 canonical id，优先按稳定 SVG 图标匹配，并保留文字兜底与自定义关键词配置。
+// @version      [20260425] v1.0.1
+// @update-log   1.0.1: 补强 ChatGPT 多语言 UI 适配；Temporary Chat、图片比例、附件删除、Thinking effort、Canvas 等元素优先按稳定 SVG 图标匹配。
 
 // @match        https://chatgpt.com/*
 
@@ -86,7 +86,7 @@
       composerModeBtn: "button.__composer-pill[aria-haspopup='menu'], [data-testid='composer-footer-actions'] button[aria-haspopup='menu']",
       composerModeMenuRoot: "div[role='menu'][data-radix-menu-content]",
       composerModeMenuItem: "[role='menuitem'], [role='menuitemradio']",
-      topModelSelectorBtn: "button[data-testid='model-switcher-dropdown-button'], button[aria-label='Model selector']",
+      topModelSelectorBtn: "button[data-testid='model-switcher-dropdown-button'], button[aria-label='Model selector'], button[aria-label='模型选择器']",
       topModelMenuRoot: "div[role='menu'][data-radix-menu-content]",
       topModelMenuItem: "[role='menuitem'], [role='menuitemradio']"
     };
@@ -119,7 +119,7 @@
       canvas: Object.freeze({
         id: "canvas",
         matchIds: Object.freeze(["canvas"]),
-        iconIds: Object.freeze([]),
+        iconIds: Object.freeze(["cf3864"]),
         aliases: Object.freeze(["Canvas", "画布"])
       }),
       more: Object.freeze({
@@ -129,8 +129,57 @@
         aliases: Object.freeze(["More", "更多"])
       })
     });
+    const CHATGPT_TEMPORARY_CHAT_ICON_IDS = Object.freeze(["28a8a0"]);
+    const CHATGPT_ASPECT_RATIO_TRIGGER_ICON_IDS = Object.freeze(["025c88"]);
+    const CHATGPT_REMOVE_ATTACHMENT_ICON_IDS = Object.freeze(["23ce94"]);
+    const CHATGPT_THINKING_EFFORT_TRIGGER_ICON_IDS = Object.freeze(["127a53"]);
+    const CHATGPT_THINKING_EFFORT_EXTENDED_ICON_IDS = Object.freeze(["143e56"]);
+    const CHATGPT_ASPECT_RATIO_TARGETS = Object.freeze({
+      auto: Object.freeze({
+        id: "auto",
+        matchIds: Object.freeze(["auto"]),
+        iconIds: Object.freeze(["025c88"]),
+        aliases: Object.freeze(["Auto", "自动"])
+      }),
+      square: Object.freeze({
+        id: "square",
+        matchIds: Object.freeze(["square", "1:1", "1x1"]),
+        iconIds: Object.freeze(["36d8fa"]),
+        aliases: Object.freeze(["Square 1:1", "Square", "方形 1:1", "方形", "1:1"])
+      }),
+      portrait: Object.freeze({
+        id: "portrait",
+        matchIds: Object.freeze(["portrait", "3:4", "3x4"]),
+        iconIds: Object.freeze(["0623c1"]),
+        aliases: Object.freeze(["Portrait 3:4", "Portrait", "竖版 3:4", "竖版", "3:4"])
+      }),
+      story: Object.freeze({
+        id: "story",
+        matchIds: Object.freeze(["story", "9:16", "9x16"]),
+        iconIds: Object.freeze(["665fb5"]),
+        aliases: Object.freeze(["Story 9:16", "Story", "故事 9:16", "故事", "9:16"])
+      }),
+      landscape: Object.freeze({
+        id: "landscape",
+        matchIds: Object.freeze(["landscape", "4:3", "4x3"]),
+        iconIds: Object.freeze(["a9cb45"]),
+        aliases: Object.freeze(["Landscape 4:3", "Landscape", "横屏 4:3", "横屏", "4:3"])
+      }),
+      widescreen: Object.freeze({
+        id: "widescreen",
+        matchIds: Object.freeze(["widescreen", "16:9", "16x9"]),
+        iconIds: Object.freeze(["1f3bb2"]),
+        aliases: Object.freeze(["Widescreen 16:9", "Widescreen", "宽屏 16:9", "宽屏", "16:9"])
+      })
+    });
     const CHATGPT_MENU_TARGET_ID_ALIASES = Object.freeze(
       Object.values(CHATGPT_MENU_TARGETS).reduce((acc, target) => {
+        for (const matchId of target.matchIds || []) acc[matchId] = target.id;
+        return acc;
+      }, {})
+    );
+    const CHATGPT_ASPECT_RATIO_TARGET_ID_ALIASES = Object.freeze(
+      Object.values(CHATGPT_ASPECT_RATIO_TARGETS).reduce((acc, target) => {
         for (const matchId of target.matchIds || []) acc[matchId] = target.id;
         return acc;
       }, {})
@@ -147,6 +196,12 @@
       if (!key) return null;
       const targetId = CHATGPT_MENU_TARGET_ID_ALIASES[key] || "";
       return targetId ? CHATGPT_MENU_TARGETS[targetId] || null : null;
+    }
+    function resolveChatgptAspectRatioTarget(value) {
+      const key = normalizeChatgptMenuTargetKey(value);
+      if (!key) return null;
+      const targetId = CHATGPT_ASPECT_RATIO_TARGET_ID_ALIASES[key] || "";
+      return targetId ? CHATGPT_ASPECT_RATIO_TARGETS[targetId] || null : null;
     }
     function normalizeChatgptMenuIconId(value) {
       const raw = String(value ?? "").trim().toLowerCase();
@@ -170,6 +225,21 @@
       const href = getSvgUseHrefValue(useElement);
       if (!href) return "";
       return normalizeChatgptMenuIconId(href);
+    }
+    function getChatgptElementIconIds(element) {
+      if (!element || typeof element.querySelectorAll !== "function") return [];
+      let uses = [];
+      try {
+        uses = Array.from(element.querySelectorAll("use"));
+      } catch {
+        return [];
+      }
+      return Array.from(new Set(uses.map((use) => normalizeChatgptMenuIconId(getSvgUseHrefValue(use))).filter(Boolean)));
+    }
+    function elementHasChatgptIconId(element, iconIds) {
+      const expected = normalizeChatgptMenuIconIds(iconIds);
+      if (expected.length === 0) return false;
+      return getChatgptElementIconIds(element).some((iconId) => expected.includes(iconId));
     }
     function isMoreMenuIconMatch(_rawText, element) {
       if (!element || typeof element.getAttribute !== "function") return false;
@@ -1200,18 +1270,6 @@
         if (composerContainer) return composerContainer;
         return findBestChatGPTDropzone(composerEl);
       }
-      function isChatGPTAttachmentCard(el) {
-        if (!el) return false;
-        if (isInsideQuickInputOverlay(el)) return false;
-        if (!isElementVisible(el)) return false;
-        try {
-          return !!el.querySelector(
-            "button[aria-label*='Remove file'], button[aria-label*='删除文件'], button[aria-label*='移除文件'], button[aria-label*='Edit image'], button[aria-label*='编辑图片'], img, [style*='background-image']"
-          );
-        } catch {
-          return false;
-        }
-      }
       function findChatGPTAttachmentCard(el) {
         if (!el || typeof el.closest !== "function") return null;
         const selectors = [
@@ -1230,6 +1288,61 @@
         }
         return null;
       }
+      function getChatGPTRemoveAttachmentButtonAriaMatch(btn) {
+        const aria = String(btn?.getAttribute?.("aria-label") || "");
+        if (!aria) return false;
+        return aria.includes("Remove file") || aria.includes("删除文件") || aria.includes("移除文件");
+      }
+      function hasChatGPTAttachmentPreview(root) {
+        if (!root || typeof root.querySelector !== "function") return false;
+        try {
+          return !!root.querySelector("img, [style*='background-image']");
+        } catch {
+          return false;
+        }
+      }
+      function isChatGPTAttachmentTileScope(root) {
+        if (!root) return false;
+        const className = String(root.className || "");
+        if (className.includes("group/file-tile")) return true;
+        if (hasChatGPTAttachmentPreview(root)) return true;
+        return false;
+      }
+      function isChatGPTRemoveAttachmentButton(btn) {
+        if (!btn) return false;
+        if (isInsideQuickInputOverlay(btn)) return false;
+        if (!isElementVisible(btn)) return false;
+        if (getChatGPTRemoveAttachmentButtonAriaMatch(btn)) return true;
+        if (!elementHasChatgptIconId(btn, CHATGPT_REMOVE_ATTACHMENT_ICON_IDS)) return false;
+        const card = findChatGPTAttachmentCard(btn);
+        if (card && isChatGPTAttachmentTileScope(card)) return true;
+        try {
+          const tile = btn.closest?.("[class*='group/file-tile'], [role='group'][aria-label]");
+          return !!(tile && isChatGPTAttachmentTileScope(tile));
+        } catch {
+          return false;
+        }
+      }
+      function hasChatGPTRemoveAttachmentButton(root) {
+        if (!root || typeof root.querySelectorAll !== "function") return false;
+        try {
+          return Array.from(root.querySelectorAll("button")).some(isChatGPTRemoveAttachmentButton);
+        } catch {
+          return false;
+        }
+      }
+      function isChatGPTAttachmentCard(el) {
+        if (!el) return false;
+        if (isInsideQuickInputOverlay(el)) return false;
+        if (!isElementVisible(el)) return false;
+        try {
+          return !!el.querySelector(
+            "button[aria-label*='Remove file'], button[aria-label*='删除文件'], button[aria-label*='移除文件'], button[aria-label*='Edit image'], button[aria-label*='编辑图片'], img, [style*='background-image']"
+          );
+        } catch {
+          return false;
+        }
+      }
       function getChatGPTAttachmentScope(containerEl) {
         const container = containerEl || document;
         const headerSelectors = [
@@ -1240,7 +1353,7 @@
           const headers = Array.from(container.querySelectorAll(headerSelectors)).filter((el) => el && !isInsideQuickInputOverlay(el)).filter((el) => isElementVisible(el));
           for (const header of headers) {
             try {
-              if (header.querySelector("button[aria-label*='Remove file'], button[aria-label*='Edit image'], [style*='background-image']")) {
+              if (header.querySelector("button[aria-label*='Remove file'], button[aria-label*='删除文件'], button[aria-label*='移除文件'], button[aria-label*='Edit image'], button[aria-label*='编辑图片'], [style*='background-image']") || hasChatGPTRemoveAttachmentButton(header)) {
                 return header;
               }
             } catch {
@@ -1320,8 +1433,8 @@
         const scope = getChatGPTAttachmentScope(containerEl);
         try {
           return Array.from(scope.querySelectorAll(
-            "button[aria-label*='Remove file'], button[aria-label*='删除文件'], button[aria-label*='移除文件']"
-          )).filter((btn) => btn && !isInsideQuickInputOverlay(btn) && isElementVisible(btn));
+            "button[aria-label*='Remove file'], button[aria-label*='删除文件'], button[aria-label*='移除文件'], button"
+          )).filter(isChatGPTRemoveAttachmentButton);
         } catch {
           return [];
         }
@@ -1345,12 +1458,9 @@
         }
         try {
           const removeButtons = Array.from(scope.querySelectorAll(
-            "button[aria-label*='Remove file'], button[aria-label*='删除文件'], button[aria-label*='移除文件']"
-          ));
+            "button[aria-label*='Remove file'], button[aria-label*='删除文件'], button[aria-label*='移除文件'], button"
+          )).filter(isChatGPTRemoveAttachmentButton);
           for (const btn of removeButtons) {
-            if (!btn) continue;
-            if (isInsideQuickInputOverlay(btn)) continue;
-            if (!isElementVisible(btn)) continue;
             removeCount++;
             const card = findChatGPTAttachmentCard(btn);
             if (card && isElementVisible(card)) cards.add(card);
@@ -2227,7 +2337,12 @@
     const ASPECT_RATIO_MENU_HINT_REGEX = /\b(?:square|portrait|story|landscape|widescreen|auto)\b/i;
     const COMPOSER_MODE_TRIGGER_HINT_REGEX = /\b(?:thinking|extended)\b/i;
     const THINKING_EFFORT_TRIGGER_ARIA_REGEX = /\b(?:thinking effort|mode)\b/i;
-    const THINKING_EFFORT_EXTENDED_TEXT_MATCH = ["extended thinking", "extended"];
+    const THINKING_EFFORT_EXTENDED_TEXT_MATCH = [
+      createChatgptElementIconMatcher(CHATGPT_THINKING_EFFORT_EXTENDED_ICON_IDS),
+      "extended thinking",
+      "extended",
+      "进阶"
+    ];
     const TOP_MODEL_THINKING_TEXT_MATCH = ["thinking"];
     function getAspectRatioComparableText(value) {
       return normalizeAspectRatioText(String(value || ""));
@@ -2285,10 +2400,31 @@
         return aliases.length > 0 && chatgptMenuTextMatches(rawText, aliases, element);
       };
     }
+    function createChatgptElementIconMatcher(iconIds) {
+      const normalizedIconIds = normalizeChatgptMenuIconIds(iconIds);
+      if (normalizedIconIds.length === 0) return null;
+      return (_rawText, element) => elementHasChatgptIconId(element, normalizedIconIds);
+    }
+    function createChatgptAspectRatioTargetMatcher(target, extraIconIds = []) {
+      if (!target) return createChatgptElementIconMatcher(extraIconIds);
+      const iconIds = normalizeChatgptMenuIconIds([...target.iconIds || [], ...normalizeChatgptMenuIconIds(extraIconIds)]);
+      const aliases = Array.isArray(target.aliases) ? target.aliases : [];
+      return (rawText, element) => {
+        if (elementHasChatgptIconId(element, iconIds)) return true;
+        return aliases.length > 0 && chatgptMenuTextMatches(rawText, aliases, element);
+      };
+    }
     function combineChatgptMenuTextMatches(...matchers) {
       const list = matchers.filter((matcher) => hasValidTextMatch(matcher));
       if (list.length === 0) return void 0;
       return list.length === 1 ? list[0] : list;
+    }
+    function findVisibleElementByIcon(root, selector, iconIds) {
+      const items = safeQueryAll(root, selector).filter(isVisibleElement);
+      for (const item of items) {
+        if (elementHasChatgptIconId(item, iconIds)) return item;
+      }
+      return null;
     }
     function findVisibleMenuItem(root, selector, {
       textMatch = null,
@@ -2304,8 +2440,24 @@
       }
       return fallbackToFirst ? items[0] || null : null;
     }
+    function clickChatgptTemporaryChatButton() {
+      const selectors = [
+        "button[aria-label*='temporary chat' i]",
+        "button[aria-label*='临时聊天']"
+      ];
+      for (const selector of selectors) {
+        const target = safeQueryAll(document, selector).filter(isVisibleElement).find(Boolean);
+        if (target && simulateClickElement(target, { nativeFallback: true })) return true;
+      }
+      const iconTarget = findVisibleElementByIcon(document, "button", CHATGPT_TEMPORARY_CHAT_ICON_IDS);
+      if (iconTarget) {
+        return !!simulateClickElement(iconTarget, { nativeFallback: true });
+      }
+      return false;
+    }
     function scoreAspectRatioTriggerCandidate(element) {
       if (!element || !isVisibleElement(element)) return -1;
+      if (elementHasChatgptIconId(element, CHATGPT_ASPECT_RATIO_TRIGGER_ICON_IDS)) return 320;
       const rawText = getChatgptUiElementText(element);
       const text = getAspectRatioComparableText(rawText);
       if (ASPECT_RATIO_LABEL_REGEX.test(rawText)) return 300;
@@ -2357,8 +2509,7 @@
       let hits = 0;
       for (const item of items) {
         const label = getChatgptUiElementText(item);
-        if (!label) continue;
-        if (ASPECT_RATIO_VALUE_REGEX.test(label) || ASPECT_RATIO_MENU_HINT_REGEX.test(label) || ASPECT_RATIO_LABEL_REGEX.test(label)) {
+        if (elementHasChatgptIconId(item, CHATGPT_ASPECT_RATIO_TRIGGER_ICON_IDS) || ASPECT_RATIO_VALUE_REGEX.test(label) || ASPECT_RATIO_MENU_HINT_REGEX.test(label) || ASPECT_RATIO_LABEL_REGEX.test(label)) {
           hits += 1;
         }
       }
@@ -2432,6 +2583,7 @@
       if (!element || !isVisibleElement(element)) return false;
       if (element.matches?.(SELECTORS.composerPlusBtn)) return false;
       if (element.matches?.(SELECTORS.aspectRatioBtn)) return false;
+      if (elementHasChatgptIconId(element, CHATGPT_THINKING_EFFORT_TRIGGER_ICON_IDS)) return true;
       const rawText = getChatgptUiElementText(element);
       const normalizedText = getAspectRatioComparableText(rawText);
       const ariaLabel = String(element.getAttribute?.("aria-label") || "");
@@ -2454,6 +2606,7 @@
       if (!rawText && !ariaLabel) return -1;
       if (ASPECT_RATIO_LABEL_REGEX.test(rawText) || ASPECT_RATIO_VALUE_REGEX.test(rawText)) return -1;
       let score = 0;
+      if (elementHasChatgptIconId(element, CHATGPT_THINKING_EFFORT_TRIGGER_ICON_IDS)) score += 320;
       if (COMPOSER_MODE_TRIGGER_HINT_REGEX.test(rawText) || COMPOSER_MODE_TRIGGER_HINT_REGEX.test(normalizedText)) score += 240;
       if (/\bmode\b/i.test(ariaLabel)) score += 180;
       if (String(element.className || "").includes("__composer-pill")) score += 120;
@@ -2683,9 +2836,17 @@
       const selector = typeof aspectRatio.selector === "string" && aspectRatio.selector.trim() ? aspectRatio.selector.trim() : SELECTORS.aspectRatioMenuItem;
       const fallbackToFirst = !!aspectRatio.fallbackToFirst;
       const waitForItem = aspectRatio.waitForItem !== void 0 ? !!aspectRatio.waitForItem : true;
-      const textMatch = aspectRatio.keyword !== void 0 ? aspectRatio.keyword : aspectRatio.textMatch;
+      const hasAspectRatioId = aspectRatio.id !== void 0 && aspectRatio.id !== null && String(aspectRatio.id).trim();
+      const aspectRatioTarget = hasAspectRatioId ? resolveChatgptAspectRatioTarget(aspectRatio.id) : null;
+      if (hasAspectRatioId && !aspectRatioTarget) {
+        console.warn(`[ChatGPT Shortcut] chatgptAspectRatio: unknown aspectRatio.id "${String(aspectRatio.id).trim()}"; falling back to textMatch / keyword if provided.`);
+      }
+      const rawTextMatch = aspectRatio.keyword !== void 0 ? aspectRatio.keyword : aspectRatio.textMatch;
+      const iconIds = normalizeChatgptMenuIconIds(aspectRatio.iconIds !== void 0 ? aspectRatio.iconIds : aspectRatio.iconId);
+      const canonicalMatch = aspectRatioTarget ? createChatgptAspectRatioTargetMatcher(aspectRatioTarget, iconIds) : createChatgptElementIconMatcher(iconIds);
+      const textMatch = combineChatgptMenuTextMatches(canonicalMatch, rawTextMatch);
       if (!fallbackToFirst && !hasValidTextMatch(textMatch)) {
-        console.warn('[ChatGPT Shortcut] chatgptAspectRatio: missing textMatch; set data.aspectRatio = "1:1" (or use data.aspectRatio.textMatch).');
+        console.warn('[ChatGPT Shortcut] chatgptAspectRatio: missing target; set data.aspectRatio = { id: "square" } (or use data.aspectRatio.textMatch).');
         return null;
       }
       return {
@@ -2704,9 +2865,9 @@
     });
     const CHATGPT_ASPECT_RATIO_DATA_ADAPTER = createPlainTextOrJsonDataAdapter({
       fieldName: "aspectRatio",
-      label: "图片比例关键词（或粘贴 JSON，高级用法）:",
-      placeholder: "例如: 1:1 / Square 1:1",
-      fieldTextKeys: ["textMatch"]
+      label: "图片比例 ID / 关键词（或粘贴 JSON，高级用法）:",
+      placeholder: '例如: {"aspectRatio":{"id":"square"}} / 1:1 / Square 1:1',
+      fieldTextKeys: ["keyword", "textMatch"]
     });
     const CUSTOM_ACTIONS = {
       chatgptMenu: async ({ shortcut, engine: engine2 }) => {
@@ -2803,6 +2964,7 @@
         }
         return true;
       },
+      temporaryChat: () => clickChatgptTemporaryChatButton(),
       quickInput: ({ engine: engine2 }) => {
         ensureQuickInputController(engine2)?.toggle?.();
       }
@@ -2823,7 +2985,7 @@
         name: "Square 1:1",
         actionType: "custom",
         customAction: "chatgptAspectRatio",
-        data: { aspectRatio: "1:1" },
+        data: { aspectRatio: { id: "square" } },
         hotkey: "CTRL+SHIFT+1"
       });
     }
@@ -2868,8 +3030,8 @@
       // === ChatGPT 页面按钮（selector）===
       createShortcut({
         name: "Temporary Chat",
-        actionType: "selector",
-        selector: "button[aria-label*='temporary chat']",
+        actionType: "custom",
+        customAction: "temporaryChat",
         hotkey: "CTRL+SHIFT+I"
       }),
       // === URL 跳转（url）===
