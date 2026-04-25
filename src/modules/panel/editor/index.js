@@ -537,6 +537,7 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                     iconDarkPreview.style.display = "block";
                     setIconImage(iconDarkPreview, "", darkVal, false);
                 } else {
+                    setIconImage(iconDarkPreview, "", "", false);
                     iconDarkPreview.style.display = "none";
                     iconDarkPreview.removeAttribute("src");
                 }

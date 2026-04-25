@@ -35,6 +35,12 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 : (String(themeAdaptOptions.darkFillColor || "").trim() || "#F8FAFC");
             const themeMemoryCache = enableMemoryCache ? new Map() : null; // key -> { source, adapted } | null
             const inflightThemeBuilds = new Map(); // source -> callbacks[]
+            const SVG_USE_ICON_PREFIX = "svg-use:";
+            const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+            const XLINK_NAMESPACE = "http://www.w3.org/1999/xlink";
+            const resolveSvgUseHref = typeof opts.resolveSvgUseHref === "function"
+                ? opts.resolveSvgUseHref
+                : null;
 
             function getDefaultIconURL() {
                 if (opts.defaultIconURL) return opts.defaultIconURL;
@@ -538,6 +544,155 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 }
             }
 
+            function parseSvgUseIconSource(value) {
+                const source = String(value || "").trim();
+                if (!source.startsWith(SVG_USE_ICON_PREFIX)) return null;
+                const href = source.slice(SVG_USE_ICON_PREFIX.length).trim();
+                return href ? { href } : null;
+            }
+
+            function resolveSvgUseIconHref(rawHref, source) {
+                const href = String(rawHref || "").trim();
+                if (!href) return "";
+                if (!resolveSvgUseHref) return href;
+                try {
+                    const resolved = resolveSvgUseHref(href, {
+                        source,
+                        isDark: isDarkModeNow()
+                    });
+                    return String(resolved || href).trim();
+                } catch (err) {
+                    console.warn(`${opts.consoleTag} resolveSvgUseHref error`, err);
+                    return href;
+                }
+            }
+
+            function rememberOriginalImageDisplay(imgEl) {
+                if (!imgEl) return;
+                try {
+                    if (!imgEl.dataset.stIconOriginalDisplaySaved) {
+                        imgEl.dataset.stIconOriginalDisplay = imgEl.style.display || "";
+                        imgEl.dataset.stIconOriginalDisplaySaved = "1";
+                    }
+                } catch {
+                    try {
+                        if (!imgEl.__stIconOriginalDisplaySaved) {
+                            imgEl.__stIconOriginalDisplay = imgEl.style.display || "";
+                            imgEl.__stIconOriginalDisplaySaved = true;
+                        }
+                    } catch {}
+                }
+            }
+
+            function restoreOriginalImageDisplay(imgEl) {
+                if (!imgEl) return;
+                try {
+                    if (imgEl.dataset.stIconOriginalDisplaySaved) {
+                        imgEl.style.display = imgEl.dataset.stIconOriginalDisplay || "";
+                        delete imgEl.dataset.stIconOriginalDisplay;
+                        delete imgEl.dataset.stIconOriginalDisplaySaved;
+                        return;
+                    }
+                } catch {}
+                try {
+                    if (imgEl.__stIconOriginalDisplaySaved) {
+                        imgEl.style.display = imgEl.__stIconOriginalDisplay || "";
+                        imgEl.__stIconOriginalDisplay = "";
+                        imgEl.__stIconOriginalDisplaySaved = false;
+                    }
+                } catch {}
+            }
+
+            function removeSvgUseIcon(imgEl) {
+                if (!imgEl) return;
+                try {
+                    const svg = imgEl.__stSvgUseIcon || null;
+                    if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
+                    imgEl.__stSvgUseIcon = null;
+                } catch {}
+                restoreOriginalImageDisplay(imgEl);
+            }
+
+            function copyIconImageBoxStyle(imgEl, svgEl) {
+                if (!imgEl || !svgEl) return;
+                const width = imgEl.style?.width || imgEl.getAttribute?.("width") || "24px";
+                const height = imgEl.style?.height || imgEl.getAttribute?.("height") || "24px";
+                const verticalAlign = imgEl.style?.verticalAlign || "middle";
+                const flexShrink = imgEl.style?.flexShrink || "0";
+                Object.assign(svgEl.style, {
+                    width: /^\d+(?:\.\d+)?$/.test(String(width)) ? `${width}px` : String(width),
+                    height: /^\d+(?:\.\d+)?$/.test(String(height)) ? `${height}px` : String(height),
+                    display: "inline-block",
+                    verticalAlign,
+                    flexShrink,
+                    color: isDarkModeNow() ? themeDarkFillColor : themeLightFillColor
+                });
+            }
+
+            function createSvgUseElement(href) {
+                const useEl = document.createElementNS(SVG_NAMESPACE, "use");
+                useEl.setAttribute("href", href);
+                try { useEl.setAttributeNS(XLINK_NAMESPACE, "href", href); } catch {}
+                useEl.setAttribute("fill", "currentColor");
+                return useEl;
+            }
+
+            function renderSvgUseIcon(imgEl, spec, sourceMarker, deferredCount = 0) {
+                if (!imgEl || !spec) return;
+                if (!isImageSourceCurrent(imgEl, sourceMarker)) return;
+                const parent = imgEl.parentNode;
+                if (!parent) {
+                    rememberOriginalImageDisplay(imgEl);
+                    imgEl.style.display = "none";
+                    if (deferredCount < 2) {
+                        const schedule = typeof globalThis.requestAnimationFrame === "function"
+                            ? globalThis.requestAnimationFrame
+                            : (fn) => setTimeout(fn, 0);
+                        schedule(() => renderSvgUseIcon(imgEl, spec, sourceMarker, deferredCount + 1));
+                    } else {
+                        removeSvgUseIcon(imgEl);
+                        imgEl.src = getDefaultIconURL();
+                    }
+                    return;
+                }
+
+                const href = resolveSvgUseIconHref(spec.href, sourceMarker);
+                if (!href) {
+                    removeSvgUseIcon(imgEl);
+                    imgEl.src = getDefaultIconURL();
+                    return;
+                }
+
+                let svgEl = null;
+                try { svgEl = imgEl.__stSvgUseIcon || null; } catch {}
+                if (!svgEl || svgEl.parentNode !== parent) {
+                    if (svgEl && svgEl.parentNode) {
+                        try { svgEl.parentNode.removeChild(svgEl); } catch {}
+                    }
+                    svgEl = document.createElementNS(SVG_NAMESPACE, "svg");
+                    try { imgEl.__stSvgUseIcon = svgEl; } catch {}
+                    try { parent.insertBefore(svgEl, imgEl.nextSibling); } catch { parent.appendChild(svgEl); }
+                }
+
+                svgEl.setAttribute("viewBox", "0 0 24 24");
+                svgEl.setAttribute("aria-hidden", "true");
+                svgEl.setAttribute("focusable", "false");
+                svgEl.setAttribute("fill", "currentColor");
+                svgEl.setAttribute("data-st-icon-svg-use", "true");
+                copyIconImageBoxStyle(imgEl, svgEl);
+
+                const useEl = createSvgUseElement(href);
+                try {
+                    svgEl.replaceChildren(useEl);
+                } catch {
+                    while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
+                    svgEl.appendChild(useEl);
+                }
+
+                rememberOriginalImageDisplay(imgEl);
+                imgEl.style.display = "none";
+            }
+
             function setIconImage(imgEl, iconUrl, iconDarkUrl = "", iconAdaptive = false) {
                 const fallback = getDefaultIconURL();
                 if (!imgEl) return;
@@ -547,6 +702,12 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 const shouldUseThemeAdapt = themeAdaptEnabled && normalizeLocalBoolean(iconAdaptive, false) && !darkSource;
                 const sourceMarker = `${source}::ta=${shouldUseThemeAdapt ? "1" : "0"}`;
                 markImageSource(imgEl, sourceMarker);
+                const svgUseSpec = parseSvgUseIconSource(source);
+                if (svgUseSpec) {
+                    renderSvgUseIcon(imgEl, svgUseSpec, sourceMarker);
+                    return;
+                }
+                removeSvgUseIcon(imgEl);
 
                 if (!source) {
                     imgEl.src = fallback;
