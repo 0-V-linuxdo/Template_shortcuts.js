@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260423] v1.1.0
+// @name         [Template] 快捷键跳转 [20260425] v1.1.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260423] v1.1.0
-// @update-log   1.1.0: 修复 QuickInput 的长文本校验、旧附件预清理与日志面板高度/滚动问题，提升发布版稳定性。
+// @version      [20260425] v1.1.1
+// @update-log   1.1.1: 支持 font-icon 原生字体图标渲染，便于站点快捷键复用页面内原生图标。
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
@@ -32,7 +32,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260423";
+  var TEMPLATE_VERSION = "20260425";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -1970,6 +1970,7 @@
     const themeMemoryCache = enableMemoryCache ? /* @__PURE__ */ new Map() : null;
     const inflightThemeBuilds = /* @__PURE__ */ new Map();
     const SVG_USE_ICON_PREFIX = "svg-use:";
+    const FONT_ICON_PREFIX = "font-icon:";
     const SVG_NAMESPACE2 = "http://www.w3.org/2000/svg";
     const XLINK_NAMESPACE = "http://www.w3.org/1999/xlink";
     const resolveSvgUseHref = typeof opts.resolveSvgUseHref === "function" ? opts.resolveSvgUseHref : null;
@@ -2447,6 +2448,12 @@
       const href = source.slice(SVG_USE_ICON_PREFIX.length).trim();
       return href ? { href } : null;
     }
+    function parseFontIconSource(value) {
+      const source = String(value || "").trim();
+      if (!source.startsWith(FONT_ICON_PREFIX)) return null;
+      const name = source.slice(FONT_ICON_PREFIX.length).trim();
+      return name ? { name } : null;
+    }
     function resolveSvgUseIconHref(rawHref, source) {
       const href = String(rawHref || "").trim();
       if (!href) return "";
@@ -2505,6 +2512,16 @@
         const svg = imgEl.__stSvgUseIcon || null;
         if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
         imgEl.__stSvgUseIcon = null;
+      } catch {
+      }
+      restoreOriginalImageDisplay(imgEl);
+    }
+    function removeFontIcon(imgEl) {
+      if (!imgEl) return;
+      try {
+        const iconEl = imgEl.__stFontIcon || null;
+        if (iconEl && iconEl.parentNode) iconEl.parentNode.removeChild(iconEl);
+        imgEl.__stFontIcon = null;
       } catch {
       }
       restoreOriginalImageDisplay(imgEl);
@@ -2595,6 +2612,79 @@
       rememberOriginalImageDisplay(imgEl);
       imgEl.style.display = "none";
     }
+    function renderFontIcon(imgEl, spec, sourceMarker, deferredCount = 0) {
+      if (!imgEl || !spec) return;
+      if (!isImageSourceCurrent(imgEl, sourceMarker)) return;
+      const parent = imgEl.parentNode;
+      if (!parent) {
+        rememberOriginalImageDisplay(imgEl);
+        imgEl.style.display = "none";
+        if (deferredCount < 2) {
+          const schedule = typeof globalThis.requestAnimationFrame === "function" ? globalThis.requestAnimationFrame : (fn) => setTimeout(fn, 0);
+          schedule(() => renderFontIcon(imgEl, spec, sourceMarker, deferredCount + 1));
+        } else {
+          removeFontIcon(imgEl);
+          imgEl.src = getDefaultIconURL();
+        }
+        return;
+      }
+      const name = String(spec.name || "").trim();
+      if (!name) {
+        removeFontIcon(imgEl);
+        imgEl.src = getDefaultIconURL();
+        return;
+      }
+      let iconEl = null;
+      try {
+        iconEl = imgEl.__stFontIcon || null;
+      } catch {
+      }
+      if (!iconEl || iconEl.parentNode !== parent) {
+        if (iconEl && iconEl.parentNode) {
+          try {
+            iconEl.parentNode.removeChild(iconEl);
+          } catch {
+          }
+        }
+        iconEl = document.createElement("span");
+        try {
+          imgEl.__stFontIcon = iconEl;
+        } catch {
+        }
+        try {
+          parent.insertBefore(iconEl, imgEl.nextSibling);
+        } catch {
+          parent.appendChild(iconEl);
+        }
+      }
+      iconEl.className = "mat-icon notranslate gds-icon-l google-symbols mat-ligature-font mat-icon-no-color";
+      iconEl.setAttribute("aria-hidden", "true");
+      iconEl.setAttribute("data-st-icon-font", "true");
+      iconEl.textContent = name;
+      copyIconImageBoxStyle(imgEl, iconEl);
+      const fontSize = iconEl.style.height || "24px";
+      Object.assign(iconEl.style, {
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        fontFamily: '"Google Symbols", "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons", sans-serif',
+        fontSize,
+        fontStyle: "normal",
+        fontWeight: "400",
+        lineHeight: "1",
+        letterSpacing: "normal",
+        textTransform: "none",
+        whiteSpace: "nowrap",
+        wordWrap: "normal",
+        direction: "ltr",
+        fontFeatureSettings: '"liga"',
+        WebkitFontFeatureSettings: '"liga"',
+        fontVariationSettings: '"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24'
+      });
+      rememberOriginalImageDisplay(imgEl);
+      imgEl.style.display = "none";
+    }
     function setIconImage(imgEl, iconUrl, iconDarkUrl = "", iconAdaptive = false) {
       const fallback = getDefaultIconURL();
       if (!imgEl) return;
@@ -2606,10 +2696,18 @@
       markImageSource(imgEl, sourceMarker);
       const svgUseSpec = parseSvgUseIconSource(source);
       if (svgUseSpec) {
+        removeFontIcon(imgEl);
         renderSvgUseIcon(imgEl, svgUseSpec, sourceMarker);
         return;
       }
+      const fontIconSpec = parseFontIconSource(source);
+      if (fontIconSpec) {
+        removeSvgUseIcon(imgEl);
+        renderFontIcon(imgEl, fontIconSpec, sourceMarker);
+        return;
+      }
       removeSvgUseIcon(imgEl);
+      removeFontIcon(imgEl);
       if (!source) {
         imgEl.src = fallback;
         return;
