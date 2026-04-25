@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260424] v1.0.7
+// @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260424] v1.0.7
-// @update-log   1.0.7: 优化 ChatGPT Thinking 快捷键链路；优先走 Thinking effort 选择 Extended，其次尝试顶部 Model selector 选择 Thinking，最后回退主工具菜单。
+// @version      [20260425] v1.0.0
+// @update-log   1.0.0: ChatGPT 内置工具快捷键改用 canonical id，优先按稳定 SVG 图标匹配，并保留文字兜底与自定义关键词配置。
 
 // @match        https://chatgpt.com/*
 
@@ -91,9 +91,72 @@
       topModelMenuItem: "[role='menuitem'], [role='menuitemradio']"
     };
     const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
-    const CHATGPT_MORE_MENU_ICON_IDS = ["f6d0e2"];
+    const CHATGPT_MENU_TARGETS = Object.freeze({
+      createImage: Object.freeze({
+        id: "createImage",
+        matchIds: Object.freeze(["createimage"]),
+        iconIds: Object.freeze(["266724"]),
+        aliases: Object.freeze(["Create image", "创建图片"])
+      }),
+      deepResearch: Object.freeze({
+        id: "deepResearch",
+        matchIds: Object.freeze(["deepresearch"]),
+        iconIds: Object.freeze(["5d3112"]),
+        aliases: Object.freeze(["Deep research", "深度研究"])
+      }),
+      webSearch: Object.freeze({
+        id: "webSearch",
+        matchIds: Object.freeze(["websearch", "web"]),
+        iconIds: Object.freeze(["6b0d8c"]),
+        aliases: Object.freeze(["Web search", "Web", "网页搜索"])
+      }),
+      thinking: Object.freeze({
+        id: "thinking",
+        matchIds: Object.freeze(["thinking"]),
+        iconIds: Object.freeze([]),
+        aliases: Object.freeze(["Thinking", "思考"])
+      }),
+      canvas: Object.freeze({
+        id: "canvas",
+        matchIds: Object.freeze(["canvas"]),
+        iconIds: Object.freeze([]),
+        aliases: Object.freeze(["Canvas", "画布"])
+      }),
+      more: Object.freeze({
+        id: "more",
+        matchIds: Object.freeze(["more"]),
+        iconIds: Object.freeze(["f6d0e2"]),
+        aliases: Object.freeze(["More", "更多"])
+      })
+    });
+    const CHATGPT_MENU_TARGET_ID_ALIASES = Object.freeze(
+      Object.values(CHATGPT_MENU_TARGETS).reduce((acc, target) => {
+        for (const matchId of target.matchIds || []) acc[matchId] = target.id;
+        return acc;
+      }, {})
+    );
+    const CHATGPT_MORE_MENU_ICON_IDS = CHATGPT_MENU_TARGETS.more.iconIds;
     function normalizeChatgptUiText(value) {
       return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+    }
+    function normalizeChatgptMenuTargetKey(value) {
+      return String(value ?? "").trim().replace(/[\s_-]+/g, "").toLowerCase();
+    }
+    function resolveChatgptMenuTarget(value) {
+      const key = normalizeChatgptMenuTargetKey(value);
+      if (!key) return null;
+      const targetId = CHATGPT_MENU_TARGET_ID_ALIASES[key] || "";
+      return targetId ? CHATGPT_MENU_TARGETS[targetId] || null : null;
+    }
+    function normalizeChatgptMenuIconId(value) {
+      const raw = String(value ?? "").trim().toLowerCase();
+      if (!raw) return "";
+      const hashIndex = raw.lastIndexOf("#");
+      return hashIndex >= 0 ? raw.slice(hashIndex + 1) : raw;
+    }
+    function normalizeChatgptMenuIconIds(value) {
+      const rawList = Array.isArray(value) ? value : [value];
+      return Array.from(new Set(rawList.map(normalizeChatgptMenuIconId).filter(Boolean)));
     }
     function getSvgUseHrefValue(useElement) {
       if (!useElement || typeof useElement.getAttribute !== "function") return "";
@@ -106,9 +169,7 @@
       const useElement = menuItem.querySelector("div.icon use");
       const href = getSvgUseHrefValue(useElement);
       if (!href) return "";
-      const hashIndex = href.lastIndexOf("#");
-      const iconId = hashIndex >= 0 ? href.slice(hashIndex + 1) : href;
-      return String(iconId || "").trim().toLowerCase();
+      return normalizeChatgptMenuIconId(href);
     }
     function isMoreMenuIconMatch(_rawText, element) {
       if (!element || typeof element.getAttribute !== "function") return false;
@@ -2206,6 +2267,29 @@
       const target = getAspectRatioComparableText(matcher);
       return target ? text.includes(target) : true;
     }
+    function createChatgptMenuIconMatcher(iconIds) {
+      const normalizedIconIds = normalizeChatgptMenuIconIds(iconIds);
+      if (normalizedIconIds.length === 0) return null;
+      return (_rawText, element) => {
+        const iconId = getChatgptMenuLeadingIconId(element);
+        return !!iconId && normalizedIconIds.includes(iconId);
+      };
+    }
+    function createChatgptMenuTargetMatcher(target, extraIconIds = []) {
+      if (!target) return createChatgptMenuIconMatcher(extraIconIds);
+      const iconIds = normalizeChatgptMenuIconIds([...target.iconIds || [], ...normalizeChatgptMenuIconIds(extraIconIds)]);
+      const aliases = Array.isArray(target.aliases) ? target.aliases : [];
+      return (rawText, element) => {
+        const iconId = getChatgptMenuLeadingIconId(element);
+        if (iconId && iconIds.includes(iconId)) return true;
+        return aliases.length > 0 && chatgptMenuTextMatches(rawText, aliases, element);
+      };
+    }
+    function combineChatgptMenuTextMatches(...matchers) {
+      const list = matchers.filter((matcher) => hasValidTextMatch(matcher));
+      if (list.length === 0) return void 0;
+      return list.length === 1 ? list[0] : list;
+    }
     function findVisibleMenuItem(root, selector, {
       textMatch = null,
       fallbackToFirst = false
@@ -2535,7 +2619,18 @@
       const waitForItem = menu.waitForItem !== void 0 ? !!menu.waitForItem : true;
       const action = normalizeMenuAction(menu.action);
       const allowFirstItem = !!menu.allowFirstItem;
-      let textMatch = menu.keyword !== void 0 ? menu.keyword : menu.textMatch;
+      const hasMenuId = menu.id !== void 0 && menu.id !== null && String(menu.id).trim();
+      const menuTarget = hasMenuId ? resolveChatgptMenuTarget(menu.id) : null;
+      if (hasMenuId && !menuTarget) {
+        console.warn(`[ChatGPT Shortcut] chatgptMenu: unknown menu.id "${String(menu.id).trim()}"; falling back to textMatch / keyword if provided.`);
+      }
+      const rawTextMatch = menu.keyword !== void 0 ? menu.keyword : menu.textMatch;
+      const iconIds = normalizeChatgptMenuIconIds(menu.iconIds !== void 0 ? menu.iconIds : menu.iconId);
+      const canonicalMatch = menuTarget ? createChatgptMenuTargetMatcher(menuTarget, iconIds) : createChatgptMenuIconMatcher(iconIds);
+      let textMatch = combineChatgptMenuTextMatches(
+        canonicalMatch,
+        rawTextMatch
+      );
       const preferModeMenu = !!menu.preferModeMenu;
       const openSubmenus = [];
       const searchSubmenus = menu.searchSubmenus;
@@ -2555,7 +2650,7 @@
         const parts = path.map(normalizeMenuToken).filter(Boolean);
         if (parts.length) {
           const last = parts[parts.length - 1];
-          if ((textMatch === void 0 || textMatch === null || textMatch === "") && last) textMatch = last;
+          if (!hasValidTextMatch(textMatch) && last) textMatch = last;
           for (const label of parts.slice(0, -1)) openSubmenus.push(label);
         }
       }
@@ -2566,7 +2661,7 @@
         return null;
       }
       if (action !== "open" && action !== "submenu" && !allowFirstItem && !hasValidTextMatch(textMatch)) {
-        console.warn('[ChatGPT Shortcut] chatgptMenu: missing keyword; set data.menu = "Canvas" (or set data.menu.textMatch / data.menu.keyword), or set data.menu.allowFirstItem=true to click the first item.');
+        console.warn('[ChatGPT Shortcut] chatgptMenu: missing target; set data.menu = { id: "createImage" } (or set data.menu.textMatch / data.menu.keyword), or set data.menu.allowFirstItem=true to click the first item.');
         return null;
       }
       return {
@@ -2577,7 +2672,8 @@
         fallbackToFirst,
         waitForItem,
         submenuKey,
-        preferModeMenu
+        preferModeMenu,
+        menuTargetId: menuTarget?.id || ""
       };
     }
     function getChatgptAspectRatioActionSpec(shortcut) {
@@ -2601,8 +2697,8 @@
     }
     const CHATGPT_MENU_DATA_ADAPTER = createPlainTextOrJsonDataAdapter({
       fieldName: "menu",
-      label: "菜单关键词（或粘贴 JSON，高级用法）:",
-      placeholder: "例如: Web / Canvas / Thinking / Create image",
+      label: "工具 ID / 菜单关键词（或粘贴 JSON，高级用法）:",
+      placeholder: '例如: {"menu":{"id":"webSearch"}} / Web / Canvas',
       fieldTextKeys: ["keyword", "textMatch"],
       legacyRootTextKeys: ["textMatch"]
     });
@@ -2616,7 +2712,7 @@
       chatgptMenu: async ({ shortcut, engine: engine2 }) => {
         const spec = getChatgptMenuActionSpec(shortcut);
         if (!spec) return false;
-        const isThinkingShortcut = isThinkingShortcutRequest(spec.textMatch);
+        const isThinkingShortcut = spec.menuTargetId === "thinking" || isThinkingShortcutRequest(spec.textMatch);
         if (isThinkingShortcut) {
           const thinkingEffortClicked = await clickThinkingEffortExtended({
             selector: spec.selector,
@@ -2786,12 +2882,12 @@
         hotkey: "CTRL+3"
       }),
       // === customAction: "chatgptMenu" ===
-      // 只需填写菜单项关键词即可；脚本会自动在主菜单/More 子菜单中查找并点击。
+      // 内置工具使用 canonical id；旧的菜单关键词仍可在自定义配置中使用。
       createShortcut({
         name: "Create image",
         actionType: "custom",
         customAction: "chatgptMenu",
-        data: { menu: "Create image" },
+        data: { menu: { id: "createImage" } },
         hotkey: "CTRL+I"
       }),
       createChatgptSquareAspectRatioShortcut(),
@@ -2799,28 +2895,28 @@
         name: "Deep research",
         actionType: "custom",
         customAction: "chatgptMenu",
-        data: { menu: "Deep research" },
+        data: { menu: { id: "deepResearch" } },
         hotkey: "CTRL+R"
       }),
       createShortcut({
         name: "Thinking",
         actionType: "custom",
         customAction: "chatgptMenu",
-        data: { menu: "Thinking" },
+        data: { menu: { id: "thinking" } },
         hotkey: "CTRL+T"
       }),
       createShortcut({
         name: "Canvas",
         actionType: "custom",
         customAction: "chatgptMenu",
-        data: { menu: "Canvas" },
+        data: { menu: { id: "canvas" } },
         hotkey: "CTRL+C"
       }),
       createShortcut({
         name: "Web",
         actionType: "custom",
         customAction: "chatgptMenu",
-        data: { menu: "Web" },
+        data: { menu: { id: "webSearch" } },
         hotkey: "CTRL+W"
       }),
       createShortcut({
