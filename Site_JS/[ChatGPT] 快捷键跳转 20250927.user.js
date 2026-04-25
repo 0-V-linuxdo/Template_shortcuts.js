@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.3
+// @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.4
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260425] v1.0.3
-// @update-log   1.0.3: 优化 ChatGPT 默认快捷键图标；改为按操作显示对应 SVG 图标，并默认提供黑暗模式图标，同时迁移仍使用站点默认图标的旧配置。
+// @version      [20260425] v1.0.4
+// @update-log   1.0.4: ChatGPT 默认快捷键图标改用已适配的原生 SVG sprite 图标；保留用户自定义图标，并兼容迁移旧站点图标与旧自绘默认图标。
 
 // @match        https://chatgpt.com/*
 
@@ -56,6 +56,7 @@
     }
     const defaultIconURL = "https://chatgpt.com/favicon.ico";
     const CHATGPT_DEFAULT_SHORTCUTS_STORAGE_KEY = "chatgpt_shortcuts_v1";
+    const CHATGPT_NATIVE_SPRITE_FALLBACK_URL = "/cdn/assets/sprites-core-d25c669f.svg";
     const CHATGPT_ICON_LIGHT_COLOR = "#111827";
     const CHATGPT_ICON_DARK_COLOR = "#F8FAFC";
     function createChatgptSvgIconDataUrl(body, { color = CHATGPT_ICON_LIGHT_COLOR } = {}) {
@@ -69,7 +70,16 @@
         iconAdaptive: false
       });
     }
-    const CHATGPT_SHORTCUT_ICON_SETS = Object.freeze({
+    function createChatgptNativeShortcutIconSet(iconId) {
+      const normalizedIconId = String(iconId || "").trim().replace(/^#/, "");
+      const source = normalizedIconId ? `svg-use:#${normalizedIconId}` : "";
+      return Object.freeze({
+        icon: source,
+        iconDark: source,
+        iconAdaptive: false
+      });
+    }
+    const CHATGPT_STROKE_SHORTCUT_ICON_SETS = Object.freeze({
       newChat: createChatgptShortcutIconSet('<path d="M12 5v14"/><path d="M5 12h14"/>'),
       sidebar: createChatgptShortcutIconSet('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>'),
       code: createChatgptShortcutIconSet('<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/><path d="m14.5 4-5 16"/>'),
@@ -85,6 +95,17 @@
       canvas: createChatgptShortcutIconSet('<rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m8 12 2.5-3 2 2.5L15 8l3 4"/>'),
       web: createChatgptShortcutIconSet('<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 0 20"/><path d="M12 2a15.3 15.3 0 0 0 0 20"/>'),
       quickInput: createChatgptShortcutIconSet('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M7 13h10"/><path d="M9 17h6"/>')
+    });
+    const CHATGPT_SHORTCUT_ICON_SETS = Object.freeze({
+      ...CHATGPT_STROKE_SHORTCUT_ICON_SETS,
+      upload: createChatgptNativeShortcutIconSet("712359"),
+      temporaryChat: createChatgptNativeShortcutIconSet("28a8a0"),
+      createImage: createChatgptNativeShortcutIconSet("266724"),
+      square: createChatgptNativeShortcutIconSet("36d8fa"),
+      deepResearch: createChatgptNativeShortcutIconSet("5d3112"),
+      thinking: createChatgptNativeShortcutIconSet("143e56"),
+      canvas: createChatgptNativeShortcutIconSet("cf3864"),
+      web: createChatgptNativeShortcutIconSet("6b0d8c")
     });
     const CHATGPT_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
       "New Chat": "newChat",
@@ -284,6 +305,33 @@
         return [];
       }
       return Array.from(new Set(uses.map((use) => normalizeChatgptMenuIconId(getSvgUseHrefValue(use))).filter(Boolean)));
+    }
+    function findChatgptNativeSpriteBaseUrl(preferredIconId = "") {
+      const preferred = normalizeChatgptMenuIconId(preferredIconId);
+      let fallbackBase = "";
+      let uses = [];
+      try {
+        uses = Array.from(document.querySelectorAll("use"));
+      } catch {
+        uses = [];
+      }
+      for (const useElement of uses) {
+        const href = getSvgUseHrefValue(useElement);
+        if (!href || !href.includes("/cdn/assets/sprites-core-")) continue;
+        const hashIndex = href.indexOf("#");
+        const base = hashIndex >= 0 ? href.slice(0, hashIndex) : href;
+        if (!fallbackBase) fallbackBase = base;
+        if (preferred && normalizeChatgptMenuIconId(href) === preferred) return base;
+      }
+      return fallbackBase || CHATGPT_NATIVE_SPRITE_FALLBACK_URL;
+    }
+    function resolveChatgptSvgUseHref(href) {
+      const rawHref = String(href || "").trim();
+      if (!rawHref) return "";
+      if (!rawHref.startsWith("#")) return rawHref;
+      const iconId = normalizeChatgptMenuIconId(rawHref);
+      if (!iconId) return rawHref;
+      return `${findChatgptNativeSpriteBaseUrl(iconId)}#${iconId}`;
     }
     function elementHasChatgptIconId(element, iconIds) {
       const expected = normalizeChatgptMenuIconIds(iconIds);
@@ -3174,6 +3222,14 @@
       if (!icon) return true;
       return protectedIconUrls.includes(icon);
     }
+    function isChatgptManagedShortcutIcon(value, iconKey) {
+      const icon = String(value || "").trim();
+      if (isChatgptReplaceableDefaultIcon(icon)) return true;
+      const currentIconSet = CHATGPT_SHORTCUT_ICON_SETS[iconKey] || null;
+      if (currentIconSet && (icon === currentIconSet.icon || icon === currentIconSet.iconDark)) return true;
+      const strokeIconSet = CHATGPT_STROKE_SHORTCUT_ICON_SETS[iconKey] || null;
+      return !!strokeIconSet && (icon === strokeIconSet.icon || icon === strokeIconSet.iconDark);
+    }
     function migrateChatgptDefaultShortcutIcons() {
       if (typeof GM_getValue !== "function" || typeof GM_setValue !== "function") return;
       let stored = null;
@@ -3189,8 +3245,8 @@
         const iconKey = getChatgptDefaultShortcutIconKey(shortcut);
         const iconSet = CHATGPT_SHORTCUT_ICON_SETS[iconKey] || null;
         if (!iconSet) return shortcut;
-        const replaceLightIcon = isChatgptReplaceableDefaultIcon(shortcut.icon) || shortcut.icon === iconSet.icon;
-        const replaceDarkIcon = replaceLightIcon && (isChatgptReplaceableDefaultIcon(shortcut.iconDark) || shortcut.iconDark === iconSet.iconDark);
+        const replaceLightIcon = isChatgptManagedShortcutIcon(shortcut.icon, iconKey);
+        const replaceDarkIcon = replaceLightIcon && isChatgptManagedShortcutIcon(shortcut.iconDark, iconKey);
         if (!replaceLightIcon && !replaceDarkIcon) return shortcut;
         const updated = { ...shortcut };
         if (replaceLightIcon && updated.icon !== iconSet.icon) {
@@ -3232,6 +3288,7 @@
       defaultIconURL,
       iconLibrary: defaultIcons,
       protectedIconUrls,
+      resolveSvgUseHref: resolveChatgptSvgUseHref,
       // 默认快捷键
       defaultShortcuts,
       // 自定义动作表：将 1step/复杂点击动作纳入引擎
