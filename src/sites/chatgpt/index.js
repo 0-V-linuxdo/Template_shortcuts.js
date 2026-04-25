@@ -67,6 +67,12 @@
         thinking: createChatgptShortcutIconSet('<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15 14c.2-1 .7-1.7 1.5-2.5A5 5 0 1 0 7.5 11.5c.8.8 1.3 1.5 1.5 2.5"/>'),
         canvas: createChatgptShortcutIconSet('<rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m8 12 2.5-3 2 2.5L15 8l3 4"/>'),
         web: createChatgptShortcutIconSet('<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 0 20"/><path d="M12 2a15.3 15.3 0 0 0 0 20"/>'),
+        setCustomInstructions: createChatgptShortcutIconSet('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+        settingsGeneral: createChatgptShortcutIconSet('<circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="m4.93 4.93 2.12 2.12"/><path d="m16.95 16.95 2.12 2.12"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="m4.93 19.07 2.12-2.12"/><path d="m16.95 7.05 2.12-2.12"/>'),
+        settingsAccount: createChatgptShortcutIconSet('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+        settingsDataControls: createChatgptShortcutIconSet('<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="17" r="2"/>'),
+        settingsSchedules: createChatgptShortcutIconSet('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M12 14v4"/><path d="M10 16h4"/>'),
+        settingsSecurity: createChatgptShortcutIconSet('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>'),
         quickInput: createChatgptShortcutIconSet('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M7 13h10"/><path d="M9 17h6"/>')
     });
 
@@ -83,7 +89,13 @@
         deepResearch: createChatgptNativeShortcutIconSet("5d3112"),
         thinking: createChatgptNativeShortcutIconSet("143e56"),
         canvas: createChatgptNativeShortcutIconSet("cf3864"),
-        web: createChatgptNativeShortcutIconSet("6b0d8c")
+        web: createChatgptNativeShortcutIconSet("6b0d8c"),
+        setCustomInstructions: createChatgptNativeShortcutIconSet("306b75"),
+        settingsGeneral: createChatgptNativeShortcutIconSet("44c6db"),
+        settingsAccount: createChatgptNativeShortcutIconSet("d13764"),
+        settingsDataControls: createChatgptNativeShortcutIconSet("dace10"),
+        settingsSchedules: createChatgptNativeShortcutIconSet("974afd"),
+        settingsSecurity: createChatgptNativeShortcutIconSet("aa2e8a")
     });
 
     const CHATGPT_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
@@ -93,6 +105,12 @@
         "Delete Chat": "trash",
         "Focus chat input": "focusInput",
         "Add photos & files": "upload",
+        "Set custom instructions": "setCustomInstructions",
+        "Settings: General": "settingsGeneral",
+        "Settings: Account": "settingsAccount",
+        "Settings: Data Controls": "settingsDataControls",
+        "Settings: Schedules": "settingsSchedules",
+        "Settings: Security": "settingsSecurity",
         "Temporary Chat": "temporaryChat",
         "Model: o3": "model",
         "Create image": "createImage",
@@ -3379,6 +3397,21 @@
         ...overrides
     });
     const CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY = "chatgpt-aspect-square-1-1";
+    const CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY = "chatgpt-native-set-custom-instructions";
+    const CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY = "chatgpt-settings-general";
+    const CHATGPT_SETTINGS_ACCOUNT_SHORTCUT_KEY = "chatgpt-settings-account";
+    const CHATGPT_SETTINGS_DATA_CONTROLS_SHORTCUT_KEY = "chatgpt-settings-data-controls";
+    const CHATGPT_SETTINGS_SCHEDULES_SHORTCUT_KEY = "chatgpt-settings-schedules";
+    const CHATGPT_SETTINGS_SECURITY_SHORTCUT_KEY = "chatgpt-settings-security";
+    const CHATGPT_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
+        CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY,
+        CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY,
+        CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY,
+        CHATGPT_SETTINGS_ACCOUNT_SHORTCUT_KEY,
+        CHATGPT_SETTINGS_DATA_CONTROLS_SHORTCUT_KEY,
+        CHATGPT_SETTINGS_SCHEDULES_SHORTCUT_KEY,
+        CHATGPT_SETTINGS_SECURITY_SHORTCUT_KEY
+    ]);
 
     function createChatgptSquareAspectRatioShortcut() {
         return createShortcut({
@@ -3430,6 +3463,13 @@
             simulateKeys: "CMD+U",
             hotkey: "CTRL+F"
         }, "upload"),
+        createShortcut({
+            key: CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY,
+            name: "Set custom instructions",
+            actionType: "simulate",
+            simulateKeys: "CMD+SHIFT+I",
+            hotkey: "CTRL+ALT+I"
+        }, "setCustomInstructions"),
 
         // === ChatGPT 页面按钮（selector）===
         createShortcut({
@@ -3448,6 +3488,51 @@
             urlAdvanced: "pushState",
             hotkey: "CTRL+3"
         }, "model"),
+        createShortcut({
+            key: CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY,
+            name: "Settings: General",
+            actionType: "url",
+            url: "https://chatgpt.com/#settings",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            hotkey: "CTRL+ALT+G"
+        }, "settingsGeneral"),
+        createShortcut({
+            key: CHATGPT_SETTINGS_ACCOUNT_SHORTCUT_KEY,
+            name: "Settings: Account",
+            actionType: "url",
+            url: "https://chatgpt.com/#settings/Account",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            hotkey: "CTRL+ALT+A"
+        }, "settingsAccount"),
+        createShortcut({
+            key: CHATGPT_SETTINGS_DATA_CONTROLS_SHORTCUT_KEY,
+            name: "Settings: Data Controls",
+            actionType: "url",
+            url: "https://chatgpt.com/#settings/DataControls",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            hotkey: "CTRL+ALT+D"
+        }, "settingsDataControls"),
+        createShortcut({
+            key: CHATGPT_SETTINGS_SCHEDULES_SHORTCUT_KEY,
+            name: "Settings: Schedules",
+            actionType: "url",
+            url: "https://chatgpt.com/#settings/Schedules",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            hotkey: "CTRL+ALT+S"
+        }, "settingsSchedules"),
+        createShortcut({
+            key: CHATGPT_SETTINGS_SECURITY_SHORTCUT_KEY,
+            name: "Settings: Security",
+            actionType: "url",
+            url: "https://chatgpt.com/#settings/Security",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            hotkey: "CTRL+ALT+E"
+        }, "settingsSecurity"),
 
         // === customAction: "chatgptMenu" ===
         // 内置工具使用 canonical id；旧的菜单关键词仍可在自定义配置中使用。
@@ -3533,6 +3618,21 @@
 
         const strokeIconSet = CHATGPT_STROKE_SHORTCUT_ICON_SETS[iconKey] || null;
         return !!strokeIconSet && (icon === strokeIconSet.icon || icon === strokeIconSet.iconDark);
+    }
+
+    function cloneChatgptShortcutItem(shortcut) {
+        if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return null;
+        const data = shortcut.data && typeof shortcut.data === "object" && !Array.isArray(shortcut.data)
+            ? JSON.parse(JSON.stringify(shortcut.data))
+            : {};
+        return { ...shortcut, data };
+    }
+
+    function createChatgptDefaultShortcutByKey(key) {
+        const shortcutKey = String(key || "").trim();
+        if (!shortcutKey) return null;
+        const shortcut = defaultShortcuts.find(item => String(item?.key || "").trim() === shortcutKey);
+        return cloneChatgptShortcutItem(shortcut);
     }
 
     function migrateChatgptDefaultShortcutIcons() {
@@ -3639,13 +3739,17 @@
         const current = Array.isArray(engineApi.getShortcuts?.()) ? engineApi.getShortcuts() : [];
         const exists = current.some(shortcut => String(shortcut?.key || "").trim() === shortcutKey);
         if (exists) return;
-        engineApi.setShortcuts([...current, createShortcutItem()]);
+        const shortcutItem = createShortcutItem();
+        if (!shortcutItem || typeof shortcutItem !== "object" || Array.isArray(shortcutItem)) return;
+        engineApi.setShortcuts([...current, shortcutItem]);
     }
 
-    ensureChatgptManagedShortcut(engine, {
-        key: CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY,
-        createShortcutItem: createChatgptSquareAspectRatioShortcut
-    });
+    for (const key of CHATGPT_MANAGED_DEFAULT_SHORTCUT_KEYS) {
+        ensureChatgptManagedShortcut(engine, {
+            key,
+            createShortcutItem: () => createChatgptDefaultShortcutByKey(key)
+        });
+    }
 
     // 初始化引擎
     engine.init();
