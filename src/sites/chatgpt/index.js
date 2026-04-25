@@ -110,6 +110,7 @@
     const CHATGPT_REMOVE_ATTACHMENT_ICON_IDS = Object.freeze(["23ce94"]);
     const CHATGPT_THINKING_EFFORT_TRIGGER_ICON_IDS = Object.freeze(["127a53"]);
     const CHATGPT_THINKING_EFFORT_EXTENDED_ICON_IDS = Object.freeze(["143e56"]);
+    const CHATGPT_TOP_MODEL_THINKING_DATA_TEST_ID_REGEX = /(?:^|[-_])thinking(?:[-_]|$)/i;
     const CHATGPT_ASPECT_RATIO_TARGETS = Object.freeze({
         auto: Object.freeze({
             id: "auto",
@@ -1378,18 +1379,18 @@
             if (!btn) return false;
             if (isInsideQuickInputOverlay(btn)) return false;
             if (!isElementVisible(btn)) return false;
-            if (getChatGPTRemoveAttachmentButtonAriaMatch(btn)) return true;
-            if (!elementHasChatgptIconId(btn, CHATGPT_REMOVE_ATTACHMENT_ICON_IDS)) return false;
 
-            const card = findChatGPTAttachmentCard(btn);
-            if (card && isChatGPTAttachmentTileScope(card)) return true;
+            if (elementHasChatgptIconId(btn, CHATGPT_REMOVE_ATTACHMENT_ICON_IDS)) {
+                const card = findChatGPTAttachmentCard(btn);
+                if (card && isChatGPTAttachmentTileScope(card)) return true;
 
-            try {
-                const tile = btn.closest?.("[class*='group/file-tile'], [role='group'][aria-label]");
-                return !!(tile && isChatGPTAttachmentTileScope(tile));
-            } catch {
-                return false;
+                try {
+                    const tile = btn.closest?.("[class*='group/file-tile'], [role='group'][aria-label]");
+                    if (tile && isChatGPTAttachmentTileScope(tile)) return true;
+                } catch {}
             }
+
+            return getChatGPTRemoveAttachmentButtonAriaMatch(btn);
         }
 
         function hasChatGPTRemoveAttachmentButton(root) {
@@ -2526,7 +2527,7 @@
         "extended",
         "进阶"
     ];
-    const TOP_MODEL_THINKING_TEXT_MATCH = ["thinking"];
+    const TOP_MODEL_THINKING_TEXT_MATCH = ["thinking", "思考"];
 
     function getAspectRatioComparableText(value) {
         return normalizeAspectRatioText(String(value || ""));
@@ -2635,6 +2636,11 @@
     }
 
     function clickChatgptTemporaryChatButton() {
+        const iconTarget = findVisibleElementByIcon(document, "button", CHATGPT_TEMPORARY_CHAT_ICON_IDS);
+        if (iconTarget) {
+            return !!simulateClickElement(iconTarget, { nativeFallback: true });
+        }
+
         const selectors = [
             "button[aria-label*='temporary chat' i]",
             "button[aria-label*='临时聊天']"
@@ -2644,11 +2650,6 @@
                 .filter(isVisibleElement)
                 .find(Boolean);
             if (target && simulateClickElement(target, { nativeFallback: true })) return true;
-        }
-
-        const iconTarget = findVisibleElementByIcon(document, "button", CHATGPT_TEMPORARY_CHAT_ICON_IDS);
-        if (iconTarget) {
-            return !!simulateClickElement(iconTarget, { nativeFallback: true });
         }
         return false;
     }
@@ -2812,7 +2813,7 @@
 
     function isTopModelThinkingMenuItem(rawText, element) {
         const dataTestId = String(element?.getAttribute?.("data-testid") || "").trim().toLowerCase();
-        if (dataTestId.includes("thinking")) return true;
+        if (CHATGPT_TOP_MODEL_THINKING_DATA_TEST_ID_REGEX.test(dataTestId)) return true;
         return chatgptMenuTextMatches(rawText, TOP_MODEL_THINKING_TEXT_MATCH, element);
     }
 
