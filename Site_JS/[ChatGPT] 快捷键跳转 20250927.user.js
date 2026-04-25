@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.1
+// @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 
-// @version      [20260425] v1.0.1
-// @update-log   1.0.1: 补强 ChatGPT 多语言 UI 适配；Temporary Chat、图片比例、附件删除、Thinking effort、Canvas 等元素优先按稳定 SVG 图标匹配。
+// @version      [20260425] v1.0.2
+// @update-log   1.0.2: 纠正 ChatGPT 元素点击匹配顺序为稳定图标/标识优先、文字兜底；Top Model Thinking 优先按 data-testid 匹配，Temporary Chat 与附件删除优先按 SVG 图标匹配。
 
 // @match        https://chatgpt.com/*
 
@@ -134,6 +134,7 @@
     const CHATGPT_REMOVE_ATTACHMENT_ICON_IDS = Object.freeze(["23ce94"]);
     const CHATGPT_THINKING_EFFORT_TRIGGER_ICON_IDS = Object.freeze(["127a53"]);
     const CHATGPT_THINKING_EFFORT_EXTENDED_ICON_IDS = Object.freeze(["143e56"]);
+    const CHATGPT_TOP_MODEL_THINKING_DATA_TEST_ID_REGEX = /(?:^|[-_])thinking(?:[-_]|$)/i;
     const CHATGPT_ASPECT_RATIO_TARGETS = Object.freeze({
       auto: Object.freeze({
         id: "auto",
@@ -1312,16 +1313,16 @@
         if (!btn) return false;
         if (isInsideQuickInputOverlay(btn)) return false;
         if (!isElementVisible(btn)) return false;
-        if (getChatGPTRemoveAttachmentButtonAriaMatch(btn)) return true;
-        if (!elementHasChatgptIconId(btn, CHATGPT_REMOVE_ATTACHMENT_ICON_IDS)) return false;
-        const card = findChatGPTAttachmentCard(btn);
-        if (card && isChatGPTAttachmentTileScope(card)) return true;
-        try {
-          const tile = btn.closest?.("[class*='group/file-tile'], [role='group'][aria-label]");
-          return !!(tile && isChatGPTAttachmentTileScope(tile));
-        } catch {
-          return false;
+        if (elementHasChatgptIconId(btn, CHATGPT_REMOVE_ATTACHMENT_ICON_IDS)) {
+          const card = findChatGPTAttachmentCard(btn);
+          if (card && isChatGPTAttachmentTileScope(card)) return true;
+          try {
+            const tile = btn.closest?.("[class*='group/file-tile'], [role='group'][aria-label]");
+            if (tile && isChatGPTAttachmentTileScope(tile)) return true;
+          } catch {
+          }
         }
+        return getChatGPTRemoveAttachmentButtonAriaMatch(btn);
       }
       function hasChatGPTRemoveAttachmentButton(root) {
         if (!root || typeof root.querySelectorAll !== "function") return false;
@@ -2343,7 +2344,7 @@
       "extended",
       "进阶"
     ];
-    const TOP_MODEL_THINKING_TEXT_MATCH = ["thinking"];
+    const TOP_MODEL_THINKING_TEXT_MATCH = ["thinking", "思考"];
     function getAspectRatioComparableText(value) {
       return normalizeAspectRatioText(String(value || ""));
     }
@@ -2441,6 +2442,10 @@
       return fallbackToFirst ? items[0] || null : null;
     }
     function clickChatgptTemporaryChatButton() {
+      const iconTarget = findVisibleElementByIcon(document, "button", CHATGPT_TEMPORARY_CHAT_ICON_IDS);
+      if (iconTarget) {
+        return !!simulateClickElement(iconTarget, { nativeFallback: true });
+      }
       const selectors = [
         "button[aria-label*='temporary chat' i]",
         "button[aria-label*='临时聊天']"
@@ -2448,10 +2453,6 @@
       for (const selector of selectors) {
         const target = safeQueryAll(document, selector).filter(isVisibleElement).find(Boolean);
         if (target && simulateClickElement(target, { nativeFallback: true })) return true;
-      }
-      const iconTarget = findVisibleElementByIcon(document, "button", CHATGPT_TEMPORARY_CHAT_ICON_IDS);
-      if (iconTarget) {
-        return !!simulateClickElement(iconTarget, { nativeFallback: true });
       }
       return false;
     }
@@ -2593,7 +2594,7 @@
     }
     function isTopModelThinkingMenuItem(rawText, element) {
       const dataTestId = String(element?.getAttribute?.("data-testid") || "").trim().toLowerCase();
-      if (dataTestId.includes("thinking")) return true;
+      if (CHATGPT_TOP_MODEL_THINKING_DATA_TEST_ID_REGEX.test(dataTestId)) return true;
       return chatgptMenuTextMatches(rawText, TOP_MODEL_THINKING_TEXT_MATCH, element);
     }
     function scoreComposerModeTriggerCandidate(element, { preferredTextMatch = null } = {}) {
