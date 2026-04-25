@@ -72,11 +72,11 @@ export const SITE_MANIFEST = Object.freeze([
         sourceEntry: "src/sites/chatgpt/index.js",
         userscriptOutput: "Site_JS/[ChatGPT] 快捷键跳转 20250927.user.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260425] v1.0.4",
+            name: "[ChatGPT] 快捷键跳转 [20260425] v1.0.5",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260425] v1.0.4",
-            updateLog: "1.0.4: ChatGPT 默认快捷键图标改用已适配的原生 SVG sprite 图标；保留用户自定义图标，并兼容迁移旧站点图标与旧自绘默认图标。",
+            version: "[20260425] v1.0.5",
+            updateLog: "1.0.5: 补充 ChatGPT 原生图标映射；New Chat、Toggle Sidebar、Delete Chat 改用原生 SVG sprite 图标，并继续保留用户自定义图标与旧默认图标迁移。",
             match: [
                 "https://chatgpt.com/*"
             ],

@@ -72,6 +72,9 @@
 
     const CHATGPT_SHORTCUT_ICON_SETS = Object.freeze({
         ...CHATGPT_STROKE_SHORTCUT_ICON_SETS,
+        newChat: createChatgptNativeShortcutIconSet("3a5c87"),
+        sidebar: createChatgptNativeShortcutIconSet("836f7a"),
+        trash: createChatgptNativeShortcutIconSet("3ee541"),
         upload: createChatgptNativeShortcutIconSet("712359"),
         temporaryChat: createChatgptNativeShortcutIconSet("28a8a0"),
         createImage: createChatgptNativeShortcutIconSet("266724"),
