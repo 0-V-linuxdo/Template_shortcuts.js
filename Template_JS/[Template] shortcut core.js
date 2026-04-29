@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.3.0
-// @name:en        [Template] Shortcut Core [20260429] v1.3.0
+// @name           [Template] 快捷键跳转 [20260429] v1.3.1
+// @name:en        [Template] Shortcut Core [20260429] v1.3.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.3.0
-// @update-log     1.3.0: 快捷输入的触发快捷键改为按动作与快捷键下拉选择，并兼容保留旧配置。
-// @update-log:en  1.3.0: Quick Input trigger shortcuts now use action-and-hotkey dropdowns while preserving legacy saved values.
+// @version        [20260429] v1.3.1
+// @update-log     1.3.1: 快捷输入默认步骤/循环间隔调整为 1 秒/20 秒，并将触发快捷键下拉选项改为“快捷键 名称”显示。
+// @update-log:en  1.3.1: Quick Input defaults now use 1s/20s step and loop delays, and trigger shortcut options display as "shortcut name".
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -9642,8 +9642,8 @@ ${displayTargetText}`;
     toolHotkey: "CTRL+I",
     newChatHotkey: "CTRL+N",
     loopCount: 1,
-    stepDelayMs: 120,
-    loopDelayMs: 800,
+    stepDelayMs: 1e3,
+    loopDelayMs: 2e4,
     imageRecovery: Object.freeze({
       maxRepairAttempts: 4,
       maxResetAttempts: 3
@@ -9692,8 +9692,8 @@ ${displayTargetText}`;
       if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
       return { left, top };
     })();
-    const stepDelayMs = clampInt(raw.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 }) });
-    const loopDelayMs = clampInt(raw.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 }) });
+    const stepDelayMs = clampInt(raw.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1e3 }) });
+    const loopDelayMs = clampInt(raw.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 2e4 }) });
     return {
       toolHotkeys,
       toolHotkey: toolHotkeys[0] || "",
@@ -9729,8 +9729,8 @@ ${displayTargetText}`;
       if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
       return { left, top };
     })();
-    const stepDelayMs = clampInt(safe.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 }) });
-    const loopDelayMs = clampInt(safe.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 }) });
+    const stepDelayMs = clampInt(safe.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1e3 }) });
+    const loopDelayMs = clampInt(safe.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 2e4 }) });
     const payload = {
       toolHotkeys,
       toolHotkey,
@@ -13151,8 +13151,8 @@ ${displayTargetText}`;
       };
     }
     function readConfigFromUi() {
-      const defaultStepDelayMs = clampInt2(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 });
-      const defaultLoopDelayMs = clampInt2(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 });
+      const defaultStepDelayMs = clampInt2(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1e3 });
+      const defaultLoopDelayMs = clampInt2(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 2e4 });
       const stepDelay = readDelayControlValue(stepDelayEl, stepDelayUnitEl, {
         fallbackMs: defaultStepDelayMs,
         fallbackUnit: defaults.stepDelayUnit,
@@ -13366,7 +13366,7 @@ ${displayTargetText}`;
           const name = getShortcutOptionName(shortcut);
           optionsList.push({
             value: hotkey,
-            label: name ? `${name} · ${hotkeyLabel || hotkey}` : hotkeyLabel || hotkey
+            label: name ? `${hotkeyLabel || hotkey} ${name}` : hotkeyLabel || hotkey
           });
         }
       }
@@ -13519,14 +13519,14 @@ ${displayTargetText}`;
       setDelayControlValue(
         stepDelayEl,
         stepDelayUnitEl,
-        clampInt2(cfg.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt2(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 }) }),
+        clampInt2(cfg.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt2(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1e3 }) }),
         cfg.stepDelayUnit || defaults.stepDelayUnit,
         STEP_DELAY_MAX_MS
       );
       setDelayControlValue(
         loopDelayEl,
         loopDelayUnitEl,
-        clampInt2(cfg.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt2(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 }) }),
+        clampInt2(cfg.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt2(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 2e4 }) }),
         cfg.loopDelayUnit || defaults.loopDelayUnit,
         LOOP_DELAY_MAX_MS
       );
