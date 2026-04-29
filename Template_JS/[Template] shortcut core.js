@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.3.3
-// @name:en        [Template] Shortcut Core [20260429] v1.3.3
+// @name           [Template] 快捷键跳转 [20260429] v1.3.4
+// @name:en        [Template] Shortcut Core [20260429] v1.3.4
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.3.3
-// @update-log     1.3.3: 快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。
-// @update-log:en  1.3.3: Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover.
+// @version        [20260429] v1.3.4
+// @update-log     1.3.4: 快捷输入将新对话快捷键与选项移入默认收起的“更多设置”区域，让主输入流程更紧凑。
+// @update-log:en  1.3.4: Quick Input now moves the new-chat shortcut and options into a collapsed More settings section by default, keeping the main input flow more compact.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -9389,6 +9389,9 @@ ${displayTargetText}`;
   var DEFAULT_LABELS = Object.freeze({
     title: "快捷输入",
     tabs: Object.freeze({ input: "输入", log: "日志" }),
+    sections: Object.freeze({
+      moreSettings: "更多设置"
+    }),
     fields: Object.freeze({
       images: "图片：",
       preview: "预览：",
@@ -9515,6 +9518,9 @@ ${displayTargetText}`;
     "en-US": Object.freeze({
       title: "Quick Input",
       tabs: Object.freeze({ input: "Input", log: "Log" }),
+      sections: Object.freeze({
+        moreSettings: "More settings"
+      }),
       fields: Object.freeze({
         images: "Images:",
         preview: "Preview:",
@@ -10820,6 +10826,10 @@ ${displayTargetText}`;
                     grid-template-columns: 110px 1fr;
                     gap: 10px;
                     align-items: center;
+                    min-width: 0;
+                }
+                ${hostSelector} .qi-row > * {
+                    min-width: 0;
                 }
                 ${hostSelector} .qi-row > label,
                 ${hostSelector} .qi-label-stack > label {
@@ -10828,6 +10838,67 @@ ${displayTargetText}`;
                     line-height: 1.35;
                     color: var(--qi-text-strong);
                     white-space: pre-line;
+                }
+                ${hostSelector} .qi-form-collapsible {
+                    display: grid;
+                    min-width: 0;
+                    border: 1px solid var(--qi-border);
+                    border-radius: 10px;
+                    background: color-mix(in srgb, var(--qi-surface-alt) 72%, transparent);
+                    overflow: hidden;
+                }
+                ${hostSelector} .qi-form-collapsible-summary {
+                    width: 100%;
+                    border: 0;
+                    background: transparent;
+                    color: var(--qi-text-strong);
+                    padding: 9px 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 10px;
+                    cursor: pointer;
+                    text-align: left;
+                    font-size: 13px;
+                    font-weight: 650;
+                    line-height: 1.25;
+                }
+                ${hostSelector} .qi-form-collapsible-summary:hover {
+                    background: var(--qi-hover);
+                }
+                ${hostSelector} .qi-form-collapsible-summary:focus-visible {
+                    outline: none;
+                    box-shadow: inset 0 0 0 2px ${primaryColor};
+                }
+                ${hostSelector} .qi-form-collapsible-label {
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                ${hostSelector} .qi-form-collapsible-caret {
+                    width: 0;
+                    height: 0;
+                    flex: 0 0 auto;
+                    border-left: 5px solid transparent;
+                    border-right: 5px solid transparent;
+                    border-top: 6px solid currentColor;
+                    opacity: 0.86;
+                    transition: transform 140ms ease;
+                }
+                ${hostSelector} .qi-form-collapsible[data-open="1"] .qi-form-collapsible-caret {
+                    transform: rotate(180deg);
+                }
+                ${hostSelector} .qi-form-collapsible[data-open="0"] .qi-form-collapsible-body {
+                    display: none;
+                }
+                ${hostSelector} .qi-form-collapsible-body {
+                    display: grid;
+                    gap: 12px;
+                    min-width: 0;
+                    padding: 12px 10px;
+                    border-top: 1px solid var(--qi-border);
+                    background: var(--qi-surface);
                 }
                 ${hostSelector} input[type="text"],
                 ${hostSelector} input[type="number"],
@@ -13518,6 +13589,28 @@ ${displayTargetText}`;
       wrap.appendChild(caret);
       return { wrap, select };
     }
+    function createFormCollapsibleGroup(title, { open: open2 = false } = {}) {
+      const groupEl = globalThis.document.createElement("div");
+      const summaryEl = globalThis.document.createElement("button");
+      const labelEl = globalThis.document.createElement("span");
+      const caretEl = globalThis.document.createElement("span");
+      const bodyEl = globalThis.document.createElement("div");
+      groupEl.className = "qi-form-collapsible";
+      summaryEl.type = "button";
+      summaryEl.className = "qi-form-collapsible-summary";
+      summaryEl.setAttribute("aria-expanded", open2 ? "true" : "false");
+      labelEl.className = "qi-form-collapsible-label";
+      labelEl.textContent = String(title || "");
+      caretEl.className = "qi-form-collapsible-caret";
+      caretEl.setAttribute("aria-hidden", "true");
+      bodyEl.className = "qi-form-collapsible-body";
+      summaryEl.appendChild(labelEl);
+      summaryEl.appendChild(caretEl);
+      groupEl.appendChild(summaryEl);
+      groupEl.appendChild(bodyEl);
+      initCollapsibleRoot(groupEl, summaryEl, bodyEl, { open: open2 });
+      return { groupEl, bodyEl };
+    }
     function writeConfigToUi(cfg) {
       if (!cfg) return;
       const rawToolHotkeys = Array.isArray(cfg.toolHotkeys) ? cfg.toolHotkeys : typeof cfg.toolHotkey === "string" ? [cfg.toolHotkey] : [];
@@ -14649,6 +14742,12 @@ ${displayTargetText}`;
       });
       optionsRow.appendChild(optionsLabel);
       optionsRow.appendChild(optionsBox);
+      const moreSettingsGroup = createFormCollapsibleGroup(
+        labels.sections?.moreSettings || DEFAULT_LABELS.sections.moreSettings,
+        { open: false }
+      );
+      moreSettingsGroup.bodyEl.appendChild(newChatRow);
+      moreSettingsGroup.bodyEl.appendChild(optionsRow);
       const hint = globalThis.document.createElement("div");
       hint.className = "qi-hint";
       hint.textContent = labels.hints?.flow || DEFAULT_LABELS.hints.flow;
@@ -14656,9 +14755,8 @@ ${displayTargetText}`;
       inputBodyEl.appendChild(textRow);
       inputBodyEl.appendChild(hotkeyRow);
       inputBodyEl.appendChild(loopRow);
-      inputBodyEl.appendChild(newChatRow);
       inputBodyEl.appendChild(delayRow);
-      inputBodyEl.appendChild(optionsRow);
+      inputBodyEl.appendChild(moreSettingsGroup.groupEl);
       inputBodyEl.appendChild(hint);
       inputActionsEl = createPlayerActionsBar();
       inputPanel.appendChild(inputBodyEl);
