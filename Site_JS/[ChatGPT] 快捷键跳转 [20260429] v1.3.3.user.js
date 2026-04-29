@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260429] v1.3.2
-// @name:en        [ChatGPT] Shortcut Jump [20260429] v1.3.2
+// @name           [ChatGPT] 快捷键跳转 [20260429] v1.3.3
+// @name:en        [ChatGPT] Shortcut Jump [20260429] v1.3.3
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260429] v1.3.2
-// @update-log     1.3.2: 同步 Template v1.3.2，快捷输入触发快捷键下拉仅显示快捷键，动作名称改为鼠标悬停提示。
-// @update-log:en  1.3.2: Synced Template v1.3.2; Quick Input trigger shortcut dropdowns now show only shortcut keys, with action names in hover tooltips.
+// @version        [20260429] v1.3.3
+// @update-log     1.3.3: 同步 Template v1.3.3，快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。
+// @update-log:en  1.3.3: Synced Template v1.3.3; Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover.
 
 // @match          https://chatgpt.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/ChatGPT_keycap.svg
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.3.2
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.3.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -2468,7 +2468,7 @@
         triggerNewChat: ({ shouldCancel = null } = {}) => triggerNativeNewChat({ shouldCancel }),
         newChatLabel: getNativeNewChatLabel,
         lockNewChatHotkey: true,
-        lockedNewChatHotkeyDisplay: getNativeNewChatLabel,
+        lockedNewChatHotkeyDisplay: "native",
         sendMessage: sendChatGPTMessage
       });
     }

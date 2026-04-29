@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260425] v1.0.2
-// @name:en        [Gemini] Shortcut Jump [20260425] v1.0.2
+// @name           [Gemini] 快捷键跳转 [20260429] v1.3.3
+// @name:en        [Gemini] Shortcut Jump [20260429] v1.3.3
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260425] v1.0.2
-// @update-log     1.0.2: 脚本图标改为黑底原生 Gemini 星芒，并将默认快捷键迁移到 Gemini UI 左侧原生图标。
-// @update-log:en  1.0.2: Switched the script icon to a black Gemini sparkle and migrated default shortcuts to native Gemini-style icons.
+// @version        [20260429] v1.3.3
+// @update-log     1.3.3: 同步 Template v1.3.3，快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。
+// @update-log:en  1.3.3: Synced Template v1.3.3; Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover.
 
 // @match          https://gemini.google.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Site_Icon/gemini_keycap.svg
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.3.2
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.3.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -2898,7 +2898,7 @@
         triggerNewChat: ({ shouldCancel = null } = {}) => triggerNativeNewChat({ shouldCancel }),
         newChatLabel: getNativeNewChatLabel,
         lockNewChatHotkey: true,
-        lockedNewChatHotkeyDisplay: getNativeNewChatLabel,
+        lockedNewChatHotkeyDisplay: "native",
         sendMessage: sendGeminiMessage
       });
     }

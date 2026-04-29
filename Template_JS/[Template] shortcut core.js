@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.3.2
-// @name:en        [Template] Shortcut Core [20260429] v1.3.2
+// @name           [Template] 快捷键跳转 [20260429] v1.3.3
+// @name:en        [Template] Shortcut Core [20260429] v1.3.3
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.3.2
-// @update-log     1.3.2: 快捷输入触发快捷键下拉仅显示快捷键，动作名称改为鼠标悬停提示。
-// @update-log:en  1.3.2: Quick Input trigger shortcut dropdowns now show only shortcut keys, with action names in hover tooltips.
+// @version        [20260429] v1.3.3
+// @update-log     1.3.3: 快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。
+// @update-log:en  1.3.3: Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -9554,7 +9554,7 @@ ${displayTargetText}`;
       }),
       delayUnits: Object.freeze({
         ms: "ms",
-        s: "sec",
+        s: "s",
         m: "min"
       }),
       stages: Object.freeze({
@@ -9618,7 +9618,7 @@ ${displayTargetText}`;
         imageInsertFailed: "Image insertion failed; this loop will stop.",
         imagesInserted: (count) => `Inserted images successfully: ${count}.`,
         imageReady: "Images are ready.",
-        loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), { ms: "ms", s: "sec", m: "min" })) => `Waiting between loops: ${formattedDelay} (after send -> before new chat).`,
+        loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), { ms: "ms", s: "s", m: "min" })) => `Waiting between loops: ${formattedDelay} (after send -> before new chat).`,
         newChatTriggered: (hotkey, ok) => ok ? `Loop triggered: ${hotkey} new chat.` : `Failed to create new chat for loop: ${hotkey}.`,
         newChatRetrying: (hotkey, attempt, maxRetries) => `New chat verification failed; retrying ${attempt}/${maxRetries} (${hotkey}).`,
         newChatNotReady: "New chat is still not ready after retries; stopped to avoid continuing in the old context.",
@@ -12173,11 +12173,27 @@ ${displayTargetText}`;
       const label = resolveDynamicText(adapter.newChatLabel, "");
       return label || String(hotkey || "").trim();
     }
-    function getLockedNewChatHotkeyDisplay(cfg = null) {
-      const value = String(
+    function getLockedNewChatHotkeyValue(cfg = null) {
+      return String(
         cfg && typeof cfg.newChatHotkey === "string" ? cfg.newChatHotkey : defaults.newChatHotkey
       );
+    }
+    function getLockedNewChatHotkeyDisplay(cfg = null) {
+      const value = getLockedNewChatHotkeyValue(cfg);
       return resolveDynamicText(lockedNewChatHotkeyDisplay, "") || getNewChatTriggerLabel(value);
+    }
+    function getLockedNewChatHotkeyTitle(cfg = null) {
+      const value = getLockedNewChatHotkeyValue(cfg).trim();
+      if (!value) return "";
+      const formatter = engine?.core?.hotkeys?.formatForDisplay || null;
+      if (typeof formatter === "function") {
+        try {
+          const formatted = String(formatter(value) || "").trim();
+          if (formatted) return formatted;
+        } catch {
+        }
+      }
+      return value;
     }
     function resolveDynamicText(value, fallback = "") {
       let raw = value;
@@ -13526,7 +13542,12 @@ ${displayTargetText}`;
         refreshHotkeySelects();
       }
       if (newChatHotkeyEl) {
-        newChatHotkeyEl.value = lockNewChatHotkey ? getLockedNewChatHotkeyDisplay(cfg) : typeof cfg.newChatHotkey === "string" ? cfg.newChatHotkey : defaults.newChatHotkey;
+        if (lockNewChatHotkey) {
+          newChatHotkeyEl.value = getLockedNewChatHotkeyDisplay(cfg);
+          newChatHotkeyEl.title = getLockedNewChatHotkeyTitle(cfg);
+        } else {
+          newChatHotkeyEl.value = typeof cfg.newChatHotkey === "string" ? cfg.newChatHotkey : defaults.newChatHotkey;
+        }
       }
       if (loopEl) loopEl.value = String(clampInt2(cfg.loopCount, { min: 1, max: 999, fallback: clampInt2(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }));
       setDelayControlValue(
@@ -14539,7 +14560,7 @@ ${displayTargetText}`;
         newChatHotkeyEl.setAttribute("aria-readonly", "true");
         newChatHotkeyEl.tabIndex = -1;
         newChatHotkeyEl.style.cursor = "default";
-        newChatHotkeyEl.title = getLockedNewChatHotkeyDisplay();
+        newChatHotkeyEl.title = getLockedNewChatHotkeyTitle();
       }
       newChatRow.appendChild(newChatLabel);
       newChatRow.appendChild(newChatHotkeyEl);
