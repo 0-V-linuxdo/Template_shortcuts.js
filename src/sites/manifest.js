@@ -71,16 +71,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260429] v1.3.2",
+            name: "[ChatGPT] 快捷键跳转 [20260429] v1.3.3",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260429] v1.3.2",
-            updateLog: "1.3.2: 同步 Template v1.3.2，快捷输入触发快捷键下拉仅显示快捷键，动作名称改为鼠标悬停提示。",
+            version: "[20260429] v1.3.3",
+            updateLog: "1.3.3: 同步 Template v1.3.3，快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260429] v1.3.2",
+                    name: "[ChatGPT] Shortcut Jump [20260429] v1.3.3",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.3.2: Synced Template v1.3.2; Quick Input trigger shortcut dropdowns now show only shortcut keys, with action names in hover tooltips."
+                    updateLog: "1.3.3: Synced Template v1.3.3; Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover."
                 }
             },
             match: [
@@ -167,16 +167,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260425] v1.0.2",
+            name: "[Gemini] 快捷键跳转 [20260429] v1.3.3",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260425] v1.0.2",
-            updateLog: "1.0.2: 脚本图标改为黑底原生 Gemini 星芒，并将默认快捷键迁移到 Gemini UI 左侧原生图标。",
+            version: "[20260429] v1.3.3",
+            updateLog: "1.3.3: 同步 Template v1.3.3，快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260425] v1.0.2",
+                    name: "[Gemini] Shortcut Jump [20260429] v1.3.3",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.2: Switched the script icon to a black Gemini sparkle and migrated default shortcuts to native Gemini-style icons."
+                    updateLog: "1.3.3: Synced Template v1.3.3; Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover."
                 }
             },
             match: [

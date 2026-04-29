@@ -253,7 +253,7 @@ const STEP_DELAY_MAX_MS = 30000;
                 }),
                 delayUnits: Object.freeze({
                     ms: "ms",
-                    s: "sec",
+                    s: "s",
                     m: "min"
                 }),
                 stages: Object.freeze({
@@ -317,7 +317,7 @@ const STEP_DELAY_MAX_MS = 30000;
                     imageInsertFailed: "Image insertion failed; this loop will stop.",
                     imagesInserted: (count) => `Inserted images successfully: ${count}.`,
                     imageReady: "Images are ready.",
-                    loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), { ms: "ms", s: "sec", m: "min" })) => `Waiting between loops: ${formattedDelay} (after send -> before new chat).`,
+                    loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), { ms: "ms", s: "s", m: "min" })) => `Waiting between loops: ${formattedDelay} (after send -> before new chat).`,
                     newChatTriggered: (hotkey, ok) => (ok ? `Loop triggered: ${hotkey} new chat.` : `Failed to create new chat for loop: ${hotkey}.`),
                     newChatRetrying: (hotkey, attempt, maxRetries) => `New chat verification failed; retrying ${attempt}/${maxRetries} (${hotkey}).`,
                     newChatNotReady: "New chat is still not ready after retries; stopped to avoid continuing in the old context.",

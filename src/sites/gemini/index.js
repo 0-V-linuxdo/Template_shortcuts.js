@@ -3153,7 +3153,7 @@
             triggerNewChat: ({ shouldCancel = null } = {}) => triggerNativeNewChat({ shouldCancel }),
             newChatLabel: getNativeNewChatLabel,
             lockNewChatHotkey: true,
-            lockedNewChatHotkeyDisplay: getNativeNewChatLabel,
+            lockedNewChatHotkeyDisplay: "native",
             sendMessage: sendGeminiMessage
         });
     }

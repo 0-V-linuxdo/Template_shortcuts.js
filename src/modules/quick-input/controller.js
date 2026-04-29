@@ -598,11 +598,28 @@ export function createController(userOptions = {}) {
                 return label || String(hotkey || "").trim();
             }
 
-            function getLockedNewChatHotkeyDisplay(cfg = null) {
-                const value = String(
+            function getLockedNewChatHotkeyValue(cfg = null) {
+                return String(
                     (cfg && typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey
                 );
+            }
+
+            function getLockedNewChatHotkeyDisplay(cfg = null) {
+                const value = getLockedNewChatHotkeyValue(cfg);
                 return resolveDynamicText(lockedNewChatHotkeyDisplay, "") || getNewChatTriggerLabel(value);
+            }
+
+            function getLockedNewChatHotkeyTitle(cfg = null) {
+                const value = getLockedNewChatHotkeyValue(cfg).trim();
+                if (!value) return "";
+                const formatter = engine?.core?.hotkeys?.formatForDisplay || null;
+                if (typeof formatter === "function") {
+                    try {
+                        const formatted = String(formatter(value) || "").trim();
+                        if (formatted) return formatted;
+                    } catch {}
+                }
+                return value;
             }
 
             function resolveDynamicText(value, fallback = "") {
@@ -2067,9 +2084,12 @@ export function createController(userOptions = {}) {
                     refreshHotkeySelects();
                 }
                 if (newChatHotkeyEl) {
-                    newChatHotkeyEl.value = lockNewChatHotkey
-                        ? getLockedNewChatHotkeyDisplay(cfg)
-                        : ((typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey);
+                    if (lockNewChatHotkey) {
+                        newChatHotkeyEl.value = getLockedNewChatHotkeyDisplay(cfg);
+                        newChatHotkeyEl.title = getLockedNewChatHotkeyTitle(cfg);
+                    } else {
+                        newChatHotkeyEl.value = (typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey;
+                    }
                 }
                 if (loopEl) loopEl.value = String(clampInt(cfg.loopCount, { min: 1, max: 999, fallback: clampInt(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }));
                 setDelayControlValue(
@@ -3299,7 +3319,7 @@ export function createController(userOptions = {}) {
                     newChatHotkeyEl.setAttribute("aria-readonly", "true");
                     newChatHotkeyEl.tabIndex = -1;
                     newChatHotkeyEl.style.cursor = "default";
-                    newChatHotkeyEl.title = getLockedNewChatHotkeyDisplay();
+                    newChatHotkeyEl.title = getLockedNewChatHotkeyTitle();
                 }
                 newChatRow.appendChild(newChatLabel);
                 newChatRow.appendChild(newChatHotkeyEl);
