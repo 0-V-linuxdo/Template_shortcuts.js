@@ -162,7 +162,19 @@ import { gmRegisterMenuCommand, gmUnregisterMenuCommand } from "../../shared/pla
                         background-color: var(--${p}-hover-bg);
                         transform: scale(1.05);
                     }
-                    .${p}-filter-label { margin-right: 6px; }
+                    .${p}-filter-label {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        margin-right: 6px;
+                        line-height: 1;
+                    }
+                    .${p}-filter-label-text {
+                        display: none;
+                    }
+                    .${p}-filter-button[data-active="1"] .${p}-filter-label-text {
+                        display: inline;
+                    }
                     .${p}-filter-count {
                         background: var(--${p}-filter-color, var(--${p}-primary));
                         color: #fff;

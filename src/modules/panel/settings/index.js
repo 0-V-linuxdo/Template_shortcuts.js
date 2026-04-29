@@ -162,9 +162,8 @@ export function createSettingsPanelLayer(ctx = {}) {
                     addRect({ x: "4", y: "14", width: "6", height: "6", rx: "1.2" });
                     addRect({ x: "14", y: "14", width: "6", height: "6", rx: "1.2" });
                 } else if (type === "url") {
-                    addPath("M14 4h6v6");
-                    addPath("M20 4 10 14");
-                    addRect({ x: "4", y: "10", width: "10", height: "10", rx: "2" });
+                    addPath("M10 13a5 5 0 0 0 7.54.54l2.46-2.46a5 5 0 0 0-7.07-7.07l-1.4 1.4");
+                    addPath("M14 11a5 5 0 0 0-7.54-.54L4 12.92a5 5 0 0 0 7.07 7.07l1.4-1.4");
                 } else if (type === "selector") {
                     addPath("M5 3 19 12 12.5 14.2 10 21 5 3Z");
                     addLine({ x1: "12.5", y1: "14.2", x2: "17", y2: "19" });
@@ -175,7 +174,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                     addLine({ x1: "15", y1: "10", x2: "15.01", y2: "10" });
                     addLine({ x1: "8", y1: "14", x2: "16", y2: "14" });
                 } else if (type === "custom") {
-                    addPath("M21 4.8a5.5 5.5 0 0 1-7.25 7.25L7.5 18.3a2.3 2.3 0 0 1-3.25-3.25l6.25-6.25A5.5 5.5 0 0 1 17.2 2L14 5.2 15.8 7 19 3.8c.8.1 1.5.5 2 1Z");
+                    addPath("M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7Z");
                 } else {
                     addPath("M9.6 3.5a2.4 2.4 0 0 1 4.8 0v1.1h1.1a2.4 2.4 0 0 1 0 4.8h-1.1v1.2h1.2a2.4 2.4 0 0 1 0 4.8h-1.2v1.1a2.4 2.4 0 0 1-4.8 0v-1.1H8.5a2.4 2.4 0 0 1 0-4.8h1.1V9.4H8.5a2.4 2.4 0 0 1 0-4.8h1.1V3.5Z");
                 }
@@ -289,7 +288,8 @@ export function createSettingsPanelLayer(ctx = {}) {
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        lineHeight: "0"
+                        gap: "6px",
+                        lineHeight: "1"
                     });
                     const iconMeta = filterType === "all"
                         ? { type: "all", label: labelText, color, builtin: true }
@@ -297,6 +297,11 @@ export function createSettingsPanelLayer(ctx = {}) {
                     labelSpan.title = iconMeta.label;
                     labelSpan.setAttribute("aria-label", iconMeta.label);
                     labelSpan.appendChild(createActionTypeIcon(iconMeta, { size: 16 }));
+
+                    const labelTextSpan = document.createElement("span");
+                    labelTextSpan.className = `${classes.filterLabel}-text`;
+                    labelTextSpan.textContent = labelText;
+                    labelSpan.appendChild(labelTextSpan);
 
                     const countSpan = document.createElement("span");
                     countSpan.className = classes.filterCount;
@@ -628,7 +633,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 	            const searchIconBtn = document.createElement("button");
 	            searchIconBtn.type = "button";
 	            searchIconBtn.title = options.text.hints.searchPlaceholder || "Search";
-	            searchIconBtn.textContent = "🔍";
+                    searchIconBtn.setAttribute("aria-label", options.text.hints.searchPlaceholder || "Search");
 	            Object.assign(searchIconBtn.style, {
 	                width: "32px",
 	                height: "32px",
@@ -642,6 +647,19 @@ export function createSettingsPanelLayer(ctx = {}) {
 	                padding: "0",
 	                flex: "0 0 32px"
 	            });
+                    const searchIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                    searchIcon.setAttribute("viewBox", "0 0 24 24");
+                    searchIcon.setAttribute("fill", "none");
+                    searchIcon.setAttribute("aria-hidden", "true");
+                    Object.assign(searchIcon.style, {
+                        width: "18px",
+                        height: "18px",
+                        display: "block",
+                        pointerEvents: "none"
+                    });
+                    searchIcon.appendChild(createIconNode("circle", { cx: "10.5", cy: "10.5", r: "5.5", ...iconStrokeAttrs }));
+                    searchIcon.appendChild(createIconNode("path", { d: "M15 15l4.5 4.5", ...iconStrokeAttrs }));
+                    searchIconBtn.replaceChildren(searchIcon);
 
 	            const searchInput = document.createElement("input");
 	            searchInput.type = "text";
