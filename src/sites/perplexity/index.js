@@ -39,6 +39,26 @@
         "https://www.perplexity.ai/favicon.ico"
     ];
 
+    const SITE_MESSAGES = Object.freeze({
+        "zh-CN": {
+            menuCommandLabel: "Perplexity - 设置快捷键",
+            panelTitle: "Perplexity - 自定义快捷键",
+            shortcuts: {
+                "New Thread": "新建线程",
+                "Toggle Incognito": "切换隐身模式",
+                "Focus Ask Input": "聚焦提问输入框",
+                "Go to Home": "前往首页",
+                "Go to Library": "前往资料库",
+                "Go to Discover": "前往发现",
+                "Go to Spaces": "前往 Spaces"
+            }
+        },
+        "en-US": {
+            menuCommandLabel: "Perplexity - Shortcut settings",
+            panelTitle: "Perplexity - Custom shortcuts"
+        }
+    });
+
     // 默认快捷键配置（为Perplexity.ai优化）
     const defaultShortcuts = [
         // --- Perplexity原生快捷键模拟 ---
@@ -135,6 +155,9 @@
             idPrefix: "perplexity",
             cssPrefix: "perplexity",
             compactBreakpoint: 800
+        },
+        i18n: {
+            messages: SITE_MESSAGES
         },
         defaultIconURL,
         iconLibrary: defaultIcons,

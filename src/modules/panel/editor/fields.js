@@ -56,7 +56,7 @@ function panelCreateInputField(ctx, labelText, value, type = "text", placeholder
 
             const textarea = document.createElement("textarea");
             textarea.value = value || "";
-            textarea.placeholder = options?.text?.editor?.placeholders?.icon || "在此粘贴URL, 或从下方图库选择";
+            textarea.placeholder = options?.text?.editor?.placeholders?.icon || "Paste a URL here, or choose from the library below";
             textarea.rows = 1;
             Object.assign(textarea.style, {
                 minHeight: "36px",
@@ -69,7 +69,7 @@ function panelCreateInputField(ctx, labelText, value, type = "text", placeholder
             });
 
             const darkLabel = document.createElement("div");
-            darkLabel.textContent = options?.text?.editor?.labels?.iconDark || "黑暗模式图标URL:";
+            darkLabel.textContent = options?.text?.editor?.labels?.iconDark || "Dark-mode icon URL:";
             Object.assign(darkLabel.style, {
                 marginTop: "2px",
                 fontSize: "1em",
@@ -79,7 +79,7 @@ function panelCreateInputField(ctx, labelText, value, type = "text", placeholder
 
             const darkTextarea = document.createElement("textarea");
             darkTextarea.value = darkValue || "";
-            darkTextarea.placeholder = options?.text?.editor?.placeholders?.iconDark || "可选：黑暗模式图标URL";
+            darkTextarea.placeholder = options?.text?.editor?.placeholders?.iconDark || "Optional: dark-mode icon URL";
             darkTextarea.rows = 1;
             Object.assign(darkTextarea.style, {
                 minHeight: "36px",

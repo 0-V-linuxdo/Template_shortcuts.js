@@ -46,6 +46,21 @@
         'https://telegram.org/favicon.ico'
     ];
 
+    const SITE_MESSAGES = Object.freeze({
+        "en-US": {
+            menuCommandLabel: "Telegram - Shortcut settings",
+            panelTitle: "Telegram - Custom shortcuts",
+            shortcuts: {
+                "返回聊天列表": "Return to chat list",
+                "返回": "Back",
+                "搜索聊天": "Search chat",
+                "到底部": "Go to bottom",
+                "搜索关闭": "Close search",
+                "菜单按钮": "Menu button"
+            }
+        }
+    });
+
     const baseShortcut = {
         url: '',
         urlMethod: 'current',
@@ -296,6 +311,9 @@
         ui: {
             idPrefix: 'telegram'
         },
+        i18n: {
+            messages: SITE_MESSAGES
+        },
         defaultIconURL,
         iconLibrary: defaultIcons,
         protectedIconUrls,
@@ -307,13 +325,13 @@
         allowOverrideBuiltinActions: true,
         actionTypeMeta: {
             selector: {
-                label: '元素点击',
-                shortLabel: '点击',
+                label: 'Element click',
+                shortLabel: 'Click',
                 color: '#FF9800',
                 builtin: true
             },
             url: {
-                label: 'URL跳转',
+                label: 'URL jump',
                 shortLabel: 'URL',
                 color: '#4CAF50',
                 builtin: true

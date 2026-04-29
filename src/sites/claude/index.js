@@ -47,6 +47,52 @@
         "https://claude.ai/images/claude_app_icon.png"
     ];
 
+    const SITE_MESSAGES = Object.freeze({
+        "zh-CN": {
+            menuCommandLabel: "Claude - 设置快捷键",
+            panelTitle: "Claude - 自定义快捷键",
+            shortcuts: {
+                "Toggle Sidebar": "切换侧边栏",
+                "New Conversation": "新建对话",
+                "Recent Conversations": "最近对话",
+                "Incognito Chat": "无痕聊天",
+                "Star Conversation": "收藏对话",
+                "Delete Conversation": "删除对话",
+                "Stop Claude's Response": "停止 Claude 回复",
+                "Extended thinking": "扩展思考",
+                "web": "网页搜索",
+                "Profile": "个人资料",
+                "Features": "功能设置"
+            },
+            dataAdapters: {
+                toolMenu: {
+                    label: "菜单关键词（或粘贴 JSON，高级用法）:",
+                    placeholder: "例如: web / Web search / 网页搜索 / 联网搜索"
+                },
+                conversationMenu: {
+                    label: "Conversation menu 关键词（或粘贴 JSON，高级用法）:",
+                    placeholder: "例如: Star / Rename / Add to project / Delete"
+                }
+            }
+        },
+        "en-US": {
+            menuCommandLabel: "Claude - Shortcut settings",
+            panelTitle: "Claude - Custom shortcuts",
+            dataAdapters: {
+                toolMenu: {
+                    label: "Menu keyword (or paste JSON, advanced):",
+                    placeholder: "Example: web / Web search / Web"
+                },
+                conversationMenu: {
+                    label: "Conversation menu keyword (or paste JSON, advanced):",
+                    placeholder: "Example: Star / Rename / Add to project / Delete"
+                }
+            }
+        }
+    });
+
+    const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
+
     // ===== Claude 特有功能模块开始：1step Web =====
 	    const CLAUDE_MENU_ITEM_SELECTOR = "[role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']";
 
@@ -332,12 +378,13 @@
 	    }
 
 	    const CLAUDE_MENU_DATA_ADAPTER = createClaudeMenuDataAdapter({
-	        placeholder: "例如: web / Web search / 网页搜索 / 联网搜索"
+	        label: siteText("dataAdapters.toolMenu.label", "Menu keyword (or paste JSON, advanced):"),
+	        placeholder: siteText("dataAdapters.toolMenu.placeholder", "Example: web / Web search")
 	    });
 
 	    const CLAUDE_CONVERSATION_MENU_DATA_ADAPTER = createClaudeMenuDataAdapter({
-	        label: "Conversation menu 关键词（或粘贴 JSON，高级用法）:",
-	        placeholder: "例如: Star / Rename / Add to project / Delete"
+	        label: siteText("dataAdapters.conversationMenu.label", "Conversation menu keyword (or paste JSON, advanced):"),
+	        placeholder: siteText("dataAdapters.conversationMenu.placeholder", "Example: Star / Rename / Add to project / Delete")
 	    });
 
 	    const CUSTOM_ACTIONS = {
@@ -405,6 +452,9 @@
         // UI配置
         ui: {
             idPrefix: "claude"
+        },
+        i18n: {
+            messages: SITE_MESSAGES
         },
 
         // 图标配置

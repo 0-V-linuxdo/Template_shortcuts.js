@@ -118,7 +118,7 @@ import { panelMatchesCurrentView } from "./filter.js";
                         }
                     } catch (err) {
                         console.error("Drag-and-drop error:", err);
-                        const tpl = options?.text?.panel?.dragError || "拖拽排序时出错: {error}";
+                        const tpl = options?.text?.panel?.dragError || "Drag sorting error: {error}";
                         showAlert(tpl.replace("{error}", String(err ?? "")));
                     }
                 });

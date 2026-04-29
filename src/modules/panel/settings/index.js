@@ -23,6 +23,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                 safeGMGet,
                 safeGMSet,
                 panelFilter,
+                setLocaleMode,
                 debounce
             } = ctx;
             const { theme, colors, style, dialogs, layout } = uiShared;
@@ -120,17 +121,23 @@ export function createSettingsPanelLayer(ctx = {}) {
                 const entry = (typeof core?.actions?.get === "function") ? core.actions.get(type) : null;
                 const meta = entry && entry.meta && typeof entry.meta === "object" ? entry.meta : null;
 
-                const labelRaw = meta && typeof meta.label === "string" ? meta.label.trim() : "";
-                const unknownLabel = options?.text?.actionTypes?.unknownLabel || "未知";
+                const builtinLabels = {
+                    url: options?.text?.stats?.url || "URL jump",
+                    selector: options?.text?.stats?.selector || "Element click",
+                    simulate: options?.text?.stats?.simulate || "Key simulation",
+                    custom: options?.text?.stats?.custom || "Custom action"
+                };
+                const labelRaw = builtinLabels[type] || (meta && typeof meta.label === "string" ? meta.label.trim() : "");
+                const unknownLabel = options?.text?.actionTypes?.unknownLabel || "Unknown";
                 const label = labelRaw || (type === "unknown" ? unknownLabel : type);
 
                 const shortLabelRaw = meta && typeof meta.shortLabel === "string" ? meta.shortLabel.trim() : "";
                 let shortLabel = shortLabelRaw;
                 if (!shortLabel) {
                     if (type === "url") shortLabel = options?.text?.actionTypes?.urlShortLabel || "URL";
-                    else if (type === "selector") shortLabel = options?.text?.actionTypes?.selectorShortLabel || "点击";
-                    else if (type === "simulate") shortLabel = options?.text?.actionTypes?.simulateShortLabel || "按键";
-                    else if (type === "custom") shortLabel = options?.text?.actionTypes?.customShortLabel || "自定义";
+                    else if (type === "selector") shortLabel = options?.text?.actionTypes?.selectorShortLabel || "Click";
+                    else if (type === "simulate") shortLabel = options?.text?.actionTypes?.simulateShortLabel || "Keys";
+                    else if (type === "custom") shortLabel = options?.text?.actionTypes?.customShortLabel || "Custom";
                     else shortLabel = label.length > 4 ? label.slice(0, 4) : label;
                 }
 
@@ -158,6 +165,12 @@ export function createSettingsPanelLayer(ctx = {}) {
                     } catch {}
                 }
                 return "-";
+            }
+
+            function getShortcutDisplayName(item) {
+                return typeof core?.getShortcutDisplayName === "function"
+                    ? core.getShortcutDisplayName(item)
+                    : String(item?.name || "");
             }
 
             function updateFilterButtonsState() {
@@ -271,7 +284,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                             : ["url", "selector", "simulate", "custom"];
 
 		                const filterButtons = [
-		                    { type: 'all', label: options.text.stats.total || "总计", count: stats.total, color: getButtonColor("all") }
+		                    { type: 'all', label: options.text.stats.total || "Total", count: stats.total, color: getButtonColor("all") }
 		                ];
 
                         builtinOrder.forEach((type) => {
@@ -288,7 +301,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                                 const meta = getActionTypeMeta(type);
                                 return { type, label: meta.label, count: byType[type], color: meta.color };
                             })
-                            .sort((a, b) => String(a.label).localeCompare(String(b.label), "zh", { numeric: true }));
+                            .sort((a, b) => String(a.label).localeCompare(String(b.label), state.effectiveLocale || "zh-CN", { numeric: true }));
 
                         extraButtons.forEach((btn) => filterButtons.push(btn));
 		                filterButtons.forEach(buttonData => {
@@ -463,7 +476,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 				            });
 
 			            const title = document.createElement("h2");
-			            title.textContent = options.panelTitle || '自定义快捷键';
+			            title.textContent = options.panelTitle || 'Custom shortcuts';
 			            Object.assign(title.style, {
 			                margin: "0",
 			                fontSize: "1.1em",
@@ -476,8 +489,8 @@ export function createSettingsPanelLayer(ctx = {}) {
 
 		            const settingsBtn = document.createElement("button");
 		            settingsBtn.type = "button";
-		            settingsBtn.title = options.text.buttons.settings || "设置";
-                    settingsBtn.setAttribute("aria-label", options.text.buttons.settings || "设置");
+		            settingsBtn.title = options.text.buttons.settings || "Settings";
+                    settingsBtn.setAttribute("aria-label", options.text.buttons.settings || "Settings");
 	            Object.assign(settingsBtn.style, {
 	                width: "32px",
 	                height: "32px",
@@ -530,7 +543,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 
 	            const searchIconBtn = document.createElement("button");
 	            searchIconBtn.type = "button";
-	            searchIconBtn.title = options.text.hints.searchPlaceholder || "搜索";
+	            searchIconBtn.title = options.text.hints.searchPlaceholder || "Search";
 	            searchIconBtn.textContent = "🔍";
 	            Object.assign(searchIconBtn.style, {
 	                width: "32px",
@@ -548,7 +561,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 
 	            const searchInput = document.createElement("input");
 	            searchInput.type = "text";
-	            searchInput.placeholder = options.text.hints.searchPlaceholder || "搜索名称/目标";
+	            searchInput.placeholder = options.text.hints.searchPlaceholder || "Search name/target";
 	            searchInput.value = String(state.searchQuery || "");
 	            Object.assign(searchInput.style, {
 	                flex: "1 1 auto",
@@ -564,7 +577,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 
 		            const clearSearchBtn = document.createElement("button");
 		            clearSearchBtn.type = "button";
-		            clearSearchBtn.title = options.text.buttons.clear || "清除";
+		            clearSearchBtn.title = options.text.buttons.clear || "Clear";
 		            clearSearchBtn.textContent = "×";
 		        Object.assign(clearSearchBtn.style, {
 		            width: "32px",
@@ -749,7 +762,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 	            bottomBar.appendChild(leftBar);
 
 	            const addBtn = document.createElement("button");
-	            addBtn.textContent = options.text.buttons.addShortcut || "添加新快捷键";
+	            addBtn.textContent = options.text.buttons.addShortcut || "Add shortcut";
 	            addBtn.onclick = () => { editShortcut(); };
 	            leftBar.appendChild(addBtn);
 
@@ -806,7 +819,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 	                });
 
 	                const titleEl = document.createElement("h3");
-	                titleEl.textContent = options.text.buttons.settings || "设置";
+	                titleEl.textContent = options.text.buttons.settings || "Settings";
 	                Object.assign(titleEl.style, {
 	                    margin: "0",
 	                    fontSize: "1.05em",
@@ -816,7 +829,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 
 	                const closeBtn = document.createElement("button");
 	                closeBtn.type = "button";
-	                closeBtn.title = options.text.buttons.close || "关闭";
+	                closeBtn.title = options.text.buttons.close || "Close";
 	                closeBtn.textContent = "×";
 	                Object.assign(closeBtn.style, {
 	                    fontSize: "20px",
@@ -840,7 +853,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                     });
 
                     const themeLabel = document.createElement("div");
-                    themeLabel.textContent = options?.text?.panel?.themeModeLabel || "面板主题";
+                    themeLabel.textContent = options?.text?.panel?.themeModeLabel || "Panel theme";
                     Object.assign(themeLabel.style, {
                         fontSize: "14px",
                         fontWeight: "bold"
@@ -868,9 +881,9 @@ export function createSettingsPanelLayer(ctx = {}) {
                         themeSelect.appendChild(opt);
                     };
 
-                    addThemeOption("auto", options?.text?.panel?.themeModeAuto || "自动(跟随页面)");
-                    addThemeOption("light", options?.text?.panel?.themeModeLight || "普通");
-                    addThemeOption("dark", options?.text?.panel?.themeModeDark || "黑暗");
+                    addThemeOption("auto", options?.text?.panel?.themeModeAuto || "Auto (follow page)");
+                    addThemeOption("light", options?.text?.panel?.themeModeLight || "Light");
+                    addThemeOption("dark", options?.text?.panel?.themeModeDark || "Dark");
 
                     themeSelect.value = String(state.themeMode || "auto");
                     themeSelect.onchange = () => {
@@ -883,8 +896,56 @@ export function createSettingsPanelLayer(ctx = {}) {
                     themeRow.appendChild(themeSelect);
                     dialog.appendChild(themeRow);
 
+                    const localeRow = document.createElement("div");
+                    Object.assign(localeRow.style, {
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px"
+                    });
+
+                    const localeLabel = document.createElement("div");
+                    localeLabel.textContent = options?.text?.panel?.languageLabel || "Interface language";
+                    Object.assign(localeLabel.style, {
+                        fontSize: "14px",
+                        fontWeight: "bold"
+                    });
+
+                    const localeSelect = document.createElement("select");
+                    Object.assign(localeSelect.style, {
+                        flex: "0 0 200px",
+                        maxWidth: "100%"
+                    });
+                    styleInputField(localeSelect);
+
+                    const addLocaleOption = (value, label) => {
+                        const opt = document.createElement("option");
+                        opt.value = value;
+                        opt.textContent = label;
+                        localeSelect.appendChild(opt);
+                    };
+
+                    addLocaleOption("auto", options?.text?.panel?.languageAuto || "Auto (follow browser)");
+                    addLocaleOption("zh-CN", options?.text?.panel?.languageZhCN || "Simplified Chinese");
+                    addLocaleOption("en-US", options?.text?.panel?.languageEnUS || "English");
+
+                    localeSelect.value = String(state.localeMode || "auto");
+                    localeSelect.onchange = () => {
+                        const nextMode = String(localeSelect.value || "auto");
+                        if (typeof setLocaleMode === "function") {
+                            setLocaleMode(nextMode, { persist: true, refreshPanel: true });
+                        } else {
+                            state.localeMode = nextMode;
+                            persistUiPrefs({ localeMode: state.localeMode });
+                        }
+                    };
+
+                    localeRow.appendChild(localeLabel);
+                    localeRow.appendChild(localeSelect);
+                    dialog.appendChild(localeRow);
+
                     const actionsLabel = document.createElement("div");
-                    actionsLabel.textContent = options?.text?.panel?.actionsLabel || "脚本配置";
+                    actionsLabel.textContent = options?.text?.panel?.actionsLabel || "Script config";
                     Object.assign(actionsLabel.style, {
                         fontSize: "14px",
                         fontWeight: "bold",
@@ -902,10 +963,10 @@ export function createSettingsPanelLayer(ctx = {}) {
 	                });
 
 	                const resetActionBtn = document.createElement("button");
-	                resetActionBtn.textContent = options.text.buttons.reset || "重置默认";
+	                resetActionBtn.textContent = options.text.buttons.reset || "Reset defaults";
 	                resetActionBtn.onclick = () => {
 	                    closeSettingsMenu({ restoreFocus: false });
-	                    showConfirmDialog(options?.text?.panel?.resetConfirm || "确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)", () => {
+	                    showConfirmDialog(options?.text?.panel?.resetConfirm || "Reset to the default configuration? Changes are saved only after clicking \"Save and close\".", () => {
 	                        resetToDefaults();
 	                    });
 	                };
@@ -913,7 +974,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                     styleButton(resetActionBtn, "#9E9E9E", "#757575");
 
 	                const importActionBtn = document.createElement("button");
-	                importActionBtn.textContent = options.text.buttons.import || "导入";
+	                importActionBtn.textContent = options.text.buttons.import || "Import";
 	                importActionBtn.onclick = () => {
 	                    closeSettingsMenu({ restoreFocus: false });
 	                    openImportDialog();
@@ -922,7 +983,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                     styleButton(importActionBtn, "#2196F3", "#1e88e5");
 
 	                const exportActionBtn = document.createElement("button");
-	                exportActionBtn.textContent = options.text.buttons.export || "导出";
+	                exportActionBtn.textContent = options.text.buttons.export || "Export";
 	                exportActionBtn.onclick = () => {
 	                    closeSettingsMenu({ restoreFocus: false });
 	                    openExportDialog();
@@ -952,7 +1013,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 	            settingsBtn.onclick = openSettingsMenu;
 
 	            const saveBtn = document.createElement("button");
-	            saveBtn.textContent = options.text.buttons.saveAndClose || "保存并关闭";
+	            saveBtn.textContent = options.text.buttons.saveAndClose || "Save and close";
 	            saveBtn.onclick = () => { core.persistShortcuts(); closePanel(); };
 	            bottomBar.appendChild(saveBtn);
 
@@ -1079,12 +1140,12 @@ export function createSettingsPanelLayer(ctx = {}) {
                 const headRow = document.createElement("tr");
                 const tableHeaders = options?.text?.panel?.tableHeaders || {};
                 const headers = [
-                    { text: tableHeaders.icon || "图标", width: "60px", align: "center" },
-                    { text: tableHeaders.name || "名称", width: "15%" },
-                    { text: tableHeaders.type || "类型", width: "80px" },
-                    { text: tableHeaders.target || "目标", width: "40%" },
-                    { text: tableHeaders.hotkey || "快捷键", width: "15%" },
-                    { text: tableHeaders.actions || "操作", width: "120px", align: "center" }
+                    { text: tableHeaders.icon || "Icon", width: "60px", align: "center" },
+                    { text: tableHeaders.name || "Name", width: "15%" },
+                    { text: tableHeaders.type || "Type", width: "80px" },
+                    { text: tableHeaders.target || "Target", width: "40%" },
+                    { text: tableHeaders.hotkey || "Shortcut", width: "15%" },
+                    { text: tableHeaders.actions || "Actions", width: "120px", align: "center" }
                 ];
                 headers.forEach(header => {
                     const th = document.createElement("th");
@@ -1166,7 +1227,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                 tdIcon.appendChild(createShortcutIconPreview(item));
 
                 const tdName = document.createElement("td");
-                tdName.textContent = item.name;
+                tdName.textContent = getShortcutDisplayName(item);
                 styleTableCell(tdName, isDark);
 
                 const tdType = document.createElement("td");
@@ -1182,7 +1243,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                     if (typeMeta.builtin && item.actionType === 'url' && item.url) {
                     const methodText = (typeof getUrlMethodDisplayText === "function")
                         ? getUrlMethodDisplayText(item.urlMethod)
-                        : (URL_METHODS?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "未知跳转方式");
+                        : (URL_METHODS?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "Unknown jump method");
                     tdTarget.title = `${methodText}:\n---\n${targetText}`;
                 } else {
                     let titleText = targetText;
@@ -1258,7 +1319,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                     minWidth: "100px",
                     color: getTextColor(isDark)
                 });
-                nameContainer.textContent = item.name;
+                nameContainer.textContent = getShortcutDisplayName(item);
 
                 const typeContainer = document.createElement("div");
                 const typeMeta = getActionTypeMeta(item.actionType);
@@ -1287,7 +1348,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                     minWidth: "60px",
                     textAlign: "center"
                 });
-                const noHotkeyText = options?.text?.panel?.compact?.noHotkey || "无";
+                const noHotkeyText = options?.text?.panel?.compact?.noHotkey || "None";
                 hotkeyContainer.textContent = core?.hotkeys?.formatForDisplay
                     ? (core.hotkeys.formatForDisplay(item.hotkey) || noHotkeyText)
                     : (item.hotkey || noHotkeyText);
@@ -1319,12 +1380,12 @@ export function createSettingsPanelLayer(ctx = {}) {
                 });
 
                 const targetText = getShortcutTargetText(item);
-                const displayTargetText = targetText === "-" ? (options?.text?.panel?.compact?.emptyTarget || "（无目标配置）") : targetText;
+                const displayTargetText = targetText === "-" ? (options?.text?.panel?.compact?.emptyTarget || "(No target configured)") : targetText;
                 secondRow.textContent = displayTargetText;
                 if (typeMeta.builtin && item.actionType === 'url' && item.url) {
                     const methodText = (typeof getUrlMethodDisplayText === "function")
                         ? getUrlMethodDisplayText(item.urlMethod)
-                        : (URL_METHODS?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "未知跳转方式");
+                        : (URL_METHODS?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "Unknown jump method");
                     secondRow.title = `${methodText}:\n---\n${displayTargetText}`;
                 } else {
                     let titleText = displayTargetText;
@@ -1367,7 +1428,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 
                 const editButton = document.createElement("button");
                 editButton.textContent = "✍️";
-                editButton.title = options.text.buttons.edit || "编辑";
+                editButton.title = options.text.buttons.edit || "Edit";
                 styleTransparentButton(editButton, "#FF9800", getHoverColor(isDark), isDark);
                 Object.assign(editButton.style, {
                     minWidth: "32px",
@@ -1383,7 +1444,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 
                 const delButton = document.createElement("button");
                 delButton.textContent = "🗑️";
-                delButton.title = options.text.buttons.delete || "删除";
+                delButton.title = options.text.buttons.delete || "Delete";
                 styleTransparentButton(delButton, "#F44336", getHoverColor(isDark), isDark);
                 Object.assign(delButton.style, {
                     minWidth: "32px",
@@ -1394,8 +1455,8 @@ export function createSettingsPanelLayer(ctx = {}) {
                 });
                 delButton.onclick = (e) => {
                     e.stopPropagation();
-                    const tpl = options?.text?.panel?.confirmDeleteShortcut || "确定删除快捷键【{name}】吗?";
-                    showConfirmDialog(tpl.replace("{name}", String(item.name ?? "")), () => {
+                    const tpl = options?.text?.panel?.confirmDeleteShortcut || "Delete shortcut \"{name}\"?";
+                    showConfirmDialog(tpl.replace("{name}", String(getShortcutDisplayName(item) ?? "")), () => {
                         core.mutateShortcuts((list) => { list.splice(index, 1); });
                         renderShortcutsList(state.isDarkMode);
                         updateStatsDisplay();

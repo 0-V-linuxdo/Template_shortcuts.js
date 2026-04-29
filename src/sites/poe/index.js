@@ -58,6 +58,54 @@
     let engineInstance = null;
 
     const defaultIconURL = 'https://psc2.cf2.poecdn.net/assets/favicon.svg';
+    const SITE_MESSAGES = Object.freeze({
+        "zh-CN": {
+            menuCommandLabel: "Poe - 设置快捷键",
+            panelTitle: "Poe - 自定义快捷键",
+            keepSidebarVisibleLabel: "Poe - 保持侧边栏显示: {state}",
+            on: "开",
+            off: "关",
+            shortcuts: {
+                "App-Creator": "App Creator",
+                "Explore": "探索",
+                "History": "历史",
+                "Settings": "设置",
+                "New Chat": "新建聊天",
+                "侧边栏切换": "切换侧边栏",
+                "重试": "重试",
+                "保存重命名": "保存重命名",
+                "复制消息": "复制消息",
+                "编辑消息": "编辑消息"
+            },
+            dataAdapters: {
+                poeMessageAction: {
+                    label: "消息动作（copy / edit 或 JSON）:",
+                    placeholder: "例如: copy 或 edit；也可输入 {\"action\":\"copy\"}"
+                }
+            }
+        },
+        "en-US": {
+            menuCommandLabel: "Poe - Shortcut settings",
+            panelTitle: "Poe - Custom shortcuts",
+            keepSidebarVisibleLabel: "Poe - Keep sidebar visible: {state}",
+            on: "On",
+            off: "Off",
+            shortcuts: {
+                "侧边栏切换": "Toggle sidebar",
+                "重试": "Retry",
+                "保存重命名": "Save rename",
+                "复制消息": "Copy message",
+                "编辑消息": "Edit message"
+            },
+            dataAdapters: {
+                poeMessageAction: {
+                    label: "Message action (copy / edit or JSON):",
+                    placeholder: "Example: copy or edit; JSON also works: {\"action\":\"copy\"}"
+                }
+            }
+        }
+    });
+    const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
     const APP_CREATOR_ICON = 'https://qph.cf2.poecdn.net/main-thumb-pb-5003-50-zdgktfpcizyaajmazqorxwnwlzhiwdmi.jpeg';
     const RENAME_SAVE_BUTTON_SELECTOR = 'button.button_primary__Vo3KL';
 
@@ -77,7 +125,8 @@
     }
 
     function getSidebarVisibilityMenuLabel() {
-        return `Poe - 保持侧边栏显示: ${keepSidebarVisible ? '开' : '关'}`;
+        const stateText = engineInstance?.i18n?.t?.(keepSidebarVisible ? "on" : "off", {}, keepSidebarVisible ? "On" : "Off") || (keepSidebarVisible ? 'On' : 'Off');
+        return engineInstance?.i18n?.t?.("keepSidebarVisibleLabel", { state: stateText }, `Poe - Keep sidebar visible: ${stateText}`) || `Poe - Keep sidebar visible: ${stateText}`;
     }
 
     function registerSidebarVisibilityMenuCommand() {
@@ -485,7 +534,7 @@
     function setSidebarVisibilityPreference(nextValue) {
         keepSidebarVisible = !!nextValue;
         setKeepSidebarVisibleSetting(keepSidebarVisible);
-        console.info(`${logTag} 保持侧边栏显示已${keepSidebarVisible ? '启用' : '关闭'}。`);
+        console.info(`${logTag} keep sidebar visible is now ${keepSidebarVisible ? 'enabled' : 'disabled'}.`);
         if (keepSidebarVisible) {
             debouncedEnsureSidebarVisible();
         }
@@ -521,8 +570,8 @@
 
     const CUSTOM_ACTION_DATA_ADAPTERS = {
         poeMessageAction: {
-            label: '消息动作（copy / edit 或 JSON）:',
-            placeholder: '例如: copy 或 edit；也可输入 {"action":"copy"}',
+            label: siteText("dataAdapters.poeMessageAction.label", 'Message action (copy / edit or JSON):'),
+            placeholder: siteText("dataAdapters.poeMessageAction.placeholder", 'Example: copy or edit; JSON also works: {"action":"copy"}'),
             format: (data) => {
                 const raw = (data && typeof data === 'object' && !Array.isArray(data)) ? data : {};
                 const action = normalizeMessageAction(raw.action);
@@ -735,6 +784,9 @@
         ui: {
             idPrefix: 'poe'
         },
+        i18n: {
+            messages: SITE_MESSAGES
+        },
         defaultIconURL,
         iconLibrary: defaultIcons,
         protectedIconUrls,
@@ -756,8 +808,8 @@
         allowOverrideBuiltinActions: true,
         actionTypeMeta: {
             selector: {
-                label: '元素点击',
-                shortLabel: '点击',
+                label: 'Element click',
+                shortLabel: 'Click',
                 color: '#FF9800',
                 builtin: true
             }

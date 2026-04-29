@@ -1,7 +1,8 @@
 import { clone, deepMerge } from "../../shared/base.js";
+import { createI18nContext, getMessageAtPath, mergeLocaleMessages, normalizeLocaleMode } from "../../shared/i18n.js";
 import { getCrypto } from "../../shared/platform/browser.js";
 import { getGmXmlHttpRequest, gmGetValue, gmSetValue } from "../../shared/platform/userscript.js";
-import { DEFAULT_OPTIONS, URL_METHODS } from "../constants.js";
+import { DEFAULT_CORE_I18N_MESSAGES, DEFAULT_OPTIONS, URL_METHODS } from "../constants.js";
 import { setTrustedHTML } from "../utils/dom.js";
 import { createActionRegistry } from "./action-registry.js";
 import { createBuiltinActionTools } from "./builtin-actions.js";
@@ -79,6 +80,8 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
 	                scrollLeft: 0
 	            },
                 themeMode: "auto",
+                localeMode: "auto",
+                effectiveLocale: "zh-CN",
                 legacyIconAdaptiveEnabled: false,
 	            isDarkMode: false,
 	            currentFilter: 'all',
@@ -89,8 +92,10 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
 	            destroyResponsiveListener: null,
 	            destroyDarkModeObserver: null,
 	            destroyDragCss: null,
-                destroyBaseCss: null,
+	            destroyBaseCss: null,
 	            menuCommandRegistered: false,
+	            menuCommandId: null,
+                localeChangedEventName: `${idPrefix}-localeChanged`,
 	            filterChangedEventName: `${idPrefix}-filterChanged`
 	        };
 
@@ -138,9 +143,74 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
         const uiPrefsRaw = safeGMGet(options.storageKeys.uiPrefs, null);
         const uiPrefs = (uiPrefsRaw && typeof uiPrefsRaw === "object" && !Array.isArray(uiPrefsRaw)) ? uiPrefsRaw : {};
         state.themeMode = normalizeThemeMode(uiPrefs.themeMode);
+        state.localeMode = normalizeLocaleMode(uiPrefs.localeMode || userOptions.locale || options.locale || "auto");
         state.legacyIconAdaptiveEnabled = normalizeBoolean(uiPrefs.iconAdaptiveEnabled, false);
         if (state.themeMode === "dark") state.isDarkMode = true;
         if (state.themeMode === "light") state.isDarkMode = false;
+
+        const localeMessages = mergeLocaleMessages(
+            DEFAULT_CORE_I18N_MESSAGES,
+            userOptions?.i18n?.messages || {}
+        );
+        if (userOptions?.text && typeof userOptions.text === "object") {
+            localeMessages["zh-CN"] = deepMerge(localeMessages["zh-CN"] || {}, userOptions.text);
+        }
+        if (userOptions.menuCommandLabel) {
+            localeMessages["zh-CN"] = deepMerge(localeMessages["zh-CN"] || {}, {
+                menuCommandLabel: userOptions.menuCommandLabel
+            });
+        }
+        if (userOptions.panelTitle) {
+            localeMessages["zh-CN"] = deepMerge(localeMessages["zh-CN"] || {}, {
+                panelTitle: userOptions.panelTitle
+            });
+        }
+        const i18n = createI18nContext({
+            localeMode: state.localeMode,
+            fallbackLocale: "zh-CN",
+            messages: localeMessages
+        });
+
+        function localizeUrlMethods(baseMethods = URL_METHODS, text = options.text) {
+            const localized = {};
+            const urlText = text?.urlMethods && typeof text.urlMethods === "object" ? text.urlMethods : {};
+            for (const [methodKey, methodConfig] of Object.entries(baseMethods || {})) {
+                const methodText = urlText[methodKey] || {};
+                const nextOptions = {};
+                for (const [optionKey, optionConfig] of Object.entries(methodConfig?.options || {})) {
+                    const optionText = methodText?.options?.[optionKey] || {};
+                    nextOptions[optionKey] = {
+                        ...optionConfig,
+                        ...optionText
+                    };
+                }
+                localized[methodKey] = {
+                    ...methodConfig,
+                    ...methodText,
+                    options: nextOptions
+                };
+            }
+            return localized;
+        }
+
+        let localizedUrlMethods = {};
+
+        function replaceLocalizedUrlMethods(nextMethods) {
+            for (const key of Object.keys(localizedUrlMethods)) delete localizedUrlMethods[key];
+            Object.assign(localizedUrlMethods, nextMethods || {});
+        }
+
+        function applyLocaleToOptions() {
+            state.localeMode = i18n.getLocaleMode();
+            state.effectiveLocale = i18n.getEffectiveLocale();
+            options.locale = state.localeMode;
+            options.text = i18n.getMessages(state.effectiveLocale);
+            options.menuCommandLabel = options.text.menuCommandLabel || userOptions.menuCommandLabel || DEFAULT_OPTIONS.menuCommandLabel;
+            options.panelTitle = options.text.panelTitle || userOptions.panelTitle || DEFAULT_OPTIONS.panelTitle;
+            replaceLocalizedUrlMethods(localizeUrlMethods(URL_METHODS, options.text));
+        }
+
+        applyLocaleToOptions();
 
         function generateShortcutId() {
             try {
@@ -150,6 +220,110 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
                 }
             } catch {}
             return `sc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+        }
+
+        function normalizeShortcutLabelToken(value, fallback = "") {
+            const token = String(value ?? "").trim();
+            return token || fallback;
+        }
+
+        function createDefaultShortcutLabelKey(shortcut, index) {
+            const explicit = normalizeShortcutLabelToken(shortcut?.labelKey);
+            if (explicit) return explicit;
+            const key = normalizeShortcutLabelToken(shortcut?.key);
+            if (key) return `shortcuts.${key}`;
+            const name = normalizeShortcutLabelToken(shortcut?.name);
+            if (name) return `shortcuts.${name}`;
+            return `shortcuts.default_${index + 1}`;
+        }
+
+        const defaultShortcutLabelMap = new Map();
+        const defaultShortcutLabelNameMap = new Map();
+        options.defaultShortcuts = options.defaultShortcuts.map((shortcut, index) => {
+            const next = shortcut && typeof shortcut === "object" ? { ...shortcut } : {};
+            const labelKey = createDefaultShortcutLabelKey(next, index);
+            if (labelKey && !next.labelKey) next.labelKey = labelKey;
+            const lookupKey = normalizeShortcutLabelToken(next.key || next.id);
+            if (lookupKey && labelKey) {
+                const knownNames = new Set();
+                if (next.name) knownNames.add(String(next.name).trim());
+                for (const locale of i18n.supportedLocales || []) {
+                    const translated = getMessageAtPath(i18n.getMessages(locale), labelKey);
+                    if (typeof translated === "string" && translated.trim()) knownNames.add(translated.trim());
+                }
+                defaultShortcutLabelMap.set(lookupKey, {
+                    labelKey,
+                    name: String(next.name || ""),
+                    knownNames
+                });
+            }
+            if (labelKey) {
+                const nameEntry = {
+                    labelKey,
+                    name: String(next.name || ""),
+                    knownNames: new Set()
+                };
+                if (next.name) nameEntry.knownNames.add(String(next.name).trim());
+                for (const locale of i18n.supportedLocales || []) {
+                    const translated = getMessageAtPath(i18n.getMessages(locale), labelKey);
+                    if (typeof translated === "string" && translated.trim()) nameEntry.knownNames.add(translated.trim());
+                }
+                for (const knownName of nameEntry.knownNames) {
+                    if (knownName && !defaultShortcutLabelNameMap.has(knownName)) {
+                        defaultShortcutLabelNameMap.set(knownName, nameEntry);
+                    }
+                }
+            }
+            return next;
+        });
+
+        function resolveShortcutLabelMetadata(shortcut) {
+            const rawLabelKey = normalizeShortcutLabelToken(shortcut?.labelKey);
+            if (rawLabelKey) return { labelKey: rawLabelKey, name: String(shortcut?.name || "") };
+
+            const lookupKey = normalizeShortcutLabelToken(shortcut?.key || shortcut?.id);
+            const defaults = (lookupKey ? defaultShortcutLabelMap.get(lookupKey) : null)
+                || defaultShortcutLabelNameMap.get(String(shortcut?.name || "").trim());
+            if (!defaults) return { labelKey: "", name: String(shortcut?.name || "") };
+
+            const rawName = String(shortcut?.name || "").trim();
+            if (!rawName || defaults.knownNames.has(rawName)) {
+                return { labelKey: defaults.labelKey, name: defaults.name || rawName };
+            }
+            return { labelKey: "", name: String(shortcut?.name || "") };
+        }
+
+        function getShortcutDisplayName(shortcut) {
+            const labelKey = normalizeShortcutLabelToken(shortcut?.labelKey);
+            const fallback = String(shortcut?.name || "");
+            if (!labelKey) return fallback;
+            return i18n.t(labelKey, {}, fallback) || fallback;
+        }
+
+        function persistUiPrefsPatch(patch = {}) {
+            const key = options?.storageKeys?.uiPrefs;
+            if (!key) return;
+            const raw = safeGMGet(key, null);
+            const prev = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
+            safeGMSet(key, { ...prev, ...patch });
+        }
+
+        function setLocaleMode(nextMode, { persist = true, refreshPanel = true } = {}) {
+            const changed = i18n.setLocaleMode(nextMode);
+            applyLocaleToOptions();
+            if (persist) persistUiPrefsPatch({ localeMode: state.localeMode });
+            if (engineApi && typeof engineApi.refreshMenuCommand === "function") {
+                engineApi.refreshMenuCommand();
+            }
+            try {
+                document.dispatchEvent(new CustomEvent(state.localeChangedEventName, {
+                    detail: { localeMode: state.localeMode, effectiveLocale: state.effectiveLocale }
+                }));
+            } catch {}
+            if (refreshPanel && changed && engineApi && typeof engineApi.reopenSettingsPanel === "function") {
+                engineApi.reopenSettingsPanel();
+            }
+            return changed;
         }
 
         function ensureUniqueShortcutIds(list) {
@@ -176,10 +350,12 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
             }
             const dataRaw = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : null;
             const normalizeHotkey = typeof hotkeys?.normalize === "function" ? hotkeys.normalize : (v) => String(v || "");
+            const labelMeta = resolveShortcutLabelMetadata(shortcut);
             return {
                 id,
                 key,
-                name: shortcut.name || "",
+                name: labelMeta.name || shortcut.name || "",
+                labelKey: labelMeta.labelKey || "",
                 actionType: shortcut.actionType || (shortcut.url ? 'url' : (shortcut.selector ? 'selector' : (shortcut.simulateKeys ? 'simulate' : (shortcut.customAction ? 'custom' : '')))),
                 url: shortcut.url || "",
                 urlMethod: shortcut.urlMethod || "current",
@@ -213,7 +389,7 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
         const iconManager = createIconManager({ options, state, safeGMGet, safeGMSet, GMX });
                 const builtinActions = createBuiltinActionTools({
             options,
-            URL_METHODS,
+            URL_METHODS: localizedUrlMethods,
             hotkeys,
             showAlert: uiShared?.dialogs?.showAlert
         });
@@ -254,7 +430,7 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
                     } else {
                         console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'url' but has no URL defined.`);
                     }
-                }, { label: options?.text?.stats?.url || "URL跳转", shortLabel: "URL", color: "#4CAF50", builtin: true });
+                }, { label: options?.text?.stats?.url || "URL jump", shortLabel: "URL", color: "#4CAF50", builtin: true });
 
                 actions.register("selector", ({ shortcut }) => {
                     if (shortcut?.selector) {
@@ -262,7 +438,7 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
                     } else {
                         console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'selector' but has no selector defined.`);
                     }
-                }, { label: options?.text?.stats?.selector || "元素点击", shortLabel: "点击", color: "#FF9800", builtin: true });
+                }, { label: options?.text?.stats?.selector || "Element click", shortLabel: options?.text?.actionTypes?.selectorShortLabel || "Click", color: "#FF9800", builtin: true });
 
                 actions.register("simulate", ({ shortcut }) => {
                     if (shortcut?.simulateKeys) {
@@ -270,11 +446,11 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
                     } else {
                         console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'simulate' but has no simulateKeys defined.`);
                     }
-                }, { label: options?.text?.stats?.simulate || "按键模拟", shortLabel: "按键", color: "#9C27B0", builtin: true });
+                }, { label: options?.text?.stats?.simulate || "Key simulation", shortLabel: options?.text?.actionTypes?.simulateShortLabel || "Keys", color: "#9C27B0", builtin: true });
 
                 actions.register("custom", ({ shortcut, event }) => {
                     executeCustomAction(shortcut, event);
-                }, { label: options?.text?.stats?.custom || "自定义动作", shortLabel: "自定义", color: "#607D8B", builtin: true });
+                }, { label: options?.text?.stats?.custom || "Custom action", shortLabel: options?.text?.actionTypes?.customShortLabel || "Custom", color: "#607D8B", builtin: true });
             }
 
             function registerUserActionHandlers() {
@@ -373,6 +549,7 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
                 mutateShortcuts,
                 persistShortcuts: saveShortcuts,
                 getShortcuts: getShortcutsSnapshot,
+                getShortcutDisplayName,
                 rebuildHotkeyIndex,
                 getShortcutByHotkeyNorm,
                 executeShortcutAction,
@@ -389,7 +566,11 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
                     formatKeyToken: hotkeys.formatKeyToken
                 }),
                 normalizeHotkey: hotkeys.normalize,
-                normalizeShortcut
+                normalizeShortcut,
+                setLocaleMode,
+                getLocaleMode: () => state.localeMode,
+                getEffectiveLocale: () => state.effectiveLocale,
+                i18n
             });
             return coreApi;
         }
@@ -405,16 +586,38 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
             cssPrefix,
             ids,
             classes,
-            URL_METHODS,
+            URL_METHODS: localizedUrlMethods,
+            i18n,
+            setLocaleMode,
             getUrlMethodDisplayText: builtinActions.getUrlMethodDisplayText,
             setIconImage: iconManager.setIconImage,
             ensureThemeAdaptiveIconStored: iconManager.ensureThemeAdaptiveIconStored,
             setTrustedHTML,
             panelFilter: Object.freeze({
                 normalizeActionType: panelNormalizeActionType,
-                buildShortcutSearchHaystack: panelBuildShortcutSearchHaystack,
-                matchesSearchQuery: panelMatchesSearchQuery,
-                matchesCurrentView: panelMatchesCurrentView
+                buildShortcutSearchHaystack: (shortcut) => panelBuildShortcutSearchHaystack({
+                    ...(shortcut || {}),
+                    name: getShortcutDisplayName(shortcut)
+                }),
+                matchesSearchQuery: (shortcut, queryLower) => {
+                    const query = typeof queryLower === "string" ? queryLower : "";
+                    if (!query) return true;
+                    return panelBuildShortcutSearchHaystack({
+                        ...(shortcut || {}),
+                        name: getShortcutDisplayName(shortcut)
+                    }).includes(query);
+                },
+                matchesCurrentView: (viewCtx, shortcut) => {
+                    if (!shortcut) return false;
+                    const filterType = String(viewCtx?.state?.currentFilter || "all");
+                    if (filterType !== "all" && panelNormalizeActionType(shortcut) !== filterType) return false;
+                    const queryLower = String(viewCtx?.state?.searchQuery || "").trim().toLowerCase();
+                    if (!queryLower) return true;
+                    return panelBuildShortcutSearchHaystack({
+                        ...(shortcut || {}),
+                        name: getShortcutDisplayName(shortcut)
+                    }).includes(queryLower);
+                }
             }),
             safeGMGet,
             safeGMSet,

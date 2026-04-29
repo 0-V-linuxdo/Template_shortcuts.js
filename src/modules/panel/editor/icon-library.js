@@ -20,7 +20,7 @@ function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, getAdap
             container.style.marginTop = "10px";
 
             const title = document.createElement("div");
-            title.textContent = options?.text?.editor?.labels?.iconLibrary || "或从图库选择:";
+            title.textContent = options?.text?.editor?.labels?.iconLibrary || "Or choose from the library:";
             Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
             container.appendChild(title);
 
@@ -51,7 +51,7 @@ function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, getAdap
 
             const expandButton = document.createElement("button");
             expandButton.type = "button";
-            expandButton.title = options?.text?.editor?.iconLibrary?.expandTitle || "展开/折叠更多图标";
+            expandButton.title = options?.text?.editor?.iconLibrary?.expandTitle || "Expand/collapse more icons";
             Object.assign(expandButton.style, baseButtonStyle, {
                 border: "1px solid transparent",
                 background: "transparent",
@@ -71,7 +71,7 @@ function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, getAdap
             const addButton = document.createElement("button");
             addButton.type = "button";
             addButton.textContent = "➕";
-            addButton.title = options?.text?.editor?.iconLibrary?.addTitle || "将输入框中的图标URL添加到图库";
+            addButton.title = options?.text?.editor?.iconLibrary?.addTitle || "Add the icon URL from the input to the library";
             Object.assign(addButton.style, baseButtonStyle, {
                 border: "1px solid",
                 borderRadius: "4px",
@@ -80,9 +80,9 @@ function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, getAdap
             });
             addButton.addEventListener('click', () => {
                 const url = targetTextarea.value.trim();
-                if (!url) { showAlert(options?.text?.editor?.iconLibrary?.urlRequired || "请输入图标的URL！"); return; }
-                if (userIcons.some(icon => icon.url === url) || options.iconLibrary.some(icon => icon.url === url)) { showAlert(options?.text?.editor?.iconLibrary?.alreadyExists || "该图标已存在于图库中。"); return; }
-                showPromptDialog(options?.text?.editor?.iconLibrary?.promptName || "请输入图标的名称：", "", (name) => {
+                if (!url) { showAlert(options?.text?.editor?.iconLibrary?.urlRequired || "Please enter an icon URL."); return; }
+                if (userIcons.some(icon => icon.url === url) || options.iconLibrary.some(icon => icon.url === url)) { showAlert(options?.text?.editor?.iconLibrary?.alreadyExists || "This icon already exists in the library."); return; }
+                showPromptDialog(options?.text?.editor?.iconLibrary?.promptName || "Enter an icon name:", "", (name) => {
                     if (name && name.trim()) {
                         userIcons.push({ name: name.trim(), url: url });
                         safeGMSet(options.storageKeys.userIcons, userIcons);
@@ -105,7 +105,7 @@ function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, getAdap
 
                     const button = document.createElement("button");
                     button.type = "button";
-                    button.title = iconInfo.name + (isUserAdded ? (options?.text?.editor?.iconLibrary?.userAddedHint || " (长按删除)") : "");
+                    button.title = iconInfo.name + (isUserAdded ? (options?.text?.editor?.iconLibrary?.userAddedHint || " (long press to delete)") : "");
                     Object.assign(button.style, {
                         width: "36px", height: "36px", padding: "4px", border: "1px solid", borderRadius: "4px",
                         cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
@@ -131,7 +131,7 @@ function panelCreateIconLibraryUI(ctx, targetTextarea, targetPreviewImg, getAdap
                         button.addEventListener("mousedown", (e) => {
                             if (e.button !== 0) return;
                             longPressTimer = setTimeout(() => {
-                                const tpl = options?.text?.editor?.iconLibrary?.confirmDelete || '确定要删除自定义图标 "{name}" 吗?';
+                                const tpl = options?.text?.editor?.iconLibrary?.confirmDelete || 'Delete custom icon "{name}"?';
                                 showConfirmDialog(tpl.replace("{name}", String(iconInfo.name ?? "")), () => {
                                     userIcons = userIcons.filter(icon => icon.url !== iconInfo.url);
                                     safeGMSet(options.storageKeys.userIcons, userIcons);

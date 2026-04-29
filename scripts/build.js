@@ -375,13 +375,30 @@ async function bundleJavaScript(entryPath, format = "esm") {
 }
 
 function formatMetadataLine(name, value) {
-  return `// @${String(name).padEnd(13, " ")}${value}`;
+  const key = String(name);
+  return `// @${key.padEnd(Math.max(13, key.length + 1), " ")}${value}`;
+}
+
+function getLocalizedMetadataEntries(metadata, fieldName) {
+  const localized = metadata?.localized && typeof metadata.localized === "object" ? metadata.localized : {};
+  const entries = [];
+  for (const [locale, values] of Object.entries(localized)) {
+    const localeToken = String(locale || "").trim().split(/[-_]/)[0].toLowerCase();
+    if (!localeToken || !values || typeof values !== "object") continue;
+    const value = values[fieldName];
+    if (typeof value === "string" && value.trim()) {
+      entries.push([`${fieldName}:${localeToken}`, value.trim()]);
+    }
+  }
+  return entries;
 }
 
 function renderUserscriptHeader(siteEntry, templateCoreRequireUrl) {
   const metadata = siteEntry.metadata || {};
   const matches = Array.isArray(metadata.match) ? metadata.match : [];
-  const grants = Array.from(new Set(Array.isArray(metadata.grant) ? metadata.grant : []));
+  const grantSet = new Set(Array.isArray(metadata.grant) ? metadata.grant : []);
+  if (grantSet.has("GM_registerMenuCommand")) grantSet.add("GM_unregisterMenuCommand");
+  const grants = Array.from(grantSet);
   const connects = Array.isArray(metadata.connect) ? metadata.connect : [];
   const lines = [
     "// ==UserScript==",
@@ -389,12 +406,25 @@ function renderUserscriptHeader(siteEntry, templateCoreRequireUrl) {
     formatMetadataLine("namespace", metadata.namespace || "https://github.com/0-V-linuxdo/Template_shortcuts.js")
   ];
 
+  for (const [name, value] of getLocalizedMetadataEntries(metadata, "name")) {
+    lines.splice(2, 0, formatMetadataLine(name, value));
+  }
+
   if (metadata.description) {
-    lines.push(formatMetadataLine("description", metadata.description), "");
+    lines.push(formatMetadataLine("description", metadata.description));
+    for (const [name, value] of getLocalizedMetadataEntries(metadata, "description")) {
+      lines.push(formatMetadataLine(name, value));
+    }
+    lines.push("");
   }
 
   if (metadata.version) lines.push(formatMetadataLine("version", metadata.version));
-  if (metadata.updateLog) lines.push(formatMetadataLine("update-log", metadata.updateLog));
+  if (metadata.updateLog) {
+    lines.push(formatMetadataLine("update-log", metadata.updateLog));
+    for (const [name, value] of getLocalizedMetadataEntries(metadata, "updateLog")) {
+      lines.push(formatMetadataLine(name.replace(/^updateLog/, "update-log"), value));
+    }
+  }
   if (metadata.version || metadata.updateLog) lines.push("");
 
   for (const match of matches) {

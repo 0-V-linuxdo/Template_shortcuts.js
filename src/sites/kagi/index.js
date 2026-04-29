@@ -40,6 +40,40 @@
         kagiTranslateLightIconDataURL
     ];
 
+    const SITE_MESSAGES = Object.freeze({
+        "zh-CN": {
+            menuCommandLabel: "Kagi - 设置快捷键",
+            panelTitle: "Kagi - 自定义快捷键",
+            shortcuts: {
+                "All Search": "全部搜索",
+                "Images Search": "图片搜索",
+                "Videos Search": "视频搜索",
+                "News Search": "新闻搜索",
+                "Podcasts Search": "播客搜索",
+                "Maps Search": "地图搜索",
+                "Toggle Sidebar": "切换侧边栏",
+                "New Thread": "新建会话",
+                "Delete Current Thread": "删除当前会话",
+                "Toggle Web Access": "切换网页访问",
+                "Upload Files": "上传文件",
+                "Voice Input": "语音输入",
+                "Model Chooser": "模型选择器",
+                "Lens Select": "选择 Lens",
+                "Go to Search": "前往搜索",
+                "Go to Assistant": "前往助手",
+                "Go to Summarizer": "前往摘要",
+                "Go to FastGPT": "前往 FastGPT",
+                "Go to Translate": "前往翻译",
+                "billing": "账单",
+                "Ki -Flag": "Ki 标志"
+            }
+        },
+        "en-US": {
+            menuCommandLabel: "Kagi - Shortcut settings",
+            panelTitle: "Kagi - Custom shortcuts"
+        }
+    });
+
     const baseShortcut = Object.freeze({
         url: "",
         urlMethod: "current",
@@ -327,6 +361,9 @@
             idPrefix: "kagi",
             cssPrefix: "kagi",
             compactBreakpoint: 800
+        },
+        i18n: {
+            messages: SITE_MESSAGES
         },
         defaultIconURL,
         iconLibrary: defaultIcons,

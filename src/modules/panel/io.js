@@ -67,7 +67,7 @@
             box.onclick = (e) => e.stopPropagation();
 
             const titleEl = document.createElement("h3");
-            titleEl.textContent = options.text.buttons.export || "导出";
+            titleEl.textContent = options.text.buttons.export || "Export";
             Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
             box.appendChild(titleEl);
 
@@ -88,17 +88,17 @@
             });
 
             const copyBtn = document.createElement("button");
-            copyBtn.textContent = options.text.buttons.copy || "复制";
+            copyBtn.textContent = options.text.buttons.copy || "Copy";
             copyBtn.onclick = async () => {
                 const ok = await panelTryCopyToClipboard(textarea.value);
-                if (ok) showAlert(options?.text?.io?.copySuccess || "已复制到剪贴板。");
-                else showAlert(options?.text?.io?.copyFail || "复制失败，请手动复制。");
+                if (ok) showAlert(options?.text?.io?.copySuccess || "Copied to clipboard.");
+                else showAlert(options?.text?.io?.copyFail || "Copy failed. Please copy manually.");
             };
             styleButton(copyBtn, "#2196F3", "#1e88e5");
             btnRow.appendChild(copyBtn);
 
             const closeBtn = document.createElement("button");
-            closeBtn.textContent = options.text.buttons.close || "关闭";
+            closeBtn.textContent = options.text.buttons.close || "Close";
             closeBtn.onclick = close;
             styleButton(closeBtn, "#9E9E9E", "#757575");
             btnRow.appendChild(closeBtn);
@@ -137,17 +137,17 @@
             box.onclick = (e) => e.stopPropagation();
 
             const titleEl = document.createElement("h3");
-            titleEl.textContent = options.text.buttons.import || "导入";
+            titleEl.textContent = options.text.buttons.import || "Import";
             Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
             box.appendChild(titleEl);
 
             const tip = document.createElement("div");
-            tip.textContent = options?.text?.io?.importTip || "支持导入 { shortcuts: [...], userIcons?: [...] } 或直接导入 shortcuts 数组。";
+            tip.textContent = options?.text?.io?.importTip || "Supports importing { shortcuts: [...], userIcons?: [...] } or a shortcuts array directly.";
             Object.assign(tip.style, { fontSize: "12px", opacity: "0.75", marginBottom: "8px", lineHeight: "1.4" });
             box.appendChild(tip);
 
             const textarea = document.createElement("textarea");
-            textarea.placeholder = options?.text?.io?.importPlaceholder || "粘贴 JSON 到这里…";
+            textarea.placeholder = options?.text?.io?.importPlaceholder || "Paste JSON here...";
             Object.assign(textarea.style, { height: "360px", resize: "vertical" });
             styleInputField(textarea);
             box.appendChild(textarea);
@@ -162,13 +162,13 @@
             });
 
             const confirmBtn = document.createElement("button");
-            confirmBtn.textContent = options.text.buttons.confirm || "确定";
+            confirmBtn.textContent = options.text.buttons.confirm || "OK";
             confirmBtn.onclick = () => {
                 let parsed = null;
                 try {
                     parsed = JSON.parse(textarea.value);
                 } catch {
-                    showAlert(options?.text?.io?.importJsonParseFailed || "JSON 解析失败，请检查格式。");
+                    showAlert(options?.text?.io?.importJsonParseFailed || "Failed to parse JSON. Please check the format.");
                     return;
                 }
 
@@ -176,7 +176,7 @@
                     ? parsed
                     : (Array.isArray(parsed?.shortcuts) ? parsed.shortcuts : null);
                 if (!Array.isArray(shortcutsRaw)) {
-                    showAlert(options?.text?.io?.importMissingShortcuts || "导入数据中未找到 shortcuts 数组。");
+                    showAlert(options?.text?.io?.importMissingShortcuts || "No shortcuts array found in the imported data.");
                     return;
                 }
 
@@ -194,7 +194,7 @@
                 }
                 if (duplicates.length > 0) {
                     const lines = duplicates.slice(0, 12).map(([hk, a, b]) => `${hk}: ${a} / ${b}`).join("\n");
-                    const prefix = options?.text?.io?.importDuplicateHotkeysPrefix || "导入失败：存在重复快捷键(请先在 JSON 中修复)：";
+                    const prefix = options?.text?.io?.importDuplicateHotkeysPrefix || "Import failed: duplicate shortcuts found (fix them in JSON first):";
                     showAlert(`${prefix}\n${lines}${duplicates.length > 12 ? "\n..." : ""}`);
                     return;
                 }
@@ -222,7 +222,7 @@
             btnRow.appendChild(confirmBtn);
 
             const cancelBtn = document.createElement("button");
-            cancelBtn.textContent = options.text.buttons.cancel || "取消";
+            cancelBtn.textContent = options.text.buttons.cancel || "Cancel";
             cancelBtn.onclick = close;
             styleButton(cancelBtn, "#9E9E9E", "#757575");
             btnRow.appendChild(cancelBtn);

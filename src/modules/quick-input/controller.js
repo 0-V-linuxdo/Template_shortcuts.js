@@ -3,10 +3,11 @@
  * -------------------------------------------------------------------------- */
 
 import { sleep, deepMerge } from "../shared/base.js";
+import { createI18nContext, mergeLocaleMessages } from "../shared/i18n.js";
 import { cancelAnimationFrameSafe, getDomConstructor, getGlobalScope, requestAnimationFrameSafe } from "../shared/platform/browser.js";
 import { getDraftStorageKey, loadDraft, saveDraft, readFileAsDataUrl, dataUrlToFile, normalizeDraftImageEntry, normalizeDraftImages, normalizeImageFiles } from "./storage.js";
 import { clampInt, normalizeComposerText, normalizeHotkeyString, normalizeHotkeyFallback, getComposerText, getKeyEventProps, simulateKeystroke, isElementVisible, pickBestComposerCandidate, findComposerElement, focusComposer, setInputValue, clearInputValue, dispatchPasteEvent, dispatchBeforeInputFromPaste, dispatchInputFromPaste, dispatchDragEvent, collectFileInputs, collectFileInputsFromOpenShadows, trySetFileInputFiles, isInsideOverlayTree } from "./dom.js";
-import { STEP_DELAY_MAX_MS, LOOP_DELAY_MAX_MS, DELAY_UNIT_FACTORS, DELAY_UNIT_LABELS, QUICK_INPUT_SVG_NS, DEFAULT_LABELS, DEFAULT_CONFIG, normalizeImageRecovery, normalizeDelayUnit, inferDelayUnitFromMs, convertDelayInputToMs, clampDelayMs, formatDelayInputValue, formatDelayWithUnit, loadConfig, saveConfig } from "./config.js";
+import { STEP_DELAY_MAX_MS, LOOP_DELAY_MAX_MS, DELAY_UNIT_FACTORS, DELAY_UNIT_LABELS, QUICK_INPUT_SVG_NS, DEFAULT_LABELS, DEFAULT_LABEL_MESSAGES, DEFAULT_CONFIG, normalizeImageRecovery, normalizeDelayUnit, inferDelayUnitFromMs, convertDelayInputToMs, clampDelayMs, formatDelayInputValue, formatDelayWithUnit, loadConfig, saveConfig } from "./config.js";
 import { executeEngineShortcutByHotkey, sleepWithCancel, waitForObservedState } from "./runtime.js";
 import { ensureQuickInputStyle } from "./style.js";
 
@@ -18,13 +19,43 @@ export function createController(userOptions = {}) {
             const idPrefix = String(options.idPrefix || "").trim() || "quick-input";
             const storageKey = String(options.storageKey || `${idPrefix}_quick_input_v1`).trim() || `${idPrefix}_quick_input_v1`;
             const draftStorageKey = getDraftStorageKey(storageKey);
-            const titleText = String(options.title || "快捷输入").trim() || "快捷输入";
             const primaryColor = String(options.primaryColor || "#4285F4").trim() || "#4285F4";
             const overlayId = `${idPrefix}-quick-input-overlay`;
             const themeMode = normalizeThemeMode(options.themeMode);
             const logTag = "[QuickInput]";
 
-            const labels = deepMerge(deepMerge({}, DEFAULT_LABELS), options.labels || {});
+            const engineI18n = engine?.i18n && typeof engine.i18n === "object" ? engine.i18n : null;
+            const quickI18n = createI18nContext({
+                localeMode: engineI18n?.getLocaleMode?.() || options.locale || "auto",
+                fallbackLocale: "zh-CN",
+                messages: mergeLocaleMessages(DEFAULT_LABEL_MESSAGES, options?.i18n?.labels || {})
+            });
+
+            function getEffectiveLocale() {
+                return engineI18n?.getEffectiveLocale?.() || quickI18n.getEffectiveLocale();
+            }
+
+            function resolveLabels() {
+                const effectiveLocale = getEffectiveLocale();
+                const nextLabels = deepMerge({}, quickI18n.getMessages(effectiveLocale));
+                if (effectiveLocale === "zh-CN" && options.labels && typeof options.labels === "object") {
+                    deepMerge(nextLabels, options.labels);
+                }
+                return nextLabels;
+            }
+
+            function resolveTitleText() {
+                const titleKey = String(options.titleKey || "").trim();
+                const localeLabels = quickI18n.getMessages(getEffectiveLocale());
+                const fallback = String(options.title || localeLabels.title || "Quick Input").trim();
+                if (titleKey && engineI18n?.t) {
+                    return String(engineI18n.t(titleKey, {}, fallback) || fallback).trim() || fallback;
+                }
+                return fallback || String(localeLabels.title || "Quick Input").trim() || "Quick Input";
+            }
+
+            let labels = resolveLabels();
+            let titleText = resolveTitleText();
             const defaults = deepMerge(deepMerge({}, DEFAULT_CONFIG), options.defaults || {});
 
             const rawAdapter = options.adapter && typeof options.adapter === "object" ? options.adapter : {};
@@ -44,15 +75,15 @@ export function createController(userOptions = {}) {
                     : (typeof rawAdapter.triggerNewChatRetry === "function"
                         ? rawAdapter.triggerNewChatRetry
                         : async ({ hotkey }) => executeEngineShortcutByHotkey(engine, hotkey)),
-                newChatLabel: typeof rawAdapter.newChatLabel === "string"
+                newChatLabel: (typeof rawAdapter.newChatLabel === "string" || typeof rawAdapter.newChatLabel === "function")
                     ? rawAdapter.newChatLabel
-                    : (typeof rawAdapter.retryNewChatLabel === "string" ? rawAdapter.retryNewChatLabel : ""),
+                    : ((typeof rawAdapter.retryNewChatLabel === "string" || typeof rawAdapter.retryNewChatLabel === "function") ? rawAdapter.retryNewChatLabel : ""),
                 sendMessage: typeof rawAdapter.sendMessage === "function" ? rawAdapter.sendMessage : async (composerEl) =>
                     simulateKeystroke("ENTER", { target: composerEl })
             });
             const hasCustomNewChatTrigger = typeof rawAdapter.triggerNewChat === "function" || typeof rawAdapter.triggerNewChatRetry === "function";
             const lockNewChatHotkey = !!rawAdapter.lockNewChatHotkey;
-            const lockedNewChatHotkeyDisplay = String(rawAdapter.lockedNewChatHotkeyDisplay || "").trim();
+            const lockedNewChatHotkeyDisplay = rawAdapter.lockedNewChatHotkeyDisplay;
 
             let overlayEl = null;
             let overlayRootEl = null;
@@ -104,6 +135,9 @@ export function createController(userOptions = {}) {
             let draftWriteChain = Promise.resolve(null);
             let panelLayoutRaf = 0;
             let pendingLogScrollToBottom = false;
+            if (engineI18n && typeof engineI18n.addLocaleChangeListener === "function") {
+                engineI18n.addLocaleChangeListener(() => refreshLocale());
+            }
 
             let dragPointerId = null;
             let dragOffsetX = 0;
@@ -138,7 +172,7 @@ export function createController(userOptions = {}) {
                     try {
                         return await task();
                     } catch (error) {
-                        warnQuickInput("写入 QuickInput 草稿失败。", error);
+                        warnQuickInput("Failed to write QuickInput draft.", error);
                         return null;
                     }
                 };
@@ -560,7 +594,7 @@ export function createController(userOptions = {}) {
             }
 
             function getNewChatTriggerLabel(hotkey) {
-                const label = String(adapter.newChatLabel || "").trim();
+                const label = resolveDynamicText(adapter.newChatLabel, "");
                 return label || String(hotkey || "").trim();
             }
 
@@ -568,7 +602,25 @@ export function createController(userOptions = {}) {
                 const value = String(
                     (cfg && typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey
                 );
-                return lockedNewChatHotkeyDisplay || getNewChatTriggerLabel(value);
+                return resolveDynamicText(lockedNewChatHotkeyDisplay, "") || getNewChatTriggerLabel(value);
+            }
+
+            function resolveDynamicText(value, fallback = "") {
+                let raw = value;
+                if (typeof raw === "function") {
+                    try {
+                        raw = raw({
+                            engine,
+                            i18n: engineI18n || quickI18n,
+                            labels,
+                            locale: getEffectiveLocale()
+                        });
+                    } catch {
+                        raw = fallback;
+                    }
+                }
+                const text = String(raw ?? fallback).trim();
+                return text || String(fallback || "").trim();
             }
 
             function getDelayUnitLabels() {
@@ -587,7 +639,10 @@ export function createController(userOptions = {}) {
                 inputEl.min = "0";
                 inputEl.step = "any";
                 inputEl.max = formatDelayInputValue(maxMs, unit);
-                inputEl.title = `最大 ${formatDelayWithUnit(maxMs, unit, getDelayUnitLabels())}`;
+                const formattedMax = formatDelayWithUnit(maxMs, unit, getDelayUnitLabels());
+                inputEl.title = labels.messages?.maxDelayTitle
+                    ? labels.messages.maxDelayTitle(formattedMax)
+                    : DEFAULT_LABELS.messages.maxDelayTitle(formattedMax);
             }
 
             function setDelayControlValue(inputEl, unitEl, delayMs, unit, maxMs) {
@@ -1216,7 +1271,7 @@ export function createController(userOptions = {}) {
                 try {
                     setImageFiles([], { skipDraftPersist: true });
                 } catch (error) {
-                    warnQuickInput("清理图片草稿状态时发生异常。", error);
+                    warnQuickInput("Error while clearing image draft state.", error);
                 }
                 void persistDraftSnapshot({
                     text: preserveText ? String(textEl?.value ?? "") : "",
@@ -1229,7 +1284,7 @@ export function createController(userOptions = {}) {
                 try {
                     storedDraft = await loadDraft(draftStorageKey);
                 } catch (error) {
-                    warnQuickInput("读取已保存草稿失败，已忽略该草稿。", error);
+                    warnQuickInput("Failed to read saved draft; ignored it.", error);
                 }
                 if (textEl) textEl.value = String(storedDraft.text ?? "");
 
@@ -1258,7 +1313,7 @@ export function createController(userOptions = {}) {
                         void persistDraftSnapshot({ text: String(textEl?.value ?? ""), images: restoredEntries });
                     }
                 } catch (error) {
-                    warnQuickInput("恢复图片草稿失败，已跳过损坏的图片草稿数据。", error);
+                    warnQuickInput("Failed to restore image draft; skipped corrupted image draft data.", error);
                     clearDraftImagesState({ preserveText: true });
                 }
             }
@@ -1289,8 +1344,8 @@ export function createController(userOptions = {}) {
                         delBtn.type = "button";
                         delBtn.className = "qi-preview-del";
                         delBtn.textContent = "×";
-                        delBtn.title = labels.buttons?.delete || "删除";
-                        delBtn.setAttribute("aria-label", labels.aria?.deleteImage || "删除该图片");
+                        delBtn.title = labels.buttons?.delete || DEFAULT_LABELS.buttons.delete;
+                        delBtn.setAttribute("aria-label", labels.aria?.deleteImage || DEFAULT_LABELS.aria.deleteImage);
                         delBtn.disabled = running;
                         delBtn.addEventListener("click", (e) => {
                             e.preventDefault();
@@ -1299,7 +1354,9 @@ export function createController(userOptions = {}) {
                             const next = imageFiles.filter((_, i) => i !== index);
                             setImageFiles(next);
                             const label = file.name ? `：${file.name}` : ` #${index + 1}`;
-                            appendGlobalLog(labels.messages?.imageDeleted ? labels.messages.imageDeleted(label, next.length) : `已删除图片${label}（剩余 ${next.length} 张）。`, { level: "ok" });
+                            appendGlobalLog(labels.messages?.imageDeleted
+                                ? labels.messages.imageDeleted(label, next.length)
+                                : DEFAULT_LABELS.messages.imageDeleted(label, next.length), { level: "ok" });
                         });
                         wrap.appendChild(delBtn);
 
@@ -1785,8 +1842,8 @@ export function createController(userOptions = {}) {
                 delBtn.type = "button";
                 delBtn.className = "qi-hotkey-del";
                 delBtn.textContent = "×";
-                delBtn.title = labels.buttons?.delete || "删除";
-                delBtn.setAttribute("aria-label", labels.aria?.deleteHotkey || "删除该快捷键");
+                delBtn.title = labels.buttons?.delete || DEFAULT_LABELS.buttons.delete;
+                delBtn.setAttribute("aria-label", labels.aria?.deleteHotkey || DEFAULT_LABELS.aria.deleteHotkey);
                 delBtn.disabled = running;
                 delBtn.addEventListener("click", (e) => {
                     e.preventDefault();
@@ -2027,6 +2084,10 @@ export function createController(userOptions = {}) {
                     runtime,
                     chunkMs
                 });
+                const getStageLabel = (key, suffix = "") => {
+                    const base = String(labels.stages?.[key] || DEFAULT_LABELS.stages?.[key] || key).trim();
+                    return `${base}${suffix || ""}`;
+                };
                 setActiveTab?.("log");
                 const startRows = labels.messages?.startRows
                     ? labels.messages.startRows(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length)
@@ -2041,7 +2102,7 @@ export function createController(userOptions = {}) {
                     if (typeof DEFAULT_LABELS.messages.startSummary === "string" && DEFAULT_LABELS.messages.startSummary.trim()) {
                         return DEFAULT_LABELS.messages.startSummary.trim();
                     }
-                    return "执行配置";
+                    return DEFAULT_LABELS.messages.startSummary || "Run configuration";
                 })();
                 runConfigGroupEl = appendConfigLogGroup(
                     startSummary,
@@ -2188,7 +2249,13 @@ export function createController(userOptions = {}) {
                             appendLoopLog(diag.message, { level });
                             return;
                         }
-                        try { appendLoopLog(`诊断: ${JSON.stringify(diag)}`, { level: "error" }); } catch {}
+                        try {
+                            const json = JSON.stringify(diag);
+                            const diagMsg = labels.messages?.diagnostics
+                                ? labels.messages.diagnostics(json)
+                                : DEFAULT_LABELS.messages.diagnostics(json);
+                            appendLoopLog(diagMsg, { level: "error" });
+                        } catch {}
                     }
                 }
 
@@ -2221,7 +2288,9 @@ export function createController(userOptions = {}) {
                     const expected = Math.max(0, Number(expectedCount) || 0);
                     const current = getReadyAttachmentCount(readyState);
                     if (expected > 0 && current < expected) {
-                        return `图片数量未达到预期：当前 ${current} 张，期望至少 ${expected} 张。`;
+                        return labels.messages?.imageCountNotReady
+                            ? labels.messages.imageCountNotReady(current, expected)
+                            : DEFAULT_LABELS.messages.imageCountNotReady(current, expected);
                     }
 
                     const reason = String(readyState?.reason || "").trim().toLowerCase();
@@ -2229,7 +2298,9 @@ export function createController(userOptions = {}) {
                         return labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound;
                     }
                     if (reason === "timeout") {
-                        return `等待图片上传完成超时：当前识别到 ${current} 张图片。`;
+                        return labels.messages?.imageUploadTimeout
+                            ? labels.messages.imageUploadTimeout(current)
+                            : DEFAULT_LABELS.messages.imageUploadTimeout(current);
                     }
                     return "";
                 }
@@ -2240,7 +2311,9 @@ export function createController(userOptions = {}) {
                     }
                     const actualLength = String(state?.actualText || "").length;
                     const expectedLength = String(expectedText || "").length;
-                    return `文字校验失败${stageLabel ? `（${stageLabel}）` : ""}：当前检测到 ${actualLength} / ${expectedLength} 个字符。`;
+                    return labels.messages?.textVerifyFailed
+                        ? labels.messages.textVerifyFailed(stageLabel, actualLength, expectedLength)
+                        : DEFAULT_LABELS.messages.textVerifyFailed(stageLabel, actualLength, expectedLength);
                 }
 
                 async function attemptSetPromptText(composerEl, text) {
@@ -2485,7 +2558,7 @@ export function createController(userOptions = {}) {
                                 : DEFAULT_LABELS.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts);
                             appendLoopLog(resetMsg, { level: "error" });
 
-                            const beforeResetReady = await verifyInputUrlReady(`重传前#${resetAttempt}`);
+                            const beforeResetReady = await verifyInputUrlReady(getStageLabel("beforeReset", `#${resetAttempt}`));
                             if (beforeResetReady === "cancelled") {
                                 return { ok: false, cancelled: true, composer: composerRef, ready };
                             }
@@ -2537,7 +2610,7 @@ export function createController(userOptions = {}) {
                                     ready: reuploadResult,
                                     message: (typeof reuploadResult?.message === "string" && reuploadResult.message.trim())
                                         ? reuploadResult.message.trim()
-                                        : "图片重新上传失败：已取消发送，避免文字先发。"
+                                        : (labels.messages?.imageReuploadFailed || DEFAULT_LABELS.messages.imageReuploadFailed)
                                 };
                             }
 
@@ -2567,7 +2640,7 @@ export function createController(userOptions = {}) {
                             : DEFAULT_LABELS.messages.repairingImages(missingCount, currentCount, expected, repairAttempt, maxRepairAttempts);
                         appendLoopLog(repairMsg, { level: "error" });
 
-                        const beforeRepairReady = await verifyInputUrlReady(`补图前#${repairAttempt}`);
+                        const beforeRepairReady = await verifyInputUrlReady(getStageLabel("beforeRepair", `#${repairAttempt}`));
                         if (beforeRepairReady === "cancelled") {
                             return { ok: false, cancelled: true, composer: composerRef, ready };
                         }
@@ -2618,7 +2691,7 @@ export function createController(userOptions = {}) {
                         : DEFAULT_LABELS.messages.loopMarker(i + 1, cfg.loopCount);
                     startLoopLogGroup(marker);
 
-                    const loopUrlReady = await verifyInputUrlReady("本轮开始");
+                    const loopUrlReady = await verifyInputUrlReady(getStageLabel("loopStart"));
                     if (loopUrlReady !== true) {
                         if (loopUrlReady === "cancelled") markRunCancelled();
                         break;
@@ -2635,7 +2708,7 @@ export function createController(userOptions = {}) {
                         break;
                     }
 
-                    const focusedUrlReady = await verifyInputUrlReady("输入框聚焦后");
+                    const focusedUrlReady = await verifyInputUrlReady(getStageLabel("afterComposerFocus"));
                     if (focusedUrlReady !== true) {
                         if (focusedUrlReady === "cancelled") markRunCancelled();
                         break;
@@ -2668,7 +2741,7 @@ export function createController(userOptions = {}) {
                     }
 
                     if (images.length) {
-                        const beforeImagesReady = await verifyInputUrlReady("贴图前");
+                        const beforeImagesReady = await verifyInputUrlReady(getStageLabel("beforeImages"));
                         if (beforeImagesReady !== true) {
                             if (beforeImagesReady === "cancelled") markRunCancelled();
                             break;
@@ -2691,11 +2764,14 @@ export function createController(userOptions = {}) {
                             cancelRun = true;
                             const msg = typeof result?.message === "string" && result.message.trim()
                                 ? result.message.trim()
-                                : "图片插入失败：本轮将中止发送。";
+                                : (labels.messages?.imageInsertFailed || DEFAULT_LABELS.messages.imageInsertFailed);
                             appendLoopLog(msg, { level: "error" });
                             break;
                         }
-                        appendLoopLog(`已成功插入图片：${images.length} 张。`, { level: "ok" });
+                        const insertedMsg = labels.messages?.imagesInserted
+                            ? labels.messages.imagesInserted(images.length)
+                            : DEFAULT_LABELS.messages.imagesInserted(images.length);
+                        appendLoopLog(insertedMsg, { level: "ok" });
                         if (!(await waitStep(cfg.stepDelayMs))) {
                             markRunCancelled();
                             break;
@@ -2703,7 +2779,7 @@ export function createController(userOptions = {}) {
                     }
 
                     if (promptText.trim()) {
-                        const beforeTextReady = await verifyInputUrlReady("文字输入前");
+                        const beforeTextReady = await verifyInputUrlReady(getStageLabel("beforeText"));
                         if (beforeTextReady !== true) {
                             if (beforeTextReady === "cancelled") markRunCancelled();
                             break;
@@ -2713,7 +2789,7 @@ export function createController(userOptions = {}) {
                             ? labels.messages.textInserted(true)
                             : DEFAULT_LABELS.messages.textInserted(true);
                         const textCommitResult = await ensurePromptCommitted(composer, promptText, {
-                            stageLabel: "文字输入后",
+                            stageLabel: getStageLabel("afterText"),
                             shouldInsertFirst: true,
                             successLog: textInsertedMsg
                         });
@@ -2736,7 +2812,7 @@ export function createController(userOptions = {}) {
                     if (toolHotkeys.length) {
                         for (const hotkey of toolHotkeys) {
                             if (cancelRun) break;
-                            const beforeToolReady = await verifyInputUrlReady(`工具快捷键前:${hotkey}`);
+                            const beforeToolReady = await verifyInputUrlReady(getStageLabel("beforeTool", `:${hotkey}`));
                             if (beforeToolReady !== true) {
                                 if (beforeToolReady === "cancelled") markRunCancelled();
                                 break;
@@ -2772,7 +2848,7 @@ export function createController(userOptions = {}) {
                             break;
                         }
 
-                        appendLoopLog("图片已就绪。", { level: "ok" });
+                        appendLoopLog(labels.messages?.imageReady || DEFAULT_LABELS.messages.imageReady, { level: "ok" });
                         if (!(await waitStep(Math.min(300, cfg.stepDelayMs), 80))) {
                             markRunCancelled();
                             break;
@@ -2780,14 +2856,14 @@ export function createController(userOptions = {}) {
                     }
 
                     if (cancelRun) break;
-                    const beforeSendReady = await verifyInputUrlReady("发送前");
+                    const beforeSendReady = await verifyInputUrlReady(getStageLabel("beforeSend"));
                     if (beforeSendReady !== true) {
                         if (beforeSendReady === "cancelled") markRunCancelled();
                         break;
                     }
                     if (promptText.trim()) {
                         const textCommitResult = await ensurePromptCommitted(composer, promptText, {
-                            stageLabel: "发送前"
+                            stageLabel: getStageLabel("beforeSend")
                         });
                         if (textCommitResult?.composer) composer = textCommitResult.composer;
                         if (textCommitResult?.cancelled) {
@@ -2866,6 +2942,8 @@ export function createController(userOptions = {}) {
 
             function ensureUi() {
                 if (overlayEl) return;
+                labels = resolveLabels();
+                titleText = resolveTitleText();
                 try { globalThis.document?.getElementById?.(overlayId)?.remove?.(); } catch {}
 
                 overlayEl = globalThis.document.createElement("div");
@@ -3240,21 +3318,23 @@ export function createController(userOptions = {}) {
                 try {
                     writeConfigToUi(loadConfig(storageKey, defaults));
                 } catch (error) {
-                    warnQuickInput("读取 QuickInput 配置失败，已回退到默认配置。", error);
+                    warnQuickInput("Failed to read QuickInput config; fell back to defaults.", error);
                     writeConfigToUi(defaults);
                 }
                 draftRestorePromise = restoreDraftFromStorage().catch((error) => {
-                    warnQuickInput("恢复 QuickInput 草稿失败，弹窗将忽略损坏的草稿数据继续打开。", error);
+                    warnQuickInput("Failed to restore QuickInput draft; continuing with corrupted draft data ignored.", error);
                     clearDraftImagesState({ preserveText: true });
                 });
                 try {
                     syncRunControls();
                 } catch (error) {
-                    warnQuickInput("同步 QuickInput 运行控件状态失败。", error);
+                    warnQuickInput("Failed to sync QuickInput run controls.", error);
                 }
             }
 
             function open() {
+                labels = resolveLabels();
+                titleText = resolveTitleText();
                 ensureUi();
                 stopDrag();
                 setOverlayVisibility(true);
@@ -3282,6 +3362,55 @@ export function createController(userOptions = {}) {
                 void persistDraftText();
                 stopThemeAutoSync();
                 setOverlayVisibility(false);
+            }
+
+            function resetUiRefs() {
+                overlayEl = null;
+                overlayRootEl = null;
+                backdropEl = null;
+                panelEl = null;
+                headerEl = null;
+                logEl = null;
+                inputBodyEl = null;
+                inputActionsEl = null;
+                logActionsEl = null;
+                runConfigGroupEl = null;
+                activeLoopLogGroupEl = null;
+                activeLoopLogBodyEl = null;
+                fileInputEl = null;
+                previewRowEl = null;
+                imagePreviewShellEl = null;
+                clearAllImagesBtnEl = null;
+                imagePreviewListEl = null;
+                imageDropEl = null;
+                textEl = null;
+                hotkeyListEl = null;
+                addHotkeyBtnEl = null;
+                hotkeyInputs.length = 0;
+                newChatHotkeyEl = null;
+                loopEl = null;
+                stepDelayEl = null;
+                stepDelayUnitEl = null;
+                loopDelayEl = null;
+                loopDelayUnitEl = null;
+                clearBeforeRunEl = null;
+                stopButtons.length = 0;
+                playPauseButtons.length = 0;
+                setActiveTab = null;
+                usesShadowUi = false;
+            }
+
+            function refreshLocale() {
+                labels = resolveLabels();
+                titleText = resolveTitleText();
+                if (!overlayEl) return;
+                if (running) return;
+                const wasOpen = isOpen();
+                stopDrag();
+                stopThemeAutoSync();
+                try { overlayEl.remove(); } catch {}
+                resetUiRefs();
+                if (wasOpen) open();
             }
 
             function toggle() {

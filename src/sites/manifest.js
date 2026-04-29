@@ -77,6 +77,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
             version: "[20260425] v1.0.7",
             updateLog: "1.0.7: 新增 Set custom instructions 原生快捷键；新增 General、Account、Data Controls、Schedules、Security 设置页快捷跳转，并为旧配置自动补齐这些默认项。",
+            localized: {
+                "en-US": {
+                    name: "[ChatGPT] Shortcut Jump [20260425] v1.0.7",
+                    description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
+                    updateLog: "1.0.7: Added native Set custom instructions shortcut and General, Account, Data Controls, Schedules, and Security settings links; old configs are auto-filled."
+                }
+            },
             match: [
                 "https://chatgpt.com/*"
             ],
@@ -103,6 +110,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。",
             version: "[20260423] v1.0.0",
             updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            localized: {
+                "en-US": {
+                    name: "[Claude] Shortcut Jump [20260423] v1.0.0",
+                    description: "Adds visual custom shortcuts for Claude AI, including URL jumps, clicks, simulated keys, custom icons, dark mode, and a reusable icon library.",
+                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                }
+            },
             match: [
                 "https://claude.ai/*"
             ],
@@ -129,6 +143,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025",
             version: "[20260423] v1.0.0",
             updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            localized: {
+                "en-US": {
+                    name: "[DeepSeek] Shortcut Jump [20260423] v1.0.0",
+                    description: "Adds custom shortcuts for DeepSeek Chat with URL jumps, clicks, simulated keys, a visual settings panel, filters, dark mode, responsive layout, icon cache, and shortcut capture.",
+                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                }
+            },
             match: [
                 "https://chat.deepseek.com/*"
             ],
@@ -155,6 +176,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
             version: "[20260425] v1.0.2",
             updateLog: "1.0.2: 脚本图标改为黑底原生 Gemini 星芒，并将默认快捷键迁移到 Gemini UI 左侧原生图标。",
+            localized: {
+                "en-US": {
+                    name: "[Gemini] Shortcut Jump [20260425] v1.0.2",
+                    description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
+                    updateLog: "1.0.2: Switched the script icon to a black Gemini sparkle and migrated default shortcuts to native Gemini-style icons."
+                }
+            },
             match: [
                 "https://gemini.google.com/*"
             ],
@@ -182,6 +210,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
             version: "[20260424] v1.0.2",
             updateLog: "1.0.2: 修复 Grok 侧边栏状态误判导致的展开/折叠来回横跳；继续保留 viewport 宽度 <= 1024px 的后台自动展开抑制。",
+            localized: {
+                "en-US": {
+                    name: "[Grok] Shortcut Jump [20260424] v1.0.2",
+                    description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
+                    updateLog: "1.0.2: Fixed Grok sidebar state detection loops and kept background auto-expand suppressed for viewports <= 1024px."
+                }
+            },
             match: [
                 "https://grok.dairoot.cn/*",
                 "https://grok.com/*"
@@ -210,6 +245,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025",
             version: "[20260423] v1.0.0",
             updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            localized: {
+                "en-US": {
+                    name: "[Kagi] Shortcut Jump [20260423] v1.0.0",
+                    description: "Custom shortcuts for Kagi Assistant and Kagi Search with a visual settings panel, icon library, type filters, and dark mode support.",
+                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                }
+            },
             match: [
                 "https://*.kagi.com/*"
             ],
@@ -236,6 +278,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 Linux Do 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、搜索模板变量与图标库管理，并适配 Discourse 的 SPA 导航场景。",
             version: "[20260423] v1.0.0",
             updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            localized: {
+                "en-US": {
+                    name: "[LINUX DO] Shortcut Jump [20260423] v1.0.0",
+                    description: "A visual shortcut center for Linux Do with URL jumps, element clicks, key simulation, search template variables, icon library management, and Discourse SPA navigation support.",
+                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                }
+            },
             match: [
                 "https://linux.do/*"
             ],
@@ -262,6 +311,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 Le Chat 添加自定义快捷键，依托通用模板实现快捷面板、图标库、统计筛选、暗黑模式、自适应布局、事件隔离、快捷键捕获等功能。",
             version: "[20260423] v1.0.0",
             updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            localized: {
+                "en-US": {
+                    name: "[Le Chat] Shortcut Jump [20260423] v1.0.0",
+                    description: "Adds custom shortcuts for Le Chat with a shortcut panel, icon library, stats filters, dark mode, responsive layout, event isolation, and shortcut capture.",
+                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                }
+            },
             match: [
                 "https://chat.mistral.ai/*"
             ],
@@ -288,6 +344,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 Perplexity.ai 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)、图标缓存、用户体验优化等功能。（基于 Template 模块重构）",
             version: "[20260423] v1.0.0",
             updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            localized: {
+                "en-US": {
+                    name: "[Perplexity] Shortcut Jump [20260423] v1.0.0",
+                    description: "Adds custom shortcuts for Perplexity.ai with URL jumps, clicks, simulated keys, custom icons, selectors, dark mode, an icon library, icon caching, and UX improvements.",
+                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                }
+            },
             match: [
                 "https://www.perplexity.ai/*"
             ],
@@ -314,6 +377,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。",
             version: "[20260423] v1.0.5",
             updateLog: "1.0.5: 恢复 legacy require 架构，移除桥接式启动链。",
+            localized: {
+                "en-US": {
+                    name: "[Poe] Shortcut Jump [20260423] v1.0.5",
+                    description: "A visual shortcut center for Poe with URL jumps, element clicks, key simulation, custom actions, message copy/edit, rename save, and sidebar toggles.",
+                    updateLog: "1.0.5: Restored the legacy require architecture and removed the bridged startup chain."
+                }
+            },
             match: [
                 "https://poe.com/*"
             ],
@@ -341,6 +411,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 Telegram 网页客户端提供 Template 架构的可视化快捷键中心。支持 URL 跳转、元素点击、按键模拟与图标库管理，并兼容旧版存储键与 Telegram 哈希路由跳转。",
             version: "[20260423] v1.0.0",
             updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            localized: {
+                "en-US": {
+                    name: "[Telegram] Shortcut Jump [20260423] v1.0.0",
+                    description: "A Template-based visual shortcut center for Telegram Web with URL jumps, element clicks, key simulation, icon library management, legacy storage compatibility, and hash-route navigation.",
+                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                }
+            },
             match: [
                 "https://web.telegram.org/a/*"
             ],
@@ -367,6 +444,13 @@ export const SITE_MANIFEST = Object.freeze([
             description: "在 Bilibili 搜索页面，通过快捷键快速切换到对应的搜索分类，支持多种操作类型（URL跳转/元素点击/按键模拟），包含图标库管理、完善暗黑模式支持、智能事件隔离、滚动锁定等高级功能。基于模版架构全面升级。",
             version: "[20260423] v1.0.0",
             updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            localized: {
+                "en-US": {
+                    name: "[Bilibili] Shortcut Jump [20260423] v1.0.0",
+                    description: "Quickly switch Bilibili search categories with shortcuts. Supports URL jumps, element clicks, key simulation, icon library management, dark mode, event isolation, and scroll lock.",
+                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                }
+            },
             match: [
                 "https://*.bilibili.com/*"
             ],

@@ -1,6 +1,6 @@
 function panelCreateEnhancedKeyboardCaptureInput(ctx, labelText, currentValue, {
-            placeholder = "点击此处，然后按下快捷键组合",
-            hint = "💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合",
+            placeholder = "Click here, then press a shortcut combination",
+            hint = "Supports Ctrl/Shift/Alt/Cmd plus letters, numbers, function keys, and more",
             methodName = "getHotkey",
             captureType = "hotkey"
         } = {}) {
@@ -50,7 +50,7 @@ function panelCreateEnhancedKeyboardCaptureInput(ctx, labelText, currentValue, {
             const clearButton = document.createElement("button");
             clearButton.type = "button";
             clearButton.textContent = "🗑️";
-            clearButton.title = options.text.buttons.clear || `清除${labelForMessage}`;
+            clearButton.title = options.text.buttons.clear || `Clear ${labelForMessage}`;
             Object.assign(clearButton.style, {
                 padding: "8px 12px",
                 border: "1px solid",
@@ -89,11 +89,11 @@ function panelCreateEnhancedKeyboardCaptureInput(ctx, labelText, currentValue, {
                 capturedMainKey = "";
                 mainInput.value = "";
                 mainInput.placeholder = formatCaptureMessage(
-                    options?.text?.editor?.capture?.placeholderDuringCapture || "请按下{label}组合...",
+                    options?.text?.editor?.capture?.placeholderDuringCapture || "Press the {label} combination...",
                     { label: labelForMessage }
                 );
                 statusDiv.textContent = formatCaptureMessage(
-                    options?.text?.editor?.capture?.statusCapturing || "🎯 正在捕获{label}，请按下组合键...",
+                    options?.text?.editor?.capture?.statusCapturing || "Capturing {label}; press a key combination...",
                     { label: labelForMessage }
                 );
                 mainInput.focus();
@@ -109,12 +109,12 @@ function panelCreateEnhancedKeyboardCaptureInput(ctx, labelText, currentValue, {
                     mainInput.value = finalKeys;
                     const displayKeys = core?.hotkeys?.formatForDisplay ? (core.hotkeys.formatForDisplay(finalKeys) || finalKeys) : finalKeys;
                     statusDiv.textContent = formatCaptureMessage(
-                        options?.text?.editor?.capture?.statusCaptured || "✅ 已捕获{label}: {keys}",
+                        options?.text?.editor?.capture?.statusCaptured || "Captured {label}: {keys}",
                         { label: labelForMessage, keys: displayKeys }
                     );
                 } else {
                     statusDiv.textContent = formatCaptureMessage(
-                        options?.text?.editor?.capture?.statusInvalid || "❌ 未捕获到有效的{label}",
+                        options?.text?.editor?.capture?.statusInvalid || "No valid {label} captured",
                         { label: labelForMessage }
                     );
                 }
@@ -178,7 +178,7 @@ function panelCreateEnhancedKeyboardCaptureInput(ctx, labelText, currentValue, {
                     if (captureType === "hotkey" && core?.hotkeys?.isAllowedMainKey && !core.hotkeys.isAllowedMainKey(standardKey)) {
                         const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
                         statusDiv.textContent = formatCaptureMessage(
-                            options?.text?.editor?.capture?.statusUnsupportedHotkey || "❌ 不支持的快捷键: {key}",
+                            options?.text?.editor?.capture?.statusUnsupportedHotkey || "Unsupported shortcut: {key}",
                             { key: displayKey }
                         );
                         return;
@@ -187,7 +187,7 @@ function panelCreateEnhancedKeyboardCaptureInput(ctx, labelText, currentValue, {
                     if (captureType === "simulate" && core?.hotkeys?.isAllowedSimulateMainKey && !core.hotkeys.isAllowedSimulateMainKey(standardKey)) {
                         const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
                         statusDiv.textContent = formatCaptureMessage(
-                            options?.text?.editor?.capture?.statusUnsupportedSimulate || "❌ 不支持的模拟按键: {key}",
+                            options?.text?.editor?.capture?.statusUnsupportedSimulate || "Unsupported simulated key: {key}",
                             { key: displayKey }
                         );
                         return;
@@ -233,7 +233,7 @@ function panelCreateEnhancedKeyboardCaptureInput(ctx, labelText, currentValue, {
                 capturedModifiers.clear();
                 capturedMainKey = "";
                 statusDiv.textContent = formatCaptureMessage(
-                    options?.text?.editor?.capture?.statusCleared || "🗑️ {label}已清除",
+                    options?.text?.editor?.capture?.statusCleared || "{label} cleared",
                     { label: labelForMessage }
                 );
                 if (isCapturing) {

@@ -33,6 +33,26 @@
         'https://mistral.ai/favicon.ico'
     ];
 
+    const SITE_MESSAGES = Object.freeze({
+        "zh-CN": {
+            menuCommandLabel: "Le Chat - 设置快捷键",
+            panelTitle: "Le Chat - 自定义快捷键",
+            shortcuts: {
+                "New Chat": "新建聊天",
+                "Toggle Think Mode": "切换思考模式",
+                "Toggle Research Mode": "切换研究模式",
+                "Upload Files": "上传文件",
+                "Voice Mode": "语音模式",
+                "Agent Selection": "选择 Agent",
+                "Tools Selection": "选择工具"
+            }
+        },
+        "en-US": {
+            menuCommandLabel: "Le Chat - Shortcut settings",
+            panelTitle: "Le Chat - Custom shortcuts"
+        }
+    });
+
     const defaultShortcuts = [
         {
             name: 'New Chat',
@@ -136,6 +156,9 @@
             idPrefix: 'lechat',
             cssPrefix: 'lechat',
             compactBreakpoint: 800
+        },
+        i18n: {
+            messages: SITE_MESSAGES
         },
         defaultIconURL,
         iconLibrary: defaultIcons,

@@ -54,6 +54,30 @@
 
     const protectedIconUrls = [defaultIconURL];
 
+    const SITE_MESSAGES = Object.freeze({
+        "zh-CN": {
+            menuCommandLabel: "Linux Do - 设置快捷键",
+            panelTitle: "Linux Do - 自定义快捷键",
+            shortcuts: {
+                "New created": "最新创建",
+                "My Topic": "我的主题",
+                "Views": "浏览量",
+                "Search: latest_topic": "搜索：latest_topic"
+            }
+        },
+        "en-US": {
+            menuCommandLabel: "Linux Do - Shortcut settings",
+            panelTitle: "Linux Do - Custom shortcuts",
+            shortcuts: {
+                "书签": "Bookmarks",
+                "最新帖子": "Latest posts",
+                "热门帖子": "Hot posts",
+                "分类页": "Categories",
+                "标签页": "Tags"
+            }
+        }
+    });
+
     const baseShortcut = {
         url: '',
         urlMethod: 'current',
@@ -354,6 +378,9 @@
             cssPrefix: 'linuxdo',
             compactBreakpoint: 800
         },
+        i18n: {
+            messages: SITE_MESSAGES
+        },
         defaultIconURL,
         iconLibrary: defaultIcons,
         protectedIconUrls,
@@ -364,8 +391,8 @@
         allowOverrideBuiltinActions: true,
         actionTypeMeta: {
             selector: {
-                label: '元素点击',
-                shortLabel: '点击',
+                label: 'Element click',
+                shortLabel: 'Click',
                 color: '#FF9800',
                 builtin: true
             }

@@ -15,13 +15,13 @@ function panelCreateUrlMethodConfigUI(ctx, currentMethod = "current", currentAdv
             });
 
             const title = document.createElement("div");
-            title.textContent = options?.text?.editor?.labels?.urlMethod || "跳转方式:";
+            title.textContent = options?.text?.editor?.labels?.urlMethod || "Jump method:";
             Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em" });
             titleRow.appendChild(title);
 
             const expandButton = document.createElement("button");
             expandButton.type = "button";
-            expandButton.title = options?.text?.editor?.labels?.urlMethodToggleAdvanced || "展开/折叠高级选项";
+            expandButton.title = options?.text?.editor?.labels?.urlMethodToggleAdvanced || "Expand/collapse advanced options";
             Object.assign(expandButton.style, {
                 width: "32px", height: "32px", padding: "0", cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -92,7 +92,7 @@ function panelCreateUrlMethodConfigUI(ctx, currentMethod = "current", currentAdv
             function updateAdvancedOptions() {
                 advancedContainer.replaceChildren();
                 const advancedTitle = document.createElement("div");
-                advancedTitle.textContent = options?.text?.editor?.labels?.urlMethodAdvanced || "高级选项:";
+                advancedTitle.textContent = options?.text?.editor?.labels?.urlMethodAdvanced || "Advanced options:";
                 Object.assign(advancedTitle.style, {
                     fontWeight: "bold",
                     fontSize: "0.8em",

@@ -61,6 +61,7 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                 icon: "",
                 iconDark: "",
                 iconAdaptive: false,
+                labelKey: "",
                 data: {}
             };
             if (item && !item.actionType) {
@@ -93,25 +94,28 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
 
             const h3 = document.createElement("h3");
             h3.textContent = isNew
-                ? (options?.text?.editor?.titles?.add || "添加快捷键")
-                : (options?.text?.editor?.titles?.edit || "编辑快捷键");
+                ? (options?.text?.editor?.titles?.add || "Add shortcut")
+                : (options?.text?.editor?.titles?.edit || "Edit shortcut");
             Object.assign(h3.style, { marginTop: "0", marginBottom: "15px", fontSize: "1.1em" });
             formDiv.appendChild(h3);
 
-            const nameInput = panelCreateInputField(ctx, options?.text?.editor?.labels?.name || "名称:", temp.name, "text");
+            const initialDisplayName = item && typeof core?.getShortcutDisplayName === "function"
+                ? core.getShortcutDisplayName(item)
+                : String(temp.name || "");
+            const nameInput = panelCreateInputField(ctx, options?.text?.editor?.labels?.name || "Name:", initialDisplayName, "text");
             formDiv.appendChild(nameInput.label);
 
             const actionTypeDiv = document.createElement("div");
             actionTypeDiv.style.margin = "15px 0";
             const actionTypeLabel = document.createElement("div");
-            actionTypeLabel.textContent = options?.text?.editor?.labels?.actionType || "操作类型:";
+            actionTypeLabel.textContent = options?.text?.editor?.labels?.actionType || "Action type:";
             Object.assign(actionTypeLabel.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
             actionTypeDiv.appendChild(actionTypeLabel);
             const builtinLabels = Object.freeze({
-                url: options?.text?.stats?.url || "URL跳转",
-                selector: options?.text?.stats?.selector || "元素点击",
-                simulate: options?.text?.stats?.simulate || "按键模拟",
-                custom: options?.text?.stats?.custom || "自定义动作"
+                url: options?.text?.stats?.url || "URL jump",
+                selector: options?.text?.stats?.selector || "Element click",
+                simulate: options?.text?.stats?.simulate || "Key simulation",
+                custom: options?.text?.stats?.custom || "Custom action"
             });
 
             const builtinOrder = Array.isArray(core?.actions?.builtins)
@@ -130,7 +134,8 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                 usedTypes.add(normalized);
                 const entry = entriesByType.get(normalized);
                 const metaLabel = entry && entry.meta && typeof entry.meta.label === "string" ? entry.meta.label.trim() : "";
-                actionTypes.push({ value: normalized, text: metaLabel || fallbackLabel || normalized });
+                const builtinLabel = builtinLabels[normalized] || "";
+                actionTypes.push({ value: normalized, text: builtinLabel || metaLabel || fallbackLabel || normalized });
             }
 
             builtinOrder.forEach((type) => addActionType(type, builtinLabels[type] || type));
@@ -142,11 +147,11 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                 const metaLabel = entry && entry.meta && typeof entry.meta.label === "string" ? entry.meta.label.trim() : "";
                 extraTypes.push({ value: type, text: metaLabel || type });
             });
-            extraTypes.sort((a, b) => String(a.text).localeCompare(String(b.text), "zh", { numeric: true }));
+            extraTypes.sort((a, b) => String(a.text).localeCompare(String(b.text), state.effectiveLocale || "zh-CN", { numeric: true }));
             extraTypes.forEach((opt) => addActionType(opt.value, opt.text));
 
             if (temp.actionType && !usedTypes.has(temp.actionType)) {
-                const suffix = options?.text?.editor?.actionTypeHints?.unregisteredSuffix || " (未注册)";
+                const suffix = options?.text?.editor?.actionTypeHints?.unregisteredSuffix || " (unregistered)";
                 addActionType(temp.actionType, `${temp.actionType}${suffix}`);
             }
 
@@ -168,11 +173,11 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                     return;
                 }
                 if (!entriesByType.has(normalized)) {
-                    actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.unregistered || "该类型当前未注册 handler；触发时会提示 unknown actionType。";
+                    actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.unregistered || "This type currently has no registered handler; triggering it will report an unknown actionType.";
                     return;
                 }
                 if (!isBuiltinActionType(normalized)) {
-                    actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.extended || "扩展类型：可在下方 data JSON 传递参数。";
+                    actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.extended || "Extended type: pass parameters in the data JSON below.";
                     return;
                 }
                 actionTypeHint.textContent = "";
@@ -222,7 +227,7 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             const generalTabBtn = document.createElement("button");
             generalTabBtn.type = "button";
             generalTabBtn.setAttribute("role", "tab");
-            generalTabBtn.textContent = editorTabsText.general || "常规";
+            generalTabBtn.textContent = editorTabsText.general || "General";
             Object.assign(generalTabBtn.style, {
                 border: "1px solid",
                 borderRadius: "999px",
@@ -236,7 +241,7 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             const iconTabBtn = document.createElement("button");
             iconTabBtn.type = "button";
             iconTabBtn.setAttribute("role", "tab");
-            iconTabBtn.textContent = editorTabsText.icon || "图标";
+            iconTabBtn.textContent = editorTabsText.icon || "Icon";
             Object.assign(iconTabBtn.style, {
                 border: "1px solid",
                 borderRadius: "999px",
@@ -250,7 +255,7 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             const dataTabBtn = document.createElement("button");
             dataTabBtn.type = "button";
             dataTabBtn.setAttribute("role", "tab");
-            dataTabBtn.textContent = editorTabsText.data || "扩展";
+            dataTabBtn.textContent = editorTabsText.data || "Data";
             Object.assign(dataTabBtn.style, {
                 border: "1px solid",
                 borderRadius: "999px",
@@ -353,10 +358,10 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             const urlContainer = document.createElement('div');
             const urlTextarea = panelCreateInputField(
                 ctx,
-                options?.text?.editor?.labels?.url || "目标网址 (URL):",
+                options?.text?.editor?.labels?.url || "Target URL:",
                 temp.url,
                 "textarea",
-                options?.text?.editor?.placeholders?.url || "例如: https://example.com/search?q=%s"
+                options?.text?.editor?.placeholders?.url || "Example: https://example.com/search?q=%s"
             );
             urlContainer.appendChild(urlTextarea.label);
 
@@ -369,17 +374,17 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             const selectorContainer = document.createElement('div');
             const selectorTextarea = panelCreateInputField(
                 ctx,
-                options?.text?.editor?.labels?.selector || "目标选择器 (Selector):",
+                options?.text?.editor?.labels?.selector || "Target selector:",
                 temp.selector,
                 "textarea",
-                options?.text?.editor?.placeholders?.selector || '例如: label[for="sidebar-visible"]'
+                options?.text?.editor?.placeholders?.selector || 'Example: label[for="sidebar-visible"]'
             );
             selectorContainer.appendChild(selectorTextarea.label);
             generalPanel.appendChild(selectorContainer);
             actionInputs.selector = selectorTextarea.input;
 
             const simulateContainer = document.createElement('div');
-            const simulateCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.simulate || "模拟按键:", temp.simulateKeys, {
+            const simulateCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.simulate || "Simulated keys:", temp.simulateKeys, {
                 placeholder: options.text.hints.simulate,
                 hint: options.text.hints.simulateHelp,
                 methodName: "getSimulateKeys",
@@ -393,10 +398,10 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             const customContainer = document.createElement('div');
             const customActionField = panelCreateInputField(
                 ctx,
-                options?.text?.editor?.labels?.customAction || "自定义动作 (customAction):",
+                options?.text?.editor?.labels?.customAction || "Custom action:",
                 temp.customAction,
                 "text",
-                options?.text?.editor?.placeholders?.customAction || "从脚本提供的 customActions 中选择/输入 key"
+                options?.text?.editor?.placeholders?.customAction || "Choose/type a key from customActions provided by the script"
             );
             customContainer.appendChild(customActionField.label);
             generalPanel.appendChild(customContainer);
@@ -417,8 +422,8 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                 }
 	            } catch {}
 
-                const defaultDataLabelText = options?.text?.editor?.labels?.data || "扩展参数 (data JSON，可选):";
-                const defaultDataPlaceholder = options?.text?.editor?.placeholders?.data || '例如: {"foo":"bar"}';
+                const defaultDataLabelText = options?.text?.editor?.labels?.data || "Extra parameters (data JSON, optional):";
+                const defaultDataPlaceholder = options?.text?.editor?.placeholders?.data || 'Example: {"foo":"bar"}';
 
                 const customActionDataAdapters = (options?.customActionDataAdapters && typeof options.customActionDataAdapters === "object")
                     ? options.customActionDataAdapters
@@ -446,6 +451,19 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                     return adapter;
                 }
 
+                function getAdapterText(adapter, field, fallback = "") {
+                    if (!adapter) return fallback;
+                    const raw = adapter[field];
+                    if (typeof raw === "function") {
+                        try {
+                            return String(raw({ shortcut: temp, ctx }) ?? fallback);
+                        } catch {
+                            return fallback;
+                        }
+                    }
+                    return typeof raw === "string" ? raw : fallback;
+                }
+
                 function formatCustomActionData(adapter, data) {
                     if (!adapter) return formatJsonDataForEditor(data);
                     const formatter = typeof adapter.format === "function" ? adapter.format : null;
@@ -468,13 +486,13 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                     const adapter = (temp.actionType === "custom") ? getCustomActionDataAdapter(customActionKey) : null;
                     const nextDataAdapterKey = adapter ? customActionKey : "";
 
-                    const labelText = (adapter && typeof adapter.label === "string") ? adapter.label : defaultDataLabelText;
+                    const labelText = getAdapterText(adapter, "label", defaultDataLabelText);
                     try {
                         const textNode = dataField.label?.firstChild;
                         if (textNode && textNode.nodeType === 3) textNode.textContent = labelText;
                     } catch {}
 
-                    dataTextarea.placeholder = (adapter && typeof adapter.placeholder === "string") ? adapter.placeholder : defaultDataPlaceholder;
+                    dataTextarea.placeholder = getAdapterText(adapter, "placeholder", defaultDataPlaceholder);
 
                     const adapterChanged = nextDataAdapterKey !== lastDataAdapterKey;
                     lastDataAdapterKey = nextDataAdapterKey;
@@ -500,10 +518,10 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
 
             const dataField = panelCreateInputField(
                 ctx,
-                (initialDataAdapter && typeof initialDataAdapter.label === "string") ? initialDataAdapter.label : defaultDataLabelText,
+                getAdapterText(initialDataAdapter, "label", defaultDataLabelText),
                 initialDataAdapter ? formatCustomActionData(initialDataAdapter, temp.data) : formatJsonDataForEditor(temp.data),
                 "textarea",
-                (initialDataAdapter && typeof initialDataAdapter.placeholder === "string") ? initialDataAdapter.placeholder : defaultDataPlaceholder
+                getAdapterText(initialDataAdapter, "placeholder", defaultDataPlaceholder)
             );
 	            dataPanel.appendChild(dataField.label);
 	            const dataTextarea = dataField.input;
@@ -512,7 +530,7 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
 
             const iconField = panelCreateIconField(
                 ctx,
-                options?.text?.editor?.labels?.icon || "图标URL:",
+                options?.text?.editor?.labels?.icon || "Icon URL:",
                 temp.icon,
                 temp.iconDark
             );
@@ -575,8 +593,8 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                 borderRadius: "6px"
             });
 
-            const iconAdaptiveLabelText = options?.text?.panel?.iconAdaptiveLabel || "svg自适应处理";
-            const iconAdaptiveHintText = options?.text?.panel?.iconAdaptiveHint || "仅在主图标为SVG且未设置黑暗模式图标URL时生效";
+            const iconAdaptiveLabelText = options?.text?.panel?.iconAdaptiveLabel || "SVG adaptive processing";
+            const iconAdaptiveHintText = options?.text?.panel?.iconAdaptiveHint || "Only applies when the main icon is an SVG and no dark-mode icon URL is set";
             const iconAdaptiveHintPaletteByTheme = {
                 light: {
                     helpText: "#9d174d",
@@ -621,7 +639,7 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             const iconAdaptiveHelpBtn = document.createElement("button");
             iconAdaptiveHelpBtn.type = "button";
             iconAdaptiveHelpBtn.textContent = "?";
-            iconAdaptiveHelpBtn.setAttribute("aria-label", `${iconAdaptiveLabelText}说明`);
+            iconAdaptiveHelpBtn.setAttribute("aria-label", `${iconAdaptiveLabelText} help`);
             iconAdaptiveHelpBtn.setAttribute("aria-haspopup", "true");
             iconAdaptiveHelpBtn.setAttribute("aria-expanded", "false");
             Object.assign(iconAdaptiveHelpBtn.style, {
@@ -843,7 +861,7 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             const { container: iconLibraryContainer, destroy: destroyIconLibrary } = iconLibrary;
             iconPanel.appendChild(iconLibraryContainer);
 
-            const hotkeyCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.hotkey || "快捷键:", temp.hotkey, {
+            const hotkeyCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.hotkey || "Shortcut:", temp.hotkey, {
                 placeholder: options.text.hints.hotkey,
                 hint: options.text.hints.hotkeyHelp,
                 methodName: "getHotkey"
@@ -867,9 +885,15 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             });
 
             const confirmBtn = document.createElement("button");
-	            confirmBtn.textContent = options.text.buttons.confirm || "确定";
+	            confirmBtn.textContent = options.text.buttons.confirm || "OK";
 	            confirmBtn.onclick = () => {
-	                temp.name = nameInput.input.value.trim();
+	                const inputName = nameInput.input.value.trim();
+                    if (!isNew && temp.labelKey && inputName === initialDisplayName) {
+                        temp.name = item?.name || inputName;
+                    } else {
+                        temp.name = inputName;
+                        if (temp.labelKey && inputName !== initialDisplayName) temp.labelKey = "";
+                    }
 	                temp.url = actionInputs.url.value.trim();
 	                temp.selector = actionInputs.selector.value.trim();
                 temp.simulateKeys = getSimulateKeys().replace(/\s+/g, "");
@@ -886,22 +910,22 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                         try {
                             parsedData = adapter.parse(dataTextRaw, { shortcut: temp, ctx }) ?? {};
                         } catch {
-                            showAlert(options?.text?.editor?.validation?.dataParseFailed || "data 解析失败，请检查输入。");
+                            showAlert(options?.text?.editor?.validation?.dataParseFailed || "Failed to parse data. Please check the input.");
                             return;
                         }
                         if (!isPlainObject(parsedData)) {
-                            showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || "data 必须是 JSON 对象 (例如 {\"foo\":\"bar\"})。");
+                            showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || "data must be a JSON object (for example {\"foo\":\"bar\"}).");
                             return;
                         }
                     } else if (dataText) {
 	                    try {
 	                        parsedData = JSON.parse(dataText);
 	                    } catch {
-	                        showAlert(options?.text?.editor?.validation?.dataJsonParseFailed || "data JSON 解析失败，请检查格式。");
+	                        showAlert(options?.text?.editor?.validation?.dataJsonParseFailed || "Failed to parse data JSON. Please check the format.");
 	                        return;
 	                    }
 	                    if (!isPlainObject(parsedData)) {
-	                        showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || "data 必须是 JSON 对象 (例如 {\"foo\":\"bar\"})。");
+	                        showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || "data must be a JSON object (for example {\"foo\":\"bar\"}).");
 	                        return;
 	                    }
 	                }
@@ -912,18 +936,18 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                 temp.urlMethod = urlMethodConfig.method;
                 temp.urlAdvanced = urlMethodConfig.advanced;
 
-                if (!temp.name) { showAlert(options?.text?.editor?.validation?.nameRequired || "请填写名称!"); return; }
+                if (!temp.name) { showAlert(options?.text?.editor?.validation?.nameRequired || "Please enter a name."); return; }
                 const isBuiltinAction = isBuiltinActionType(temp.actionType);
-                if (isBuiltinAction && temp.actionType === 'url' && !temp.url) { showAlert(options?.text?.editor?.validation?.urlRequired || "请填写目标网址!"); return; }
-                if (isBuiltinAction && temp.actionType === 'selector' && !temp.selector) { showAlert(options?.text?.editor?.validation?.selectorRequired || "请填写目标选择器!"); return; }
-                if (isBuiltinAction && temp.actionType === 'simulate' && !temp.simulateKeys) { showAlert(options?.text?.editor?.validation?.simulateRequired || "请设置模拟按键!"); return; }
-                if (isBuiltinAction && temp.actionType === 'custom' && !temp.customAction) { showAlert(options?.text?.editor?.validation?.customActionRequired || "请设置自定义动作 key!"); return; }
-                if (!finalHotkey) { showAlert(options?.text?.editor?.validation?.hotkeyRequired || "请设置快捷键!"); return; }
-                if (finalHotkey.endsWith('+')) { showAlert(options?.text?.editor?.validation?.hotkeyIncomplete || "快捷键设置不完整 (缺少主键)!"); return; }
+                if (isBuiltinAction && temp.actionType === 'url' && !temp.url) { showAlert(options?.text?.editor?.validation?.urlRequired || "Please enter a target URL."); return; }
+                if (isBuiltinAction && temp.actionType === 'selector' && !temp.selector) { showAlert(options?.text?.editor?.validation?.selectorRequired || "Please enter a target selector."); return; }
+                if (isBuiltinAction && temp.actionType === 'simulate' && !temp.simulateKeys) { showAlert(options?.text?.editor?.validation?.simulateRequired || "Please set simulated keys."); return; }
+                if (isBuiltinAction && temp.actionType === 'custom' && !temp.customAction) { showAlert(options?.text?.editor?.validation?.customActionRequired || "Please set a custom action key."); return; }
+                if (!finalHotkey) { showAlert(options?.text?.editor?.validation?.hotkeyRequired || "Please set a shortcut."); return; }
+                if (finalHotkey.endsWith('+')) { showAlert(options?.text?.editor?.validation?.hotkeyIncomplete || "Shortcut is incomplete (missing main key)."); return; }
 
                 const normalizedNewHotkey = normalizeHotkey(finalHotkey);
                 if (core.getShortcuts().some((s, i) => normalizeHotkey(s.hotkey) === normalizedNewHotkey && i !== index)) {
-                    showAlert(options?.text?.editor?.validation?.hotkeyDuplicate || "该快捷键已被其他项使用, 请选择其他组合!");
+                    showAlert(options?.text?.editor?.validation?.hotkeyDuplicate || "This shortcut is already used by another item. Choose another combination.");
                     return;
                 }
                 temp.hotkey = finalHotkey;
@@ -962,7 +986,7 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
             btnRow.appendChild(confirmBtn);
 
             const cancelBtn = document.createElement("button");
-            cancelBtn.textContent = options.text.buttons.cancel || "取消";
+            cancelBtn.textContent = options.text.buttons.cancel || "Cancel";
             cancelBtn.onclick = closeEdit;
             btnRow.appendChild(cancelBtn);
 

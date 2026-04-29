@@ -19,7 +19,7 @@ import { simulateClick } from "../utils/events.js";
 
             function getUrlMethodDisplayText(method) {
                 const methodConfig = URL_METHODS?.[method];
-                if (!methodConfig) return options?.text?.builtins?.unknownUrlMethod || "未知跳转方式";
+                if (!methodConfig) return options?.text?.builtins?.unknownUrlMethod || "Unknown jump method";
                 return methodConfig.name;
             }
 
@@ -136,7 +136,7 @@ import { simulateClick } from "../utils/events.js";
                 } catch (e) {
                     console.error(`${consoleTag} Invalid URL or error in jumpToUrl:`, targetUrl, e);
                     if (typeof showAlert === "function") {
-                        const tpl = options?.text?.builtins?.invalidUrlOrError || "无效的跳转网址或发生错误: {url}";
+                        const tpl = options?.text?.builtins?.invalidUrlOrError || "Invalid jump URL or error: {url}";
                         showAlert(formatMessage(tpl, { url: targetUrl }));
                     }
                 }
@@ -149,7 +149,7 @@ import { simulateClick } from "../utils/events.js";
                 const element = safeQuerySelector(document, sel) || document.querySelector(sel);
                 if (!element) {
                     if (typeof showAlert === "function") {
-                        const tpl = options?.text?.builtins?.elementNotFound || "无法找到元素: {selector}";
+                        const tpl = options?.text?.builtins?.elementNotFound || "Element not found: {selector}";
                         showAlert(formatMessage(tpl, { selector: sel }));
                     }
                     return;
@@ -186,7 +186,7 @@ import { simulateClick } from "../utils/events.js";
                 } catch (eventError) {
                     console.error(`${consoleTag} Failed to dispatch click event on element: ${sel}`, eventError);
                     if (typeof showAlert === "function") {
-                        const tpl = options?.text?.builtins?.clickFailed || "无法模拟点击元素: {selector}";
+                        const tpl = options?.text?.builtins?.clickFailed || "Could not simulate click on element: {selector}";
                         showAlert(formatMessage(tpl, { selector: sel }));
                     }
                 }

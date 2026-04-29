@@ -33,6 +33,8 @@
         actionHandlers: {},
         allowOverrideBuiltinActions: false,
         actionTypeMeta: {},
+        locale: 'auto',
+        i18n: {},
         colors: {
             primary: '#0066cc'
         },
@@ -58,6 +60,8 @@
             isAllowedShortcutWhenPanelOpen: null
         },
         text: {
+            menuCommandLabel: '设置快捷键',
+            panelTitle: '自定义快捷键',
             stats: {
                 total: '总计',
                 url: 'URL跳转',
@@ -106,6 +110,15 @@
                 customShortLabel: '自定义'
             },
             panel: {
+                languageLabel: '界面语言',
+                languageAuto: '自动(跟随浏览器)',
+                languageZhCN: '简体中文',
+                languageEnUS: 'English',
+                themeModeLabel: '面板主题',
+                themeModeAuto: '自动(跟随页面)',
+                themeModeLight: '普通',
+                themeModeDark: '黑暗',
+                actionsLabel: '脚本配置',
                 resetConfirm: '确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)',
                 confirmDeleteShortcut: '确定删除快捷键【{name}】吗?',
                 iconAdaptiveLabel: 'svg自适应处理',
@@ -205,6 +218,193 @@
                 importDuplicateHotkeysPrefix: '导入失败：存在重复快捷键(请先在 JSON 中修复)：'
             },
             menuLabelFallback: '打开快捷键设置'
+        }
+    };
+
+    export const DEFAULT_CORE_I18N_MESSAGES = {
+        "zh-CN": DEFAULT_OPTIONS.text,
+        "en-US": {
+            stats: {
+                total: "Total",
+                url: "URL jump",
+                selector: "Element click",
+                simulate: "Key simulation",
+                custom: "Custom action"
+            },
+            buttons: {
+                addShortcut: "Add shortcut",
+                saveAndClose: "Save and close",
+                import: "Import",
+                export: "Export",
+                reset: "Reset defaults",
+                settings: "Settings",
+                copy: "Copy",
+                close: "Close",
+                confirm: "OK",
+                cancel: "Cancel",
+                delete: "Delete",
+                edit: "Edit",
+                clear: "Clear"
+            },
+            dialogs: {
+                alert: "Notice",
+                confirm: "Confirm",
+                prompt: "Input"
+            },
+            hints: {
+                hotkey: "Click here, then press a shortcut combination",
+                simulate: "Click here, then press the keys to simulate",
+                hotkeyHelp: "Supports Ctrl/Shift/Alt/Cmd plus letters, numbers, function keys, and more",
+                simulateHelp: "This key combination will be simulated on the page",
+                searchPlaceholder: "Search name/target"
+            },
+            builtins: {
+                unknownUrlMethod: "Unknown jump method",
+                invalidUrlOrError: "Invalid jump URL or error: {url}",
+                elementNotFound: "Element not found: {selector}",
+                clickFailed: "Could not simulate click on element: {selector}"
+            },
+            actionTypes: {
+                unknownLabel: "Unknown",
+                urlShortLabel: "URL",
+                selectorShortLabel: "Click",
+                simulateShortLabel: "Keys",
+                customShortLabel: "Custom"
+            },
+            panel: {
+                languageLabel: "Interface language",
+                languageAuto: "Auto (follow browser)",
+                languageZhCN: "Simplified Chinese",
+                languageEnUS: "English",
+                themeModeLabel: "Panel theme",
+                themeModeAuto: "Auto (follow page)",
+                themeModeLight: "Light",
+                themeModeDark: "Dark",
+                actionsLabel: "Script config",
+                resetConfirm: "Reset to the default configuration? Changes are saved only after clicking \"Save and close\".",
+                confirmDeleteShortcut: "Delete shortcut \"{name}\"?",
+                iconAdaptiveLabel: "SVG adaptive processing",
+                iconAdaptiveHint: "Only applies when the main icon is an SVG and no dark-mode icon URL is set",
+                tableHeaders: {
+                    icon: "Icon",
+                    name: "Name",
+                    type: "Type",
+                    target: "Target",
+                    hotkey: "Shortcut",
+                    actions: "Actions"
+                },
+                compact: {
+                    noHotkey: "None",
+                    emptyTarget: "(No target configured)"
+                },
+                dragError: "Drag sorting error: {error}"
+            },
+            editor: {
+                titles: {
+                    add: "Add shortcut",
+                    edit: "Edit shortcut"
+                },
+                tabs: {
+                    general: "General",
+                    data: "Data",
+                    icon: "Icon"
+                },
+                labels: {
+                    name: "Name:",
+                    actionType: "Action type:",
+                    url: "Target URL:",
+                    selector: "Target selector:",
+                    simulate: "Simulated keys:",
+                    customAction: "Custom action:",
+                    data: "Extra parameters (data JSON, optional):",
+                    icon: "Icon URL:",
+                    iconDark: "Dark-mode icon URL:",
+                    hotkey: "Shortcut:",
+                    urlMethod: "Jump method:",
+                    urlMethodToggleAdvanced: "Expand/collapse advanced options",
+                    urlMethodAdvanced: "Advanced options:",
+                    iconLibrary: "Or choose from the library:"
+                },
+                placeholders: {
+                    url: "Example: https://example.com/search?q=%s",
+                    selector: "Example: label[for=\"sidebar-visible\"]",
+                    customAction: "Choose/type a key from customActions provided by the script",
+                    data: "Example: {\"foo\":\"bar\"}",
+                    icon: "Paste a URL here, or choose from the library below",
+                    iconDark: "Optional: dark-mode icon URL"
+                },
+                actionTypeHints: {
+                    unregistered: "This type currently has no registered handler; triggering it will report an unknown actionType.",
+                    unregisteredSuffix: " (unregistered)",
+                    extended: "Extended type: pass parameters in the data JSON below."
+                },
+                validation: {
+                    dataParseFailed: "Failed to parse data. Please check the input.",
+                    dataJsonParseFailed: "Failed to parse data JSON. Please check the format.",
+                    dataJsonMustBeObject: "data must be a JSON object (for example {\"foo\":\"bar\"}).",
+                    nameRequired: "Please enter a name.",
+                    urlRequired: "Please enter a target URL.",
+                    selectorRequired: "Please enter a target selector.",
+                    simulateRequired: "Please set simulated keys.",
+                    customActionRequired: "Please set a custom action key.",
+                    hotkeyRequired: "Please set a shortcut.",
+                    hotkeyIncomplete: "Shortcut is incomplete (missing main key).",
+                    hotkeyDuplicate: "This shortcut is already used by another item. Choose another combination."
+                },
+                iconLibrary: {
+                    userAddedHint: " (long press to delete)",
+                    expandTitle: "Expand/collapse more icons",
+                    addTitle: "Add the icon URL from the input to the library",
+                    promptName: "Enter an icon name:",
+                    urlRequired: "Please enter an icon URL.",
+                    alreadyExists: "This icon already exists in the library.",
+                    confirmDelete: "Delete custom icon \"{name}\"?"
+                },
+                capture: {
+                    placeholderDuringCapture: "Press the {label} combination...",
+                    statusCapturing: "Capturing {label}; press a key combination...",
+                    statusCaptured: "Captured {label}: {keys}",
+                    statusInvalid: "No valid {label} captured",
+                    statusUnsupportedHotkey: "Unsupported shortcut: {key}",
+                    statusUnsupportedSimulate: "Unsupported simulated key: {key}",
+                    statusCleared: "{label} cleared"
+                }
+            },
+            io: {
+                copySuccess: "Copied to clipboard.",
+                copyFail: "Copy failed. Please copy manually.",
+                importTip: "Supports importing { shortcuts: [...], userIcons?: [...] } or a shortcuts array directly.",
+                importPlaceholder: "Paste JSON here...",
+                importJsonParseFailed: "Failed to parse JSON. Please check the format.",
+                importMissingShortcuts: "No shortcuts array found in the imported data.",
+                importDuplicateHotkeysPrefix: "Import failed: duplicate shortcuts found (fix them in JSON first):"
+            },
+            menuLabelFallback: "Open shortcut settings",
+            menuCommandLabel: "Shortcut settings",
+            panelTitle: "Custom shortcuts",
+            urlMethods: {
+                current: {
+                    name: "Current window",
+                    options: {
+                        href: { name: "location.href", desc: "Standard navigation; adds an entry to history" },
+                        replace: { name: "location.replace", desc: "Replace the current page without adding a history entry" }
+                    }
+                },
+                spa: {
+                    name: "SPA route",
+                    options: {
+                        pushState: { name: "history.pushState", desc: "Push a new state to history; suitable for SPA navigation" },
+                        replaceState: { name: "history.replaceState", desc: "Replace the current history state without adding a new entry" }
+                    }
+                },
+                newWindow: {
+                    name: "New window",
+                    options: {
+                        open: { name: "window.open", desc: "Open the link in a new tab" },
+                        popup: { name: "Popup window", desc: "Open the link in a new popup window" }
+                    }
+                }
+            }
         }
     };
 

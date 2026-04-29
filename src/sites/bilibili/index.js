@@ -16,6 +16,23 @@
     // 默认图标URL
     const defaultIconURL = "https://www.bilibili.com/favicon.ico";
 
+    const SITE_MESSAGES = Object.freeze({
+        "en-US": {
+            menuCommandLabel: "Bilibili - Shortcut settings",
+            panelTitle: "Bilibili - Custom shortcuts",
+            shortcuts: {
+                "综合搜索": "All search",
+                "视频搜索": "Video search",
+                "直播搜索": "Live search",
+                "番剧搜索": "Bangumi search",
+                "UP主搜索": "Creator search",
+                "专栏搜索": "Article search",
+                "回到首页": "Go to home",
+                "打开搜索": "Open search"
+            }
+        }
+    });
+
     // 默认图标库
     const defaultIcons = [
         { name: "哔哩哔哩", url: "https://www.bilibili.com/favicon.ico" },
@@ -148,6 +165,9 @@
             idPrefix: "bilibili",
             cssPrefix: "bilibili",
             compactBreakpoint: 800
+        },
+        i18n: {
+            messages: SITE_MESSAGES
         },
 
         // 图标配置

@@ -35,6 +35,19 @@
         "https://chat.deepseek.com/favicon.svg"
     ];
 
+    const SITE_MESSAGES = Object.freeze({
+        "en-US": {
+            menuCommandLabel: "DeepSeek - Shortcut settings",
+            panelTitle: "DeepSeek - Custom shortcuts",
+            shortcuts: {
+                "新聊天": "New chat",
+                "Search 按钮": "Search button",
+                "DeepThink 按钮": "DeepThink button",
+                "侧边栏": "Sidebar"
+            }
+        }
+    });
+
     const defaultShortcuts = [
         // === DeepSeek 核心功能快捷键 ===
         {
@@ -96,6 +109,9 @@
             idPrefix: "deepseek",
             cssPrefix: "deepseek",
             compactBreakpoint: 800
+        },
+        i18n: {
+            messages: SITE_MESSAGES
         },
         defaultIconURL,
         iconLibrary: defaultIcons,

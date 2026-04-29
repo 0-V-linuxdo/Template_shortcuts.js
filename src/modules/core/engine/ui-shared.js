@@ -246,7 +246,7 @@
 
             /* ------------------------------ Dialogs ---------------------------- */
 
-            function showAlert(message, title = options.text.dialogs.alert || "提示") {
+            function showAlert(message, title = options.text.dialogs.alert || "Notice") {
                 const modal = document.createElement('div');
                 modal.className = `${classPrefix}-overlay`;
                 modal.style.zIndex = '999999';
@@ -275,7 +275,7 @@
                 });
 
                 const okButton = document.createElement('button');
-                okButton.textContent = options.text.buttons.confirm || '确定';
+                okButton.textContent = options.text.buttons.confirm || 'OK';
                 styleButton(okButton, "#4CAF50", "#45A049");
                 okButton.onclick = () => {
                     document.body.removeChild(modal);
@@ -287,7 +287,7 @@
                 okButton.focus();
             }
 
-            function showConfirmDialog(message, onConfirm, title = options.text.dialogs.confirm || "确认") {
+            function showConfirmDialog(message, onConfirm, title = options.text.dialogs.confirm || "Confirm") {
                 const modal = document.createElement('div');
                 modal.className = `${classPrefix}-overlay`;
                 modal.style.zIndex = '999999';
@@ -316,7 +316,7 @@
                 });
 
                 const cancelButton = document.createElement('button');
-                cancelButton.textContent = options.text.buttons.cancel || '取消';
+                cancelButton.textContent = options.text.buttons.cancel || 'Cancel';
                 styleButton(cancelButton, "#9E9E9E", "#757575");
                 cancelButton.onclick = () => {
                     document.body.removeChild(modal);
@@ -324,7 +324,7 @@
                 buttonContainer.appendChild(cancelButton);
 
                 const confirmButton = document.createElement('button');
-                confirmButton.textContent = options.text.buttons.confirm || '确定';
+                confirmButton.textContent = options.text.buttons.confirm || 'OK';
                 styleButton(confirmButton, "#F44336", "#D32F2F");
                 confirmButton.onclick = () => {
                     document.body.removeChild(modal);
@@ -338,7 +338,7 @@
                 cancelButton.focus();
             }
 
-            function showPromptDialog(message, defaultValue = "", onConfirm = null, title = options.text.dialogs.prompt || "输入") {
+            function showPromptDialog(message, defaultValue = "", onConfirm = null, title = options.text.dialogs.prompt || "Input") {
                 const modal = document.createElement('div');
                 modal.className = `${classPrefix}-overlay`;
                 modal.style.zIndex = '999999';
@@ -374,7 +374,7 @@
                 });
 
                 const cancelButton = document.createElement('button');
-                cancelButton.textContent = options.text.buttons.cancel || '取消';
+                cancelButton.textContent = options.text.buttons.cancel || 'Cancel';
                 styleButton(cancelButton, "#9E9E9E", "#757575");
                 cancelButton.onclick = () => {
                     document.body.removeChild(modal);
@@ -382,7 +382,7 @@
                 buttonContainer.appendChild(cancelButton);
 
                 const confirmButton = document.createElement('button');
-                confirmButton.textContent = options.text.buttons.confirm || '确定';
+                confirmButton.textContent = options.text.buttons.confirm || 'OK';
                 styleButton(confirmButton, "#4CAF50", "#45A049");
                 confirmButton.onclick = () => {
                     const val = input.value;

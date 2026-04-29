@@ -85,6 +85,7 @@ const STEP_DELAY_MAX_MS = 30000;
         const QUICK_INPUT_SVG_NS = "http://www.w3.org/2000/svg";
 
         const DEFAULT_LABELS = Object.freeze({
+            title: "快捷输入",
             tabs: Object.freeze({ input: "输入", log: "日志" }),
             fields: Object.freeze({
                 images: "图片：",
@@ -127,6 +128,17 @@ const STEP_DELAY_MAX_MS = 30000;
                 s: "秒",
                 m: "分钟"
             }),
+            stages: Object.freeze({
+                beforeReset: "重传前",
+                beforeRepair: "补图前",
+                loopStart: "本轮开始",
+                afterComposerFocus: "输入框聚焦后",
+                beforeImages: "贴图前",
+                beforeText: "文字输入前",
+                afterText: "文字输入后",
+                beforeTool: "工具快捷键前",
+                beforeSend: "发送前"
+            }),
             aria: Object.freeze({
                 close: "关闭",
                 deleteHotkey: "删除该快捷键",
@@ -167,6 +179,15 @@ const STEP_DELAY_MAX_MS = 30000;
                 repairedImages: (count, expectedCount) => `已自动补齐图片：${count} 张（目标共 ${expectedCount} 张）。`,
                 uploadNotReady: "图片尚未上传完成：已取消发送，避免文字先发。",
                 sendAttempted: (ok) => (ok ? "已尝试发送（Enter/Send）。" : "发送失败。"),
+                maxDelayTitle: (formattedDelay) => `最大 ${formattedDelay}`,
+                diagnostics: (json) => `诊断: ${json}`,
+                imageCountNotReady: (current, expected) => `图片数量未达到预期：当前 ${current} 张，期望至少 ${expected} 张。`,
+                imageUploadTimeout: (current) => `等待图片上传完成超时：当前识别到 ${current} 张图片。`,
+                textVerifyFailed: (stage, actualLength, expectedLength) => `文字校验失败${stage ? `（${stage}）` : ""}：当前检测到 ${actualLength} / ${expectedLength} 个字符。`,
+                imageReuploadFailed: "图片重新上传失败：已取消发送，避免文字先发。",
+                imageInsertFailed: "图片插入失败：本轮将中止发送。",
+                imagesInserted: (count) => `已成功插入图片：${count} 张。`,
+                imageReady: "图片已就绪。",
                 loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), DELAY_UNIT_LABELS)) => `循环间隔等待中：${formattedDelay}（发送后 → 新对话前）。`,
                 newChatTriggered: (hotkey, ok) => (ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`),
                 newChatRetrying: (hotkey, attempt, maxRetries) => `新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
@@ -183,6 +204,132 @@ const STEP_DELAY_MAX_MS = 30000;
                 finished: "完成！",
                 stopRequested: "收到停止请求，将尽快停止…",
                 missingAttachAdapter: "图片发送未配置：请在 quickInput.adapter.attachImages 中实现图片插入逻辑。"
+            })
+        });
+
+        const DEFAULT_LABEL_MESSAGES = Object.freeze({
+            "zh-CN": DEFAULT_LABELS,
+            "en-US": Object.freeze({
+                title: "Quick Input",
+                tabs: Object.freeze({ input: "Input", log: "Log" }),
+                fields: Object.freeze({
+                    images: "Images:",
+                    preview: "Preview:",
+                    text: "Text:",
+                    hotkeys: "Tool shortcuts\n(optional):",
+                    loopCount: "Loop count:",
+                    newChatHotkey: "New chat shortcut:",
+                    stepDelay: "Step delay:",
+                    loopDelay: "Loop delay:",
+                    options: "Options:"
+                }),
+                buttons: Object.freeze({
+                    run: "Run",
+                    replay: "Retry",
+                    stop: "Stop",
+                    pause: "Pause",
+                    resume: "Resume",
+                    addHotkey: "Add shortcut",
+                    delete: "Delete",
+                    clearImages: "Clear images"
+                }),
+                placeholders: Object.freeze({
+                    imageDrop: "Click / paste / drag images",
+                    imageDropMore: "Supports click upload, input paste, and drag upload",
+                    imageDropOverlay: "Release to append images",
+                    text: "Type or paste text to send...",
+                    hotkeyPrimary: "Leave empty to skip (for example: CTRL+I)",
+                    hotkeyExtra: "Example: CTRL+I",
+                    newChatHotkey: "Example: CTRL+N"
+                }),
+                hints: Object.freeze({
+                    flow: "Flow: insert images/text -> trigger shortcuts -> send -> repeat"
+                }),
+                options: Object.freeze({
+                    clearBeforeRun: "Clear input and attachments before running"
+                }),
+                delayUnits: Object.freeze({
+                    ms: "ms",
+                    s: "sec",
+                    m: "min"
+                }),
+                stages: Object.freeze({
+                    beforeReset: "Before re-upload",
+                    beforeRepair: "Before image repair",
+                    loopStart: "Loop start",
+                    afterComposerFocus: "After focusing input",
+                    beforeImages: "Before inserting images",
+                    beforeText: "Before text input",
+                    afterText: "After text input",
+                    beforeTool: "Before tool shortcut",
+                    beforeSend: "Before send"
+                }),
+                aria: Object.freeze({
+                    close: "Close",
+                    deleteHotkey: "Delete this shortcut",
+                    deleteImage: "Delete this image",
+                    clearImages: "Clear images"
+                }),
+                messages: Object.freeze({
+                    noImagesDetected: "No image files detected.",
+                    imagesLoaded: (count, kb, totalCount = count, renamedCount = 0) => `Added images: ${count} (current total ${totalCount}, about ${kb} KB this time${renamedCount > 0 ? `, auto-renamed ${renamedCount}` : ""}).`,
+                    imageDeleted: (label, remaining) => `Deleted image${label} (${remaining} remaining).`,
+                    imagesCleared: "Images cleared.",
+                    missingNewChatHotkey: "Please enter the new chat shortcut.",
+                    missingInput: "Enter text or load images first.",
+                    startRows: (loopCount, toolHotkeys, newChatHotkey, imageCount) => [
+                        { label: "Loop count:", value: `${loopCount}` },
+                        { label: "Tool shortcuts:", value: toolHotkeys.length ? toolHotkeys.join(", ") : "(none)" },
+                        { label: "New chat shortcut:", value: newChatHotkey },
+                        { label: "Images:", value: `${imageCount}` }
+                    ],
+                    start: (loopCount, toolHotkeys, newChatHotkey, imageCount) => [
+                        `Loop count: ${loopCount}`,
+                        `Tool shortcuts: ${toolHotkeys.length ? toolHotkeys.join(", ") : "(none)"}`,
+                        `New chat shortcut: ${newChatHotkey}`,
+                        `Images: ${imageCount}`
+                    ].join("\n"),
+                    startSummary: "Run configuration",
+                    loopMarker: (i, loopCount) => `-- Loop ${i}/${loopCount} --`,
+                    composerNotFound: "Input box not found. Click the input box once, then run again.",
+                    textInserted: (ok) => (ok ? "Text inserted." : "Failed to insert text."),
+                    textRetrying: (stage, attempt = 1, maxAttempts = 1) => `Text verification failed${stage ? ` (${stage})` : ""}; retrying automatically ${attempt}/${maxAttempts}.`,
+                    textNotReady: (stage) => `Text was not actually written to the input${stage ? ` (${stage})` : ""}; stopped to avoid sending empty content.`,
+                    hotkeyTriggered: (hotkey, ok) => (ok ? `Triggered shortcut: ${hotkey}` : `Failed to trigger shortcut: ${hotkey}`),
+                    waitingUploads: (count) => `Waiting for image uploads... (${count})`,
+                    resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `Image readiness timed out: detected ${currentCount}/${expectedCount}; clearing attachments and re-uploading the group (${attempt}/${maxAttempts}).`,
+                    reuploadedImages: (count, expectedCount = count) => `Cleared current attachments and re-uploaded images: ${count} (target ${expectedCount}).`,
+                    clearAttachmentsFailed: "Failed to clear current image attachments; cancelled this send.",
+                    repairingImages: (missingCount, currentCount, expectedCount, attempt, maxAttempts) => `Detected missing images: current ${currentCount}/${expectedCount}; repairing ${missingCount} missing image(s) (${attempt}/${maxAttempts}).`,
+                    repairedImages: (count, expectedCount) => `Repaired images: ${count} (target ${expectedCount}).`,
+                    uploadNotReady: "Images are not uploaded yet; cancelled send to avoid sending text first.",
+                    sendAttempted: (ok) => (ok ? "Send attempted (Enter/Send)." : "Send failed."),
+                    maxDelayTitle: (formattedDelay) => `Maximum ${formattedDelay}`,
+                    diagnostics: (json) => `Diagnostics: ${json}`,
+                    imageCountNotReady: (current, expected) => `Image count is below the expected number: current ${current}, expected at least ${expected}.`,
+                    imageUploadTimeout: (current) => `Timed out waiting for image uploads: currently detected ${current} image(s).`,
+                    textVerifyFailed: (stage, actualLength, expectedLength) => `Text verification failed${stage ? ` (${stage})` : ""}: detected ${actualLength}/${expectedLength} characters.`,
+                    imageReuploadFailed: "Image re-upload failed; cancelled send to avoid sending text first.",
+                    imageInsertFailed: "Image insertion failed; this loop will stop.",
+                    imagesInserted: (count) => `Inserted images successfully: ${count}.`,
+                    imageReady: "Images are ready.",
+                    loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), { ms: "ms", s: "sec", m: "min" })) => `Waiting between loops: ${formattedDelay} (after send -> before new chat).`,
+                    newChatTriggered: (hotkey, ok) => (ok ? `Loop triggered: ${hotkey} new chat.` : `Failed to create new chat for loop: ${hotkey}.`),
+                    newChatRetrying: (hotkey, attempt, maxRetries) => `New chat verification failed; retrying ${attempt}/${maxRetries} (${hotkey}).`,
+                    newChatNotReady: "New chat is still not ready after retries; stopped to avoid continuing in the old context.",
+                    replayNewChatTriggered: (hotkey, ok) => (ok ? "" : `Failed to create new chat before retry: ${hotkey}.`),
+                    replayNewChatRetrying: (hotkey, attempt, maxRetries) => `New chat verification before retry failed; retrying ${attempt}/${maxRetries} (${hotkey}).`,
+                    replayNewChatNotReady: "New chat before retry is still not ready after retries; cancelled this retry.",
+                    inputUrlRecovering: (stage, hotkey) => `URL verification before input failed${stage ? ` (${stage})` : ""}; triggering ${hotkey} to create a new chat.`,
+                    inputUrlNotReady: (stage) => `URL verification before input failed${stage ? ` (${stage})` : ""}; recovery failed, so later loops were stopped.`,
+                    paused: "Paused.",
+                    resumed: "Resumed.",
+                    stopped: "Stopped.",
+                    failed: "Failed.",
+                    finished: "Finished.",
+                    stopRequested: "Stop requested; stopping as soon as possible...",
+                    missingAttachAdapter: "Image sending is not configured. Implement image insertion in quickInput.adapter.attachImages."
+                })
             })
         });
 
@@ -581,6 +728,7 @@ export {
     DELAY_UNIT_LABELS,
     QUICK_INPUT_SVG_NS,
     DEFAULT_LABELS,
+    DEFAULT_LABEL_MESSAGES,
     DEFAULT_CONFIG,
     normalizeImageRecovery,
     normalizeDelayUnit,

@@ -1,6 +1,6 @@
 import { createKeyboardLayer } from "./keyboard.js";
 import { createSettingsPanelLayer } from "../../panel/settings/index.js";
-import { gmRegisterMenuCommand } from "../../shared/platform/userscript.js";
+import { gmRegisterMenuCommand, gmUnregisterMenuCommand } from "../../shared/platform/userscript.js";
 
 /* -------------------------------------------------------------------------- *
  * Module 06 · Styling & exports (CSS injection, lifecycle, global API)
@@ -248,6 +248,37 @@ import { gmRegisterMenuCommand } from "../../shared/platform/userscript.js";
              * 生命周期
              * ------------------------------------------------------------------ */
 
+            function getMenuCommandLabel() {
+                return options.menuCommandLabel || options.text.menuLabelFallback;
+            }
+
+            function registerMenuCommand() {
+                const menuLabel = getMenuCommandLabel();
+                if (state.menuCommandId !== null && state.menuCommandId !== undefined) {
+                    try { gmUnregisterMenuCommand(state.menuCommandId); } catch {}
+                    state.menuCommandId = null;
+                    state.menuCommandRegistered = false;
+                }
+                const commandId = gmRegisterMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
+                if (commandId !== null && commandId !== undefined) {
+                    state.menuCommandId = commandId;
+                    state.menuCommandRegistered = true;
+                }
+            }
+
+            function refreshMenuCommand() {
+                registerMenuCommand();
+            }
+
+            function reopenSettingsPanel() {
+                const wasOpen = !!state.isSettingsPanelOpen;
+                if (!wasOpen) return;
+                settingsPanelLayer.closeSettingsPanel();
+                setTimeout(() => {
+                    try { settingsPanelLayer.openSettingsPanel(); } catch {}
+                }, 0);
+            }
+
             function init() {
                 keyboardLayer.init();
                 if (typeof state.destroyDarkModeObserver === "function") {
@@ -265,12 +296,8 @@ import { gmRegisterMenuCommand } from "../../shared/platform/userscript.js";
                 }
                 state.destroyDragCss = injectDragCss();
 
-                const menuLabel = options.menuCommandLabel || options.text.menuLabelFallback;
                 if (!state.menuCommandRegistered) {
-                    const commandId = gmRegisterMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
-                    if (commandId !== null && commandId !== undefined) {
-                        state.menuCommandRegistered = true;
-                    }
+                    registerMenuCommand();
                 }
             }
 
@@ -289,6 +316,11 @@ import { gmRegisterMenuCommand } from "../../shared/platform/userscript.js";
                     try { state.destroyDarkModeObserver(); } catch {}
                     state.destroyDarkModeObserver = null;
                 }
+                if (state.menuCommandId !== null && state.menuCommandId !== undefined) {
+                    try { gmUnregisterMenuCommand(state.menuCommandId); } catch {}
+                    state.menuCommandId = null;
+                    state.menuCommandRegistered = false;
+                }
                 uiShared.layout.disableScrollLock();
             }
 
@@ -305,6 +337,8 @@ import { gmRegisterMenuCommand } from "../../shared/platform/userscript.js";
                 destroy,
                 openSettingsPanel: settingsPanelLayer.openSettingsPanel,
                 closeSettingsPanel: settingsPanelLayer.closeSettingsPanel,
+                reopenSettingsPanel,
+                refreshMenuCommand,
                 getShortcuts,
                 setShortcuts,
                 registerActionHandler: (actionType, handler, meta = {}) => core?.actions?.register?.(actionType, handler, meta),
@@ -312,6 +346,11 @@ import { gmRegisterMenuCommand } from "../../shared/platform/userscript.js";
                 listActionTypes: () => core?.actions?.list?.() || [],
                 core,
                 uiShared,
+                i18n: core?.i18n,
+                setLocaleMode: core?.setLocaleMode,
+                getLocaleMode: core?.getLocaleMode,
+                getEffectiveLocale: core?.getEffectiveLocale,
+                translate: core?.i18n?.t,
                 URL_METHODS
             });
         }

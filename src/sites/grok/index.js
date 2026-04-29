@@ -83,6 +83,32 @@
         "https://grok.com/images/favicon-dark.png"
     ];
 
+    const SITE_MESSAGES = Object.freeze({
+        "zh-CN": {
+            menuCommandLabel: "Grok - 设置快捷键",
+            panelTitle: "Grok - 自定义快捷键",
+            keepSidebarVisibleLabel: "Grok - 保持侧边栏显示: {state}",
+            on: "开",
+            off: "关",
+            shortcuts: {
+                "Private": "私密模式",
+                "New Chat": "新建聊天",
+                "Sidebar": "侧边栏",
+                "Project": "项目"
+            }
+        },
+        "en-US": {
+            menuCommandLabel: "Grok - Shortcut settings",
+            panelTitle: "Grok - Custom shortcuts",
+            keepSidebarVisibleLabel: "Grok - Keep sidebar visible: {state}",
+            on: "On",
+            off: "Off",
+            shortcuts: {
+                "用户切换": "Switch user"
+            }
+        }
+    });
+
     const SELECTORS = Object.freeze({
         sidebarToggle: 'button[data-sidebar="trigger"][type="button"]',
         sidebarProvider: '[data-variant="sidebar"][data-side]',
@@ -211,7 +237,8 @@
     }
 
     function getSidebarVisibilityMenuLabel() {
-        return `Grok - 保持侧边栏显示: ${keepSidebarVisible ? "开" : "关"}`;
+        const stateText = engine?.i18n?.t?.(keepSidebarVisible ? "on" : "off", {}, keepSidebarVisible ? "On" : "Off") || (keepSidebarVisible ? "On" : "Off");
+        return engine?.i18n?.t?.("keepSidebarVisibleLabel", { state: stateText }, `Grok - Keep sidebar visible: ${stateText}`) || `Grok - Keep sidebar visible: ${stateText}`;
     }
 
     function registerSidebarVisibilityMenuCommand() {
@@ -441,7 +468,7 @@
             stopSidebarWarmup();
         }
 
-        console.info(`${LOG_TAG} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
+        console.info(`${LOG_TAG} keep sidebar visible is now ${keepSidebarVisible ? "enabled" : "disabled"}.`);
         registerSidebarVisibilityMenuCommand();
         return keepSidebarVisible;
     }
@@ -503,6 +530,9 @@
             idPrefix: 'grok',
             cssPrefix: 'grok',
             compactBreakpoint: 800
+        },
+        i18n: {
+            messages: SITE_MESSAGES
         },
 
         // 图标配置

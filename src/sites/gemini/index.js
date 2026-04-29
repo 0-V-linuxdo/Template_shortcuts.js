@@ -124,6 +124,91 @@
         "Pin": "pin"
     });
 
+    const SITE_MESSAGES = Object.freeze({
+        "zh-CN": {
+            menuCommandLabel: "Gemini - 设置快捷键",
+            panelTitle: "Gemini - 自定义快捷键",
+            quickInputTitle: "Gemini - 快捷输入",
+            keepSidebarVisibleLabel: "Gemini - 保持侧边栏显示: {state}",
+            on: "开",
+            off: "关",
+            shortcuts: {
+                "New Chat": "新建聊天",
+                "Toggle Sidebar": "切换侧边栏",
+                "Model: Pro": "模型：Pro",
+                "Model: Thinking": "模型：Thinking",
+                "Model: Fast": "模型：Fast",
+                "Open Tools": "打开工具",
+                "Canvas": "画布",
+                "Image": "图片",
+                "Quick Input": "快捷输入",
+                "Learning": "学习",
+                "Research": "深度研究",
+                "Delete": "删除",
+                "Pin": "置顶"
+            },
+            dataAdapters: {
+                toolsDrawer: {
+                    label: "菜单关键词（或粘贴 JSON，高级用法）:",
+                    placeholder: "例如: {\"menu\":{\"id\":\"canvas\"}} / Canvas"
+                },
+                conversationMenu: {
+                    label: "菜单关键词（或粘贴 JSON，高级用法）:",
+                    placeholder: "例如: {\"menu\":{\"id\":\"pin\"}} / Delete"
+                },
+                modelPicker: {
+                    label: "模型关键词（或粘贴 JSON，高级用法）:",
+                    placeholder: "例如: Pro / Thinking / Fast"
+                }
+            },
+            quickInput: {
+                nativeNewChatLabel: "CMD+SHIFT+O (原生)",
+                clearNoComposer: "清空当前图片附件失败：未找到输入框。",
+                clearNoContainer: "清空当前图片附件失败：未找到附件容器。",
+                clearStillRemaining: "清空当前图片附件失败：点击移除后仍识别到 {remaining} 个附件标记。",
+                clearNoRemoveButton: "清空当前图片附件失败：仍识别到 {remaining} 个附件标记，但未找到可用的移除按钮。",
+                clearUnknown: "清空当前图片附件失败：未能确认附件已全部移除。",
+                noImageFiles: "未检测到图片文件。",
+                attachFailed: "图片粘贴失败：未检测到输入框内出现图片预览。"
+            }
+        },
+        "en-US": {
+            menuCommandLabel: "Gemini - Shortcut settings",
+            panelTitle: "Gemini - Custom shortcuts",
+            quickInputTitle: "Gemini - Quick Input",
+            keepSidebarVisibleLabel: "Gemini - Keep sidebar visible: {state}",
+            on: "On",
+            off: "Off",
+            dataAdapters: {
+                toolsDrawer: {
+                    label: "Menu keyword (or paste JSON, advanced):",
+                    placeholder: "Example: {\"menu\":{\"id\":\"canvas\"}} / Canvas"
+                },
+                conversationMenu: {
+                    label: "Menu keyword (or paste JSON, advanced):",
+                    placeholder: "Example: {\"menu\":{\"id\":\"pin\"}} / Delete"
+                },
+                modelPicker: {
+                    label: "Model keyword (or paste JSON, advanced):",
+                    placeholder: "Example: Pro / Thinking / Fast"
+                }
+            },
+            quickInput: {
+                nativeNewChatLabel: "CMD+SHIFT+O (native)",
+                clearNoComposer: "Failed to clear current image attachments: input box not found.",
+                clearNoContainer: "Failed to clear current image attachments: attachment container not found.",
+                clearStillRemaining: "Failed to clear current image attachments: {remaining} attachment marker(s) still detected after clicking remove.",
+                clearNoRemoveButton: "Failed to clear current image attachments: {remaining} attachment marker(s) still detected, and no usable remove button was found.",
+                clearUnknown: "Failed to clear current image attachments: could not confirm that all attachments were removed.",
+                noImageFiles: "No image files detected.",
+                attachFailed: "Image paste failed: no image preview was detected in the input box."
+            }
+        }
+    });
+
+    const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
+    const siteMessage = (engine, key, vars = {}, fallback = "") => engine?.i18n?.t?.(key, vars, fallback) || fallback;
+
     const SELECTORS = {
         sidebarToggle: [
             "button[data-test-id='side-nav-menu-button']",
@@ -344,7 +429,6 @@
         stepDelayMs: 120
     };
     const GEMINI_NATIVE_NEW_CHAT_HOTKEY = "CMD+SHIFT+O";
-    const GEMINI_NATIVE_NEW_CHAT_LABEL = `${GEMINI_NATIVE_NEW_CHAT_HOTKEY} (原生)`;
 
     const QUICK_INPUT_STORAGE_KEY = "gemini_quick_input_v1";
     const SIDEBAR_VISIBILITY_STORAGE_KEY = "gemini_keep_sidebar_visible_v1";
@@ -609,19 +693,20 @@
         setLocalBooleanFallback(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
     }
 
-    function getSidebarVisibilityMenuLabel() {
-        return `Gemini - 保持侧边栏显示: ${keepSidebarVisible ? "开" : "关"}`;
+    function getSidebarVisibilityMenuLabel(engine = null) {
+        const stateText = siteMessage(engine, keepSidebarVisible ? "on" : "off", {}, keepSidebarVisible ? "On" : "Off");
+        return siteMessage(engine, "keepSidebarVisibleLabel", { state: stateText }, `Gemini - Keep sidebar visible: ${stateText}`);
     }
 
-    function registerSidebarVisibilityMenuCommand() {
+    function registerSidebarVisibilityMenuCommand(engine = null) {
         if (sidebarVisibilityMenuCommandId !== null) {
             try {
                 gmUnregisterMenuCommandLocal(sidebarVisibilityMenuCommandId);
             } catch { }
         }
 
-        sidebarVisibilityMenuCommandId = gmRegisterMenuCommandLocal(getSidebarVisibilityMenuLabel(), () => {
-            setSidebarVisibilityPreference(!keepSidebarVisible);
+        sidebarVisibilityMenuCommandId = gmRegisterMenuCommandLocal(getSidebarVisibilityMenuLabel(engine), () => {
+            setSidebarVisibilityPreference(!keepSidebarVisible, engine);
         });
     }
 
@@ -745,7 +830,7 @@
         return clickSidebarToggleButton();
     }
 
-    function setSidebarVisibilityPreference(nextValue) {
+    function setSidebarVisibilityPreference(nextValue, engine = null) {
         keepSidebarVisible = !!nextValue;
         setKeepSidebarVisibleSetting(keepSidebarVisible);
         if (keepSidebarVisible) {
@@ -758,8 +843,8 @@
             stopSidebarWarmup();
         }
 
-        console.info(`${LOG_TAG} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
-        registerSidebarVisibilityMenuCommand();
+        console.info(`${LOG_TAG} keep sidebar visible is now ${keepSidebarVisible ? "enabled" : "disabled"}.`);
+        registerSidebarVisibilityMenuCommand(engine);
         return keepSidebarVisible;
     }
 
@@ -2040,11 +2125,17 @@
         return await modelPickerMenuAction({ shortcut, engine });
     }
 
-    function createGeminiQuickInputAdapter({ idPrefix = "gemini" } = {}) {
+    function createGeminiQuickInputAdapter({ idPrefix = "gemini", engine = null } = {}) {
         const QuickInput = ShortcutTemplate?.quickInput;
         const dom = QuickInput?.dom;
 
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        function qiText(key, vars = {}, fallback = "") {
+            return engine?.i18n?.t?.(`quickInput.${key}`, vars, fallback) || fallback;
+        }
+        function getNativeNewChatLabel() {
+            return qiText("nativeNewChatLabel", {}, `${GEMINI_NATIVE_NEW_CHAT_HOTKEY} (native)`);
+        }
 
         const focusComposer = dom?.focusComposer;
         const simulateKeystroke = dom?.simulateKeystroke;
@@ -2192,15 +2283,15 @@
 
         async function triggerNativeNewChat({ shouldCancel = null } = {}) {
             const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
-            if (cancelFn && cancelFn()) return { ok: false, label: GEMINI_NATIVE_NEW_CHAT_LABEL };
+            if (cancelFn && cancelFn()) return { ok: false, label: getNativeNewChatLabel() };
 
             try {
                 if (simulateKeystroke(GEMINI_NATIVE_NEW_CHAT_HOTKEY, { target: document.body })) {
-                    return { ok: true, label: GEMINI_NATIVE_NEW_CHAT_LABEL };
+                    return { ok: true, label: getNativeNewChatLabel() };
                 }
             } catch { }
 
-            return { ok: false, label: GEMINI_NATIVE_NEW_CHAT_LABEL };
+            return { ok: false, label: getNativeNewChatLabel() };
         }
 
         const GEMINI_ATTACHMENT_OBSERVED_ATTRIBUTES = Object.freeze([
@@ -2466,13 +2557,13 @@
                 return {
                     ok: false,
                     cancelled: !!(cancelFn && cancelFn()),
-                    message: "清空当前图片附件失败：未找到输入框。"
+                    message: qiText("clearNoComposer", {}, "Failed to clear current image attachments: input box not found.")
                 };
             }
 
             const container = findGeminiComposerContainer(composer);
             if (!container) {
-                return { ok: false, cancelled: false, message: "清空当前图片附件失败：未找到附件容器。" };
+                return { ok: false, cancelled: false, message: qiText("clearNoContainer", {}, "Failed to clear current image attachments: attachment container not found.") };
             }
 
             const initialSnapshot = getGeminiAttachmentSnapshot(container);
@@ -2493,9 +2584,9 @@
             const removeButtons = getGeminiRemoveAttachmentButtons(container);
             const message = remaining > 0
                 ? (removeButtons.length
-                    ? `清空当前图片附件失败：点击移除后仍识别到 ${remaining} 个附件标记。`
-                    : `清空当前图片附件失败：仍识别到 ${remaining} 个附件标记，但未找到可用的移除按钮。`)
-                : "清空当前图片附件失败：未能确认附件已全部移除。";
+                    ? qiText("clearStillRemaining", { remaining }, `Failed to clear current image attachments: ${remaining} attachment marker(s) still detected after clicking remove.`)
+                    : qiText("clearNoRemoveButton", { remaining }, `Failed to clear current image attachments: ${remaining} attachment marker(s) still detected, and no usable remove button was found.`))
+                : qiText("clearUnknown", {}, "Failed to clear current image attachments: could not confirm that all attachments were removed.");
             return { ok: false, cancelled: false, snapshot, message };
         }
 
@@ -2860,7 +2951,7 @@
         async function attachImagesToComposer(files, composerEl, { onDiagnostics, shouldCancel = null, runtime = null } = {}) {
             const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
             const list = Array.from(files || []).filter(file => file && (file instanceof File) && String(file.type || "").startsWith("image/"));
-            if (list.length === 0) return { ok: false, cancelled: false, message: "未检测到图片文件。" };
+            if (list.length === 0) return { ok: false, cancelled: false, message: qiText("noImageFiles", {}, "No image files detected.") };
 
             const composer = composerEl || (await focusComposer({ timeoutMs: 4000, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay, runtime }));
             if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
@@ -2884,7 +2975,7 @@
                     runtime
                 });
                 if (result?.cancelled) return { ok: false, cancelled: true };
-                if (!result?.ok) return { ok: false, cancelled: false, message: "图片粘贴失败：未检测到输入框内出现图片预览。" };
+                if (!result?.ok) return { ok: false, cancelled: false, message: qiText("attachFailed", {}, "Image paste failed: no image preview was detected in the input box.") };
                 const betweenFilesWaitOk = await runtimeSleep(runtime, 120, { shouldCancel: cancelFn });
                 if (!betweenFilesWaitOk) return { ok: false, cancelled: true };
             }
@@ -3060,9 +3151,9 @@
             clearAttachments: clearGeminiAttachments,
             waitForReadyToSend: waitForGeminiReadyToSend,
             triggerNewChat: ({ shouldCancel = null } = {}) => triggerNativeNewChat({ shouldCancel }),
-            newChatLabel: GEMINI_NATIVE_NEW_CHAT_LABEL,
+            newChatLabel: getNativeNewChatLabel,
             lockNewChatHotkey: true,
-            lockedNewChatHotkeyDisplay: GEMINI_NATIVE_NEW_CHAT_LABEL,
+            lockedNewChatHotkeyDisplay: getNativeNewChatLabel,
             sendMessage: sendGeminiMessage
         });
     }
@@ -3076,7 +3167,7 @@
             console.error("[Gemini Shortcut] Template quickInput module not found (update Template core).");
             return null;
         }
-        const adapter = createGeminiQuickInputAdapter({ idPrefix: "gemini" });
+        const adapter = createGeminiQuickInputAdapter({ idPrefix: "gemini", engine });
         if (!adapter) {
             console.error("[Gemini Shortcut] Gemini quickInput adapter init failed (update Template core).");
             return null;
@@ -3085,7 +3176,8 @@
             engine,
             idPrefix: "gemini",
             storageKey: QUICK_INPUT_STORAGE_KEY,
-            title: "Gemini - 快捷输入",
+            title: "Gemini - Quick Input",
+            titleKey: "quickInputTitle",
             primaryColor: "#4285F4",
             themeMode: "system",
             defaults: {
@@ -3161,11 +3253,16 @@
         };
     }
 
+    let quickInputMenuCommandId = null;
     function registerGeminiMenuCommands(engine) {
-        gmRegisterMenuCommandLocal("Gemini - 快捷输入", () => {
+        if (quickInputMenuCommandId !== null) {
+            gmUnregisterMenuCommandLocal(quickInputMenuCommandId);
+            quickInputMenuCommandId = null;
+        }
+        quickInputMenuCommandId = gmRegisterMenuCommandLocal(engine.i18n?.t?.("quickInputTitle", {}, "Gemini - Quick Input") || "Gemini - Quick Input", () => {
             ensureQuickInputController(engine)?.open?.();
         });
-        registerSidebarVisibilityMenuCommand();
+        registerSidebarVisibilityMenuCommand(engine);
     }
 
     migrateGeminiShortcutIcons();
@@ -3181,6 +3278,9 @@
         ui: {
             idPrefix: "gemini"
         },
+        i18n: {
+            messages: SITE_MESSAGES
+        },
         defaultIconURL,
         iconLibrary: defaultIcons,
         protectedIconUrls,
@@ -3188,16 +3288,16 @@
         customActions: CUSTOM_ACTIONS,
         customActionDataAdapters: {
             toolsDrawer: createMenuDataAdapter({
-                label: "菜单关键词（或粘贴 JSON，高级用法）:",
-                placeholder: '例如: {"menu":{"id":"canvas"}} / Canvas'
+                label: siteText("dataAdapters.toolsDrawer.label", "Menu keyword (or paste JSON, advanced):"),
+                placeholder: siteText("dataAdapters.toolsDrawer.placeholder", 'Example: {"menu":{"id":"canvas"}} / Canvas')
             }),
             conversationMenu: createMenuDataAdapter({
-                label: "菜单关键词（或粘贴 JSON，高级用法）:",
-                placeholder: '例如: {"menu":{"id":"pin"}} / Delete'
+                label: siteText("dataAdapters.conversationMenu.label", "Menu keyword (or paste JSON, advanced):"),
+                placeholder: siteText("dataAdapters.conversationMenu.placeholder", 'Example: {"menu":{"id":"pin"}} / Delete')
             }),
             modelPicker: createMenuDataAdapter({
-                label: "模型关键词（或粘贴 JSON，高级用法）:",
-                placeholder: "例如: Pro / Thinking / Fast"
+                label: siteText("dataAdapters.modelPicker.label", "Model keyword (or paste JSON, advanced):"),
+                placeholder: siteText("dataAdapters.modelPicker.placeholder", "Example: Pro / Thinking / Fast")
             })
         },
         colors: {
@@ -3212,4 +3312,5 @@
     engine.init();
     setupKeepSidebarVisible();
     registerGeminiMenuCommands(engine);
+    engine.i18n?.addLocaleChangeListener?.(() => registerGeminiMenuCommands(engine));
 })();
