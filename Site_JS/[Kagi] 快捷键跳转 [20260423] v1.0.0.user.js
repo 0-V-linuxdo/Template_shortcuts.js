@@ -1,26 +1,26 @@
 // ==UserScript==
-// @name         [Kagi] 快捷键跳转 [20260423] v1.0.0
-// @name:en      [Kagi] Shortcut Jump [20260423] v1.0.0
-// @namespace    0_V userscripts/[Kagi] shortcut
-// @description  为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025
+// @name           [Kagi] 快捷键跳转 [20260423] v1.0.0
+// @name:en        [Kagi] Shortcut Jump [20260423] v1.0.0
+// @namespace      0_V userscripts/[Kagi] shortcut
+// @description    为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025
 // @description:en Custom shortcuts for Kagi Assistant and Kagi Search with a visual settings panel, icon library, type filters, and dark mode support.
 
-// @version      [20260423] v1.0.0
-// @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
-// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
+// @version        [20260423] v1.0.0
+// @update-log     1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en  1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
-// @match        https://*.kagi.com/*
+// @match          https://*.kagi.com/*
 
-// @grant        GM_registerMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
-// @grant        GM_unregisterMenuCommand
+// @grant          GM_registerMenuCommand
+// @grant          GM_getValue
+// @grant          GM_setValue
+// @grant          GM_xmlhttpRequest
+// @grant          GM_unregisterMenuCommand
 
-// @connect      *
+// @connect        *
 
-// @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/Kagi_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.2
+// @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/Kagi_keycap.svg
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

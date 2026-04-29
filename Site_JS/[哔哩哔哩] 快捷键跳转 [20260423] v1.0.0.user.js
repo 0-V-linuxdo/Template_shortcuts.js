@@ -1,26 +1,26 @@
 // ==UserScript==
-// @name         [哔哩哔哩] 快捷键跳转 [20260423] v1.0.0
-// @name:en      [Bilibili] Shortcut Jump [20260423] v1.0.0
-// @namespace    0_V userscripts/bilibiliSearch Shortcuts
-// @description  在 Bilibili 搜索页面，通过快捷键快速切换到对应的搜索分类，支持多种操作类型（URL跳转/元素点击/按键模拟），包含图标库管理、完善暗黑模式支持、智能事件隔离、滚动锁定等高级功能。基于模版架构全面升级。
+// @name           [哔哩哔哩] 快捷键跳转 [20260423] v1.0.0
+// @name:en        [Bilibili] Shortcut Jump [20260423] v1.0.0
+// @namespace      0_V userscripts/bilibiliSearch Shortcuts
+// @description    在 Bilibili 搜索页面，通过快捷键快速切换到对应的搜索分类，支持多种操作类型（URL跳转/元素点击/按键模拟），包含图标库管理、完善暗黑模式支持、智能事件隔离、滚动锁定等高级功能。基于模版架构全面升级。
 // @description:en Quickly switch Bilibili search categories with shortcuts. Supports URL jumps, element clicks, key simulation, icon library management, dark mode, event isolation, and scroll lock.
 
-// @version      [20260423] v1.0.0
-// @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
-// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
+// @version        [20260423] v1.0.0
+// @update-log     1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en  1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
-// @match        https://*.bilibili.com/*
+// @match          https://*.bilibili.com/*
 
-// @grant        GM_registerMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
-// @grant        GM_unregisterMenuCommand
+// @grant          GM_registerMenuCommand
+// @grant          GM_getValue
+// @grant          GM_setValue
+// @grant          GM_xmlhttpRequest
+// @grant          GM_unregisterMenuCommand
 
-// @connect      *
+// @connect        *
 
-// @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/bilibili_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.2
+// @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/bilibili_keycap.svg
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

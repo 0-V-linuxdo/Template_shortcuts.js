@@ -1,19 +1,19 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260429] v1.1.2
-// @name:en      [Template] Shortcut Core [20260429] v1.1.2
-// @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260429] v1.1.2
-// @update-log   1.1.2: 将按键模拟类别图标改为蓝色，并修正 Type 列图标居中对齐。
-// @update-log:en 1.1.2: Changed the key simulation category icon to blue and centered Type column icons.
-// @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
+// @name           [Template] 快捷键跳转 [20260429] v1.1.3
+// @name:en        [Template] Shortcut Core [20260429] v1.1.3
+// @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
+// @version        [20260429] v1.1.3
+// @update-log     1.1.3: 对齐脚本头部字段，修正 Type 列图标居中，并降低 Total 筛选按钮视觉权重。
+// @update-log:en  1.1.3: Aligned userscript header fields, centered Type column icons, and toned down the Total filter button.
+// @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
-// @match        *://*/*
-// @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
-// @connect      *
+// @match          *://*/*
+// @grant          GM_registerMenuCommand
+// @grant          GM_unregisterMenuCommand
+// @grant          GM_getValue
+// @grant          GM_setValue
+// @grant          GM_xmlhttpRequest
+// @connect        *
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -6030,7 +6030,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       return filtered;
     }
     const ACTION_TYPE_COLOR_MAP = Object.freeze({
-      all: "#0066cc",
+      all: "#64748B",
       url: "#4CAF50",
       selector: "#FF9800",
       simulate: "#2196F3",
@@ -7113,7 +7113,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         const headers = [
           { text: tableHeaders.icon || "Icon", width: "60px", align: "center" },
           { text: tableHeaders.name || "Name", width: "15%" },
-          { text: tableHeaders.type || "Type", width: "80px" },
+          { text: tableHeaders.type || "Type", width: "80px", align: "center" },
           { text: tableHeaders.target || "Target", width: "40%" },
           { text: tableHeaders.hotkey || "Shortcut", width: "15%" },
           { text: tableHeaders.actions || "Actions", width: "120px", align: "center" }
@@ -7198,9 +7198,17 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           color: typeMeta.color,
           textAlign: "center"
         });
+        const typeIconWrap = document.createElement("span");
+        Object.assign(typeIconWrap.style, {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          lineHeight: "0"
+        });
         const typeIcon = createActionTypeIcon(typeMeta, { size: 20 });
-        typeIcon.style.margin = "0 auto";
-        tdType.appendChild(typeIcon);
+        typeIconWrap.appendChild(typeIcon);
+        tdType.appendChild(typeIconWrap);
         styleTableCell(tdType, isDark);
         const tdTarget = document.createElement("td");
         const targetText = getShortcutTargetText(item);

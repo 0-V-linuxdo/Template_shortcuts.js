@@ -1,26 +1,26 @@
 // ==UserScript==
-// @name         [Perplexity] 快捷键跳转 [20260423] v1.0.0
-// @name:en      [Perplexity] Shortcut Jump [20260423] v1.0.0
-// @namespace    0_V userscripts/[Perplexity] shortcut
-// @description  为 Perplexity.ai 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)、图标缓存、用户体验优化等功能。（基于 Template 模块重构）
+// @name           [Perplexity] 快捷键跳转 [20260423] v1.0.0
+// @name:en        [Perplexity] Shortcut Jump [20260423] v1.0.0
+// @namespace      0_V userscripts/[Perplexity] shortcut
+// @description    为 Perplexity.ai 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)、图标缓存、用户体验优化等功能。（基于 Template 模块重构）
 // @description:en Adds custom shortcuts for Perplexity.ai with URL jumps, clicks, simulated keys, custom icons, selectors, dark mode, an icon library, icon caching, and UX improvements.
 
-// @version      [20260423] v1.0.0
-// @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
-// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
+// @version        [20260423] v1.0.0
+// @update-log     1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en  1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
-// @match        https://www.perplexity.ai/*
+// @match          https://www.perplexity.ai/*
 
-// @grant        GM_registerMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
-// @grant        GM_unregisterMenuCommand
+// @grant          GM_registerMenuCommand
+// @grant          GM_getValue
+// @grant          GM_setValue
+// @grant          GM_xmlhttpRequest
+// @grant          GM_unregisterMenuCommand
 
-// @connect      *
+// @connect        *
 
-// @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/Perplexity_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.2
+// @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/Perplexity_keycap.svg
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

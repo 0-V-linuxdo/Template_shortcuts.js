@@ -1,26 +1,26 @@
 // ==UserScript==
-// @name         [Claude] 快捷键跳转 [20260423] v1.0.0
-// @name:en      [Claude] Shortcut Jump [20260423] v1.0.0
-// @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @description  为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。
+// @name           [Claude] 快捷键跳转 [20260423] v1.0.0
+// @name:en        [Claude] Shortcut Jump [20260423] v1.0.0
+// @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
+// @description    为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。
 // @description:en Adds visual custom shortcuts for Claude AI, including URL jumps, clicks, simulated keys, custom icons, dark mode, and a reusable icon library.
 
-// @version      [20260423] v1.0.0
-// @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
-// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
+// @version        [20260423] v1.0.0
+// @update-log     1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en  1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
-// @match        https://claude.ai/*
+// @match          https://claude.ai/*
 
-// @grant        GM_registerMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
-// @grant        GM_unregisterMenuCommand
+// @grant          GM_registerMenuCommand
+// @grant          GM_getValue
+// @grant          GM_setValue
+// @grant          GM_xmlhttpRequest
+// @grant          GM_unregisterMenuCommand
 
-// @connect      *
+// @connect        *
 
-// @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/claude_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.2
+// @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/claude_keycap.svg
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

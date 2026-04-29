@@ -1,26 +1,26 @@
 // ==UserScript==
-// @name         [Le Chat] 快捷键跳转 [20260423] v1.0.0
-// @name:en      [Le Chat] Shortcut Jump [20260423] v1.0.0
-// @namespace    0_V userscripts/[Le Chat] 快捷键跳转
-// @description  为 Le Chat 添加自定义快捷键，依托通用模板实现快捷面板、图标库、统计筛选、暗黑模式、自适应布局、事件隔离、快捷键捕获等功能。
+// @name           [Le Chat] 快捷键跳转 [20260423] v1.0.0
+// @name:en        [Le Chat] Shortcut Jump [20260423] v1.0.0
+// @namespace      0_V userscripts/[Le Chat] 快捷键跳转
+// @description    为 Le Chat 添加自定义快捷键，依托通用模板实现快捷面板、图标库、统计筛选、暗黑模式、自适应布局、事件隔离、快捷键捕获等功能。
 // @description:en Adds custom shortcuts for Le Chat with a shortcut panel, icon library, stats filters, dark mode, responsive layout, event isolation, and shortcut capture.
 
-// @version      [20260423] v1.0.0
-// @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
-// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
+// @version        [20260423] v1.0.0
+// @update-log     1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en  1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
-// @match        https://chat.mistral.ai/*
+// @match          https://chat.mistral.ai/*
 
-// @grant        GM_registerMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
-// @grant        GM_unregisterMenuCommand
+// @grant          GM_registerMenuCommand
+// @grant          GM_getValue
+// @grant          GM_setValue
+// @grant          GM_xmlhttpRequest
+// @grant          GM_unregisterMenuCommand
 
-// @connect      *
+// @connect        *
 
-// @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/Le_Chat_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.2
+// @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/Le_Chat_keycap.svg
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

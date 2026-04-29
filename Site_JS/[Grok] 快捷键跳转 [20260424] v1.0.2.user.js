@@ -1,27 +1,27 @@
 // ==UserScript==
-// @name         [Grok] 快捷键跳转 [20260424] v1.0.2
-// @name:en      [Grok] Shortcut Jump [20260424] v1.0.2
-// @namespace    0_V userscripts/[Grok] 快捷键跳转
-// @description  为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
+// @name           [Grok] 快捷键跳转 [20260424] v1.0.2
+// @name:en        [Grok] Shortcut Jump [20260424] v1.0.2
+// @namespace      0_V userscripts/[Grok] 快捷键跳转
+// @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version      [20260424] v1.0.2
-// @update-log   1.0.2: 修复 Grok 侧边栏状态误判导致的展开/折叠来回横跳；继续保留 viewport 宽度 <= 1024px 的后台自动展开抑制。
-// @update-log:en 1.0.2: Fixed Grok sidebar state detection loops and kept background auto-expand suppressed for viewports <= 1024px.
+// @version        [20260424] v1.0.2
+// @update-log     1.0.2: 修复 Grok 侧边栏状态误判导致的展开/折叠来回横跳；继续保留 viewport 宽度 <= 1024px 的后台自动展开抑制。
+// @update-log:en  1.0.2: Fixed Grok sidebar state detection loops and kept background auto-expand suppressed for viewports <= 1024px.
 
-// @match        https://grok.dairoot.cn/*
-// @match        https://grok.com/*
+// @match          https://grok.dairoot.cn/*
+// @match          https://grok.com/*
 
-// @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
+// @grant          GM_registerMenuCommand
+// @grant          GM_unregisterMenuCommand
+// @grant          GM_getValue
+// @grant          GM_setValue
+// @grant          GM_xmlhttpRequest
 
-// @connect      *
+// @connect        *
 
-// @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/grok_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.2
+// @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/grok_keycap.svg
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

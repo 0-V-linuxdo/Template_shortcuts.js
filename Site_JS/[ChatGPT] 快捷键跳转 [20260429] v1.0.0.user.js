@@ -1,26 +1,26 @@
 // ==UserScript==
-// @name         [ChatGPT] 快捷键跳转 [20260429] v1.0.0
-// @name:en      [ChatGPT] Shortcut Jump [20260429] v1.0.0
-// @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
+// @name           [ChatGPT] 快捷键跳转 [20260429] v1.0.0
+// @name:en        [ChatGPT] Shortcut Jump [20260429] v1.0.0
+// @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
+// @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version      [20260429] v1.0.0
-// @update-log   1.0.0: 完成完整 i18n 支持，并修复默认快捷键名称在英文环境下的自适应显示。
-// @update-log:en 1.0.0: Added full i18n support and fixed adaptive default shortcut names in English environments.
+// @version        [20260429] v1.0.0
+// @update-log     1.0.0: 完成完整 i18n 支持，并修复默认快捷键名称在英文环境下的自适应显示。
+// @update-log:en  1.0.0: Added full i18n support and fixed adaptive default shortcut names in English environments.
 
-// @match        https://chatgpt.com/*
+// @match          https://chatgpt.com/*
 
-// @grant        GM_registerMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
-// @grant        GM_unregisterMenuCommand
+// @grant          GM_registerMenuCommand
+// @grant          GM_getValue
+// @grant          GM_setValue
+// @grant          GM_xmlhttpRequest
+// @grant          GM_unregisterMenuCommand
 
-// @connect      *
+// @connect        *
 
-// @icon         https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/ChatGPT_keycap.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.2
+// @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/ChatGPT_keycap.svg
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================

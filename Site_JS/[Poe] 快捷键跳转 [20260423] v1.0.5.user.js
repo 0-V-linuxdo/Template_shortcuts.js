@@ -1,26 +1,26 @@
 // ==UserScript==
-// @name         [Poe] 快捷键跳转 [20260423] v1.0.5
-// @name:en      [Poe] Shortcut Jump [20260423] v1.0.5
-// @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @description  为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。
+// @name           [Poe] 快捷键跳转 [20260423] v1.0.5
+// @name:en        [Poe] Shortcut Jump [20260423] v1.0.5
+// @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
+// @description    为 Poe 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、自定义动作，并内置消息复制/编辑、重命名保存与侧边栏切换等站点专属操作。
 // @description:en A visual shortcut center for Poe with URL jumps, element clicks, key simulation, custom actions, message copy/edit, rename save, and sidebar toggles.
 
-// @version      [20260423] v1.0.5
-// @update-log   1.0.5: 恢复 legacy require 架构，移除桥接式启动链。
-// @update-log:en 1.0.5: Restored the legacy require architecture and removed the bridged startup chain.
+// @version        [20260423] v1.0.5
+// @update-log     1.0.5: 恢复 legacy require 架构，移除桥接式启动链。
+// @update-log:en  1.0.5: Restored the legacy require architecture and removed the bridged startup chain.
 
-// @match        https://poe.com/*
+// @match          https://poe.com/*
 
-// @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
-// @grant        GM_getValue
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
+// @grant          GM_registerMenuCommand
+// @grant          GM_unregisterMenuCommand
+// @grant          GM_getValue
+// @grant          GM_setValue
+// @grant          GM_xmlhttpRequest
 
-// @connect      *
+// @connect        *
 
-// @icon         https://psc2.cf2.poecdn.net/assets/favicon.svg
-// @require      https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.2
+// @icon           https://psc2.cf2.poecdn.net/assets/favicon.svg
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
