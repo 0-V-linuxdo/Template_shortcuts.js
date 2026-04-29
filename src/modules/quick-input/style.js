@@ -307,44 +307,41 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     flex-direction: column;
                     min-width: 0;
                     width: 100%;
-                    border: 1px solid var(--qi-border);
-                    border-radius: 10px;
-                    background: var(--qi-surface-alt);
+                    border: 0;
+                    border-radius: 0;
+                    background: transparent;
                     overflow: visible;
-                    scroll-margin-block: 12px;
+                    scroll-margin-block: 8px;
                 }
                 ${hostSelector} .qi-form-collapsible-summary {
-                    width: 100%;
-                    min-height: 46px;
+                    width: fit-content;
+                    max-width: 100%;
+                    min-height: 0;
                     border: 0;
-                    border-radius: 9px;
-                    background: var(--qi-surface-alt);
-                    color: var(--qi-text-strong);
-                    padding: 10px 14px;
-                    display: flex;
+                    border-radius: 6px;
+                    background: transparent;
+                    color: var(--qi-text-muted);
+                    padding: 0;
+                    display: inline-flex;
                     align-items: center;
-                    justify-content: space-between;
-                    gap: 10px;
+                    justify-content: flex-start;
+                    gap: 7px;
                     cursor: pointer;
                     text-align: left;
-                    font-size: 13px;
+                    font-size: 12px;
                     font-weight: 650;
-                    line-height: 1.25;
+                    line-height: 1.35;
                     user-select: none;
                     -webkit-user-select: none;
                     box-shadow: none;
                     outline: none;
                 }
                 ${hostSelector} .qi-form-collapsible-summary:hover {
-                    background: var(--qi-hover);
+                    color: var(--qi-text-strong);
                 }
                 ${hostSelector} .qi-form-collapsible-summary:focus-visible {
                     outline: none;
-                    box-shadow: inset 0 0 0 2px ${primaryColor};
-                }
-                ${hostSelector} .qi-form-collapsible[data-open="1"] .qi-form-collapsible-summary {
-                    border-bottom: 1px solid var(--qi-border);
-                    border-radius: 9px 9px 0 0;
+                    box-shadow: 0 0 0 2px ${primaryColor}55;
                 }
                 ${hostSelector} .qi-form-collapsible-label {
                     min-width: 0;
@@ -356,9 +353,9 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     width: 0;
                     height: 0;
                     flex: 0 0 auto;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 6px solid currentColor;
+                    border-left: 4px solid transparent;
+                    border-right: 4px solid transparent;
+                    border-top: 5px solid currentColor;
                     opacity: 0.86;
                     transition: transform 140ms ease;
                 }
@@ -371,25 +368,25 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 ${hostSelector} .qi-form-collapsible-body {
                     display: flex;
                     flex-direction: column;
-                    gap: 14px;
+                    gap: 10px;
                     width: 100%;
                     height: auto;
                     max-height: none;
                     min-width: 0;
-                    padding: 14px;
+                    padding: 8px 0 0;
                     overflow: visible;
-                    background: var(--qi-surface);
-                    border-radius: 0 0 9px 9px;
+                    background: transparent;
+                    border-radius: 0;
                 }
                 ${hostSelector} .qi-form-collapsible-body .qi-row {
-                    grid-template-columns: minmax(112px, 0.44fr) minmax(0, 1fr);
-                    align-items: start;
+                    grid-template-columns: 110px minmax(0, 1fr);
+                    align-items: center;
                     gap: 10px;
                     width: 100%;
                     min-height: 0;
                 }
                 ${hostSelector} .qi-form-collapsible-body .qi-row > label {
-                    padding-top: 8px;
+                    padding-top: 0;
                     min-width: 0;
                     overflow-wrap: anywhere;
                 }
@@ -400,12 +397,15 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 ${hostSelector} .qi-form-collapsible-body .qi-option-check {
                     width: 100%;
                     min-width: 0;
-                    align-items: flex-start;
-                    padding-top: 7px;
+                    align-items: center;
+                    padding-top: 0;
                 }
                 ${hostSelector} .qi-form-collapsible-body .qi-option-check span {
                     min-width: 0;
                     overflow-wrap: anywhere;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-hint {
+                    margin-top: 2px;
                 }
                 ${hostSelector} input[type="text"],
                 ${hostSelector} input[type="number"],

@@ -3463,12 +3463,12 @@ export function createController(userOptions = {}) {
                     labels.sections?.moreSettings || DEFAULT_LABELS.sections.moreSettings,
                     { open: false }
                 );
-                moreSettingsGroup.bodyEl.appendChild(newChatRow);
-                moreSettingsGroup.bodyEl.appendChild(optionsRow);
-
                 const hint = globalThis.document.createElement("div");
                 hint.className = "qi-hint";
                 hint.textContent = labels.hints?.flow || DEFAULT_LABELS.hints.flow;
+                moreSettingsGroup.bodyEl.appendChild(newChatRow);
+                moreSettingsGroup.bodyEl.appendChild(optionsRow);
+                moreSettingsGroup.bodyEl.appendChild(hint);
 
                 inputBodyEl.appendChild(imageRow);
                 inputBodyEl.appendChild(textRow);
@@ -3476,7 +3476,6 @@ export function createController(userOptions = {}) {
                 inputBodyEl.appendChild(loopRow);
                 inputBodyEl.appendChild(delayRow);
                 inputBodyEl.appendChild(moreSettingsGroup.groupEl);
-                inputBodyEl.appendChild(hint);
 
                 inputActionsEl = createPlayerActionsBar();
 
