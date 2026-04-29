@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.3.6
-// @name:en        [Template] Shortcut Core [20260429] v1.3.6
+// @name           [Template] 快捷键跳转 [20260429] v1.3.7
+// @name:en        [Template] Shortcut Core [20260429] v1.3.7
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.3.6
-// @update-log     1.3.6: 快捷输入“更多设置”改为简洁折叠行，收起时仅占一行文字高度，并将流程提示收进折叠区。
-// @update-log:en  1.3.6: Quick Input now uses a compact one-line More settings disclosure and moves the flow hint into the collapsed section.
+// @version        [20260429] v1.3.7
+// @update-log     1.3.7: 修复快捷输入“更多设置”展开后再折叠导致弹窗高度不回收、表单行距异常拉大的问题。
+// @update-log:en  1.3.7: Fixed Quick Input layout issues where collapsing More settings after expansion could leave the panel too tall and stretch form row spacing.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -10817,6 +10817,8 @@ ${displayTargetText}`;
                     padding: 14px;
                     overflow: auto;
                     display: grid;
+                    grid-auto-rows: max-content;
+                    align-content: start;
                     gap: 12px;
                     flex: 1;
                     min-height: 0;
@@ -12504,6 +12506,56 @@ ${displayTargetText}`;
       if (!Number.isFinite(value) || value <= 0) return 0;
       return Math.round(value);
     }
+    function readCssPixelValue(value) {
+      const num = Number.parseFloat(String(value ?? "").trim());
+      return Number.isFinite(num) ? num : 0;
+    }
+    function measureInputBodyContentHeightPx() {
+      if (!inputBodyEl) return 0;
+      let style = null;
+      try {
+        style = globalThis.getComputedStyle?.(inputBodyEl) || null;
+      } catch {
+      }
+      const paddingTop = readCssPixelValue(style?.paddingTop);
+      const paddingBottom = readCssPixelValue(style?.paddingBottom);
+      const rowGap = readCssPixelValue(style?.rowGap || style?.gap);
+      let total = paddingTop + paddingBottom;
+      let visibleCount = 0;
+      let children = [];
+      try {
+        children = Array.from(inputBodyEl.children || []);
+      } catch {
+        children = [];
+      }
+      for (const child of children) {
+        if (!child) continue;
+        let childStyle = null;
+        try {
+          childStyle = globalThis.getComputedStyle?.(child) || null;
+        } catch {
+        }
+        if (childStyle?.display === "none") continue;
+        const rectHeight = Number(child.getBoundingClientRect?.().height);
+        const offsetHeight = Number(child.offsetHeight);
+        const childHeight = Number.isFinite(rectHeight) && rectHeight > 0 ? rectHeight : Number.isFinite(offsetHeight) && offsetHeight > 0 ? offsetHeight : 0;
+        if (childHeight <= 0) continue;
+        total += childHeight;
+        visibleCount += 1;
+      }
+      if (visibleCount > 1) total += rowGap * (visibleCount - 1);
+      const measured = Math.ceil(total);
+      if (measured > 0) return measured;
+      return measureScrollableElementHeightPx(inputBodyEl);
+    }
+    function clampInputBodyScroll() {
+      if (!inputBodyEl) return;
+      try {
+        const maxScrollTop = Math.max(0, inputBodyEl.scrollHeight - inputBodyEl.clientHeight);
+        if (inputBodyEl.scrollTop > maxScrollTop) inputBodyEl.scrollTop = maxScrollTop;
+      } catch {
+      }
+    }
     function getActiveTabDesiredHeightPx() {
       const headerHeight = measureElementHeightPx(headerEl);
       const panelBorderHeight = Math.max(0, Math.round((Number(panelEl?.offsetHeight) || 0) - (Number(panelEl?.clientHeight) || 0)));
@@ -12512,7 +12564,7 @@ ${displayTargetText}`;
         const actionsHeight2 = measureElementHeightPx(logActionsEl);
         return headerHeight + logHeight + actionsHeight2 + panelBorderHeight;
       }
-      const bodyHeight = measureScrollableElementHeightPx(inputBodyEl);
+      const bodyHeight = measureInputBodyContentHeightPx();
       const actionsHeight = measureElementHeightPx(inputActionsEl);
       return headerHeight + bodyHeight + actionsHeight + panelBorderHeight;
     }
@@ -12531,6 +12583,9 @@ ${displayTargetText}`;
     function flushScheduledPanelLayout() {
       panelLayoutRaf = 0;
       syncPanelHeight();
+      if (activeTab === "input" && overlayEl?.getAttribute?.("data-open") === "1") {
+        clampInputBodyScroll();
+      }
       if (pendingLogScrollToBottom && logEl && activeTab === "log" && overlayEl?.getAttribute?.("data-open") === "1") {
         logEl.scrollTop = logEl.scrollHeight;
         pendingLogScrollToBottom = false;
