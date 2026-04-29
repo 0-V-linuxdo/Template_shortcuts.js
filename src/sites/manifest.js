@@ -71,16 +71,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260429] v1.3.3",
+            name: "[ChatGPT] 快捷键跳转 [20260429] v1.3.4",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260429] v1.3.3",
-            updateLog: "1.3.3: 同步 Template v1.3.3，快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。",
+            version: "[20260429] v1.3.4",
+            updateLog: "1.3.4: 同步 Template v1.3.4，快捷输入将新对话快捷键与选项移入默认收起的“更多设置”区域，让主输入流程更紧凑。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260429] v1.3.3",
+                    name: "[ChatGPT] Shortcut Jump [20260429] v1.3.4",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.3.3: Synced Template v1.3.3; Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover."
+                    updateLog: "1.3.4: Synced Template v1.3.4; Quick Input now moves the new-chat shortcut and options into a collapsed More settings section by default, keeping the main input flow more compact."
                 }
             },
             match: [

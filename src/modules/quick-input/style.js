@@ -289,6 +289,10 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     grid-template-columns: 110px 1fr;
                     gap: 10px;
                     align-items: center;
+                    min-width: 0;
+                }
+                ${hostSelector} .qi-row > * {
+                    min-width: 0;
                 }
                 ${hostSelector} .qi-row > label,
                 ${hostSelector} .qi-label-stack > label {
@@ -297,6 +301,67 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     line-height: 1.35;
                     color: var(--qi-text-strong);
                     white-space: pre-line;
+                }
+                ${hostSelector} .qi-form-collapsible {
+                    display: grid;
+                    min-width: 0;
+                    border: 1px solid var(--qi-border);
+                    border-radius: 10px;
+                    background: color-mix(in srgb, var(--qi-surface-alt) 72%, transparent);
+                    overflow: hidden;
+                }
+                ${hostSelector} .qi-form-collapsible-summary {
+                    width: 100%;
+                    border: 0;
+                    background: transparent;
+                    color: var(--qi-text-strong);
+                    padding: 9px 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 10px;
+                    cursor: pointer;
+                    text-align: left;
+                    font-size: 13px;
+                    font-weight: 650;
+                    line-height: 1.25;
+                }
+                ${hostSelector} .qi-form-collapsible-summary:hover {
+                    background: var(--qi-hover);
+                }
+                ${hostSelector} .qi-form-collapsible-summary:focus-visible {
+                    outline: none;
+                    box-shadow: inset 0 0 0 2px ${primaryColor};
+                }
+                ${hostSelector} .qi-form-collapsible-label {
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                ${hostSelector} .qi-form-collapsible-caret {
+                    width: 0;
+                    height: 0;
+                    flex: 0 0 auto;
+                    border-left: 5px solid transparent;
+                    border-right: 5px solid transparent;
+                    border-top: 6px solid currentColor;
+                    opacity: 0.86;
+                    transition: transform 140ms ease;
+                }
+                ${hostSelector} .qi-form-collapsible[data-open="1"] .qi-form-collapsible-caret {
+                    transform: rotate(180deg);
+                }
+                ${hostSelector} .qi-form-collapsible[data-open="0"] .qi-form-collapsible-body {
+                    display: none;
+                }
+                ${hostSelector} .qi-form-collapsible-body {
+                    display: grid;
+                    gap: 12px;
+                    min-width: 0;
+                    padding: 12px 10px;
+                    border-top: 1px solid var(--qi-border);
+                    background: var(--qi-surface);
                 }
                 ${hostSelector} input[type="text"],
                 ${hostSelector} input[type="number"],

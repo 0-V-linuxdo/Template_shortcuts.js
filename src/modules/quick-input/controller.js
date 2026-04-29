@@ -2060,6 +2060,31 @@ export function createController(userOptions = {}) {
                 return { wrap, select };
             }
 
+            function createFormCollapsibleGroup(title, { open = false } = {}) {
+                const groupEl = globalThis.document.createElement("div");
+                const summaryEl = globalThis.document.createElement("button");
+                const labelEl = globalThis.document.createElement("span");
+                const caretEl = globalThis.document.createElement("span");
+                const bodyEl = globalThis.document.createElement("div");
+
+                groupEl.className = "qi-form-collapsible";
+                summaryEl.type = "button";
+                summaryEl.className = "qi-form-collapsible-summary";
+                summaryEl.setAttribute("aria-expanded", open ? "true" : "false");
+                labelEl.className = "qi-form-collapsible-label";
+                labelEl.textContent = String(title || "");
+                caretEl.className = "qi-form-collapsible-caret";
+                caretEl.setAttribute("aria-hidden", "true");
+                bodyEl.className = "qi-form-collapsible-body";
+
+                summaryEl.appendChild(labelEl);
+                summaryEl.appendChild(caretEl);
+                groupEl.appendChild(summaryEl);
+                groupEl.appendChild(bodyEl);
+                initCollapsibleRoot(groupEl, summaryEl, bodyEl, { open });
+                return { groupEl, bodyEl };
+            }
+
             function writeConfigToUi(cfg) {
                 if (!cfg) return;
                 const rawToolHotkeys = Array.isArray(cfg.toolHotkeys)
@@ -3415,6 +3440,13 @@ export function createController(userOptions = {}) {
                 optionsRow.appendChild(optionsLabel);
                 optionsRow.appendChild(optionsBox);
 
+                const moreSettingsGroup = createFormCollapsibleGroup(
+                    labels.sections?.moreSettings || DEFAULT_LABELS.sections.moreSettings,
+                    { open: false }
+                );
+                moreSettingsGroup.bodyEl.appendChild(newChatRow);
+                moreSettingsGroup.bodyEl.appendChild(optionsRow);
+
                 const hint = globalThis.document.createElement("div");
                 hint.className = "qi-hint";
                 hint.textContent = labels.hints?.flow || DEFAULT_LABELS.hints.flow;
@@ -3423,9 +3455,8 @@ export function createController(userOptions = {}) {
                 inputBodyEl.appendChild(textRow);
                 inputBodyEl.appendChild(hotkeyRow);
                 inputBodyEl.appendChild(loopRow);
-                inputBodyEl.appendChild(newChatRow);
                 inputBodyEl.appendChild(delayRow);
-                inputBodyEl.appendChild(optionsRow);
+                inputBodyEl.appendChild(moreSettingsGroup.groupEl);
                 inputBodyEl.appendChild(hint);
 
                 inputActionsEl = createPlayerActionsBar();

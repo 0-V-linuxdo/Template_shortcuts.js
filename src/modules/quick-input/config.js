@@ -87,6 +87,9 @@ const STEP_DELAY_MAX_MS = 30000;
         const DEFAULT_LABELS = Object.freeze({
             title: "快捷输入",
             tabs: Object.freeze({ input: "输入", log: "日志" }),
+            sections: Object.freeze({
+                moreSettings: "更多设置"
+            }),
             fields: Object.freeze({
                 images: "图片：",
                 preview: "预览：",
@@ -214,6 +217,9 @@ const STEP_DELAY_MAX_MS = 30000;
             "en-US": Object.freeze({
                 title: "Quick Input",
                 tabs: Object.freeze({ input: "Input", log: "Log" }),
+                sections: Object.freeze({
+                    moreSettings: "More settings"
+                }),
                 fields: Object.freeze({
                     images: "Images:",
                     preview: "Preview:",

@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.3.3
-// @name:en        [Template] Shortcut Core [20260429] v1.3.3
+// @name           [Template] 快捷键跳转 [20260429] v1.3.4
+// @name:en        [Template] Shortcut Core [20260429] v1.3.4
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.3.3
-// @update-log     1.3.3: 快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。
-// @update-log:en  1.3.3: Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover.
+// @version        [20260429] v1.3.4
+// @update-log     1.3.4: 快捷输入将新对话快捷键与选项移入默认收起的“更多设置”区域，让主输入流程更紧凑。
+// @update-log:en  1.3.4: Quick Input now moves the new-chat shortcut and options into a collapsed More settings section by default, keeping the main input flow more compact.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
