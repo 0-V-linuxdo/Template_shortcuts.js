@@ -303,19 +303,24 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     white-space: pre-line;
                 }
                 ${hostSelector} .qi-form-collapsible {
-                    display: grid;
+                    display: flex;
+                    flex-direction: column;
                     min-width: 0;
+                    width: 100%;
                     border: 1px solid var(--qi-border);
                     border-radius: 10px;
-                    background: color-mix(in srgb, var(--qi-surface-alt) 72%, transparent);
-                    overflow: hidden;
+                    background: var(--qi-surface-alt);
+                    overflow: visible;
+                    scroll-margin-block: 12px;
                 }
                 ${hostSelector} .qi-form-collapsible-summary {
                     width: 100%;
+                    min-height: 46px;
                     border: 0;
-                    background: transparent;
+                    border-radius: 9px;
+                    background: var(--qi-surface-alt);
                     color: var(--qi-text-strong);
-                    padding: 9px 10px;
+                    padding: 10px 14px;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -325,6 +330,10 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     font-size: 13px;
                     font-weight: 650;
                     line-height: 1.25;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    box-shadow: none;
+                    outline: none;
                 }
                 ${hostSelector} .qi-form-collapsible-summary:hover {
                     background: var(--qi-hover);
@@ -332,6 +341,10 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 ${hostSelector} .qi-form-collapsible-summary:focus-visible {
                     outline: none;
                     box-shadow: inset 0 0 0 2px ${primaryColor};
+                }
+                ${hostSelector} .qi-form-collapsible[data-open="1"] .qi-form-collapsible-summary {
+                    border-bottom: 1px solid var(--qi-border);
+                    border-radius: 9px 9px 0 0;
                 }
                 ${hostSelector} .qi-form-collapsible-label {
                     min-width: 0;
@@ -356,12 +369,43 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     display: none;
                 }
                 ${hostSelector} .qi-form-collapsible-body {
-                    display: grid;
-                    gap: 12px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 14px;
+                    width: 100%;
+                    height: auto;
+                    max-height: none;
                     min-width: 0;
-                    padding: 12px 10px;
-                    border-top: 1px solid var(--qi-border);
+                    padding: 14px;
+                    overflow: visible;
                     background: var(--qi-surface);
+                    border-radius: 0 0 9px 9px;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-row {
+                    grid-template-columns: minmax(112px, 0.44fr) minmax(0, 1fr);
+                    align-items: start;
+                    gap: 10px;
+                    width: 100%;
+                    min-height: 0;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-row > label {
+                    padding-top: 8px;
+                    min-width: 0;
+                    overflow-wrap: anywhere;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-inline {
+                    width: 100%;
+                    min-width: 0;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-option-check {
+                    width: 100%;
+                    min-width: 0;
+                    align-items: flex-start;
+                    padding-top: 7px;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-option-check span {
+                    min-width: 0;
+                    overflow-wrap: anywhere;
                 }
                 ${hostSelector} input[type="text"],
                 ${hostSelector} input[type="number"],

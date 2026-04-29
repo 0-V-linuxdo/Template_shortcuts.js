@@ -2062,15 +2062,17 @@ export function createController(userOptions = {}) {
 
             function createFormCollapsibleGroup(title, { open = false } = {}) {
                 const groupEl = globalThis.document.createElement("div");
-                const summaryEl = globalThis.document.createElement("button");
+                const summaryEl = globalThis.document.createElement("div");
                 const labelEl = globalThis.document.createElement("span");
                 const caretEl = globalThis.document.createElement("span");
                 const bodyEl = globalThis.document.createElement("div");
 
                 groupEl.className = "qi-form-collapsible";
-                summaryEl.type = "button";
                 summaryEl.className = "qi-form-collapsible-summary";
+                summaryEl.setAttribute("role", "button");
+                summaryEl.tabIndex = 0;
                 summaryEl.setAttribute("aria-expanded", open ? "true" : "false");
+                summaryEl.title = String(title || "");
                 labelEl.className = "qi-form-collapsible-label";
                 labelEl.textContent = String(title || "");
                 caretEl.className = "qi-form-collapsible-caret";
@@ -2082,6 +2084,23 @@ export function createController(userOptions = {}) {
                 groupEl.appendChild(summaryEl);
                 groupEl.appendChild(bodyEl);
                 initCollapsibleRoot(groupEl, summaryEl, bodyEl, { open });
+                summaryEl.addEventListener("click", () => {
+                    if (groupEl.getAttribute("data-open") !== "1") return;
+                    requestAnimationFrameSafe(() => {
+                        try {
+                            groupEl.scrollIntoView({ block: "nearest", inline: "nearest" });
+                        } catch {
+                            try { groupEl.scrollIntoView(false); } catch {}
+                        }
+                    });
+                });
+                summaryEl.addEventListener("keydown", (event) => {
+                    const key = String(event?.key || "");
+                    if (key !== "Enter" && key !== " " && key !== "Spacebar") return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    try { summaryEl.click(); } catch {}
+                });
                 return { groupEl, bodyEl };
             }
 
