@@ -113,6 +113,7 @@ const STEP_DELAY_MAX_MS = 30000;
                 imageDropMore: "支持：点击上传、输入框粘贴、拖拽上传",
                 imageDropOverlay: "松开鼠标继续追加图片",
                 text: "在这里输入/粘贴要发送的文字…",
+                hotkeyEmpty: "留空则不触发",
                 hotkeyPrimary: "留空则不触发（例如：CTRL+I）",
                 hotkeyExtra: "例如：CTRL+I",
                 newChatHotkey: "例如：CTRL+N"
@@ -181,6 +182,7 @@ const STEP_DELAY_MAX_MS = 30000;
                 sendAttempted: (ok) => (ok ? "已尝试发送（Enter/Send）。" : "发送失败。"),
                 maxDelayTitle: (formattedDelay) => `最大 ${formattedDelay}`,
                 diagnostics: (json) => `诊断: ${json}`,
+                savedHotkeyMissing: (hotkey) => `已保存：${hotkey}（未找到）`,
                 imageCountNotReady: (current, expected) => `图片数量未达到预期：当前 ${current} 张，期望至少 ${expected} 张。`,
                 imageUploadTimeout: (current) => `等待图片上传完成超时：当前识别到 ${current} 张图片。`,
                 textVerifyFailed: (stage, actualLength, expectedLength) => `文字校验失败${stage ? `（${stage}）` : ""}：当前检测到 ${actualLength} / ${expectedLength} 个字符。`,
@@ -238,6 +240,7 @@ const STEP_DELAY_MAX_MS = 30000;
                     imageDropMore: "Supports click upload, input paste, and drag upload",
                     imageDropOverlay: "Release to append images",
                     text: "Type or paste text to send...",
+                    hotkeyEmpty: "Leave empty to skip",
                     hotkeyPrimary: "Leave empty to skip (for example: CTRL+I)",
                     hotkeyExtra: "Example: CTRL+I",
                     newChatHotkey: "Example: CTRL+N"
@@ -306,6 +309,7 @@ const STEP_DELAY_MAX_MS = 30000;
                     sendAttempted: (ok) => (ok ? "Send attempted (Enter/Send)." : "Send failed."),
                     maxDelayTitle: (formattedDelay) => `Maximum ${formattedDelay}`,
                     diagnostics: (json) => `Diagnostics: ${json}`,
+                    savedHotkeyMissing: (hotkey) => `Saved: ${hotkey} (not found)`,
                     imageCountNotReady: (current, expected) => `Image count is below the expected number: current ${current}, expected at least ${expected}.`,
                     imageUploadTimeout: (current) => `Timed out waiting for image uploads: currently detected ${current} image(s).`,
                     textVerifyFailed: (stage, actualLength, expectedLength) => `Text verification failed${stage ? ` (${stage})` : ""}: detected ${actualLength}/${expectedLength} characters.`,

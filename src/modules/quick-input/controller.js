@@ -6,7 +6,7 @@ import { sleep, deepMerge } from "../shared/base.js";
 import { createI18nContext, mergeLocaleMessages } from "../shared/i18n.js";
 import { cancelAnimationFrameSafe, getDomConstructor, getGlobalScope, requestAnimationFrameSafe } from "../shared/platform/browser.js";
 import { getDraftStorageKey, loadDraft, saveDraft, readFileAsDataUrl, dataUrlToFile, normalizeDraftImageEntry, normalizeDraftImages, normalizeImageFiles } from "./storage.js";
-import { clampInt, normalizeComposerText, normalizeHotkeyString, normalizeHotkeyFallback, getComposerText, getKeyEventProps, simulateKeystroke, isElementVisible, pickBestComposerCandidate, findComposerElement, focusComposer, setInputValue, clearInputValue, dispatchPasteEvent, dispatchBeforeInputFromPaste, dispatchInputFromPaste, dispatchDragEvent, collectFileInputs, collectFileInputsFromOpenShadows, trySetFileInputFiles, isInsideOverlayTree } from "./dom.js";
+import { clampInt, normalizeComposerText, normalizeHotkeyFallback, getComposerText, getKeyEventProps, simulateKeystroke, isElementVisible, pickBestComposerCandidate, findComposerElement, focusComposer, setInputValue, clearInputValue, dispatchPasteEvent, dispatchBeforeInputFromPaste, dispatchInputFromPaste, dispatchDragEvent, collectFileInputs, collectFileInputsFromOpenShadows, trySetFileInputFiles, isInsideOverlayTree } from "./dom.js";
 import { STEP_DELAY_MAX_MS, LOOP_DELAY_MAX_MS, DELAY_UNIT_FACTORS, DELAY_UNIT_LABELS, QUICK_INPUT_SVG_NS, DEFAULT_LABELS, DEFAULT_LABEL_MESSAGES, DEFAULT_CONFIG, normalizeImageRecovery, normalizeDelayUnit, inferDelayUnitFromMs, convertDelayInputToMs, clampDelayMs, formatDelayInputValue, formatDelayWithUnit, loadConfig, saveConfig } from "./config.js";
 import { executeEngineShortcutByHotkey, sleepWithCancel, waitForObservedState } from "./runtime.js";
 import { ensureQuickInputStyle } from "./style.js";
@@ -1820,12 +1820,132 @@ export function createController(userOptions = {}) {
                 persistPanelPos(clamped.left, clamped.top, { force: true });
             }
 
-            function syncHotkeyPlaceholders() {
-                hotkeyInputs.forEach((input, idx) => {
-                    if (!input) return;
-                    input.placeholder = idx === 0
-                        ? (labels.placeholders?.hotkeyPrimary || DEFAULT_LABELS.placeholders.hotkeyPrimary)
-                        : (labels.placeholders?.hotkeyExtra || DEFAULT_LABELS.placeholders.hotkeyExtra);
+            function normalizeEngineHotkey(value) {
+                const raw = String(value ?? "").trim().replace(/\s+/g, "");
+                if (!raw) return "";
+                const normalize = engine?.core?.hotkeys?.normalize || engine?.core?.normalizeHotkey || null;
+                if (typeof normalize === "function") {
+                    try {
+                        return normalize(raw) || "";
+                    } catch {}
+                }
+                return normalizeHotkeyFallback(raw);
+            }
+
+            function formatHotkeyLabel(value) {
+                const raw = String(value ?? "").trim();
+                if (!raw) return "";
+                const formatter = engine?.core?.hotkeys?.formatForDisplay || null;
+                if (typeof formatter === "function") {
+                    try {
+                        const formatted = String(formatter(raw) || "").trim();
+                        if (formatted) return formatted;
+                    } catch {}
+                }
+                return normalizeEngineHotkey(raw) || raw;
+            }
+
+            function getShortcutOptionName(shortcut) {
+                const fallback = String(shortcut?.name || shortcut?.key || shortcut?.id || "").trim();
+                const getDisplayName = engine?.core?.getShortcutDisplayName || null;
+                if (typeof getDisplayName === "function") {
+                    try {
+                        return String(getDisplayName(shortcut) || fallback).trim() || fallback;
+                    } catch {}
+                }
+                return fallback;
+            }
+
+            function isQuickInputShortcut(shortcut) {
+                return String(shortcut?.customAction || "").trim() === "quickInput";
+            }
+
+            function getHotkeyEmptyOptionLabel() {
+                return labels.placeholders?.hotkeyEmpty
+                    || DEFAULT_LABELS.placeholders.hotkeyEmpty
+                    || labels.placeholders?.hotkeyPrimary
+                    || DEFAULT_LABELS.placeholders.hotkeyPrimary;
+            }
+
+            function getMissingHotkeyOptionLabel(value) {
+                const display = formatHotkeyLabel(value) || String(value ?? "").trim();
+                if (typeof labels.messages?.savedHotkeyMissing === "function") {
+                    return labels.messages.savedHotkeyMissing(display);
+                }
+                if (typeof DEFAULT_LABELS.messages.savedHotkeyMissing === "function") {
+                    return DEFAULT_LABELS.messages.savedHotkeyMissing(display);
+                }
+                return display;
+            }
+
+            function collectHotkeySelectOptions(selectedValue = "") {
+                const optionsList = [];
+                const seen = new Set();
+                const selectedRaw = String(selectedValue ?? "").trim();
+                const selectedNorm = normalizeEngineHotkey(selectedRaw);
+                const shortcuts = (typeof engine?.getShortcuts === "function") ? engine.getShortcuts() : [];
+                if (Array.isArray(shortcuts)) {
+                    for (const shortcut of shortcuts) {
+                        if (!shortcut || isQuickInputShortcut(shortcut)) continue;
+                        const hotkey = normalizeEngineHotkey(shortcut.hotkey);
+                        if (!hotkey || seen.has(hotkey)) continue;
+                        seen.add(hotkey);
+                        const hotkeyLabel = formatHotkeyLabel(hotkey);
+                        const name = getShortcutOptionName(shortcut);
+                        optionsList.push({
+                            value: hotkey,
+                            label: name ? `${name} · ${hotkeyLabel || hotkey}` : (hotkeyLabel || hotkey)
+                        });
+                    }
+                }
+
+                if (selectedRaw && (!selectedNorm || !seen.has(selectedNorm))) {
+                    optionsList.push({
+                        value: selectedRaw,
+                        label: getMissingHotkeyOptionLabel(selectedRaw)
+                    });
+                }
+
+                return optionsList;
+            }
+
+            function appendSelectOption(select, value, label) {
+                if (!select) return;
+                const option = globalThis.document.createElement("option");
+                option.value = String(value ?? "");
+                option.textContent = String(label ?? "");
+                select.appendChild(option);
+            }
+
+            function refreshHotkeySelectOptions(select, selectedValue = "") {
+                if (!select) return;
+                const selectedRaw = String(selectedValue ?? "").trim();
+                const selectedNorm = normalizeEngineHotkey(selectedRaw);
+                const optionsList = collectHotkeySelectOptions(selectedRaw);
+                const knownValues = new Set(optionsList.map(item => item.value));
+
+                while (select.firstChild) {
+                    try { select.removeChild(select.firstChild); } catch { break; }
+                }
+
+                appendSelectOption(select, "", getHotkeyEmptyOptionLabel());
+                for (const option of optionsList) {
+                    appendSelectOption(select, option.value, option.label);
+                }
+
+                if (selectedNorm && knownValues.has(selectedNorm)) {
+                    select.value = selectedNorm;
+                } else if (selectedRaw && knownValues.has(selectedRaw)) {
+                    select.value = selectedRaw;
+                } else {
+                    select.value = "";
+                }
+            }
+
+            function refreshHotkeySelects() {
+                hotkeyInputs.forEach((select) => {
+                    if (!select) return;
+                    refreshHotkeySelectOptions(select, select.value);
                 });
             }
 
@@ -1833,10 +1953,19 @@ export function createController(userOptions = {}) {
                 const item = globalThis.document.createElement("div");
                 item.className = "qi-hotkey-item";
 
-                const input = globalThis.document.createElement("input");
-                input.type = "text";
-                input.value = String(value ?? "");
+                const selectWrap = globalThis.document.createElement("div");
+                selectWrap.className = "qi-select-wrap qi-hotkey-select-wrap";
+                const input = globalThis.document.createElement("select");
                 input.disabled = running;
+                refreshHotkeySelectOptions(input, value);
+                input.addEventListener("change", () => {
+                    saveConfig(storageKey, readConfigFromUi(), defaults);
+                });
+                const caret = globalThis.document.createElement("span");
+                caret.className = "qi-select-caret";
+                caret.setAttribute("aria-hidden", "true");
+                selectWrap.appendChild(input);
+                selectWrap.appendChild(caret);
 
                 const delBtn = globalThis.document.createElement("button");
                 delBtn.type = "button";
@@ -1855,18 +1984,18 @@ export function createController(userOptions = {}) {
 
                     if (hotkeyInputs.length <= 1) {
                         input.value = "";
-                        syncHotkeyPlaceholders();
+                        refreshHotkeySelects();
                         saveConfig(storageKey, readConfigFromUi(), defaults);
                         return;
                     }
 
                     hotkeyInputs.splice(idx, 1);
                     try { item.remove(); } catch {}
-                    syncHotkeyPlaceholders();
+                    refreshHotkeySelects();
                     saveConfig(storageKey, readConfigFromUi(), defaults);
                 });
 
-                item.appendChild(input);
+                item.appendChild(selectWrap);
                 item.appendChild(delBtn);
 
                 return { item, input };
@@ -1877,7 +2006,7 @@ export function createController(userOptions = {}) {
                 const { item, input } = createHotkeyInputItem({ value });
                 hotkeyListEl.appendChild(item);
                 hotkeyInputs.push(input);
-                syncHotkeyPlaceholders();
+                refreshHotkeySelects();
                 return input;
             }
 
@@ -1919,9 +2048,9 @@ export function createController(userOptions = {}) {
                     }
                     hotkeyInputs.forEach((input, idx) => {
                         if (!input) return;
-                        input.value = desired[idx] ?? "";
+                        refreshHotkeySelectOptions(input, desired[idx] ?? "");
                     });
-                    syncHotkeyPlaceholders();
+                    refreshHotkeySelects();
                 }
                 if (newChatHotkeyEl) {
                     newChatHotkeyEl.value = lockNewChatHotkey
@@ -3336,6 +3465,7 @@ export function createController(userOptions = {}) {
                 labels = resolveLabels();
                 titleText = resolveTitleText();
                 ensureUi();
+                refreshHotkeySelects();
                 stopDrag();
                 setOverlayVisibility(true);
                 startThemeAutoSync();

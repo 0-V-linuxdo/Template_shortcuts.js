@@ -368,9 +368,26 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 }
                 ${hostSelector} .qi-hotkey-item {
                     position: relative;
+                    min-width: 0;
                 }
                 ${hostSelector} .qi-hotkey-item input[type="text"] {
                     padding-right: 34px;
+                }
+                ${hostSelector} .qi-hotkey-select-wrap {
+                    display: block;
+                    width: auto;
+                    min-width: 0;
+                    margin-right: 34px;
+                }
+                ${hostSelector} .qi-hotkey-select-wrap select {
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                ${hostSelector} .qi-hotkey-select-wrap select:disabled {
+                    opacity: 0.72;
+                    cursor: not-allowed;
                 }
                 ${hostSelector} .qi-hotkey-del {
                     position: absolute;

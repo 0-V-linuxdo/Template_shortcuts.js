@@ -71,16 +71,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260429] v1.2.1",
+            name: "[ChatGPT] 快捷键跳转 [20260429] v1.3.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260429] v1.2.1",
-            updateLog: "1.2.1: 同步 Template v1.2.1，优化设置菜单重置图标与按钮布局，并让语言下拉固定语言使用对应语言名称显示。",
+            version: "[20260429] v1.3.0",
+            updateLog: "1.3.0: 同步 Template v1.3.0，快捷输入触发快捷键改为按动作与快捷键下拉选择，并兼容保留旧配置。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260429] v1.2.1",
+                    name: "[ChatGPT] Shortcut Jump [20260429] v1.3.0",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.2.1: Synced Template v1.2.1 with reset icon and action layout refinements, plus self-labeled fixed language choices."
+                    updateLog: "1.3.0: Synced Template v1.3.0; Quick Input trigger shortcuts now use action-and-hotkey dropdowns while preserving legacy saved values."
                 }
             },
             match: [
