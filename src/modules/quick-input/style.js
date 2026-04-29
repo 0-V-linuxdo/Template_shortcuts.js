@@ -280,6 +280,8 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     padding: 14px;
                     overflow: auto;
                     display: grid;
+                    grid-auto-rows: max-content;
+                    align-content: start;
                     gap: 12px;
                     flex: 1;
                     min-height: 0;

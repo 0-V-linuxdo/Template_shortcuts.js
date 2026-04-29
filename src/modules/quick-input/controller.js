@@ -844,6 +844,55 @@ export function createController(userOptions = {}) {
                 return Math.round(value);
             }
 
+            function readCssPixelValue(value) {
+                const num = Number.parseFloat(String(value ?? "").trim());
+                return Number.isFinite(num) ? num : 0;
+            }
+
+            function measureInputBodyContentHeightPx() {
+                if (!inputBodyEl) return 0;
+                let style = null;
+                try { style = globalThis.getComputedStyle?.(inputBodyEl) || null; } catch {}
+
+                const paddingTop = readCssPixelValue(style?.paddingTop);
+                const paddingBottom = readCssPixelValue(style?.paddingBottom);
+                const rowGap = readCssPixelValue(style?.rowGap || style?.gap);
+                let total = paddingTop + paddingBottom;
+                let visibleCount = 0;
+
+                let children = [];
+                try { children = Array.from(inputBodyEl.children || []); } catch { children = []; }
+                for (const child of children) {
+                    if (!child) continue;
+                    let childStyle = null;
+                    try { childStyle = globalThis.getComputedStyle?.(child) || null; } catch {}
+                    if (childStyle?.display === "none") continue;
+
+                    const rectHeight = Number(child.getBoundingClientRect?.().height);
+                    const offsetHeight = Number(child.offsetHeight);
+                    const childHeight = Number.isFinite(rectHeight) && rectHeight > 0
+                        ? rectHeight
+                        : (Number.isFinite(offsetHeight) && offsetHeight > 0 ? offsetHeight : 0);
+                    if (childHeight <= 0) continue;
+
+                    total += childHeight;
+                    visibleCount += 1;
+                }
+                if (visibleCount > 1) total += rowGap * (visibleCount - 1);
+
+                const measured = Math.ceil(total);
+                if (measured > 0) return measured;
+                return measureScrollableElementHeightPx(inputBodyEl);
+            }
+
+            function clampInputBodyScroll() {
+                if (!inputBodyEl) return;
+                try {
+                    const maxScrollTop = Math.max(0, inputBodyEl.scrollHeight - inputBodyEl.clientHeight);
+                    if (inputBodyEl.scrollTop > maxScrollTop) inputBodyEl.scrollTop = maxScrollTop;
+                } catch {}
+            }
+
             function getActiveTabDesiredHeightPx() {
                 const headerHeight = measureElementHeightPx(headerEl);
                 const panelBorderHeight = Math.max(0, Math.round((Number(panelEl?.offsetHeight) || 0) - (Number(panelEl?.clientHeight) || 0)));
@@ -854,7 +903,7 @@ export function createController(userOptions = {}) {
                     return headerHeight + logHeight + actionsHeight + panelBorderHeight;
                 }
 
-                const bodyHeight = measureScrollableElementHeightPx(inputBodyEl);
+                const bodyHeight = measureInputBodyContentHeightPx();
                 const actionsHeight = measureElementHeightPx(inputActionsEl);
                 return headerHeight + bodyHeight + actionsHeight + panelBorderHeight;
             }
@@ -875,6 +924,9 @@ export function createController(userOptions = {}) {
             function flushScheduledPanelLayout() {
                 panelLayoutRaf = 0;
                 syncPanelHeight();
+                if (activeTab === "input" && overlayEl?.getAttribute?.("data-open") === "1") {
+                    clampInputBodyScroll();
+                }
                 if (pendingLogScrollToBottom && logEl && activeTab === "log" && overlayEl?.getAttribute?.("data-open") === "1") {
                     logEl.scrollTop = logEl.scrollHeight;
                     pendingLogScrollToBottom = false;
