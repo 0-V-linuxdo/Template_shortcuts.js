@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.2.1
-// @name:en        [Template] Shortcut Core [20260429] v1.2.1
+// @name           [Template] 快捷键跳转 [20260429] v1.3.0
+// @name:en        [Template] Shortcut Core [20260429] v1.3.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.2.1
-// @update-log     1.2.1: 优化设置菜单重置图标与按钮布局，并让语言下拉中的固定语言使用对应语言名称显示。
-// @update-log:en  1.2.1: Refined the settings reset icon and action layout, and now fixed language choices display in their own language.
+// @version        [20260429] v1.3.0
+// @update-log     1.3.0: 快捷输入的触发快捷键改为按动作与快捷键下拉选择，并兼容保留旧配置。
+// @update-log:en  1.3.0: Quick Input trigger shortcuts now use action-and-hotkey dropdowns while preserving legacy saved values.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -9415,6 +9415,7 @@ ${displayTargetText}`;
       imageDropMore: "支持：点击上传、输入框粘贴、拖拽上传",
       imageDropOverlay: "松开鼠标继续追加图片",
       text: "在这里输入/粘贴要发送的文字…",
+      hotkeyEmpty: "留空则不触发",
       hotkeyPrimary: "留空则不触发（例如：CTRL+I）",
       hotkeyExtra: "例如：CTRL+I",
       newChatHotkey: "例如：CTRL+N"
@@ -9483,6 +9484,7 @@ ${displayTargetText}`;
       sendAttempted: (ok) => ok ? "已尝试发送（Enter/Send）。" : "发送失败。",
       maxDelayTitle: (formattedDelay) => `最大 ${formattedDelay}`,
       diagnostics: (json) => `诊断: ${json}`,
+      savedHotkeyMissing: (hotkey) => `已保存：${hotkey}（未找到）`,
       imageCountNotReady: (current, expected) => `图片数量未达到预期：当前 ${current} 张，期望至少 ${expected} 张。`,
       imageUploadTimeout: (current) => `等待图片上传完成超时：当前识别到 ${current} 张图片。`,
       textVerifyFailed: (stage, actualLength, expectedLength) => `文字校验失败${stage ? `（${stage}）` : ""}：当前检测到 ${actualLength} / ${expectedLength} 个字符。`,
@@ -9539,6 +9541,7 @@ ${displayTargetText}`;
         imageDropMore: "Supports click upload, input paste, and drag upload",
         imageDropOverlay: "Release to append images",
         text: "Type or paste text to send...",
+        hotkeyEmpty: "Leave empty to skip",
         hotkeyPrimary: "Leave empty to skip (for example: CTRL+I)",
         hotkeyExtra: "Example: CTRL+I",
         newChatHotkey: "Example: CTRL+N"
@@ -9607,6 +9610,7 @@ ${displayTargetText}`;
         sendAttempted: (ok) => ok ? "Send attempted (Enter/Send)." : "Send failed.",
         maxDelayTitle: (formattedDelay) => `Maximum ${formattedDelay}`,
         diagnostics: (json) => `Diagnostics: ${json}`,
+        savedHotkeyMissing: (hotkey) => `Saved: ${hotkey} (not found)`,
         imageCountNotReady: (current, expected) => `Image count is below the expected number: current ${current}, expected at least ${expected}.`,
         imageUploadTimeout: (current) => `Timed out waiting for image uploads: currently detected ${current} image(s).`,
         textVerifyFailed: (stage, actualLength, expectedLength) => `Text verification failed${stage ? ` (${stage})` : ""}: detected ${actualLength}/${expectedLength} characters.`,
@@ -10895,9 +10899,26 @@ ${displayTargetText}`;
                 }
                 ${hostSelector} .qi-hotkey-item {
                     position: relative;
+                    min-width: 0;
                 }
                 ${hostSelector} .qi-hotkey-item input[type="text"] {
                     padding-right: 34px;
+                }
+                ${hostSelector} .qi-hotkey-select-wrap {
+                    display: block;
+                    width: auto;
+                    min-width: 0;
+                    margin-right: 34px;
+                }
+                ${hostSelector} .qi-hotkey-select-wrap select {
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                ${hostSelector} .qi-hotkey-select-wrap select:disabled {
+                    opacity: 0.72;
+                    cursor: not-allowed;
                 }
                 ${hostSelector} .qi-hotkey-del {
                     position: absolute;
@@ -13277,19 +13298,140 @@ ${displayTargetText}`;
       panelEl.style.transform = "none";
       persistPanelPos(clamped.left, clamped.top, { force: true });
     }
-    function syncHotkeyPlaceholders() {
-      hotkeyInputs.forEach((input, idx) => {
-        if (!input) return;
-        input.placeholder = idx === 0 ? labels.placeholders?.hotkeyPrimary || DEFAULT_LABELS.placeholders.hotkeyPrimary : labels.placeholders?.hotkeyExtra || DEFAULT_LABELS.placeholders.hotkeyExtra;
+    function normalizeEngineHotkey(value) {
+      const raw = String(value ?? "").trim().replace(/\s+/g, "");
+      if (!raw) return "";
+      const normalize = engine?.core?.hotkeys?.normalize || engine?.core?.normalizeHotkey || null;
+      if (typeof normalize === "function") {
+        try {
+          return normalize(raw) || "";
+        } catch {
+        }
+      }
+      return normalizeHotkeyFallback2(raw);
+    }
+    function formatHotkeyLabel(value) {
+      const raw = String(value ?? "").trim();
+      if (!raw) return "";
+      const formatter = engine?.core?.hotkeys?.formatForDisplay || null;
+      if (typeof formatter === "function") {
+        try {
+          const formatted = String(formatter(raw) || "").trim();
+          if (formatted) return formatted;
+        } catch {
+        }
+      }
+      return normalizeEngineHotkey(raw) || raw;
+    }
+    function getShortcutOptionName(shortcut) {
+      const fallback = String(shortcut?.name || shortcut?.key || shortcut?.id || "").trim();
+      const getDisplayName = engine?.core?.getShortcutDisplayName || null;
+      if (typeof getDisplayName === "function") {
+        try {
+          return String(getDisplayName(shortcut) || fallback).trim() || fallback;
+        } catch {
+        }
+      }
+      return fallback;
+    }
+    function isQuickInputShortcut(shortcut) {
+      return String(shortcut?.customAction || "").trim() === "quickInput";
+    }
+    function getHotkeyEmptyOptionLabel() {
+      return labels.placeholders?.hotkeyEmpty || DEFAULT_LABELS.placeholders.hotkeyEmpty || labels.placeholders?.hotkeyPrimary || DEFAULT_LABELS.placeholders.hotkeyPrimary;
+    }
+    function getMissingHotkeyOptionLabel(value) {
+      const display = formatHotkeyLabel(value) || String(value ?? "").trim();
+      if (typeof labels.messages?.savedHotkeyMissing === "function") {
+        return labels.messages.savedHotkeyMissing(display);
+      }
+      if (typeof DEFAULT_LABELS.messages.savedHotkeyMissing === "function") {
+        return DEFAULT_LABELS.messages.savedHotkeyMissing(display);
+      }
+      return display;
+    }
+    function collectHotkeySelectOptions(selectedValue = "") {
+      const optionsList = [];
+      const seen = /* @__PURE__ */ new Set();
+      const selectedRaw = String(selectedValue ?? "").trim();
+      const selectedNorm = normalizeEngineHotkey(selectedRaw);
+      const shortcuts = typeof engine?.getShortcuts === "function" ? engine.getShortcuts() : [];
+      if (Array.isArray(shortcuts)) {
+        for (const shortcut of shortcuts) {
+          if (!shortcut || isQuickInputShortcut(shortcut)) continue;
+          const hotkey = normalizeEngineHotkey(shortcut.hotkey);
+          if (!hotkey || seen.has(hotkey)) continue;
+          seen.add(hotkey);
+          const hotkeyLabel = formatHotkeyLabel(hotkey);
+          const name = getShortcutOptionName(shortcut);
+          optionsList.push({
+            value: hotkey,
+            label: name ? `${name} · ${hotkeyLabel || hotkey}` : hotkeyLabel || hotkey
+          });
+        }
+      }
+      if (selectedRaw && (!selectedNorm || !seen.has(selectedNorm))) {
+        optionsList.push({
+          value: selectedRaw,
+          label: getMissingHotkeyOptionLabel(selectedRaw)
+        });
+      }
+      return optionsList;
+    }
+    function appendSelectOption(select, value, label) {
+      if (!select) return;
+      const option = globalThis.document.createElement("option");
+      option.value = String(value ?? "");
+      option.textContent = String(label ?? "");
+      select.appendChild(option);
+    }
+    function refreshHotkeySelectOptions(select, selectedValue = "") {
+      if (!select) return;
+      const selectedRaw = String(selectedValue ?? "").trim();
+      const selectedNorm = normalizeEngineHotkey(selectedRaw);
+      const optionsList = collectHotkeySelectOptions(selectedRaw);
+      const knownValues = new Set(optionsList.map((item) => item.value));
+      while (select.firstChild) {
+        try {
+          select.removeChild(select.firstChild);
+        } catch {
+          break;
+        }
+      }
+      appendSelectOption(select, "", getHotkeyEmptyOptionLabel());
+      for (const option of optionsList) {
+        appendSelectOption(select, option.value, option.label);
+      }
+      if (selectedNorm && knownValues.has(selectedNorm)) {
+        select.value = selectedNorm;
+      } else if (selectedRaw && knownValues.has(selectedRaw)) {
+        select.value = selectedRaw;
+      } else {
+        select.value = "";
+      }
+    }
+    function refreshHotkeySelects() {
+      hotkeyInputs.forEach((select) => {
+        if (!select) return;
+        refreshHotkeySelectOptions(select, select.value);
       });
     }
     function createHotkeyInputItem({ value = "" } = {}) {
       const item = globalThis.document.createElement("div");
       item.className = "qi-hotkey-item";
-      const input = globalThis.document.createElement("input");
-      input.type = "text";
-      input.value = String(value ?? "");
+      const selectWrap = globalThis.document.createElement("div");
+      selectWrap.className = "qi-select-wrap qi-hotkey-select-wrap";
+      const input = globalThis.document.createElement("select");
       input.disabled = running;
+      refreshHotkeySelectOptions(input, value);
+      input.addEventListener("change", () => {
+        saveConfig(storageKey, readConfigFromUi(), defaults);
+      });
+      const caret = globalThis.document.createElement("span");
+      caret.className = "qi-select-caret";
+      caret.setAttribute("aria-hidden", "true");
+      selectWrap.appendChild(input);
+      selectWrap.appendChild(caret);
       const delBtn = globalThis.document.createElement("button");
       delBtn.type = "button";
       delBtn.className = "qi-hotkey-del";
@@ -13305,7 +13447,7 @@ ${displayTargetText}`;
         if (idx === -1) return;
         if (hotkeyInputs.length <= 1) {
           input.value = "";
-          syncHotkeyPlaceholders();
+          refreshHotkeySelects();
           saveConfig(storageKey, readConfigFromUi(), defaults);
           return;
         }
@@ -13314,10 +13456,10 @@ ${displayTargetText}`;
           item.remove();
         } catch {
         }
-        syncHotkeyPlaceholders();
+        refreshHotkeySelects();
         saveConfig(storageKey, readConfigFromUi(), defaults);
       });
-      item.appendChild(input);
+      item.appendChild(selectWrap);
       item.appendChild(delBtn);
       return { item, input };
     }
@@ -13326,7 +13468,7 @@ ${displayTargetText}`;
       const { item, input } = createHotkeyInputItem({ value });
       hotkeyListEl.appendChild(item);
       hotkeyInputs.push(input);
-      syncHotkeyPlaceholders();
+      refreshHotkeySelects();
       return input;
     }
     function createDelayUnitSelectControl() {
@@ -13366,9 +13508,9 @@ ${displayTargetText}`;
         }
         hotkeyInputs.forEach((input, idx) => {
           if (!input) return;
-          input.value = desired[idx] ?? "";
+          refreshHotkeySelectOptions(input, desired[idx] ?? "");
         });
-        syncHotkeyPlaceholders();
+        refreshHotkeySelects();
       }
       if (newChatHotkeyEl) {
         newChatHotkeyEl.value = lockNewChatHotkey ? getLockedNewChatHotkeyDisplay(cfg) : typeof cfg.newChatHotkey === "string" ? cfg.newChatHotkey : defaults.newChatHotkey;
@@ -14543,6 +14685,7 @@ ${displayTargetText}`;
       labels = resolveLabels();
       titleText = resolveTitleText();
       ensureUi();
+      refreshHotkeySelects();
       stopDrag();
       setOverlayVisibility(true);
       startThemeAutoSync();
