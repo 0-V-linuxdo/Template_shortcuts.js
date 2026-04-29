@@ -1894,7 +1894,8 @@ export function createController(userOptions = {}) {
                         const name = getShortcutOptionName(shortcut);
                         optionsList.push({
                             value: hotkey,
-                            label: name ? `${hotkeyLabel || hotkey} ${name}` : (hotkeyLabel || hotkey)
+                            label: hotkeyLabel || hotkey,
+                            title: name
                         });
                     }
                 }
@@ -1902,19 +1903,30 @@ export function createController(userOptions = {}) {
                 if (selectedRaw && (!selectedNorm || !seen.has(selectedNorm))) {
                     optionsList.push({
                         value: selectedRaw,
-                        label: getMissingHotkeyOptionLabel(selectedRaw)
+                        label: formatHotkeyLabel(selectedRaw) || selectedRaw,
+                        title: getMissingHotkeyOptionLabel(selectedRaw)
                     });
                 }
 
                 return optionsList;
             }
 
-            function appendSelectOption(select, value, label) {
+            function appendSelectOption(select, value, label, title = "") {
                 if (!select) return;
                 const option = globalThis.document.createElement("option");
                 option.value = String(value ?? "");
                 option.textContent = String(label ?? "");
+                const titleText = String(title ?? "").trim();
+                if (titleText) option.title = titleText;
                 select.appendChild(option);
+            }
+
+            function syncHotkeySelectTitle(select) {
+                if (!select) return;
+                const selected = select.selectedOptions?.[0] || null;
+                const title = String(selected?.title || "").trim();
+                if (title) select.title = title;
+                else select.removeAttribute("title");
             }
 
             function refreshHotkeySelectOptions(select, selectedValue = "") {
@@ -1930,7 +1942,7 @@ export function createController(userOptions = {}) {
 
                 appendSelectOption(select, "", getHotkeyEmptyOptionLabel());
                 for (const option of optionsList) {
-                    appendSelectOption(select, option.value, option.label);
+                    appendSelectOption(select, option.value, option.label, option.title);
                 }
 
                 if (selectedNorm && knownValues.has(selectedNorm)) {
@@ -1940,6 +1952,7 @@ export function createController(userOptions = {}) {
                 } else {
                     select.value = "";
                 }
+                syncHotkeySelectTitle(select);
             }
 
             function refreshHotkeySelects() {
@@ -1959,6 +1972,7 @@ export function createController(userOptions = {}) {
                 input.disabled = running;
                 refreshHotkeySelectOptions(input, value);
                 input.addEventListener("change", () => {
+                    syncHotkeySelectTitle(input);
                     saveConfig(storageKey, readConfigFromUi(), defaults);
                 });
                 const caret = globalThis.document.createElement("span");
