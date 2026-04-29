@@ -106,18 +106,8 @@ export function createI18nContext({
         return base;
     }
 
-    function getOwnMessages(locale = getEffectiveLocale()) {
-        return clone(dictionaries[normalizeLocale(locale, fallback)] || {});
-    }
-
     function t(path, vars = {}, fallbackValue = "") {
         const value = getMessageAtPath(getMessages(), path);
-        const finalValue = value === undefined || value === null || value === "" ? fallbackValue : value;
-        return formatMessage(finalValue, vars);
-    }
-
-    function tOwn(path, vars = {}, fallbackValue = "", locale = getEffectiveLocale()) {
-        const value = getMessageAtPath(getOwnMessages(locale), path);
         const finalValue = value === undefined || value === null || value === "" ? fallbackValue : value;
         return formatMessage(finalValue, vars);
     }
@@ -148,9 +138,7 @@ export function createI18nContext({
         getLocaleMode,
         getEffectiveLocale,
         getMessages,
-        getOwnMessages,
         t,
-        tOwn,
         setLocaleMode,
         addLocaleChangeListener,
         supportedLocales: SUPPORTED_LOCALES.slice(),
