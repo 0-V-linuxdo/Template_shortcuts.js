@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.3.1
-// @name:en        [Template] Shortcut Core [20260429] v1.3.1
+// @name           [Template] 快捷键跳转 [20260429] v1.3.2
+// @name:en        [Template] Shortcut Core [20260429] v1.3.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.3.1
-// @update-log     1.3.1: 快捷输入默认步骤/循环间隔调整为 1 秒/20 秒，并将触发快捷键下拉选项改为“快捷键 名称”显示。
-// @update-log:en  1.3.1: Quick Input defaults now use 1s/20s step and loop delays, and trigger shortcut options display as "shortcut name".
+// @version        [20260429] v1.3.2
+// @update-log     1.3.2: 快捷输入触发快捷键下拉仅显示快捷键，动作名称改为鼠标悬停提示。
+// @update-log:en  1.3.2: Quick Input trigger shortcut dropdowns now show only shortcut keys, with action names in hover tooltips.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -13366,24 +13366,35 @@ ${displayTargetText}`;
           const name = getShortcutOptionName(shortcut);
           optionsList.push({
             value: hotkey,
-            label: name ? `${hotkeyLabel || hotkey} ${name}` : hotkeyLabel || hotkey
+            label: hotkeyLabel || hotkey,
+            title: name
           });
         }
       }
       if (selectedRaw && (!selectedNorm || !seen.has(selectedNorm))) {
         optionsList.push({
           value: selectedRaw,
-          label: getMissingHotkeyOptionLabel(selectedRaw)
+          label: formatHotkeyLabel(selectedRaw) || selectedRaw,
+          title: getMissingHotkeyOptionLabel(selectedRaw)
         });
       }
       return optionsList;
     }
-    function appendSelectOption(select, value, label) {
+    function appendSelectOption(select, value, label, title = "") {
       if (!select) return;
       const option = globalThis.document.createElement("option");
       option.value = String(value ?? "");
       option.textContent = String(label ?? "");
+      const titleText2 = String(title ?? "").trim();
+      if (titleText2) option.title = titleText2;
       select.appendChild(option);
+    }
+    function syncHotkeySelectTitle(select) {
+      if (!select) return;
+      const selected = select.selectedOptions?.[0] || null;
+      const title = String(selected?.title || "").trim();
+      if (title) select.title = title;
+      else select.removeAttribute("title");
     }
     function refreshHotkeySelectOptions(select, selectedValue = "") {
       if (!select) return;
@@ -13400,7 +13411,7 @@ ${displayTargetText}`;
       }
       appendSelectOption(select, "", getHotkeyEmptyOptionLabel());
       for (const option of optionsList) {
-        appendSelectOption(select, option.value, option.label);
+        appendSelectOption(select, option.value, option.label, option.title);
       }
       if (selectedNorm && knownValues.has(selectedNorm)) {
         select.value = selectedNorm;
@@ -13409,6 +13420,7 @@ ${displayTargetText}`;
       } else {
         select.value = "";
       }
+      syncHotkeySelectTitle(select);
     }
     function refreshHotkeySelects() {
       hotkeyInputs.forEach((select) => {
@@ -13425,6 +13437,7 @@ ${displayTargetText}`;
       input.disabled = running;
       refreshHotkeySelectOptions(input, value);
       input.addEventListener("change", () => {
+        syncHotkeySelectTitle(input);
         saveConfig(storageKey, readConfigFromUi(), defaults);
       });
       const caret = globalThis.document.createElement("span");
