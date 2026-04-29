@@ -71,16 +71,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260430] v1.0.0",
+            name: "[ChatGPT] 快捷键跳转 [20260430] v1.0.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260430] v1.0.0",
-            updateLog: "1.0.0: 同步 Template v1.0.0，修复快捷输入弹窗高度自适应，按当前可见内容贴合高度，内容超过视口时才启用滚动。",
+            version: "[20260430] v1.0.1",
+            updateLog: "1.0.1: 同步 Template v1.0.1，修复快捷输入初次打开时草稿图片恢复后高度未重测，避免弹窗过矮和内容被截断。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260430] v1.0.0",
+                    name: "[ChatGPT] Shortcut Jump [20260430] v1.0.1",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.0.0: Synced Template v1.0.0; fixed Quick Input panel height auto-sizing so it fits the current visible content and only scrolls when content exceeds the viewport."
+                    updateLog: "1.0.1: Synced Template v1.0.1; fixed Quick Input first-open height remeasurement after draft images restore, preventing a too-short panel and clipped content."
                 }
             },
             match: [
@@ -167,16 +167,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260429] v1.3.3",
+            name: "[Gemini] 快捷键跳转 [20260430] v1.0.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260429] v1.3.3",
-            updateLog: "1.3.3: 同步 Template v1.3.3，快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。",
+            version: "[20260430] v1.0.1",
+            updateLog: "1.0.1: 同步 Template v1.0.1，修复快捷输入初次打开时草稿图片恢复后高度未重测，避免弹窗过矮和内容被截断。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260429] v1.3.3",
+                    name: "[Gemini] Shortcut Jump [20260430] v1.0.1",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.3.3: Synced Template v1.3.3; Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover."
+                    updateLog: "1.0.1: Synced Template v1.0.1; fixed Quick Input first-open height remeasurement after draft images restore, preventing a too-short panel and clipped content."
                 }
             },
             match: [

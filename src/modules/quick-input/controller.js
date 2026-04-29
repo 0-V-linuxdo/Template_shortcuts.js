@@ -975,6 +975,11 @@ export function createController(userOptions = {}) {
                 });
             }
 
+            function scheduleInputContentLayout() {
+                if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
+                schedulePanelLayout({ followupPasses: 2 });
+            }
+
             function setImportantStyle(el, name, value) {
                 if (!el?.style?.setProperty) return;
                 try { el.style.setProperty(name, value, "important"); } catch {}
@@ -1478,6 +1483,8 @@ export function createController(userOptions = {}) {
                     }
                     if (previewRowEl) previewRowEl.style.display = hasItems ? "" : "none";
                 }
+
+                scheduleInputContentLayout();
 
                 if (skipDraftPersist) return;
 
@@ -3640,7 +3647,10 @@ export function createController(userOptions = {}) {
                 startThemeAutoSync();
                 requestAnimationFrameSafe(() => {
                     applyStoredPanelPos();
-                    schedulePanelLayout({ scrollLogToBottom: activeTab === "log" });
+                    schedulePanelLayout({ scrollLogToBottom: activeTab === "log", followupPasses: 2 });
+                });
+                void Promise.resolve(draftRestorePromise).then(() => {
+                    scheduleInputContentLayout();
                 });
                 try { if (activeTab === "input") imageDropEl?.focus?.(); } catch {}
             }
