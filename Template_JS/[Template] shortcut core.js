@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.3.7
-// @name:en        [Template] Shortcut Core [20260429] v1.3.7
+// @name           [Template] 快捷键跳转 [20260430] v1.0.0
+// @name:en        [Template] Shortcut Core [20260430] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.3.7
-// @update-log     1.3.7: 修复快捷输入“更多设置”展开后再折叠导致弹窗高度不回收、表单行距异常拉大的问题。
-// @update-log:en  1.3.7: Fixed Quick Input layout issues where collapsing More settings after expansion could leave the panel too tall and stretch form row spacing.
+// @version        [20260430] v1.0.0
+// @update-log     1.0.0: 修复快捷输入弹窗高度自适应，按当前可见内容贴合高度，内容超过视口时才启用滚动。
+// @update-log:en  1.0.0: Fixed Quick Input panel height auto-sizing so it fits the current visible content and only scrolls when content exceeds the viewport.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260429";
+  var TEMPLATE_VERSION = "20260430";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -11867,6 +11867,7 @@ ${displayTargetText}`;
     let draftRestorePromise = null;
     let draftWriteChain = Promise.resolve(null);
     let panelLayoutRaf = 0;
+    let panelLayoutFollowupPasses = 0;
     let pendingLogScrollToBottom = false;
     if (engineI18n && typeof engineI18n.addLocaleChangeListener === "function") {
       engineI18n.addLocaleChangeListener(() => refreshLocale());
@@ -12548,6 +12549,28 @@ ${displayTargetText}`;
       if (measured > 0) return measured;
       return measureScrollableElementHeightPx(inputBodyEl);
     }
+    function measureNaturalInputBodyHeightPx() {
+      if (!inputBodyEl) return 0;
+      if (!panelEl) return measureInputBodyContentHeightPx();
+      const prevPanelHeight = panelEl.style.height;
+      const prevPanelMaxHeight = panelEl.style.maxHeight;
+      const prevBodyFlex = inputBodyEl.style.flex;
+      const prevBodyOverflow = inputBodyEl.style.overflow;
+      try {
+        panelEl.style.height = "auto";
+        panelEl.style.maxHeight = "none";
+        inputBodyEl.style.flex = "0 0 auto";
+        inputBodyEl.style.overflow = "visible";
+        const scrollHeight = measureScrollableElementHeightPx(inputBodyEl);
+        const contentHeight = measureInputBodyContentHeightPx();
+        return Math.max(scrollHeight, contentHeight);
+      } finally {
+        panelEl.style.height = prevPanelHeight;
+        panelEl.style.maxHeight = prevPanelMaxHeight;
+        inputBodyEl.style.flex = prevBodyFlex;
+        inputBodyEl.style.overflow = prevBodyOverflow;
+      }
+    }
     function clampInputBodyScroll() {
       if (!inputBodyEl) return;
       try {
@@ -12564,20 +12587,20 @@ ${displayTargetText}`;
         const actionsHeight2 = measureElementHeightPx(logActionsEl);
         return headerHeight + logHeight + actionsHeight2 + panelBorderHeight;
       }
-      const bodyHeight = measureInputBodyContentHeightPx();
+      const bodyHeight = measureNaturalInputBodyHeightPx();
       const actionsHeight = measureElementHeightPx(inputActionsEl);
       return headerHeight + bodyHeight + actionsHeight + panelBorderHeight;
     }
     function syncPanelHeight() {
       if (!panelEl) return;
       const maxHeight = getPanelMaxHeightPx();
-      if (maxHeight > 0) {
-        panelEl.style.maxHeight = `${maxHeight}px`;
-      }
       const desiredHeight = getActiveTabDesiredHeightPx();
       const fallbackHeight = Number(panelEl.scrollHeight);
       const next = clampPanelHeightPx(desiredHeight || fallbackHeight);
       if (!next) return;
+      if (maxHeight > 0) {
+        panelEl.style.maxHeight = `${maxHeight}px`;
+      }
       panelEl.style.height = `${next}px`;
     }
     function flushScheduledPanelLayout() {
@@ -12590,9 +12613,16 @@ ${displayTargetText}`;
         logEl.scrollTop = logEl.scrollHeight;
         pendingLogScrollToBottom = false;
       }
+      if (panelLayoutFollowupPasses > 0) {
+        panelLayoutFollowupPasses -= 1;
+        panelLayoutRaf = requestAnimationFrameSafe(() => {
+          flushScheduledPanelLayout();
+        });
+      }
     }
-    function schedulePanelLayout({ scrollLogToBottom: scrollLogToBottom2 = false } = {}) {
+    function schedulePanelLayout({ scrollLogToBottom: scrollLogToBottom2 = false, followupPasses = 0 } = {}) {
       if (scrollLogToBottom2) pendingLogScrollToBottom = true;
+      panelLayoutFollowupPasses = Math.max(panelLayoutFollowupPasses, Math.max(0, Number(followupPasses) || 0));
       if (panelLayoutRaf) return;
       panelLayoutRaf = requestAnimationFrameSafe(() => {
         flushScheduledPanelLayout();
@@ -12675,7 +12705,7 @@ ${displayTargetText}`;
         if (bodyEl) bodyEl.hidden = !nextOpen;
       } catch {
       }
-      if (scheduleLayout) schedulePanelLayout();
+      if (scheduleLayout) schedulePanelLayout({ followupPasses: 1 });
     }
     function initCollapsibleRoot(rootEl, toggleEl, bodyEl, { open: open2 = false } = {}) {
       if (!rootEl || !toggleEl || !bodyEl) return;
