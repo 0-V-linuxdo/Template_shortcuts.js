@@ -153,8 +153,8 @@ export function createSettingsPanelLayer(ctx = {}) {
                 const addPolyline = (points, attrs = {}) => svg.appendChild(createSvgNode("polyline", { points, ...strokeAttrs, ...attrs }));
 
                 if (action === "reset") {
-                    addPath("M3 12a9 9 0 1 0 3-6.7");
-                    addPath("M3 4v5h5");
+                    addPath("M4 4v5h5");
+                    addPath("M4.6 13.6a7.7 7.7 0 1 0 2.1-7.3L4 9");
                 } else if (action === "import") {
                     addLine({ x1: "12", y1: "4", x2: "12", y2: "16" });
                     addPolyline("8 12 12 16 16 12");
@@ -1097,7 +1097,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                     };
 
                     addLocaleOption("auto", options?.text?.panel?.languageAuto || "Auto (follow browser)");
-                    addLocaleOption("zh-CN", options?.text?.panel?.languageZhCN || "Simplified Chinese");
+                    addLocaleOption("zh-CN", options?.text?.panel?.languageZhCN || "简体中文");
                     addLocaleOption("en-US", options?.text?.panel?.languageEnUS || "English");
 
                     localeSelect.value = String(state.localeMode || "auto");
@@ -1124,38 +1124,40 @@ export function createSettingsPanelLayer(ctx = {}) {
                     });
                     dialog.appendChild(actionsLabel);
 
-	                const actions = document.createElement("div");
-	                Object.assign(actions.style, {
-	                    display: "flex",
-	                    flexDirection: "row",
+                    const actions = document.createElement("div");
+                    Object.assign(actions.style, {
+                        display: "flex",
+                        flexDirection: "row",
                         alignItems: "center",
-                        justifyContent: "flex-end",
+                        justifyContent: "flex-start",
                         flexWrap: "nowrap",
-	                    gap: "8px"
-	                });
+                        width: "100%",
+                        gap: "8px"
+                    });
 
                     const resetActionLabel = options.text.buttons.reset || "Reset defaults";
-	                const resetActionBtn = createSettingsActionButton("reset", resetActionLabel, "#9E9E9E", "#757575", () => {
-	                    closeSettingsMenu({ restoreFocus: false });
-	                    showConfirmDialog(options?.text?.panel?.resetConfirm || "Reset to the default configuration? Changes are saved only after clicking \"Save and close\".", () => {
-	                        resetToDefaults();
-	                    });
-	                });
-	                actions.appendChild(resetActionBtn);
+                    const resetActionBtn = createSettingsActionButton("reset", resetActionLabel, "#9E9E9E", "#757575", () => {
+                        closeSettingsMenu({ restoreFocus: false });
+                        showConfirmDialog(options?.text?.panel?.resetConfirm || "Reset to the default configuration? Changes are saved only after clicking \"Save and close\".", () => {
+                            resetToDefaults();
+                        });
+                    });
+                    resetActionBtn.style.marginRight = "auto";
+                    actions.appendChild(resetActionBtn);
 
                     const importActionLabel = options.text.buttons.import || "Import";
-	                const importActionBtn = createSettingsActionButton("import", importActionLabel, "#2196F3", "#1e88e5", () => {
-	                    closeSettingsMenu({ restoreFocus: false });
-	                    openImportDialog();
-	                });
-	                actions.appendChild(importActionBtn);
+                    const importActionBtn = createSettingsActionButton("import", importActionLabel, "#2196F3", "#1e88e5", () => {
+                        closeSettingsMenu({ restoreFocus: false });
+                        openImportDialog();
+                    });
+                    actions.appendChild(importActionBtn);
 
                     const exportActionLabel = options.text.buttons.export || "Export";
-	                const exportActionBtn = createSettingsActionButton("export", exportActionLabel, "#4CAF50", "#45A049", () => {
-	                    closeSettingsMenu({ restoreFocus: false });
-	                    openExportDialog();
-	                });
-	                actions.appendChild(exportActionBtn);
+                    const exportActionBtn = createSettingsActionButton("export", exportActionLabel, "#4CAF50", "#45A049", () => {
+                        closeSettingsMenu({ restoreFocus: false });
+                        openExportDialog();
+                    });
+                    actions.appendChild(exportActionBtn);
 
 	                dialog.appendChild(actions);
 	                modal.appendChild(dialog);

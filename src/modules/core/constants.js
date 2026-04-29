@@ -274,7 +274,7 @@
             panel: {
                 languageLabel: "Interface language",
                 languageAuto: "Auto (follow browser)",
-                languageZhCN: "Simplified Chinese",
+                languageZhCN: "简体中文",
                 languageEnUS: "English",
                 themeModeLabel: "Panel theme",
                 themeModeAuto: "Auto (follow page)",
