@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260430] v1.0.0
-// @name:en        [Template] Shortcut Core [20260430] v1.0.0
+// @name           [Template] 快捷键跳转 [20260430] v1.0.1
+// @name:en        [Template] Shortcut Core [20260430] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260430] v1.0.0
-// @update-log     1.0.0: 修复快捷输入弹窗高度自适应，按当前可见内容贴合高度，内容超过视口时才启用滚动。
-// @update-log:en  1.0.0: Fixed Quick Input panel height auto-sizing so it fits the current visible content and only scrolls when content exceeds the viewport.
+// @version        [20260430] v1.0.1
+// @update-log     1.0.1: 修复快捷输入初次打开时草稿图片恢复后高度未重测，避免弹窗过矮和内容被截断。
+// @update-log:en  1.0.1: Fixed Quick Input first-open height remeasurement after draft images restore, preventing a too-short panel and clipped content.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -12628,6 +12628,10 @@ ${displayTargetText}`;
         flushScheduledPanelLayout();
       });
     }
+    function scheduleInputContentLayout() {
+      if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
+      schedulePanelLayout({ followupPasses: 2 });
+    }
     function setImportantStyle(el, name, value) {
       if (!el?.style?.setProperty) return;
       try {
@@ -13071,6 +13075,7 @@ ${displayTargetText}`;
         }
         if (previewRowEl) previewRowEl.style.display = hasItems ? "" : "none";
       }
+      scheduleInputContentLayout();
       if (skipDraftPersist) return;
       if (normalizedDraftEntries) {
         draftPersistToken += 1;
@@ -14977,7 +14982,10 @@ ${displayTargetText}`;
       startThemeAutoSync();
       requestAnimationFrameSafe(() => {
         applyStoredPanelPos();
-        schedulePanelLayout({ scrollLogToBottom: activeTab === "log" });
+        schedulePanelLayout({ scrollLogToBottom: activeTab === "log", followupPasses: 2 });
+      });
+      void Promise.resolve(draftRestorePromise).then(() => {
+        scheduleInputContentLayout();
       });
       try {
         if (activeTab === "input") imageDropEl?.focus?.();

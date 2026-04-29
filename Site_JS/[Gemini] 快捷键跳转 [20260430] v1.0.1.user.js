@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260429] v1.3.3
-// @name:en        [Gemini] Shortcut Jump [20260429] v1.3.3
+// @name           [Gemini] 快捷键跳转 [20260430] v1.0.1
+// @name:en        [Gemini] Shortcut Jump [20260430] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260429] v1.3.3
-// @update-log     1.3.3: 同步 Template v1.3.3，快捷输入英文秒单位简化为 s，新对话快捷键锁定显示改为 native，并在悬停时显示真实快捷键。
-// @update-log:en  1.3.3: Synced Template v1.3.3; Quick Input now shortens the English seconds unit to s, shows locked new-chat shortcuts as native, and reveals the real shortcut on hover.
+// @version        [20260430] v1.0.1
+// @update-log     1.0.1: 同步 Template v1.0.1，修复快捷输入初次打开时草稿图片恢复后高度未重测，避免弹窗过矮和内容被截断。
+// @update-log:en  1.0.1: Synced Template v1.0.1; fixed Quick Input first-open height remeasurement after draft images restore, preventing a too-short panel and clipped content.
 
 // @match          https://gemini.google.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/main/Site_Icon/gemini_keycap.svg
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260430.1.0.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260430.1.0.1
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
