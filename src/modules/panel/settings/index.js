@@ -70,7 +70,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 	            }
 
             const ACTION_TYPE_COLOR_MAP = Object.freeze({
-                all: "#0066cc",
+                all: "#64748B",
                 url: "#4CAF50",
                 selector: "#FF9800",
                 simulate: "#2196F3",
@@ -1244,7 +1244,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                 const headers = [
                     { text: tableHeaders.icon || "Icon", width: "60px", align: "center" },
                     { text: tableHeaders.name || "Name", width: "15%" },
-                    { text: tableHeaders.type || "Type", width: "80px" },
+                    { text: tableHeaders.type || "Type", width: "80px", align: "center" },
                     { text: tableHeaders.target || "Target", width: "40%" },
                     { text: tableHeaders.hotkey || "Shortcut", width: "15%" },
                     { text: tableHeaders.actions || "Actions", width: "120px", align: "center" }
@@ -1340,9 +1340,17 @@ export function createSettingsPanelLayer(ctx = {}) {
                     color: typeMeta.color,
                     textAlign: "center"
                 });
+                const typeIconWrap = document.createElement("span");
+                Object.assign(typeIconWrap.style, {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "100%",
+                    lineHeight: "0"
+                });
                 const typeIcon = createActionTypeIcon(typeMeta, { size: 20 });
-                typeIcon.style.margin = "0 auto";
-                tdType.appendChild(typeIcon);
+                typeIconWrap.appendChild(typeIcon);
+                tdType.appendChild(typeIconWrap);
                 styleTableCell(tdType, isDark);
 
                 const tdTarget = document.createElement("td");

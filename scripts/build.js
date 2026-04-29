@@ -408,9 +408,11 @@ async function bundleJavaScript(entryPath, format = "esm") {
   return outputFile.text;
 }
 
+const USERSCRIPT_METADATA_KEY_WIDTH = 15;
+
 function formatMetadataLine(name, value) {
   const key = String(name);
-  return `// @${key.padEnd(Math.max(13, key.length + 1), " ")}${value}`;
+  return `// @${key.padEnd(Math.max(USERSCRIPT_METADATA_KEY_WIDTH, key.length + 1), " ")}${value}`;
 }
 
 function getLocalizedMetadataEntries(metadata, fieldName) {
