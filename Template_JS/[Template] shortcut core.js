@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.2.0
-// @name:en        [Template] Shortcut Core [20260429] v1.2.0
+// @name           [Template] 快捷键跳转 [20260429] v1.2.1
+// @name:en        [Template] Shortcut Core [20260429] v1.2.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.2.0
-// @update-log     1.2.0: 设置菜单底部的重置、导入、导出操作改为 SVG 图标按钮，并在 hover 时显示标题提示。
-// @update-log:en  1.2.0: Changed the settings menu reset, import, and export actions to SVG icon buttons with hover titles.
+// @version        [20260429] v1.2.1
+// @update-log     1.2.1: 优化设置菜单重置图标与按钮布局，并让语言下拉中的固定语言使用对应语言名称显示。
+// @update-log:en  1.2.1: Refined the settings reset icon and action layout, and now fixed language choices display in their own language.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -302,7 +302,7 @@
       panel: {
         languageLabel: "Interface language",
         languageAuto: "Auto (follow browser)",
-        languageZhCN: "Simplified Chinese",
+        languageZhCN: "简体中文",
         languageEnUS: "English",
         themeModeLabel: "Panel theme",
         themeModeAuto: "Auto (follow page)",
@@ -6103,8 +6103,8 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       const addLine = (attrs = {}) => svg.appendChild(createSvgNode("line", { ...strokeAttrs, ...attrs }));
       const addPolyline = (points, attrs = {}) => svg.appendChild(createSvgNode("polyline", { points, ...strokeAttrs, ...attrs }));
       if (action === "reset") {
-        addPath("M3 12a9 9 0 1 0 3-6.7");
-        addPath("M3 4v5h5");
+        addPath("M4 4v5h5");
+        addPath("M4.6 13.6a7.7 7.7 0 1 0 2.1-7.3L4 9");
       } else if (action === "import") {
         addLine({ x1: "12", y1: "4", x2: "12", y2: "16" });
         addPolyline("8 12 12 16 16 12");
@@ -6981,7 +6981,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           localeSelect.appendChild(opt);
         };
         addLocaleOption("auto", options?.text?.panel?.languageAuto || "Auto (follow browser)");
-        addLocaleOption("zh-CN", options?.text?.panel?.languageZhCN || "Simplified Chinese");
+        addLocaleOption("zh-CN", options?.text?.panel?.languageZhCN || "简体中文");
         addLocaleOption("en-US", options?.text?.panel?.languageEnUS || "English");
         localeSelect.value = String(state.localeMode || "auto");
         localeSelect.onchange = () => {
@@ -7009,8 +7009,9 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "flex-end",
+          justifyContent: "flex-start",
           flexWrap: "nowrap",
+          width: "100%",
           gap: "8px"
         });
         const resetActionLabel = options.text.buttons.reset || "Reset defaults";
@@ -7020,6 +7021,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
             resetToDefaults();
           });
         });
+        resetActionBtn.style.marginRight = "auto";
         actions.appendChild(resetActionBtn);
         const importActionLabel = options.text.buttons.import || "Import";
         const importActionBtn = createSettingsActionButton("import", importActionLabel, "#2196F3", "#1e88e5", () => {
