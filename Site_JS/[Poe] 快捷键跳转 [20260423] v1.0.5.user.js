@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           https://psc2.cf2.poecdn.net/assets/favicon.svg
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.3.5
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.3.6
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
