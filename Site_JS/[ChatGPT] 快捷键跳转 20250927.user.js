@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         [ChatGPT] 快捷键跳转 [20260425] v1.0.7
+// @name:en      [ChatGPT] Shortcut Jump [20260425] v1.0.7
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
+// @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
 // @version      [20260425] v1.0.7
 // @update-log   1.0.7: 新增 Set custom instructions 原生快捷键；新增 General、Account、Data Controls、Schedules、Security 设置页快捷跳转，并为旧配置自动补齐这些默认项。
+// @update-log:en 1.0.7: Added native Set custom instructions shortcut and General, Account, Data Controls, Schedules, and Security settings links; old configs are auto-filled.
 
 // @match        https://chatgpt.com/*
 
@@ -12,6 +15,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @grant        GM_unregisterMenuCommand
 
 // @connect      *
 
@@ -48,6 +52,13 @@
         return GM_registerMenuCommand(label, handler);
       } catch {
         return null;
+      }
+    }
+    function gmUnregisterMenuCommandLocal(commandId) {
+      if (typeof GM_unregisterMenuCommand !== "function") return;
+      try {
+        GM_unregisterMenuCommand(commandId);
+      } catch {
       }
     }
     if (!ShortcutTemplate || typeof ShortcutTemplate.createShortcutEngine !== "function") {
@@ -146,6 +157,117 @@
       "Web": "web",
       "Quick Input": "quickInput"
     });
+    const SITE_MESSAGES = Object.freeze({
+      "zh-CN": {
+        menuCommandLabel: "ChatGPT - 设置快捷键",
+        panelTitle: "ChatGPT - 自定义快捷键",
+        quickInputTitle: "ChatGPT - 快捷输入",
+        shortcuts: {
+          "chatgpt-aspect-square-1-1": "方形 1:1",
+          "chatgpt-native-set-custom-instructions": "设置自定义说明",
+          "chatgpt-settings-general": "设置：通用",
+          "chatgpt-settings-account": "设置：账号",
+          "chatgpt-settings-data-controls": "设置：数据控制",
+          "chatgpt-settings-schedules": "设置：计划任务",
+          "chatgpt-settings-security": "设置：安全",
+          "New Chat": "新建聊天",
+          "Toggle Sidebar": "切换侧边栏",
+          "Copy Last Code Block": "复制最后一个代码块",
+          "Delete Chat": "删除聊天",
+          "Focus chat input": "聚焦聊天输入框",
+          "Add photos & files": "添加图片和文件",
+          "Temporary Chat": "临时聊天",
+          "Model: o3": "模型：o3",
+          "Create image": "创建图片",
+          "Deep research": "深度研究",
+          "Thinking": "思考",
+          "Canvas": "画布",
+          "Web": "网页搜索",
+          "Quick Input": "快捷输入"
+        },
+        dataAdapters: {
+          chatgptMenu: {
+            label: "工具 ID / 菜单关键词（或粘贴 JSON，高级用法）:",
+            placeholder: '例如: {"menu":{"id":"webSearch"}} / Web / Canvas'
+          },
+          chatgptAspectRatio: {
+            label: "图片比例 ID / 关键词（或粘贴 JSON，高级用法）:",
+            placeholder: '例如: {"aspectRatio":{"id":"square"}} / 1:1 / Square 1:1'
+          }
+        },
+        quickInput: {
+          nativeNewChatLabel: "CMD+SHIFT+O (原生)",
+          rootUrlMismatch: "当前 URL 必须精确等于 {rootUrl}，实际是 {currentUrl}",
+          emptyUrl: "(空)",
+          imageInsertUrlPrefix: "图片插入前 URL 校验失败：",
+          newChatVerifyPrefix: "新对话校验失败：",
+          clearNoComposer: "清空当前图片附件失败：未找到输入框。",
+          clearNoContainer: "清空当前图片附件失败：未找到附件容器。",
+          clearStillRemaining: "清空当前图片附件失败：点击移除后仍识别到 {remaining} 个附件标记。",
+          clearNoRemoveButton: "清空当前图片附件失败：仍识别到 {remaining} 个附件标记，但未找到可用的移除按钮。",
+          clearUnknown: "清空当前图片附件失败：未能确认附件已全部移除。",
+          duplicatePaste: "图片插入后出现重复附件，自动校正失败。",
+          duplicateDrop: "图片拖放后出现重复附件，自动校正失败。",
+          duplicateFileInput: "图片文件注入后出现重复附件，自动校正失败。",
+          noImageFiles: "未检测到图片文件。",
+          attachFailed: "图片粘贴失败：未检测到输入框内出现图片预览。",
+          readyNoImage: "未检测到可发送的图片预览（当前识别到 {attachmentCount} 个附件标记）。",
+          readyNotEnough: "图片数量未达到预期：当前 {attachmentCount} 张，期望至少 {minAttachments} 张。",
+          readyUploadBusy: "图片已贴入，但仍检测到可见上传指示器，暂不发送。",
+          readyEmptyText: "图片已贴好，但当前输入框文字为空，发送按钮未就绪；页面可能已重建，旧输入框引用失效。",
+          readySendDisabled: "图片已贴好，但发送按钮仍不可用（当前文字长度 {textLength}）。",
+          readyTimeout: "发送前稳定检测超时：attachment={attachmentCount}, text={textLength}, busy={busy}, sendReady={sendReady}"
+        }
+      },
+      "en-US": {
+        menuCommandLabel: "ChatGPT - Shortcut settings",
+        panelTitle: "ChatGPT - Custom shortcuts",
+        quickInputTitle: "ChatGPT - Quick Input",
+        shortcuts: {
+          "chatgpt-aspect-square-1-1": "Square 1:1",
+          "chatgpt-native-set-custom-instructions": "Set custom instructions",
+          "chatgpt-settings-general": "Settings: General",
+          "chatgpt-settings-account": "Settings: Account",
+          "chatgpt-settings-data-controls": "Settings: Data Controls",
+          "chatgpt-settings-schedules": "Settings: Schedules",
+          "chatgpt-settings-security": "Settings: Security"
+        },
+        dataAdapters: {
+          chatgptMenu: {
+            label: "Tool ID / menu keyword (or paste JSON, advanced):",
+            placeholder: 'Example: {"menu":{"id":"webSearch"}} / Web / Canvas'
+          },
+          chatgptAspectRatio: {
+            label: "Aspect ratio ID / keyword (or paste JSON, advanced):",
+            placeholder: 'Example: {"aspectRatio":{"id":"square"}} / 1:1 / Square 1:1'
+          }
+        },
+        quickInput: {
+          nativeNewChatLabel: "CMD+SHIFT+O (native)",
+          rootUrlMismatch: "Current URL must be exactly {rootUrl}; actual URL is {currentUrl}",
+          emptyUrl: "(empty)",
+          imageInsertUrlPrefix: "URL check failed before inserting images: ",
+          newChatVerifyPrefix: "New chat verification failed: ",
+          clearNoComposer: "Failed to clear current image attachments: input box not found.",
+          clearNoContainer: "Failed to clear current image attachments: attachment container not found.",
+          clearStillRemaining: "Failed to clear current image attachments: {remaining} attachment marker(s) still detected after clicking remove.",
+          clearNoRemoveButton: "Failed to clear current image attachments: {remaining} attachment marker(s) still detected, and no usable remove button was found.",
+          clearUnknown: "Failed to clear current image attachments: could not confirm that all attachments were removed.",
+          duplicatePaste: "Duplicate attachments appeared after image insertion, and automatic correction failed.",
+          duplicateDrop: "Duplicate attachments appeared after image drop, and automatic correction failed.",
+          duplicateFileInput: "Duplicate attachments appeared after file injection, and automatic correction failed.",
+          noImageFiles: "No image files detected.",
+          attachFailed: "Image paste failed: no image preview was detected in the input box.",
+          readyNoImage: "No sendable image preview detected (currently detected {attachmentCount} attachment marker(s)).",
+          readyNotEnough: "Image count is below the expected number: current {attachmentCount}, expected at least {minAttachments}.",
+          readyUploadBusy: "Images were inserted, but a visible upload indicator is still present; not sending yet.",
+          readyEmptyText: "Images are inserted, but the input text is empty and the send button is not ready; the page may have rebuilt the old input reference.",
+          readySendDisabled: "Images are inserted, but the send button is still disabled (current text length {textLength}).",
+          readyTimeout: "Timed out waiting before send: attachment={attachmentCount}, text={textLength}, busy={busy}, sendReady={sendReady}"
+        }
+      }
+    });
+    const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
     const defaultIcons = [
       { name: "ChatGPT", url: "https://chatgpt.com/favicon.ico" },
       { name: "OpenAI", url: "https://openai.com/favicon.ico" },
@@ -422,7 +544,7 @@
         stepDelayMs: 250
       }
     });
-    function createChatGPTQuickInputAdapter({ idPrefix = "chatgpt" } = {}) {
+    function createChatGPTQuickInputAdapter({ idPrefix = "chatgpt", engine: engine2 = null } = {}) {
       const QuickInput = ShortcutTemplate?.quickInput;
       const dom = QuickInput?.dom;
       const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -474,7 +596,13 @@
       }
       const overlayId = `${String(idPrefix || "").trim() || "chatgpt"}-quick-input-overlay`;
       const CHATGPT_ROOT_URL = "https://chatgpt.com/";
-      const NATIVE_NEW_CHAT_LABEL = "CMD+SHIFT+O (原生)";
+      const NATIVE_NEW_CHAT_HOTKEY = "CMD+SHIFT+O";
+      function qiText(key, vars = {}, fallback = "") {
+        return engine2?.i18n?.t?.(`quickInput.${key}`, vars, fallback) || fallback;
+      }
+      function getNativeNewChatLabel() {
+        return qiText("nativeNewChatLabel", {}, `${NATIVE_NEW_CHAT_HOTKEY} (native)`);
+      }
       const isInsideOverlayTree = typeof dom?.isInsideOverlayTree === "function" ? dom.isInsideOverlayTree : (target, targetOverlayId) => {
         if (!target || !targetOverlayId) return false;
         let node = target;
@@ -550,7 +678,10 @@
         }
       }
       function buildChatGPTRootUrlMismatchMessage(currentUrl, { prefix = "" } = {}) {
-        const base = `当前 URL 必须精确等于 ${CHATGPT_ROOT_URL}，实际是 ${currentUrl || "(空)"}`;
+        const base = qiText("rootUrlMismatch", {
+          rootUrl: CHATGPT_ROOT_URL,
+          currentUrl: currentUrl || qiText("emptyUrl", {}, "(empty)")
+        }, `Current URL must be exactly ${CHATGPT_ROOT_URL}; actual URL is ${currentUrl || "(empty)"}`);
         return prefix ? `${prefix}${base}` : base;
       }
       function isChatGPTRootUrl(currentUrl = getCurrentChatGPTUrl()) {
@@ -635,14 +766,14 @@
       }
       async function triggerNativeNewChat({ shouldCancel = null } = {}) {
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
-        if (cancelFn && cancelFn()) return { ok: false, label: NATIVE_NEW_CHAT_LABEL };
+        if (cancelFn && cancelFn()) return { ok: false, label: getNativeNewChatLabel() };
         try {
-          if (simulateKeystroke("CMD+SHIFT+O", { target: document.body })) {
-            return { ok: true, label: NATIVE_NEW_CHAT_LABEL };
+          if (simulateKeystroke(NATIVE_NEW_CHAT_HOTKEY, { target: document.body })) {
+            return { ok: true, label: getNativeNewChatLabel() };
           }
         } catch {
         }
-        return { ok: false, label: NATIVE_NEW_CHAT_LABEL };
+        return { ok: false, label: getNativeNewChatLabel() };
       }
       async function triggerNewChatIfStreaming({ shouldCancel = null, runtime = null } = {}) {
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
@@ -1786,12 +1917,12 @@
           return {
             ok: false,
             cancelled: !!(cancelFn && cancelFn()),
-            message: "清空当前图片附件失败：未找到输入框。"
+            message: qiText("clearNoComposer", {}, "Failed to clear current image attachments: input box not found.")
           };
         }
         const container = findChatGPTComposerContainer(composer);
         if (!container) {
-          return { ok: false, cancelled: false, message: "清空当前图片附件失败：未找到附件容器。" };
+          return { ok: false, cancelled: false, message: qiText("clearNoContainer", {}, "Failed to clear current image attachments: attachment container not found.") };
         }
         const initialSnapshot = getChatGPTAttachmentSnapshot(container);
         if ((initialSnapshot?.attachmentCount || 0) <= 0) {
@@ -1807,7 +1938,7 @@
         }
         const remaining = Math.max(0, Number(snapshot?.attachmentCount) || 0);
         const removeButtons = getChatGPTRemoveAttachmentButtons(container);
-        const message = remaining > 0 ? removeButtons.length ? `清空当前图片附件失败：点击移除后仍识别到 ${remaining} 个附件标记。` : `清空当前图片附件失败：仍识别到 ${remaining} 个附件标记，但未找到可用的移除按钮。` : "清空当前图片附件失败：未能确认附件已全部移除。";
+        const message = remaining > 0 ? removeButtons.length ? qiText("clearStillRemaining", { remaining }, `Failed to clear current image attachments: ${remaining} attachment marker(s) still detected after clicking remove.`) : qiText("clearNoRemoveButton", { remaining }, `Failed to clear current image attachments: ${remaining} attachment marker(s) still detected, and no usable remove button was found.`) : qiText("clearUnknown", {}, "Failed to clear current image attachments: could not confirm that all attachments were removed.");
         return { ok: false, cancelled: false, snapshot, message };
       }
       function tryAttachImageViaSimulatedPaste(file, composerEl) {
@@ -1983,7 +2114,13 @@
         if (!file || !(file instanceof File)) return { ok: false, cancelled: false };
         if (!String(file.type || "").startsWith("image/")) return { ok: false, cancelled: false };
         if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
-        if (!urlGuard.ok) return { ok: false, cancelled: false, message: buildChatGPTUrlGuardFailureMessage(urlGuard, { prefix: "图片插入前 URL 校验失败：" }) };
+        if (!urlGuard.ok) return {
+          ok: false,
+          cancelled: false,
+          message: buildChatGPTUrlGuardFailureMessage(urlGuard, {
+            prefix: qiText("imageInsertUrlPrefix", {}, "URL check failed before inserting images: ")
+          })
+        };
         let composer = resolveChatGPTComposerElement(composerEl);
         if (!composer) {
           composer = await focusComposer({ timeoutMs: 4e3, shouldCancel: cancelFn, runtime });
@@ -2000,19 +2137,19 @@
         const strategies = [
           {
             strategyKey: "paste",
-            duplicateMessage: "图片插入后出现重复附件，自动校正失败。",
+            duplicateMessage: qiText("duplicatePaste", {}, "Duplicate attachments appeared after image insertion, and automatic correction failed."),
             fire: () => tryAttachImageViaSimulatedPaste(file, composer)
           },
           {
             strategyKey: "drop",
             beforeFocusDelayMs: 220,
-            duplicateMessage: "图片拖放后出现重复附件，自动校正失败。",
+            duplicateMessage: qiText("duplicateDrop", {}, "Duplicate attachments appeared after image drop, and automatic correction failed."),
             fire: () => tryAttachImageViaDropzone(file, composer)
           },
           {
             strategyKey: "fileInput",
             beforeFocusDelayMs: 220,
-            duplicateMessage: "图片文件注入后出现重复附件，自动校正失败。",
+            duplicateMessage: qiText("duplicateFileInput", {}, "Duplicate attachments appeared after file injection, and automatic correction failed."),
             fire: () => tryAttachImageViaFileInput(file, composer, diagnostics)
           }
         ];
@@ -2043,8 +2180,14 @@
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
         const urlGuard = getChatGPTUrlGuardResult();
         const list = Array.from(files || []).filter((file) => file && file instanceof File && String(file.type || "").startsWith("image/"));
-        if (list.length === 0) return { ok: false, cancelled: false, message: "未检测到图片文件。" };
-        if (!urlGuard.ok) return { ok: false, cancelled: false, message: buildChatGPTUrlGuardFailureMessage(urlGuard, { prefix: "图片插入前 URL 校验失败：" }) };
+        if (list.length === 0) return { ok: false, cancelled: false, message: qiText("noImageFiles", {}, "No image files detected.") };
+        if (!urlGuard.ok) return {
+          ok: false,
+          cancelled: false,
+          message: buildChatGPTUrlGuardFailureMessage(urlGuard, {
+            prefix: qiText("imageInsertUrlPrefix", {}, "URL check failed before inserting images: ")
+          })
+        };
         let composer = resolveChatGPTComposerElement(composerEl);
         if (!composer) {
           composer = await focusComposer({ timeoutMs: 4e3, shouldCancel: cancelFn, runtime });
@@ -2071,7 +2214,7 @@
           });
           if (result?.cancelled) return { ok: false, cancelled: true };
           if (!result?.ok) {
-            const detail = typeof result?.message === "string" && result.message.trim() ? result.message.trim() : "图片粘贴失败：未检测到输入框内出现图片预览。";
+            const detail = typeof result?.message === "string" && result.message.trim() ? result.message.trim() : qiText("attachFailed", {}, "Image paste failed: no image preview was detected in the input box.");
             return { ok: false, cancelled: false, message: detail };
           }
           const betweenFilesWaitOk = await runtimeSleep(runtime, 120, { shouldCancel: cancelFn });
@@ -2150,21 +2293,27 @@
       }
       function buildChatGPTReadyToSendMessage({ sendReady, hasImage, hasEnoughAttachments, uploadBusy, attachmentCount, minAttachments, textLength }) {
         if (!hasImage) {
-          return `未检测到可发送的图片预览（当前识别到 ${attachmentCount} 个附件标记）。`;
+          return qiText("readyNoImage", { attachmentCount }, `No sendable image preview detected (currently detected ${attachmentCount} attachment marker(s)).`);
         }
         if (!hasEnoughAttachments) {
-          return `图片数量未达到预期：当前 ${attachmentCount} 张，期望至少 ${Math.max(0, Number(minAttachments) || 0)} 张。`;
+          const expected = Math.max(0, Number(minAttachments) || 0);
+          return qiText("readyNotEnough", { attachmentCount, minAttachments: expected }, `Image count is below the expected number: current ${attachmentCount}, expected at least ${expected}.`);
         }
         if (uploadBusy) {
-          return `图片已贴入，但仍检测到可见上传指示器，暂不发送。`;
+          return qiText("readyUploadBusy", {}, "Images were inserted, but a visible upload indicator is still present; not sending yet.");
         }
         if (!sendReady) {
           if ((Number(textLength) || 0) <= 0) {
-            return "图片已贴好，但当前输入框文字为空，发送按钮未就绪；页面可能已重建，旧输入框引用失效。";
+            return qiText("readyEmptyText", {}, "Images are inserted, but the input text is empty and the send button is not ready; the page may have rebuilt the old input reference.");
           }
-          return `图片已贴好，但发送按钮仍不可用（当前文字长度 ${textLength}）。`;
+          return qiText("readySendDisabled", { textLength }, `Images are inserted, but the send button is still disabled (current text length ${textLength}).`);
         }
-        return `发送前稳定检测超时：attachment=${attachmentCount}, text=${textLength}, busy=${uploadBusy ? 1 : 0}, sendReady=${sendReady ? 1 : 0}`;
+        return qiText("readyTimeout", {
+          attachmentCount,
+          textLength,
+          busy: uploadBusy ? 1 : 0,
+          sendReady: sendReady ? 1 : 0
+        }, `Timed out waiting before send: attachment=${attachmentCount}, text=${textLength}, busy=${uploadBusy ? 1 : 0}, sendReady=${sendReady ? 1 : 0}`);
       }
       async function waitForChatGPTNewChatReady({ timeoutMs = 12e3, intervalMs = 160, settleMs = 300, shouldCancel = null, runtime = null } = {}) {
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
@@ -2193,7 +2342,9 @@
           ok: false,
           cancelled: false,
           url: currentUrl,
-          message: buildChatGPTRootUrlMismatchMessage(currentUrl, { prefix: "新对话校验失败：" })
+          message: buildChatGPTRootUrlMismatchMessage(currentUrl, {
+            prefix: qiText("newChatVerifyPrefix", {}, "New chat verification failed: ")
+          })
         };
       }
       function getChatGPTReadyToSendState(composerEl, { requireImage = false, minAttachments = 0 } = {}) {
@@ -2315,9 +2466,9 @@
         waitForReadyToSend: waitForChatGPTReadyToSend,
         waitForNewChatReady: waitForChatGPTNewChatReady,
         triggerNewChat: ({ shouldCancel = null } = {}) => triggerNativeNewChat({ shouldCancel }),
-        newChatLabel: NATIVE_NEW_CHAT_LABEL,
+        newChatLabel: getNativeNewChatLabel,
         lockNewChatHotkey: true,
-        lockedNewChatHotkeyDisplay: NATIVE_NEW_CHAT_LABEL,
+        lockedNewChatHotkeyDisplay: getNativeNewChatLabel,
         sendMessage: sendChatGPTMessage
       });
     }
@@ -2329,7 +2480,7 @@
         console.error("[ChatGPT Shortcut] Template quickInput module not found (update Template core).");
         return null;
       }
-      const adapter = createChatGPTQuickInputAdapter({ idPrefix: "chatgpt" });
+      const adapter = createChatGPTQuickInputAdapter({ idPrefix: "chatgpt", engine: engine2 });
       if (!adapter) {
         console.error("[ChatGPT Shortcut] ChatGPT quickInput adapter init failed (update Template core).");
         return null;
@@ -2338,7 +2489,8 @@
         engine: engine2,
         idPrefix: "chatgpt",
         storageKey: QUICK_INPUT_STORAGE_KEY,
-        title: "ChatGPT - 快捷输入",
+        title: "ChatGPT - Quick Input",
+        titleKey: "quickInputTitle",
         primaryColor: "#5D5CDE",
         themeMode: "system",
         adapter
@@ -2977,15 +3129,15 @@
     }
     const CHATGPT_MENU_DATA_ADAPTER = createPlainTextOrJsonDataAdapter({
       fieldName: "menu",
-      label: "工具 ID / 菜单关键词（或粘贴 JSON，高级用法）:",
-      placeholder: '例如: {"menu":{"id":"webSearch"}} / Web / Canvas',
+      label: siteText("dataAdapters.chatgptMenu.label", "Tool ID / menu keyword (or paste JSON, advanced):"),
+      placeholder: siteText("dataAdapters.chatgptMenu.placeholder", 'Example: {"menu":{"id":"webSearch"}} / Web / Canvas'),
       fieldTextKeys: ["keyword", "textMatch"],
       legacyRootTextKeys: ["textMatch"]
     });
     const CHATGPT_ASPECT_RATIO_DATA_ADAPTER = createPlainTextOrJsonDataAdapter({
       fieldName: "aspectRatio",
-      label: "图片比例 ID / 关键词（或粘贴 JSON，高级用法）:",
-      placeholder: '例如: {"aspectRatio":{"id":"square"}} / 1:1 / Square 1:1',
+      label: siteText("dataAdapters.chatgptAspectRatio.label", "Aspect ratio ID / keyword (or paste JSON, advanced):"),
+      placeholder: siteText("dataAdapters.chatgptAspectRatio.placeholder", 'Example: {"aspectRatio":{"id":"square"}} / 1:1 / Square 1:1'),
       fieldTextKeys: ["keyword", "textMatch"]
     });
     const CUSTOM_ACTIONS = {
@@ -3384,6 +3536,9 @@
       ui: {
         idPrefix: "chatgpt"
       },
+      i18n: {
+        messages: SITE_MESSAGES
+      },
       // 图标相关配置
       defaultIconURL,
       iconLibrary: defaultIcons,
@@ -3427,9 +3582,18 @@
         createShortcutItem: () => createChatgptDefaultShortcutByKey(key)
       });
     }
+    let quickInputMenuCommandId = null;
+    function registerChatgptQuickInputMenuCommand(engineApi) {
+      if (quickInputMenuCommandId !== null) {
+        gmUnregisterMenuCommandLocal(quickInputMenuCommandId);
+        quickInputMenuCommandId = null;
+      }
+      quickInputMenuCommandId = gmRegisterMenuCommandLocal(engineApi.i18n?.t?.("quickInputTitle", {}, "ChatGPT - Quick Input") || "ChatGPT - Quick Input", () => {
+        ensureQuickInputController(engineApi)?.open?.();
+      });
+    }
     engine.init();
-    gmRegisterMenuCommandLocal("ChatGPT - 快捷输入", () => {
-      ensureQuickInputController(engine)?.open?.();
-    });
+    registerChatgptQuickInputMenuCommand(engine);
+    engine.i18n?.addLocaleChangeListener?.(() => registerChatgptQuickInputMenuCommand(engine));
   })();
 })();

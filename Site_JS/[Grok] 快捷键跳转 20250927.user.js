@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         [Grok] 快捷键跳转 [20260424] v1.0.2
+// @name:en      [Grok] Shortcut Jump [20260424] v1.0.2
 // @namespace    0_V userscripts/[Grok] 快捷键跳转
 // @description  为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
+// @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
 // @version      [20260424] v1.0.2
 // @update-log   1.0.2: 修复 Grok 侧边栏状态误判导致的展开/折叠来回横跳；继续保留 viewport 宽度 <= 1024px 的后台自动展开抑制。
+// @update-log:en 1.0.2: Fixed Grok sidebar state detection loops and kept background auto-expand suppressed for viewports <= 1024px.
 
 // @match        https://grok.dairoot.cn/*
 // @match        https://grok.com/*
@@ -108,6 +111,31 @@
       "https://grok.com/images/favicon-light.png",
       "https://grok.com/images/favicon-dark.png"
     ];
+    const SITE_MESSAGES = Object.freeze({
+      "zh-CN": {
+        menuCommandLabel: "Grok - 设置快捷键",
+        panelTitle: "Grok - 自定义快捷键",
+        keepSidebarVisibleLabel: "Grok - 保持侧边栏显示: {state}",
+        on: "开",
+        off: "关",
+        shortcuts: {
+          "Private": "私密模式",
+          "New Chat": "新建聊天",
+          "Sidebar": "侧边栏",
+          "Project": "项目"
+        }
+      },
+      "en-US": {
+        menuCommandLabel: "Grok - Shortcut settings",
+        panelTitle: "Grok - Custom shortcuts",
+        keepSidebarVisibleLabel: "Grok - Keep sidebar visible: {state}",
+        on: "On",
+        off: "Off",
+        shortcuts: {
+          "用户切换": "Switch user"
+        }
+      }
+    });
     const SELECTORS = Object.freeze({
       sidebarToggle: 'button[data-sidebar="trigger"][type="button"]',
       sidebarProvider: '[data-variant="sidebar"][data-side]',
@@ -232,7 +260,8 @@
       setLocalBooleanFallback(SIDEBAR_VISIBILITY_STORAGE_KEY, !!value);
     }
     function getSidebarVisibilityMenuLabel() {
-      return `Grok - 保持侧边栏显示: ${keepSidebarVisible ? "开" : "关"}`;
+      const stateText = engine?.i18n?.t?.(keepSidebarVisible ? "on" : "off", {}, keepSidebarVisible ? "On" : "Off") || (keepSidebarVisible ? "On" : "Off");
+      return engine?.i18n?.t?.("keepSidebarVisibleLabel", { state: stateText }, `Grok - Keep sidebar visible: ${stateText}`) || `Grok - Keep sidebar visible: ${stateText}`;
     }
     function registerSidebarVisibilityMenuCommand() {
       if (sidebarVisibilityMenuCommandId !== null) {
@@ -424,7 +453,7 @@
       } else {
         stopSidebarWarmup();
       }
-      console.info(`${LOG_TAG} 保持侧边栏显示已${keepSidebarVisible ? "启用" : "关闭"}。`);
+      console.info(`${LOG_TAG} keep sidebar visible is now ${keepSidebarVisible ? "enabled" : "disabled"}.`);
       registerSidebarVisibilityMenuCommand();
       return keepSidebarVisible;
     }
@@ -474,6 +503,9 @@
         idPrefix: "grok",
         cssPrefix: "grok",
         compactBreakpoint: 800
+      },
+      i18n: {
+        messages: SITE_MESSAGES
       },
       // 图标配置
       defaultIconURL,

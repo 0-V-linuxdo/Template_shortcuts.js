@@ -1,11 +1,15 @@
 // ==UserScript==
 // @name         [Template] 快捷键跳转 [20260425] v1.1.1
+// @name:en      [Template] Shortcut Core [20260425] v1.1.1
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @version      [20260425] v1.1.1
 // @update-log   1.1.1: 支持 font-icon 原生字体图标渲染，便于站点快捷键复用页面内原生图标。
+// @update-log:en 1.1.1: Added native font-icon rendering so site shortcuts can reuse native in-page icons.
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
+// @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match        *://*/*
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -58,6 +62,8 @@
     actionHandlers: {},
     allowOverrideBuiltinActions: false,
     actionTypeMeta: {},
+    locale: "auto",
+    i18n: {},
     colors: {
       primary: "#0066cc"
     },
@@ -83,6 +89,8 @@
       isAllowedShortcutWhenPanelOpen: null
     },
     text: {
+      menuCommandLabel: "设置快捷键",
+      panelTitle: "自定义快捷键",
       stats: {
         total: "总计",
         url: "URL跳转",
@@ -131,6 +139,15 @@
         customShortLabel: "自定义"
       },
       panel: {
+        languageLabel: "界面语言",
+        languageAuto: "自动(跟随浏览器)",
+        languageZhCN: "简体中文",
+        languageEnUS: "English",
+        themeModeLabel: "面板主题",
+        themeModeAuto: "自动(跟随页面)",
+        themeModeLight: "普通",
+        themeModeDark: "黑暗",
+        actionsLabel: "脚本配置",
         resetConfirm: "确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)",
         confirmDeleteShortcut: "确定删除快捷键【{name}】吗?",
         iconAdaptiveLabel: "svg自适应处理",
@@ -232,6 +249,192 @@
       menuLabelFallback: "打开快捷键设置"
     }
   };
+  var DEFAULT_CORE_I18N_MESSAGES = {
+    "zh-CN": DEFAULT_OPTIONS.text,
+    "en-US": {
+      stats: {
+        total: "Total",
+        url: "URL jump",
+        selector: "Element click",
+        simulate: "Key simulation",
+        custom: "Custom action"
+      },
+      buttons: {
+        addShortcut: "Add shortcut",
+        saveAndClose: "Save and close",
+        import: "Import",
+        export: "Export",
+        reset: "Reset defaults",
+        settings: "Settings",
+        copy: "Copy",
+        close: "Close",
+        confirm: "OK",
+        cancel: "Cancel",
+        delete: "Delete",
+        edit: "Edit",
+        clear: "Clear"
+      },
+      dialogs: {
+        alert: "Notice",
+        confirm: "Confirm",
+        prompt: "Input"
+      },
+      hints: {
+        hotkey: "Click here, then press a shortcut combination",
+        simulate: "Click here, then press the keys to simulate",
+        hotkeyHelp: "Supports Ctrl/Shift/Alt/Cmd plus letters, numbers, function keys, and more",
+        simulateHelp: "This key combination will be simulated on the page",
+        searchPlaceholder: "Search name/target"
+      },
+      builtins: {
+        unknownUrlMethod: "Unknown jump method",
+        invalidUrlOrError: "Invalid jump URL or error: {url}",
+        elementNotFound: "Element not found: {selector}",
+        clickFailed: "Could not simulate click on element: {selector}"
+      },
+      actionTypes: {
+        unknownLabel: "Unknown",
+        urlShortLabel: "URL",
+        selectorShortLabel: "Click",
+        simulateShortLabel: "Keys",
+        customShortLabel: "Custom"
+      },
+      panel: {
+        languageLabel: "Interface language",
+        languageAuto: "Auto (follow browser)",
+        languageZhCN: "Simplified Chinese",
+        languageEnUS: "English",
+        themeModeLabel: "Panel theme",
+        themeModeAuto: "Auto (follow page)",
+        themeModeLight: "Light",
+        themeModeDark: "Dark",
+        actionsLabel: "Script config",
+        resetConfirm: 'Reset to the default configuration? Changes are saved only after clicking "Save and close".',
+        confirmDeleteShortcut: 'Delete shortcut "{name}"?',
+        iconAdaptiveLabel: "SVG adaptive processing",
+        iconAdaptiveHint: "Only applies when the main icon is an SVG and no dark-mode icon URL is set",
+        tableHeaders: {
+          icon: "Icon",
+          name: "Name",
+          type: "Type",
+          target: "Target",
+          hotkey: "Shortcut",
+          actions: "Actions"
+        },
+        compact: {
+          noHotkey: "None",
+          emptyTarget: "(No target configured)"
+        },
+        dragError: "Drag sorting error: {error}"
+      },
+      editor: {
+        titles: {
+          add: "Add shortcut",
+          edit: "Edit shortcut"
+        },
+        tabs: {
+          general: "General",
+          data: "Data",
+          icon: "Icon"
+        },
+        labels: {
+          name: "Name:",
+          actionType: "Action type:",
+          url: "Target URL:",
+          selector: "Target selector:",
+          simulate: "Simulated keys:",
+          customAction: "Custom action:",
+          data: "Extra parameters (data JSON, optional):",
+          icon: "Icon URL:",
+          iconDark: "Dark-mode icon URL:",
+          hotkey: "Shortcut:",
+          urlMethod: "Jump method:",
+          urlMethodToggleAdvanced: "Expand/collapse advanced options",
+          urlMethodAdvanced: "Advanced options:",
+          iconLibrary: "Or choose from the library:"
+        },
+        placeholders: {
+          url: "Example: https://example.com/search?q=%s",
+          selector: 'Example: label[for="sidebar-visible"]',
+          customAction: "Choose/type a key from customActions provided by the script",
+          data: 'Example: {"foo":"bar"}',
+          icon: "Paste a URL here, or choose from the library below",
+          iconDark: "Optional: dark-mode icon URL"
+        },
+        actionTypeHints: {
+          unregistered: "This type currently has no registered handler; triggering it will report an unknown actionType.",
+          unregisteredSuffix: " (unregistered)",
+          extended: "Extended type: pass parameters in the data JSON below."
+        },
+        validation: {
+          dataParseFailed: "Failed to parse data. Please check the input.",
+          dataJsonParseFailed: "Failed to parse data JSON. Please check the format.",
+          dataJsonMustBeObject: 'data must be a JSON object (for example {"foo":"bar"}).',
+          nameRequired: "Please enter a name.",
+          urlRequired: "Please enter a target URL.",
+          selectorRequired: "Please enter a target selector.",
+          simulateRequired: "Please set simulated keys.",
+          customActionRequired: "Please set a custom action key.",
+          hotkeyRequired: "Please set a shortcut.",
+          hotkeyIncomplete: "Shortcut is incomplete (missing main key).",
+          hotkeyDuplicate: "This shortcut is already used by another item. Choose another combination."
+        },
+        iconLibrary: {
+          userAddedHint: " (long press to delete)",
+          expandTitle: "Expand/collapse more icons",
+          addTitle: "Add the icon URL from the input to the library",
+          promptName: "Enter an icon name:",
+          urlRequired: "Please enter an icon URL.",
+          alreadyExists: "This icon already exists in the library.",
+          confirmDelete: 'Delete custom icon "{name}"?'
+        },
+        capture: {
+          placeholderDuringCapture: "Press the {label} combination...",
+          statusCapturing: "Capturing {label}; press a key combination...",
+          statusCaptured: "Captured {label}: {keys}",
+          statusInvalid: "No valid {label} captured",
+          statusUnsupportedHotkey: "Unsupported shortcut: {key}",
+          statusUnsupportedSimulate: "Unsupported simulated key: {key}",
+          statusCleared: "{label} cleared"
+        }
+      },
+      io: {
+        copySuccess: "Copied to clipboard.",
+        copyFail: "Copy failed. Please copy manually.",
+        importTip: "Supports importing { shortcuts: [...], userIcons?: [...] } or a shortcuts array directly.",
+        importPlaceholder: "Paste JSON here...",
+        importJsonParseFailed: "Failed to parse JSON. Please check the format.",
+        importMissingShortcuts: "No shortcuts array found in the imported data.",
+        importDuplicateHotkeysPrefix: "Import failed: duplicate shortcuts found (fix them in JSON first):"
+      },
+      menuLabelFallback: "Open shortcut settings",
+      menuCommandLabel: "Shortcut settings",
+      panelTitle: "Custom shortcuts",
+      urlMethods: {
+        current: {
+          name: "Current window",
+          options: {
+            href: { name: "location.href", desc: "Standard navigation; adds an entry to history" },
+            replace: { name: "location.replace", desc: "Replace the current page without adding a history entry" }
+          }
+        },
+        spa: {
+          name: "SPA route",
+          options: {
+            pushState: { name: "history.pushState", desc: "Push a new state to history; suitable for SPA navigation" },
+            replaceState: { name: "history.replaceState", desc: "Replace the current history state without adding a new entry" }
+          }
+        },
+        newWindow: {
+          name: "New window",
+          options: {
+            open: { name: "window.open", desc: "Open the link in a new tab" },
+            popup: { name: "Popup window", desc: "Open the link in a new popup window" }
+          }
+        }
+      }
+    }
+  };
   var URL_METHODS = {
     current: {
       name: "当前窗口",
@@ -331,6 +534,144 @@
       return res;
     }
     return obj;
+  }
+
+  // src/modules/shared/i18n.js
+  var FALLBACK_LOCALE = "zh-CN";
+  var SUPPORTED_LOCALES = Object.freeze(["zh-CN", "en-US"]);
+  var AUTO_LOCALE_MODE = "auto";
+  function normalizeLocale(value, fallback = FALLBACK_LOCALE) {
+    const raw = String(value ?? "").trim();
+    if (!raw) return fallback;
+    const token = raw.replace(/_/g, "-").toLowerCase();
+    if (token === "zh" || token.startsWith("zh-")) return "zh-CN";
+    if (token === "cn" || token === "zhcn" || token === "zhhans") return "zh-CN";
+    if (token === "en" || token.startsWith("en-")) return "en-US";
+    if (token === "enus") return "en-US";
+    return fallback;
+  }
+  function normalizeLocaleMode(value, fallback = AUTO_LOCALE_MODE) {
+    const raw = String(value ?? "").trim();
+    if (!raw) return fallback;
+    if (raw.toLowerCase() === AUTO_LOCALE_MODE) return AUTO_LOCALE_MODE;
+    return normalizeLocale(raw, fallback === AUTO_LOCALE_MODE ? FALLBACK_LOCALE : fallback);
+  }
+  function detectLocale({ fallback = FALLBACK_LOCALE } = {}) {
+    const candidates = [];
+    try {
+      const htmlLang = globalThis.document?.documentElement?.getAttribute?.("lang");
+      if (htmlLang) candidates.push(htmlLang);
+    } catch {
+    }
+    try {
+      const navLanguages = globalThis.navigator?.languages;
+      if (Array.isArray(navLanguages)) candidates.push(...navLanguages);
+    } catch {
+    }
+    try {
+      const navLanguage = globalThis.navigator?.language;
+      if (navLanguage) candidates.push(navLanguage);
+    } catch {
+    }
+    for (const candidate of candidates) {
+      const normalized = normalizeLocale(candidate, "");
+      if (SUPPORTED_LOCALES.includes(normalized)) return normalized;
+    }
+    return normalizeLocale(fallback, FALLBACK_LOCALE);
+  }
+  function formatMessage(template, vars = {}) {
+    let out = String(template ?? "");
+    for (const [key, value] of Object.entries(vars || {})) {
+      out = out.split(`{${key}}`).join(String(value ?? ""));
+    }
+    return out;
+  }
+  function getMessageAtPath(messages, path) {
+    const parts = String(path || "").split(".").filter(Boolean);
+    let current = messages;
+    for (const part of parts) {
+      if (!current || typeof current !== "object") return void 0;
+      current = current[part];
+    }
+    return current;
+  }
+  function mergeLocaleMessages(...sources) {
+    const merged = {};
+    for (const source of sources) {
+      if (!source || typeof source !== "object") continue;
+      for (const [localeKey, messages] of Object.entries(source)) {
+        const locale = normalizeLocale(localeKey, "");
+        if (!locale || !messages || typeof messages !== "object") continue;
+        if (!merged[locale]) merged[locale] = {};
+        deepMerge(merged[locale], messages);
+      }
+    }
+    return merged;
+  }
+  function createI18nContext({
+    localeMode = AUTO_LOCALE_MODE,
+    fallbackLocale = FALLBACK_LOCALE,
+    messages = {},
+    onChange = null
+  } = {}) {
+    let mode = normalizeLocaleMode(localeMode);
+    const fallback = normalizeLocale(fallbackLocale, FALLBACK_LOCALE);
+    const dictionaries = mergeLocaleMessages(messages);
+    const listeners = [];
+    function getLocaleMode() {
+      return mode;
+    }
+    function getEffectiveLocale() {
+      return mode === AUTO_LOCALE_MODE ? detectLocale({ fallback }) : normalizeLocale(mode, fallback);
+    }
+    function getMessages(locale = getEffectiveLocale()) {
+      const effective = normalizeLocale(locale, fallback);
+      const base = clone(dictionaries[fallback] || {});
+      if (effective !== fallback) deepMerge(base, dictionaries[effective] || {});
+      return base;
+    }
+    function t(path, vars = {}, fallbackValue = "") {
+      const value = getMessageAtPath(getMessages(), path);
+      const finalValue = value === void 0 || value === null || value === "" ? fallbackValue : value;
+      return formatMessage(finalValue, vars);
+    }
+    function setLocaleMode(nextMode) {
+      const normalized = normalizeLocaleMode(nextMode);
+      if (normalized === mode) return false;
+      mode = normalized;
+      if (typeof onChange === "function") {
+        try {
+          onChange(mode, getEffectiveLocale());
+        } catch {
+        }
+      }
+      listeners.slice().forEach((listener) => {
+        try {
+          listener(mode, getEffectiveLocale());
+        } catch {
+        }
+      });
+      return true;
+    }
+    function addLocaleChangeListener(listener) {
+      if (typeof listener !== "function" || listeners.includes(listener)) return () => {
+      };
+      listeners.push(listener);
+      return () => {
+        const index = listeners.indexOf(listener);
+        if (index >= 0) listeners.splice(index, 1);
+      };
+    }
+    return Object.freeze({
+      getLocaleMode,
+      getEffectiveLocale,
+      getMessages,
+      t,
+      setLocaleMode,
+      addLocaleChangeListener,
+      supportedLocales: SUPPORTED_LOCALES.slice(),
+      fallbackLocale: fallback
+    });
   }
 
   // src/modules/shared/platform/browser.js
@@ -456,6 +797,14 @@
       return fn(label, handler);
     } catch {
       return null;
+    }
+  }
+  function gmUnregisterMenuCommand(commandId) {
+    const fn = getUserscriptApi("GM_unregisterMenuCommand");
+    if (typeof fn !== "function") return;
+    try {
+      fn(commandId);
+    } catch {
     }
   }
 
@@ -779,7 +1128,7 @@
   function createBuiltinActionTools(ctx = {}) {
     const { options, URL_METHODS: URL_METHODS2, hotkeys, showAlert } = ctx;
     const consoleTag = options?.consoleTag || "[ShortcutEngine]";
-    function formatMessage(template, vars = {}) {
+    function formatMessage2(template, vars = {}) {
       let out = String(template ?? "");
       for (const [key, value] of Object.entries(vars || {})) {
         out = out.split(`{${key}}`).join(String(value ?? ""));
@@ -788,7 +1137,7 @@
     }
     function getUrlMethodDisplayText(method) {
       const methodConfig = URL_METHODS2?.[method];
-      if (!methodConfig) return options?.text?.builtins?.unknownUrlMethod || "未知跳转方式";
+      if (!methodConfig) return options?.text?.builtins?.unknownUrlMethod || "Unknown jump method";
       return methodConfig.name;
     }
     function resolveTemplateUrl(targetUrl) {
@@ -900,8 +1249,8 @@
       } catch (e) {
         console.error(`${consoleTag} Invalid URL or error in jumpToUrl:`, targetUrl, e);
         if (typeof showAlert === "function") {
-          const tpl = options?.text?.builtins?.invalidUrlOrError || "无效的跳转网址或发生错误: {url}";
-          showAlert(formatMessage(tpl, { url: targetUrl }));
+          const tpl = options?.text?.builtins?.invalidUrlOrError || "Invalid jump URL or error: {url}";
+          showAlert(formatMessage2(tpl, { url: targetUrl }));
         }
       }
     }
@@ -911,8 +1260,8 @@
       const element = safeQuerySelector(document, sel) || document.querySelector(sel);
       if (!element) {
         if (typeof showAlert === "function") {
-          const tpl = options?.text?.builtins?.elementNotFound || "无法找到元素: {selector}";
-          showAlert(formatMessage(tpl, { selector: sel }));
+          const tpl = options?.text?.builtins?.elementNotFound || "Element not found: {selector}";
+          showAlert(formatMessage2(tpl, { selector: sel }));
         }
         return;
       }
@@ -948,8 +1297,8 @@
       } catch (eventError) {
         console.error(`${consoleTag} Failed to dispatch click event on element: ${sel}`, eventError);
         if (typeof showAlert === "function") {
-          const tpl = options?.text?.builtins?.clickFailed || "无法模拟点击元素: {selector}";
-          showAlert(formatMessage(tpl, { selector: sel }));
+          const tpl = options?.text?.builtins?.clickFailed || "Could not simulate click on element: {selector}";
+          showAlert(formatMessage2(tpl, { selector: sel }));
         }
       }
     }
@@ -3017,7 +3366,7 @@
       const prefix = String(cssPrefix || idPrefix || "shortcut").trim() || "shortcut";
       input.classList.add(`${prefix}-input`);
     }
-    function showAlert(message, title = options.text.dialogs.alert || "提示") {
+    function showAlert(message, title = options.text.dialogs.alert || "Notice") {
       const modal = document.createElement("div");
       modal.className = `${classPrefix}-overlay`;
       modal.style.zIndex = "999999";
@@ -3045,7 +3394,7 @@
         textAlign: "right"
       });
       const okButton = document.createElement("button");
-      okButton.textContent = options.text.buttons.confirm || "确定";
+      okButton.textContent = options.text.buttons.confirm || "OK";
       styleButton(okButton, "#4CAF50", "#45A049");
       okButton.onclick = () => {
         document.body.removeChild(modal);
@@ -3056,7 +3405,7 @@
       document.body.appendChild(modal);
       okButton.focus();
     }
-    function showConfirmDialog(message, onConfirm, title = options.text.dialogs.confirm || "确认") {
+    function showConfirmDialog(message, onConfirm, title = options.text.dialogs.confirm || "Confirm") {
       const modal = document.createElement("div");
       modal.className = `${classPrefix}-overlay`;
       modal.style.zIndex = "999999";
@@ -3086,14 +3435,14 @@
         gap: "10px"
       });
       const cancelButton = document.createElement("button");
-      cancelButton.textContent = options.text.buttons.cancel || "取消";
+      cancelButton.textContent = options.text.buttons.cancel || "Cancel";
       styleButton(cancelButton, "#9E9E9E", "#757575");
       cancelButton.onclick = () => {
         document.body.removeChild(modal);
       };
       buttonContainer.appendChild(cancelButton);
       const confirmButton = document.createElement("button");
-      confirmButton.textContent = options.text.buttons.confirm || "确定";
+      confirmButton.textContent = options.text.buttons.confirm || "OK";
       styleButton(confirmButton, "#F44336", "#D32F2F");
       confirmButton.onclick = () => {
         document.body.removeChild(modal);
@@ -3105,7 +3454,7 @@
       document.body.appendChild(modal);
       cancelButton.focus();
     }
-    function showPromptDialog(message, defaultValue = "", onConfirm = null, title = options.text.dialogs.prompt || "输入") {
+    function showPromptDialog(message, defaultValue = "", onConfirm = null, title = options.text.dialogs.prompt || "Input") {
       const modal = document.createElement("div");
       modal.className = `${classPrefix}-overlay`;
       modal.style.zIndex = "999999";
@@ -3141,14 +3490,14 @@
         gap: "10px"
       });
       const cancelButton = document.createElement("button");
-      cancelButton.textContent = options.text.buttons.cancel || "取消";
+      cancelButton.textContent = options.text.buttons.cancel || "Cancel";
       styleButton(cancelButton, "#9E9E9E", "#757575");
       cancelButton.onclick = () => {
         document.body.removeChild(modal);
       };
       buttonContainer.appendChild(cancelButton);
       const confirmButton = document.createElement("button");
-      confirmButton.textContent = options.text.buttons.confirm || "确定";
+      confirmButton.textContent = options.text.buttons.confirm || "OK";
       styleButton(confirmButton, "#4CAF50", "#45A049");
       confirmButton.onclick = () => {
         const val = input.value;
@@ -3600,7 +3949,7 @@
           }
         } catch (err) {
           console.error("Drag-and-drop error:", err);
-          const tpl = options?.text?.panel?.dragError || "拖拽排序时出错: {error}";
+          const tpl = options?.text?.panel?.dragError || "Drag sorting error: {error}";
           showAlert(tpl.replace("{error}", String(err ?? "")));
         }
       });
@@ -3680,7 +4029,7 @@
     });
     box.onclick = (e) => e.stopPropagation();
     const titleEl = document.createElement("h3");
-    titleEl.textContent = options.text.buttons.export || "导出";
+    titleEl.textContent = options.text.buttons.export || "Export";
     Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
     box.appendChild(titleEl);
     const textarea = document.createElement("textarea");
@@ -3698,16 +4047,16 @@
       flexWrap: "wrap"
     });
     const copyBtn = document.createElement("button");
-    copyBtn.textContent = options.text.buttons.copy || "复制";
+    copyBtn.textContent = options.text.buttons.copy || "Copy";
     copyBtn.onclick = async () => {
       const ok = await panelTryCopyToClipboard(textarea.value);
-      if (ok) showAlert(options?.text?.io?.copySuccess || "已复制到剪贴板。");
-      else showAlert(options?.text?.io?.copyFail || "复制失败，请手动复制。");
+      if (ok) showAlert(options?.text?.io?.copySuccess || "Copied to clipboard.");
+      else showAlert(options?.text?.io?.copyFail || "Copy failed. Please copy manually.");
     };
     styleButton(copyBtn, "#2196F3", "#1e88e5");
     btnRow.appendChild(copyBtn);
     const closeBtn = document.createElement("button");
-    closeBtn.textContent = options.text.buttons.close || "关闭";
+    closeBtn.textContent = options.text.buttons.close || "Close";
     closeBtn.onclick = close;
     styleButton(closeBtn, "#9E9E9E", "#757575");
     btnRow.appendChild(closeBtn);
@@ -3744,15 +4093,15 @@
     });
     box.onclick = (e) => e.stopPropagation();
     const titleEl = document.createElement("h3");
-    titleEl.textContent = options.text.buttons.import || "导入";
+    titleEl.textContent = options.text.buttons.import || "Import";
     Object.assign(titleEl.style, { margin: "0 0 10px 0", fontSize: "1.05em" });
     box.appendChild(titleEl);
     const tip = document.createElement("div");
-    tip.textContent = options?.text?.io?.importTip || "支持导入 { shortcuts: [...], userIcons?: [...] } 或直接导入 shortcuts 数组。";
+    tip.textContent = options?.text?.io?.importTip || "Supports importing { shortcuts: [...], userIcons?: [...] } or a shortcuts array directly.";
     Object.assign(tip.style, { fontSize: "12px", opacity: "0.75", marginBottom: "8px", lineHeight: "1.4" });
     box.appendChild(tip);
     const textarea = document.createElement("textarea");
-    textarea.placeholder = options?.text?.io?.importPlaceholder || "粘贴 JSON 到这里…";
+    textarea.placeholder = options?.text?.io?.importPlaceholder || "Paste JSON here...";
     Object.assign(textarea.style, { height: "360px", resize: "vertical" });
     styleInputField(textarea);
     box.appendChild(textarea);
@@ -3765,18 +4114,18 @@
       flexWrap: "wrap"
     });
     const confirmBtn = document.createElement("button");
-    confirmBtn.textContent = options.text.buttons.confirm || "确定";
+    confirmBtn.textContent = options.text.buttons.confirm || "OK";
     confirmBtn.onclick = () => {
       let parsed = null;
       try {
         parsed = JSON.parse(textarea.value);
       } catch {
-        showAlert(options?.text?.io?.importJsonParseFailed || "JSON 解析失败，请检查格式。");
+        showAlert(options?.text?.io?.importJsonParseFailed || "Failed to parse JSON. Please check the format.");
         return;
       }
       const shortcutsRaw = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.shortcuts) ? parsed.shortcuts : null;
       if (!Array.isArray(shortcutsRaw)) {
-        showAlert(options?.text?.io?.importMissingShortcuts || "导入数据中未找到 shortcuts 数组。");
+        showAlert(options?.text?.io?.importMissingShortcuts || "No shortcuts array found in the imported data.");
         return;
       }
       const normalized = shortcutsRaw.map((sc) => core.normalizeShortcut(sc));
@@ -3793,7 +4142,7 @@
       }
       if (duplicates.length > 0) {
         const lines = duplicates.slice(0, 12).map(([hk, a, b]) => `${hk}: ${a} / ${b}`).join("\n");
-        const prefix = options?.text?.io?.importDuplicateHotkeysPrefix || "导入失败：存在重复快捷键(请先在 JSON 中修复)：";
+        const prefix = options?.text?.io?.importDuplicateHotkeysPrefix || "Import failed: duplicate shortcuts found (fix them in JSON first):";
         showAlert(`${prefix}
 ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         return;
@@ -3816,7 +4165,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     styleButton(confirmBtn, "#2196F3", "#1e88e5");
     btnRow.appendChild(confirmBtn);
     const cancelBtn = document.createElement("button");
-    cancelBtn.textContent = options.text.buttons.cancel || "取消";
+    cancelBtn.textContent = options.text.buttons.cancel || "Cancel";
     cancelBtn.onclick = close;
     styleButton(cancelBtn, "#9E9E9E", "#757575");
     btnRow.appendChild(cancelBtn);
@@ -3846,12 +4195,12 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       marginBottom: "8px"
     });
     const title = document.createElement("div");
-    title.textContent = options?.text?.editor?.labels?.urlMethod || "跳转方式:";
+    title.textContent = options?.text?.editor?.labels?.urlMethod || "Jump method:";
     Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em" });
     titleRow.appendChild(title);
     const expandButton = document.createElement("button");
     expandButton.type = "button";
-    expandButton.title = options?.text?.editor?.labels?.urlMethodToggleAdvanced || "展开/折叠高级选项";
+    expandButton.title = options?.text?.editor?.labels?.urlMethodToggleAdvanced || "Expand/collapse advanced options";
     Object.assign(expandButton.style, {
       width: "32px",
       height: "32px",
@@ -3921,7 +4270,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     function updateAdvancedOptions() {
       advancedContainer.replaceChildren();
       const advancedTitle = document.createElement("div");
-      advancedTitle.textContent = options?.text?.editor?.labels?.urlMethodAdvanced || "高级选项:";
+      advancedTitle.textContent = options?.text?.editor?.labels?.urlMethodAdvanced || "Advanced options:";
       Object.assign(advancedTitle.style, {
         fontWeight: "bold",
         fontSize: "0.8em",
@@ -4085,7 +4434,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     });
     const textarea = document.createElement("textarea");
     textarea.value = value || "";
-    textarea.placeholder = options?.text?.editor?.placeholders?.icon || "在此粘贴URL, 或从下方图库选择";
+    textarea.placeholder = options?.text?.editor?.placeholders?.icon || "Paste a URL here, or choose from the library below";
     textarea.rows = 1;
     Object.assign(textarea.style, {
       minHeight: "36px",
@@ -4097,7 +4446,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       minWidth: "0"
     });
     const darkLabel = document.createElement("div");
-    darkLabel.textContent = options?.text?.editor?.labels?.iconDark || "黑暗模式图标URL:";
+    darkLabel.textContent = options?.text?.editor?.labels?.iconDark || "Dark-mode icon URL:";
     Object.assign(darkLabel.style, {
       marginTop: "2px",
       fontSize: "1em",
@@ -4106,7 +4455,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     });
     const darkTextarea = document.createElement("textarea");
     darkTextarea.value = darkValue || "";
-    darkTextarea.placeholder = options?.text?.editor?.placeholders?.iconDark || "可选：黑暗模式图标URL";
+    darkTextarea.placeholder = options?.text?.editor?.placeholders?.iconDark || "Optional: dark-mode icon URL";
     darkTextarea.rows = 1;
     Object.assign(darkTextarea.style, {
       minHeight: "36px",
@@ -4189,7 +4538,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const container = document.createElement("div");
     container.style.marginTop = "10px";
     const title = document.createElement("div");
-    title.textContent = options?.text?.editor?.labels?.iconLibrary || "或从图库选择:";
+    title.textContent = options?.text?.editor?.labels?.iconLibrary || "Or choose from the library:";
     Object.assign(title.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
     container.appendChild(title);
     const gridWrapper = document.createElement("div");
@@ -4223,7 +4572,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     };
     const expandButton = document.createElement("button");
     expandButton.type = "button";
-    expandButton.title = options?.text?.editor?.iconLibrary?.expandTitle || "展开/折叠更多图标";
+    expandButton.title = options?.text?.editor?.iconLibrary?.expandTitle || "Expand/collapse more icons";
     Object.assign(expandButton.style, baseButtonStyle, {
       border: "1px solid transparent",
       background: "transparent",
@@ -4242,7 +4591,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const addButton = document.createElement("button");
     addButton.type = "button";
     addButton.textContent = "➕";
-    addButton.title = options?.text?.editor?.iconLibrary?.addTitle || "将输入框中的图标URL添加到图库";
+    addButton.title = options?.text?.editor?.iconLibrary?.addTitle || "Add the icon URL from the input to the library";
     Object.assign(addButton.style, baseButtonStyle, {
       border: "1px solid",
       borderRadius: "4px",
@@ -4252,14 +4601,14 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     addButton.addEventListener("click", () => {
       const url = targetTextarea.value.trim();
       if (!url) {
-        showAlert(options?.text?.editor?.iconLibrary?.urlRequired || "请输入图标的URL！");
+        showAlert(options?.text?.editor?.iconLibrary?.urlRequired || "Please enter an icon URL.");
         return;
       }
       if (userIcons.some((icon) => icon.url === url) || options.iconLibrary.some((icon) => icon.url === url)) {
-        showAlert(options?.text?.editor?.iconLibrary?.alreadyExists || "该图标已存在于图库中。");
+        showAlert(options?.text?.editor?.iconLibrary?.alreadyExists || "This icon already exists in the library.");
         return;
       }
-      showPromptDialog(options?.text?.editor?.iconLibrary?.promptName || "请输入图标的名称：", "", (name) => {
+      showPromptDialog(options?.text?.editor?.iconLibrary?.promptName || "Enter an icon name:", "", (name) => {
         if (name && name.trim()) {
           userIcons.push({ name: name.trim(), url });
           safeGMSet(options.storageKeys.userIcons, userIcons);
@@ -4279,7 +4628,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         const isUserAdded = userIcons.some((ui) => ui.url === iconInfo.url);
         const button = document.createElement("button");
         button.type = "button";
-        button.title = iconInfo.name + (isUserAdded ? options?.text?.editor?.iconLibrary?.userAddedHint || " (长按删除)" : "");
+        button.title = iconInfo.name + (isUserAdded ? options?.text?.editor?.iconLibrary?.userAddedHint || " (long press to delete)" : "");
         Object.assign(button.style, {
           width: "36px",
           height: "36px",
@@ -4310,7 +4659,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           button.addEventListener("mousedown", (e) => {
             if (e.button !== 0) return;
             longPressTimer = setTimeout(() => {
-              const tpl = options?.text?.editor?.iconLibrary?.confirmDelete || '确定要删除自定义图标 "{name}" 吗?';
+              const tpl = options?.text?.editor?.iconLibrary?.confirmDelete || 'Delete custom icon "{name}"?';
               showConfirmDialog(tpl.replace("{name}", String(iconInfo.name ?? "")), () => {
                 userIcons = userIcons.filter((icon) => icon.url !== iconInfo.url);
                 safeGMSet(options.storageKeys.userIcons, userIcons);
@@ -4385,8 +4734,8 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
 
   // src/modules/panel/editor/hotkey-capture.js
   function panelCreateEnhancedKeyboardCaptureInput(ctx, labelText, currentValue, {
-    placeholder = "点击此处，然后按下快捷键组合",
-    hint = "💡 支持 Ctrl/Shift/Alt/Cmd + 字母/数字/功能键等组合",
+    placeholder = "Click here, then press a shortcut combination",
+    hint = "Supports Ctrl/Shift/Alt/Cmd plus letters, numbers, function keys, and more",
     methodName = "getHotkey",
     captureType = "hotkey"
   } = {}) {
@@ -4430,7 +4779,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const clearButton = document.createElement("button");
     clearButton.type = "button";
     clearButton.textContent = "🗑️";
-    clearButton.title = options.text.buttons.clear || `清除${labelForMessage}`;
+    clearButton.title = options.text.buttons.clear || `Clear ${labelForMessage}`;
     Object.assign(clearButton.style, {
       padding: "8px 12px",
       border: "1px solid",
@@ -4465,11 +4814,11 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       capturedMainKey = "";
       mainInput.value = "";
       mainInput.placeholder = formatCaptureMessage(
-        options?.text?.editor?.capture?.placeholderDuringCapture || "请按下{label}组合...",
+        options?.text?.editor?.capture?.placeholderDuringCapture || "Press the {label} combination...",
         { label: labelForMessage }
       );
       statusDiv.textContent = formatCaptureMessage(
-        options?.text?.editor?.capture?.statusCapturing || "🎯 正在捕获{label}，请按下组合键...",
+        options?.text?.editor?.capture?.statusCapturing || "Capturing {label}; press a key combination...",
         { label: labelForMessage }
       );
       mainInput.focus();
@@ -4484,12 +4833,12 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         mainInput.value = finalKeys;
         const displayKeys = core?.hotkeys?.formatForDisplay ? core.hotkeys.formatForDisplay(finalKeys) || finalKeys : finalKeys;
         statusDiv.textContent = formatCaptureMessage(
-          options?.text?.editor?.capture?.statusCaptured || "✅ 已捕获{label}: {keys}",
+          options?.text?.editor?.capture?.statusCaptured || "Captured {label}: {keys}",
           { label: labelForMessage, keys: displayKeys }
         );
       } else {
         statusDiv.textContent = formatCaptureMessage(
-          options?.text?.editor?.capture?.statusInvalid || "❌ 未捕获到有效的{label}",
+          options?.text?.editor?.capture?.statusInvalid || "No valid {label} captured",
           { label: labelForMessage }
         );
       }
@@ -4546,7 +4895,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         if (captureType === "hotkey" && core?.hotkeys?.isAllowedMainKey && !core.hotkeys.isAllowedMainKey(standardKey)) {
           const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
           statusDiv.textContent = formatCaptureMessage(
-            options?.text?.editor?.capture?.statusUnsupportedHotkey || "❌ 不支持的快捷键: {key}",
+            options?.text?.editor?.capture?.statusUnsupportedHotkey || "Unsupported shortcut: {key}",
             { key: displayKey }
           );
           return;
@@ -4554,7 +4903,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         if (captureType === "simulate" && core?.hotkeys?.isAllowedSimulateMainKey && !core.hotkeys.isAllowedSimulateMainKey(standardKey)) {
           const displayKey = core?.hotkeys?.formatKeyToken ? core.hotkeys.formatKeyToken(standardKey) : standardKey;
           statusDiv.textContent = formatCaptureMessage(
-            options?.text?.editor?.capture?.statusUnsupportedSimulate || "❌ 不支持的模拟按键: {key}",
+            options?.text?.editor?.capture?.statusUnsupportedSimulate || "Unsupported simulated key: {key}",
             { key: displayKey }
           );
           return;
@@ -4593,7 +4942,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       capturedModifiers.clear();
       capturedMainKey = "";
       statusDiv.textContent = formatCaptureMessage(
-        options?.text?.editor?.capture?.statusCleared || "🗑️ {label}已清除",
+        options?.text?.editor?.capture?.statusCleared || "{label} cleared",
         { label: labelForMessage }
       );
       if (isCapturing) {
@@ -4682,6 +5031,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       icon: "",
       iconDark: "",
       iconAdaptive: false,
+      labelKey: "",
       data: {}
     };
     if (item && !item.actionType) {
@@ -4715,22 +5065,23 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     });
     formDiv.onclick = (e) => e.stopPropagation();
     const h3 = document.createElement("h3");
-    h3.textContent = isNew ? options?.text?.editor?.titles?.add || "添加快捷键" : options?.text?.editor?.titles?.edit || "编辑快捷键";
+    h3.textContent = isNew ? options?.text?.editor?.titles?.add || "Add shortcut" : options?.text?.editor?.titles?.edit || "Edit shortcut";
     Object.assign(h3.style, { marginTop: "0", marginBottom: "15px", fontSize: "1.1em" });
     formDiv.appendChild(h3);
-    const nameInput = panelCreateInputField(ctx, options?.text?.editor?.labels?.name || "名称:", temp.name, "text");
+    const initialDisplayName = item && typeof core?.getShortcutDisplayName === "function" ? core.getShortcutDisplayName(item) : String(temp.name || "");
+    const nameInput = panelCreateInputField(ctx, options?.text?.editor?.labels?.name || "Name:", initialDisplayName, "text");
     formDiv.appendChild(nameInput.label);
     const actionTypeDiv = document.createElement("div");
     actionTypeDiv.style.margin = "15px 0";
     const actionTypeLabel = document.createElement("div");
-    actionTypeLabel.textContent = options?.text?.editor?.labels?.actionType || "操作类型:";
+    actionTypeLabel.textContent = options?.text?.editor?.labels?.actionType || "Action type:";
     Object.assign(actionTypeLabel.style, { fontWeight: "bold", fontSize: "0.9em", marginBottom: "8px" });
     actionTypeDiv.appendChild(actionTypeLabel);
     const builtinLabels = Object.freeze({
-      url: options?.text?.stats?.url || "URL跳转",
-      selector: options?.text?.stats?.selector || "元素点击",
-      simulate: options?.text?.stats?.simulate || "按键模拟",
-      custom: options?.text?.stats?.custom || "自定义动作"
+      url: options?.text?.stats?.url || "URL jump",
+      selector: options?.text?.stats?.selector || "Element click",
+      simulate: options?.text?.stats?.simulate || "Key simulation",
+      custom: options?.text?.stats?.custom || "Custom action"
     });
     const builtinOrder = Array.isArray(core?.actions?.builtins) ? core.actions.builtins.slice() : ["url", "selector", "simulate", "custom"];
     const builtinSet = new Set(builtinOrder);
@@ -4744,7 +5095,8 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       usedTypes.add(normalized);
       const entry = entriesByType.get(normalized);
       const metaLabel = entry && entry.meta && typeof entry.meta.label === "string" ? entry.meta.label.trim() : "";
-      actionTypes.push({ value: normalized, text: metaLabel || fallbackLabel || normalized });
+      const builtinLabel = builtinLabels[normalized] || "";
+      actionTypes.push({ value: normalized, text: builtinLabel || metaLabel || fallbackLabel || normalized });
     }
     builtinOrder.forEach((type) => addActionType(type, builtinLabels[type] || type));
     const extraTypes = [];
@@ -4754,10 +5106,10 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       const metaLabel = entry && entry.meta && typeof entry.meta.label === "string" ? entry.meta.label.trim() : "";
       extraTypes.push({ value: type, text: metaLabel || type });
     });
-    extraTypes.sort((a, b) => String(a.text).localeCompare(String(b.text), "zh", { numeric: true }));
+    extraTypes.sort((a, b) => String(a.text).localeCompare(String(b.text), state.effectiveLocale || "zh-CN", { numeric: true }));
     extraTypes.forEach((opt) => addActionType(opt.value, opt.text));
     if (temp.actionType && !usedTypes.has(temp.actionType)) {
-      const suffix = options?.text?.editor?.actionTypeHints?.unregisteredSuffix || " (未注册)";
+      const suffix = options?.text?.editor?.actionTypeHints?.unregisteredSuffix || " (unregistered)";
       addActionType(temp.actionType, `${temp.actionType}${suffix}`);
     }
     const actionTypeHint = document.createElement("div");
@@ -4776,11 +5128,11 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         return;
       }
       if (!entriesByType.has(normalized)) {
-        actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.unregistered || "该类型当前未注册 handler；触发时会提示 unknown actionType。";
+        actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.unregistered || "This type currently has no registered handler; triggering it will report an unknown actionType.";
         return;
       }
       if (!isBuiltinActionType(normalized)) {
-        actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.extended || "扩展类型：可在下方 data JSON 传递参数。";
+        actionTypeHint.textContent = options?.text?.editor?.actionTypeHints?.extended || "Extended type: pass parameters in the data JSON below.";
         return;
       }
       actionTypeHint.textContent = "";
@@ -4828,7 +5180,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const generalTabBtn = document.createElement("button");
     generalTabBtn.type = "button";
     generalTabBtn.setAttribute("role", "tab");
-    generalTabBtn.textContent = editorTabsText.general || "常规";
+    generalTabBtn.textContent = editorTabsText.general || "General";
     Object.assign(generalTabBtn.style, {
       border: "1px solid",
       borderRadius: "999px",
@@ -4841,7 +5193,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const iconTabBtn = document.createElement("button");
     iconTabBtn.type = "button";
     iconTabBtn.setAttribute("role", "tab");
-    iconTabBtn.textContent = editorTabsText.icon || "图标";
+    iconTabBtn.textContent = editorTabsText.icon || "Icon";
     Object.assign(iconTabBtn.style, {
       border: "1px solid",
       borderRadius: "999px",
@@ -4854,7 +5206,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const dataTabBtn = document.createElement("button");
     dataTabBtn.type = "button";
     dataTabBtn.setAttribute("role", "tab");
-    dataTabBtn.textContent = editorTabsText.data || "扩展";
+    dataTabBtn.textContent = editorTabsText.data || "Data";
     Object.assign(dataTabBtn.style, {
       border: "1px solid",
       borderRadius: "999px",
@@ -4950,10 +5302,10 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const urlContainer = document.createElement("div");
     const urlTextarea = panelCreateInputField(
       ctx,
-      options?.text?.editor?.labels?.url || "目标网址 (URL):",
+      options?.text?.editor?.labels?.url || "Target URL:",
       temp.url,
       "textarea",
-      options?.text?.editor?.placeholders?.url || "例如: https://example.com/search?q=%s"
+      options?.text?.editor?.placeholders?.url || "Example: https://example.com/search?q=%s"
     );
     urlContainer.appendChild(urlTextarea.label);
     const urlMethodContainer = panelCreateUrlMethodConfigUI(ctx, temp.urlMethod, temp.urlAdvanced);
@@ -4963,16 +5315,16 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const selectorContainer = document.createElement("div");
     const selectorTextarea = panelCreateInputField(
       ctx,
-      options?.text?.editor?.labels?.selector || "目标选择器 (Selector):",
+      options?.text?.editor?.labels?.selector || "Target selector:",
       temp.selector,
       "textarea",
-      options?.text?.editor?.placeholders?.selector || '例如: label[for="sidebar-visible"]'
+      options?.text?.editor?.placeholders?.selector || 'Example: label[for="sidebar-visible"]'
     );
     selectorContainer.appendChild(selectorTextarea.label);
     generalPanel.appendChild(selectorContainer);
     actionInputs.selector = selectorTextarea.input;
     const simulateContainer = document.createElement("div");
-    const simulateCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.simulate || "模拟按键:", temp.simulateKeys, {
+    const simulateCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.simulate || "Simulated keys:", temp.simulateKeys, {
       placeholder: options.text.hints.simulate,
       hint: options.text.hints.simulateHelp,
       methodName: "getSimulateKeys",
@@ -4985,10 +5337,10 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const customContainer = document.createElement("div");
     const customActionField = panelCreateInputField(
       ctx,
-      options?.text?.editor?.labels?.customAction || "自定义动作 (customAction):",
+      options?.text?.editor?.labels?.customAction || "Custom action:",
       temp.customAction,
       "text",
-      options?.text?.editor?.placeholders?.customAction || "从脚本提供的 customActions 中选择/输入 key"
+      options?.text?.editor?.placeholders?.customAction || "Choose/type a key from customActions provided by the script"
     );
     customContainer.appendChild(customActionField.label);
     generalPanel.appendChild(customContainer);
@@ -5008,8 +5360,8 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       }
     } catch {
     }
-    const defaultDataLabelText = options?.text?.editor?.labels?.data || "扩展参数 (data JSON，可选):";
-    const defaultDataPlaceholder = options?.text?.editor?.placeholders?.data || '例如: {"foo":"bar"}';
+    const defaultDataLabelText = options?.text?.editor?.labels?.data || "Extra parameters (data JSON, optional):";
+    const defaultDataPlaceholder = options?.text?.editor?.placeholders?.data || 'Example: {"foo":"bar"}';
     const customActionDataAdapters = options?.customActionDataAdapters && typeof options.customActionDataAdapters === "object" ? options.customActionDataAdapters : null;
     function isPlainObject(value) {
       return !!value && typeof value === "object" && !Array.isArray(value);
@@ -5030,6 +5382,18 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       if (!adapter || typeof adapter !== "object" || Array.isArray(adapter)) return null;
       return adapter;
     }
+    function getAdapterText(adapter, field, fallback = "") {
+      if (!adapter) return fallback;
+      const raw = adapter[field];
+      if (typeof raw === "function") {
+        try {
+          return String(raw({ shortcut: temp, ctx }) ?? fallback);
+        } catch {
+          return fallback;
+        }
+      }
+      return typeof raw === "string" ? raw : fallback;
+    }
     function formatCustomActionData(adapter, data) {
       if (!adapter) return formatJsonDataForEditor(data);
       const formatter = typeof adapter.format === "function" ? adapter.format : null;
@@ -5048,13 +5412,13 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       const customActionKey = String(actionInputs.customAction?.value || temp.customAction || "").trim();
       const adapter = temp.actionType === "custom" ? getCustomActionDataAdapter(customActionKey) : null;
       const nextDataAdapterKey = adapter ? customActionKey : "";
-      const labelText = adapter && typeof adapter.label === "string" ? adapter.label : defaultDataLabelText;
+      const labelText = getAdapterText(adapter, "label", defaultDataLabelText);
       try {
         const textNode = dataField.label?.firstChild;
         if (textNode && textNode.nodeType === 3) textNode.textContent = labelText;
       } catch {
       }
-      dataTextarea.placeholder = adapter && typeof adapter.placeholder === "string" ? adapter.placeholder : defaultDataPlaceholder;
+      dataTextarea.placeholder = getAdapterText(adapter, "placeholder", defaultDataPlaceholder);
       const adapterChanged = nextDataAdapterKey !== lastDataAdapterKey;
       lastDataAdapterKey = nextDataAdapterKey;
       if (!maybeReplaceValue || !adapterChanged) return;
@@ -5073,10 +5437,10 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     lastDataAdapterKey = initialDataAdapter ? String(temp.customAction || "").trim() : "";
     const dataField = panelCreateInputField(
       ctx,
-      initialDataAdapter && typeof initialDataAdapter.label === "string" ? initialDataAdapter.label : defaultDataLabelText,
+      getAdapterText(initialDataAdapter, "label", defaultDataLabelText),
       initialDataAdapter ? formatCustomActionData(initialDataAdapter, temp.data) : formatJsonDataForEditor(temp.data),
       "textarea",
-      initialDataAdapter && typeof initialDataAdapter.placeholder === "string" ? initialDataAdapter.placeholder : defaultDataPlaceholder
+      getAdapterText(initialDataAdapter, "placeholder", defaultDataPlaceholder)
     );
     dataPanel.appendChild(dataField.label);
     const dataTextarea = dataField.input;
@@ -5084,7 +5448,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     actionInputs.customAction?.addEventListener?.("change", () => applyDataEditorMode({ maybeReplaceValue: true }));
     const iconField = panelCreateIconField(
       ctx,
-      options?.text?.editor?.labels?.icon || "图标URL:",
+      options?.text?.editor?.labels?.icon || "Icon URL:",
       temp.icon,
       temp.iconDark
     );
@@ -5143,8 +5507,8 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       border: "1px solid",
       borderRadius: "6px"
     });
-    const iconAdaptiveLabelText = options?.text?.panel?.iconAdaptiveLabel || "svg自适应处理";
-    const iconAdaptiveHintText = options?.text?.panel?.iconAdaptiveHint || "仅在主图标为SVG且未设置黑暗模式图标URL时生效";
+    const iconAdaptiveLabelText = options?.text?.panel?.iconAdaptiveLabel || "SVG adaptive processing";
+    const iconAdaptiveHintText = options?.text?.panel?.iconAdaptiveHint || "Only applies when the main icon is an SVG and no dark-mode icon URL is set";
     const iconAdaptiveHintPaletteByTheme = {
       light: {
         helpText: "#9d174d",
@@ -5187,7 +5551,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     const iconAdaptiveHelpBtn = document.createElement("button");
     iconAdaptiveHelpBtn.type = "button";
     iconAdaptiveHelpBtn.textContent = "?";
-    iconAdaptiveHelpBtn.setAttribute("aria-label", `${iconAdaptiveLabelText}说明`);
+    iconAdaptiveHelpBtn.setAttribute("aria-label", `${iconAdaptiveLabelText} help`);
     iconAdaptiveHelpBtn.setAttribute("aria-haspopup", "true");
     iconAdaptiveHelpBtn.setAttribute("aria-expanded", "false");
     Object.assign(iconAdaptiveHelpBtn.style, {
@@ -5388,7 +5752,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     );
     const { container: iconLibraryContainer, destroy: destroyIconLibrary } = iconLibrary;
     iconPanel.appendChild(iconLibraryContainer);
-    const hotkeyCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.hotkey || "快捷键:", temp.hotkey, {
+    const hotkeyCapture = panelCreateEnhancedKeyboardCaptureInput(ctx, options?.text?.editor?.labels?.hotkey || "Shortcut:", temp.hotkey, {
       placeholder: options.text.hints.hotkey,
       hint: options.text.hints.hotkeyHelp,
       methodName: "getHotkey"
@@ -5412,9 +5776,15 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       flexWrap: "wrap"
     });
     const confirmBtn = document.createElement("button");
-    confirmBtn.textContent = options.text.buttons.confirm || "确定";
+    confirmBtn.textContent = options.text.buttons.confirm || "OK";
     confirmBtn.onclick = () => {
-      temp.name = nameInput.input.value.trim();
+      const inputName = nameInput.input.value.trim();
+      if (!isNew && temp.labelKey && inputName === initialDisplayName) {
+        temp.name = item?.name || inputName;
+      } else {
+        temp.name = inputName;
+        if (temp.labelKey && inputName !== initialDisplayName) temp.labelKey = "";
+      }
       temp.url = actionInputs.url.value.trim();
       temp.selector = actionInputs.selector.value.trim();
       temp.simulateKeys = getSimulateKeys().replace(/\s+/g, "");
@@ -5430,22 +5800,22 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         try {
           parsedData = adapter.parse(dataTextRaw, { shortcut: temp, ctx }) ?? {};
         } catch {
-          showAlert(options?.text?.editor?.validation?.dataParseFailed || "data 解析失败，请检查输入。");
+          showAlert(options?.text?.editor?.validation?.dataParseFailed || "Failed to parse data. Please check the input.");
           return;
         }
         if (!isPlainObject(parsedData)) {
-          showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || 'data 必须是 JSON 对象 (例如 {"foo":"bar"})。');
+          showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || 'data must be a JSON object (for example {"foo":"bar"}).');
           return;
         }
       } else if (dataText) {
         try {
           parsedData = JSON.parse(dataText);
         } catch {
-          showAlert(options?.text?.editor?.validation?.dataJsonParseFailed || "data JSON 解析失败，请检查格式。");
+          showAlert(options?.text?.editor?.validation?.dataJsonParseFailed || "Failed to parse data JSON. Please check the format.");
           return;
         }
         if (!isPlainObject(parsedData)) {
-          showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || 'data 必须是 JSON 对象 (例如 {"foo":"bar"})。');
+          showAlert(options?.text?.editor?.validation?.dataJsonMustBeObject || 'data must be a JSON object (for example {"foo":"bar"}).');
           return;
         }
       }
@@ -5455,37 +5825,37 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       temp.urlMethod = urlMethodConfig.method;
       temp.urlAdvanced = urlMethodConfig.advanced;
       if (!temp.name) {
-        showAlert(options?.text?.editor?.validation?.nameRequired || "请填写名称!");
+        showAlert(options?.text?.editor?.validation?.nameRequired || "Please enter a name.");
         return;
       }
       const isBuiltinAction = isBuiltinActionType(temp.actionType);
       if (isBuiltinAction && temp.actionType === "url" && !temp.url) {
-        showAlert(options?.text?.editor?.validation?.urlRequired || "请填写目标网址!");
+        showAlert(options?.text?.editor?.validation?.urlRequired || "Please enter a target URL.");
         return;
       }
       if (isBuiltinAction && temp.actionType === "selector" && !temp.selector) {
-        showAlert(options?.text?.editor?.validation?.selectorRequired || "请填写目标选择器!");
+        showAlert(options?.text?.editor?.validation?.selectorRequired || "Please enter a target selector.");
         return;
       }
       if (isBuiltinAction && temp.actionType === "simulate" && !temp.simulateKeys) {
-        showAlert(options?.text?.editor?.validation?.simulateRequired || "请设置模拟按键!");
+        showAlert(options?.text?.editor?.validation?.simulateRequired || "Please set simulated keys.");
         return;
       }
       if (isBuiltinAction && temp.actionType === "custom" && !temp.customAction) {
-        showAlert(options?.text?.editor?.validation?.customActionRequired || "请设置自定义动作 key!");
+        showAlert(options?.text?.editor?.validation?.customActionRequired || "Please set a custom action key.");
         return;
       }
       if (!finalHotkey) {
-        showAlert(options?.text?.editor?.validation?.hotkeyRequired || "请设置快捷键!");
+        showAlert(options?.text?.editor?.validation?.hotkeyRequired || "Please set a shortcut.");
         return;
       }
       if (finalHotkey.endsWith("+")) {
-        showAlert(options?.text?.editor?.validation?.hotkeyIncomplete || "快捷键设置不完整 (缺少主键)!");
+        showAlert(options?.text?.editor?.validation?.hotkeyIncomplete || "Shortcut is incomplete (missing main key).");
         return;
       }
       const normalizedNewHotkey = normalizeHotkey2(finalHotkey);
       if (core.getShortcuts().some((s, i) => normalizeHotkey2(s.hotkey) === normalizedNewHotkey && i !== index)) {
-        showAlert(options?.text?.editor?.validation?.hotkeyDuplicate || "该快捷键已被其他项使用, 请选择其他组合!");
+        showAlert(options?.text?.editor?.validation?.hotkeyDuplicate || "This shortcut is already used by another item. Choose another combination.");
         return;
       }
       temp.hotkey = finalHotkey;
@@ -5516,7 +5886,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
     };
     btnRow.appendChild(confirmBtn);
     const cancelBtn = document.createElement("button");
-    cancelBtn.textContent = options.text.buttons.cancel || "取消";
+    cancelBtn.textContent = options.text.buttons.cancel || "Cancel";
     cancelBtn.onclick = closeEdit;
     btnRow.appendChild(cancelBtn);
     formDiv.appendChild(btnRow);
@@ -5606,6 +5976,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       safeGMGet,
       safeGMSet,
       panelFilter,
+      setLocaleMode,
       debounce
     } = ctx;
     const { theme, colors, style, dialogs, layout } = uiShared;
@@ -5693,16 +6064,22 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       const type = String(actionType || "").trim() || "unknown";
       const entry = typeof core?.actions?.get === "function" ? core.actions.get(type) : null;
       const meta = entry && entry.meta && typeof entry.meta === "object" ? entry.meta : null;
-      const labelRaw = meta && typeof meta.label === "string" ? meta.label.trim() : "";
-      const unknownLabel = options?.text?.actionTypes?.unknownLabel || "未知";
+      const builtinLabels = {
+        url: options?.text?.stats?.url || "URL jump",
+        selector: options?.text?.stats?.selector || "Element click",
+        simulate: options?.text?.stats?.simulate || "Key simulation",
+        custom: options?.text?.stats?.custom || "Custom action"
+      };
+      const labelRaw = builtinLabels[type] || (meta && typeof meta.label === "string" ? meta.label.trim() : "");
+      const unknownLabel = options?.text?.actionTypes?.unknownLabel || "Unknown";
       const label = labelRaw || (type === "unknown" ? unknownLabel : type);
       const shortLabelRaw = meta && typeof meta.shortLabel === "string" ? meta.shortLabel.trim() : "";
       let shortLabel = shortLabelRaw;
       if (!shortLabel) {
         if (type === "url") shortLabel = options?.text?.actionTypes?.urlShortLabel || "URL";
-        else if (type === "selector") shortLabel = options?.text?.actionTypes?.selectorShortLabel || "点击";
-        else if (type === "simulate") shortLabel = options?.text?.actionTypes?.simulateShortLabel || "按键";
-        else if (type === "custom") shortLabel = options?.text?.actionTypes?.customShortLabel || "自定义";
+        else if (type === "selector") shortLabel = options?.text?.actionTypes?.selectorShortLabel || "Click";
+        else if (type === "simulate") shortLabel = options?.text?.actionTypes?.simulateShortLabel || "Keys";
+        else if (type === "custom") shortLabel = options?.text?.actionTypes?.customShortLabel || "Custom";
         else shortLabel = label.length > 4 ? label.slice(0, 4) : label;
       }
       const color = normalizeHexColor(meta?.color) || getButtonColor(type);
@@ -5725,6 +6102,9 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         }
       }
       return "-";
+    }
+    function getShortcutDisplayName(item) {
+      return typeof core?.getShortcutDisplayName === "function" ? core.getShortcutDisplayName(item) : String(item?.name || "");
     }
     function updateFilterButtonsState() {
       const buttons = document.querySelectorAll(`.${classes.filterButton}`);
@@ -5824,7 +6204,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       const presentTypes = Object.keys(byType).filter((type) => type && byType[type] > 0);
       const builtinOrder = Array.isArray(core?.actions?.builtins) ? core.actions.builtins.slice() : ["url", "selector", "simulate", "custom"];
       const filterButtons = [
-        { type: "all", label: options.text.stats.total || "总计", count: stats.total, color: getButtonColor("all") }
+        { type: "all", label: options.text.stats.total || "Total", count: stats.total, color: getButtonColor("all") }
       ];
       builtinOrder.forEach((type) => {
         const count = byType[type] || 0;
@@ -5836,7 +6216,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       const extraButtons = presentTypes.filter((type) => !builtinSet.has(type)).map((type) => {
         const meta = getActionTypeMeta(type);
         return { type, label: meta.label, count: byType[type], color: meta.color };
-      }).sort((a, b) => String(a.label).localeCompare(String(b.label), "zh", { numeric: true }));
+      }).sort((a, b) => String(a.label).localeCompare(String(b.label), state.effectiveLocale || "zh-CN", { numeric: true }));
       extraButtons.forEach((btn) => filterButtons.push(btn));
       filterButtons.forEach((buttonData) => {
         if (buttonData.type !== "all" && buttonData.count === 0) return;
@@ -6020,7 +6400,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         flex: "0 0 auto"
       });
       const title = document.createElement("h2");
-      title.textContent = options.panelTitle || "自定义快捷键";
+      title.textContent = options.panelTitle || "Custom shortcuts";
       Object.assign(title.style, {
         margin: "0",
         fontSize: "1.1em",
@@ -6032,8 +6412,8 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       });
       const settingsBtn = document.createElement("button");
       settingsBtn.type = "button";
-      settingsBtn.title = options.text.buttons.settings || "设置";
-      settingsBtn.setAttribute("aria-label", options.text.buttons.settings || "设置");
+      settingsBtn.title = options.text.buttons.settings || "Settings";
+      settingsBtn.setAttribute("aria-label", options.text.buttons.settings || "Settings");
       Object.assign(settingsBtn.style, {
         width: "32px",
         height: "32px",
@@ -6084,7 +6464,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       });
       const searchIconBtn = document.createElement("button");
       searchIconBtn.type = "button";
-      searchIconBtn.title = options.text.hints.searchPlaceholder || "搜索";
+      searchIconBtn.title = options.text.hints.searchPlaceholder || "Search";
       searchIconBtn.textContent = "🔍";
       Object.assign(searchIconBtn.style, {
         width: "32px",
@@ -6101,7 +6481,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       });
       const searchInput = document.createElement("input");
       searchInput.type = "text";
-      searchInput.placeholder = options.text.hints.searchPlaceholder || "搜索名称/目标";
+      searchInput.placeholder = options.text.hints.searchPlaceholder || "Search name/target";
       searchInput.value = String(state.searchQuery || "");
       Object.assign(searchInput.style, {
         flex: "1 1 auto",
@@ -6116,7 +6496,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       });
       const clearSearchBtn = document.createElement("button");
       clearSearchBtn.type = "button";
-      clearSearchBtn.title = options.text.buttons.clear || "清除";
+      clearSearchBtn.title = options.text.buttons.clear || "Clear";
       clearSearchBtn.textContent = "×";
       Object.assign(clearSearchBtn.style, {
         width: "32px",
@@ -6286,7 +6666,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       });
       bottomBar.appendChild(leftBar);
       const addBtn = document.createElement("button");
-      addBtn.textContent = options.text.buttons.addShortcut || "添加新快捷键";
+      addBtn.textContent = options.text.buttons.addShortcut || "Add shortcut";
       addBtn.onclick = () => {
         editShortcut();
       };
@@ -6344,7 +6724,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           gap: "10px"
         });
         const titleEl = document.createElement("h3");
-        titleEl.textContent = options.text.buttons.settings || "设置";
+        titleEl.textContent = options.text.buttons.settings || "Settings";
         Object.assign(titleEl.style, {
           margin: "0",
           fontSize: "1.05em",
@@ -6353,7 +6733,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         head.appendChild(titleEl);
         const closeBtn = document.createElement("button");
         closeBtn.type = "button";
-        closeBtn.title = options.text.buttons.close || "关闭";
+        closeBtn.title = options.text.buttons.close || "Close";
         closeBtn.textContent = "×";
         Object.assign(closeBtn.style, {
           fontSize: "20px",
@@ -6374,7 +6754,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           gap: "12px"
         });
         const themeLabel = document.createElement("div");
-        themeLabel.textContent = options?.text?.panel?.themeModeLabel || "面板主题";
+        themeLabel.textContent = options?.text?.panel?.themeModeLabel || "Panel theme";
         Object.assign(themeLabel.style, {
           fontSize: "14px",
           fontWeight: "bold"
@@ -6398,9 +6778,9 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           opt.textContent = label;
           themeSelect.appendChild(opt);
         };
-        addThemeOption("auto", options?.text?.panel?.themeModeAuto || "自动(跟随页面)");
-        addThemeOption("light", options?.text?.panel?.themeModeLight || "普通");
-        addThemeOption("dark", options?.text?.panel?.themeModeDark || "黑暗");
+        addThemeOption("auto", options?.text?.panel?.themeModeAuto || "Auto (follow page)");
+        addThemeOption("light", options?.text?.panel?.themeModeLight || "Light");
+        addThemeOption("dark", options?.text?.panel?.themeModeDark || "Dark");
         themeSelect.value = String(state.themeMode || "auto");
         themeSelect.onchange = () => {
           state.themeMode = String(themeSelect.value || "auto");
@@ -6410,8 +6790,49 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         themeRow.appendChild(themeLabel);
         themeRow.appendChild(themeSelect);
         dialog.appendChild(themeRow);
+        const localeRow = document.createElement("div");
+        Object.assign(localeRow.style, {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px"
+        });
+        const localeLabel = document.createElement("div");
+        localeLabel.textContent = options?.text?.panel?.languageLabel || "Interface language";
+        Object.assign(localeLabel.style, {
+          fontSize: "14px",
+          fontWeight: "bold"
+        });
+        const localeSelect = document.createElement("select");
+        Object.assign(localeSelect.style, {
+          flex: "0 0 200px",
+          maxWidth: "100%"
+        });
+        styleInputField(localeSelect);
+        const addLocaleOption = (value, label) => {
+          const opt = document.createElement("option");
+          opt.value = value;
+          opt.textContent = label;
+          localeSelect.appendChild(opt);
+        };
+        addLocaleOption("auto", options?.text?.panel?.languageAuto || "Auto (follow browser)");
+        addLocaleOption("zh-CN", options?.text?.panel?.languageZhCN || "Simplified Chinese");
+        addLocaleOption("en-US", options?.text?.panel?.languageEnUS || "English");
+        localeSelect.value = String(state.localeMode || "auto");
+        localeSelect.onchange = () => {
+          const nextMode = String(localeSelect.value || "auto");
+          if (typeof setLocaleMode === "function") {
+            setLocaleMode(nextMode, { persist: true, refreshPanel: true });
+          } else {
+            state.localeMode = nextMode;
+            persistUiPrefs({ localeMode: state.localeMode });
+          }
+        };
+        localeRow.appendChild(localeLabel);
+        localeRow.appendChild(localeSelect);
+        dialog.appendChild(localeRow);
         const actionsLabel = document.createElement("div");
-        actionsLabel.textContent = options?.text?.panel?.actionsLabel || "脚本配置";
+        actionsLabel.textContent = options?.text?.panel?.actionsLabel || "Script config";
         Object.assign(actionsLabel.style, {
           fontSize: "14px",
           fontWeight: "bold",
@@ -6427,17 +6848,17 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           gap: "10px"
         });
         const resetActionBtn = document.createElement("button");
-        resetActionBtn.textContent = options.text.buttons.reset || "重置默认";
+        resetActionBtn.textContent = options.text.buttons.reset || "Reset defaults";
         resetActionBtn.onclick = () => {
           closeSettingsMenu({ restoreFocus: false });
-          showConfirmDialog(options?.text?.panel?.resetConfirm || "确定重置为默认配置吗？(需要点击“保存并关闭”才会写入存储)", () => {
+          showConfirmDialog(options?.text?.panel?.resetConfirm || 'Reset to the default configuration? Changes are saved only after clicking "Save and close".', () => {
             resetToDefaults();
           });
         };
         actions.appendChild(resetActionBtn);
         styleButton(resetActionBtn, "#9E9E9E", "#757575");
         const importActionBtn = document.createElement("button");
-        importActionBtn.textContent = options.text.buttons.import || "导入";
+        importActionBtn.textContent = options.text.buttons.import || "Import";
         importActionBtn.onclick = () => {
           closeSettingsMenu({ restoreFocus: false });
           openImportDialog();
@@ -6445,7 +6866,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         actions.appendChild(importActionBtn);
         styleButton(importActionBtn, "#2196F3", "#1e88e5");
         const exportActionBtn = document.createElement("button");
-        exportActionBtn.textContent = options.text.buttons.export || "导出";
+        exportActionBtn.textContent = options.text.buttons.export || "Export";
         exportActionBtn.onclick = () => {
           closeSettingsMenu({ restoreFocus: false });
           openExportDialog();
@@ -6470,7 +6891,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       }
       settingsBtn.onclick = openSettingsMenu;
       const saveBtn = document.createElement("button");
-      saveBtn.textContent = options.text.buttons.saveAndClose || "保存并关闭";
+      saveBtn.textContent = options.text.buttons.saveAndClose || "Save and close";
       saveBtn.onclick = () => {
         core.persistShortcuts();
         closePanel();
@@ -6589,12 +7010,12 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         const headRow = document.createElement("tr");
         const tableHeaders = options?.text?.panel?.tableHeaders || {};
         const headers = [
-          { text: tableHeaders.icon || "图标", width: "60px", align: "center" },
-          { text: tableHeaders.name || "名称", width: "15%" },
-          { text: tableHeaders.type || "类型", width: "80px" },
-          { text: tableHeaders.target || "目标", width: "40%" },
-          { text: tableHeaders.hotkey || "快捷键", width: "15%" },
-          { text: tableHeaders.actions || "操作", width: "120px", align: "center" }
+          { text: tableHeaders.icon || "Icon", width: "60px", align: "center" },
+          { text: tableHeaders.name || "Name", width: "15%" },
+          { text: tableHeaders.type || "Type", width: "80px" },
+          { text: tableHeaders.target || "Target", width: "40%" },
+          { text: tableHeaders.hotkey || "Shortcut", width: "15%" },
+          { text: tableHeaders.actions || "Actions", width: "120px", align: "center" }
         ];
         headers.forEach((header) => {
           const th = document.createElement("th");
@@ -6666,7 +7087,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         tdIcon.style.textAlign = "center";
         tdIcon.appendChild(createShortcutIconPreview(item));
         const tdName = document.createElement("td");
-        tdName.textContent = item.name;
+        tdName.textContent = getShortcutDisplayName(item);
         styleTableCell(tdName, isDark);
         const tdType = document.createElement("td");
         const typeMeta = getActionTypeMeta(item.actionType);
@@ -6678,7 +7099,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
         const targetText = getShortcutTargetText(item);
         tdTarget.textContent = targetText;
         if (typeMeta.builtin && item.actionType === "url" && item.url) {
-          const methodText = typeof getUrlMethodDisplayText === "function" ? getUrlMethodDisplayText(item.urlMethod) : URL_METHODS2?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "未知跳转方式";
+          const methodText = typeof getUrlMethodDisplayText === "function" ? getUrlMethodDisplayText(item.urlMethod) : URL_METHODS2?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "Unknown jump method";
           tdTarget.title = `${methodText}:
 ---
 ${targetText}`;
@@ -6752,7 +7173,7 @@ ${targetText}`;
           minWidth: "100px",
           color: getTextColor(isDark)
         });
-        nameContainer.textContent = item.name;
+        nameContainer.textContent = getShortcutDisplayName(item);
         const typeContainer = document.createElement("div");
         const typeMeta = getActionTypeMeta(item.actionType);
         Object.assign(typeContainer.style, {
@@ -6779,7 +7200,7 @@ ${targetText}`;
           minWidth: "60px",
           textAlign: "center"
         });
-        const noHotkeyText = options?.text?.panel?.compact?.noHotkey || "无";
+        const noHotkeyText = options?.text?.panel?.compact?.noHotkey || "None";
         hotkeyContainer.textContent = core?.hotkeys?.formatForDisplay ? core.hotkeys.formatForDisplay(item.hotkey) || noHotkeyText : item.hotkey || noHotkeyText;
         const actionButtons = createActionButtons(item, index, isDark);
         Object.assign(actionButtons.style, {
@@ -6805,10 +7226,10 @@ ${targetText}`;
           boxSizing: "border-box"
         });
         const targetText = getShortcutTargetText(item);
-        const displayTargetText = targetText === "-" ? options?.text?.panel?.compact?.emptyTarget || "（无目标配置）" : targetText;
+        const displayTargetText = targetText === "-" ? options?.text?.panel?.compact?.emptyTarget || "(No target configured)" : targetText;
         secondRow.textContent = displayTargetText;
         if (typeMeta.builtin && item.actionType === "url" && item.url) {
-          const methodText = typeof getUrlMethodDisplayText === "function" ? getUrlMethodDisplayText(item.urlMethod) : URL_METHODS2?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "未知跳转方式";
+          const methodText = typeof getUrlMethodDisplayText === "function" ? getUrlMethodDisplayText(item.urlMethod) : URL_METHODS2?.[item.urlMethod]?.name || options?.text?.builtins?.unknownUrlMethod || "Unknown jump method";
           secondRow.title = `${methodText}:
 ---
 ${displayTargetText}`;
@@ -6848,7 +7269,7 @@ ${displayTargetText}`;
         });
         const editButton = document.createElement("button");
         editButton.textContent = "✍️";
-        editButton.title = options.text.buttons.edit || "编辑";
+        editButton.title = options.text.buttons.edit || "Edit";
         styleTransparentButton(editButton, "#FF9800", getHoverColor(isDark), isDark);
         Object.assign(editButton.style, {
           minWidth: "32px",
@@ -6863,7 +7284,7 @@ ${displayTargetText}`;
         };
         const delButton = document.createElement("button");
         delButton.textContent = "🗑️";
-        delButton.title = options.text.buttons.delete || "删除";
+        delButton.title = options.text.buttons.delete || "Delete";
         styleTransparentButton(delButton, "#F44336", getHoverColor(isDark), isDark);
         Object.assign(delButton.style, {
           minWidth: "32px",
@@ -6874,8 +7295,8 @@ ${displayTargetText}`;
         });
         delButton.onclick = (e) => {
           e.stopPropagation();
-          const tpl = options?.text?.panel?.confirmDeleteShortcut || "确定删除快捷键【{name}】吗?";
-          showConfirmDialog(tpl.replace("{name}", String(item.name ?? "")), () => {
+          const tpl = options?.text?.panel?.confirmDeleteShortcut || 'Delete shortcut "{name}"?';
+          showConfirmDialog(tpl.replace("{name}", String(getShortcutDisplayName(item) ?? "")), () => {
             core.mutateShortcuts((list) => {
               list.splice(index, 1);
             });
@@ -7157,6 +7578,39 @@ ${displayTargetText}`;
         }
       };
     }
+    function getMenuCommandLabel() {
+      return options.menuCommandLabel || options.text.menuLabelFallback;
+    }
+    function registerMenuCommand() {
+      const menuLabel = getMenuCommandLabel();
+      if (state.menuCommandId !== null && state.menuCommandId !== void 0) {
+        try {
+          gmUnregisterMenuCommand(state.menuCommandId);
+        } catch {
+        }
+        state.menuCommandId = null;
+        state.menuCommandRegistered = false;
+      }
+      const commandId = gmRegisterMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
+      if (commandId !== null && commandId !== void 0) {
+        state.menuCommandId = commandId;
+        state.menuCommandRegistered = true;
+      }
+    }
+    function refreshMenuCommand() {
+      registerMenuCommand();
+    }
+    function reopenSettingsPanel() {
+      const wasOpen = !!state.isSettingsPanelOpen;
+      if (!wasOpen) return;
+      settingsPanelLayer.closeSettingsPanel();
+      setTimeout(() => {
+        try {
+          settingsPanelLayer.openSettingsPanel();
+        } catch {
+        }
+      }, 0);
+    }
     function init() {
       keyboardLayer.init();
       if (typeof state.destroyDarkModeObserver === "function") {
@@ -7180,12 +7634,8 @@ ${displayTargetText}`;
         }
       }
       state.destroyDragCss = injectDragCss();
-      const menuLabel = options.menuCommandLabel || options.text.menuLabelFallback;
       if (!state.menuCommandRegistered) {
-        const commandId = gmRegisterMenuCommand(menuLabel, settingsPanelLayer.openSettingsPanel);
-        if (commandId !== null && commandId !== void 0) {
-          state.menuCommandRegistered = true;
-        }
+        registerMenuCommand();
       }
     }
     function destroy() {
@@ -7212,6 +7662,14 @@ ${displayTargetText}`;
         }
         state.destroyDarkModeObserver = null;
       }
+      if (state.menuCommandId !== null && state.menuCommandId !== void 0) {
+        try {
+          gmUnregisterMenuCommand(state.menuCommandId);
+        } catch {
+        }
+        state.menuCommandId = null;
+        state.menuCommandRegistered = false;
+      }
       uiShared.layout.disableScrollLock();
     }
     function getShortcuts2() {
@@ -7225,6 +7683,8 @@ ${displayTargetText}`;
       destroy,
       openSettingsPanel: settingsPanelLayer.openSettingsPanel,
       closeSettingsPanel: settingsPanelLayer.closeSettingsPanel,
+      reopenSettingsPanel,
+      refreshMenuCommand,
       getShortcuts: getShortcuts2,
       setShortcuts,
       registerActionHandler: (actionType, handler, meta = {}) => core?.actions?.register?.(actionType, handler, meta),
@@ -7232,6 +7692,11 @@ ${displayTargetText}`;
       listActionTypes: () => core?.actions?.list?.() || [],
       core,
       uiShared,
+      i18n: core?.i18n,
+      setLocaleMode: core?.setLocaleMode,
+      getLocaleMode: core?.getLocaleMode,
+      getEffectiveLocale: core?.getEffectiveLocale,
+      translate: core?.i18n?.t,
       URL_METHODS: URL_METHODS2
     });
   }
@@ -7287,6 +7752,8 @@ ${displayTargetText}`;
         scrollLeft: 0
       },
       themeMode: "auto",
+      localeMode: "auto",
+      effectiveLocale: "zh-CN",
       legacyIconAdaptiveEnabled: false,
       isDarkMode: false,
       currentFilter: "all",
@@ -7299,6 +7766,8 @@ ${displayTargetText}`;
       destroyDragCss: null,
       destroyBaseCss: null,
       menuCommandRegistered: false,
+      menuCommandId: null,
+      localeChangedEventName: `${idPrefix}-localeChanged`,
       filterChangedEventName: `${idPrefix}-filterChanged`
     };
     const GMX = getGmXmlHttpRequest();
@@ -7336,9 +7805,68 @@ ${displayTargetText}`;
     const uiPrefsRaw = safeGMGet(options.storageKeys.uiPrefs, null);
     const uiPrefs = uiPrefsRaw && typeof uiPrefsRaw === "object" && !Array.isArray(uiPrefsRaw) ? uiPrefsRaw : {};
     state.themeMode = normalizeThemeMode(uiPrefs.themeMode);
+    state.localeMode = normalizeLocaleMode(uiPrefs.localeMode || userOptions.locale || options.locale || "auto");
     state.legacyIconAdaptiveEnabled = normalizeBoolean(uiPrefs.iconAdaptiveEnabled, false);
     if (state.themeMode === "dark") state.isDarkMode = true;
     if (state.themeMode === "light") state.isDarkMode = false;
+    const localeMessages = mergeLocaleMessages(
+      DEFAULT_CORE_I18N_MESSAGES,
+      userOptions?.i18n?.messages || {}
+    );
+    if (userOptions?.text && typeof userOptions.text === "object") {
+      localeMessages["zh-CN"] = deepMerge(localeMessages["zh-CN"] || {}, userOptions.text);
+    }
+    if (userOptions.menuCommandLabel) {
+      localeMessages["zh-CN"] = deepMerge(localeMessages["zh-CN"] || {}, {
+        menuCommandLabel: userOptions.menuCommandLabel
+      });
+    }
+    if (userOptions.panelTitle) {
+      localeMessages["zh-CN"] = deepMerge(localeMessages["zh-CN"] || {}, {
+        panelTitle: userOptions.panelTitle
+      });
+    }
+    const i18n = createI18nContext({
+      localeMode: state.localeMode,
+      fallbackLocale: "zh-CN",
+      messages: localeMessages
+    });
+    function localizeUrlMethods(baseMethods = URL_METHODS, text = options.text) {
+      const localized = {};
+      const urlText = text?.urlMethods && typeof text.urlMethods === "object" ? text.urlMethods : {};
+      for (const [methodKey, methodConfig] of Object.entries(baseMethods || {})) {
+        const methodText = urlText[methodKey] || {};
+        const nextOptions = {};
+        for (const [optionKey, optionConfig] of Object.entries(methodConfig?.options || {})) {
+          const optionText = methodText?.options?.[optionKey] || {};
+          nextOptions[optionKey] = {
+            ...optionConfig,
+            ...optionText
+          };
+        }
+        localized[methodKey] = {
+          ...methodConfig,
+          ...methodText,
+          options: nextOptions
+        };
+      }
+      return localized;
+    }
+    let localizedUrlMethods = {};
+    function replaceLocalizedUrlMethods(nextMethods) {
+      for (const key of Object.keys(localizedUrlMethods)) delete localizedUrlMethods[key];
+      Object.assign(localizedUrlMethods, nextMethods || {});
+    }
+    function applyLocaleToOptions() {
+      state.localeMode = i18n.getLocaleMode();
+      state.effectiveLocale = i18n.getEffectiveLocale();
+      options.locale = state.localeMode;
+      options.text = i18n.getMessages(state.effectiveLocale);
+      options.menuCommandLabel = options.text.menuCommandLabel || userOptions.menuCommandLabel || DEFAULT_OPTIONS.menuCommandLabel;
+      options.panelTitle = options.text.panelTitle || userOptions.panelTitle || DEFAULT_OPTIONS.panelTitle;
+      replaceLocalizedUrlMethods(localizeUrlMethods(URL_METHODS, options.text));
+    }
+    applyLocaleToOptions();
     function generateShortcutId() {
       try {
         const cryptoApi = getCrypto();
@@ -7348,6 +7876,101 @@ ${displayTargetText}`;
       } catch {
       }
       return `sc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    }
+    function normalizeShortcutLabelToken(value, fallback = "") {
+      const token = String(value ?? "").trim();
+      return token || fallback;
+    }
+    function createDefaultShortcutLabelKey(shortcut, index) {
+      const explicit = normalizeShortcutLabelToken(shortcut?.labelKey);
+      if (explicit) return explicit;
+      const key = normalizeShortcutLabelToken(shortcut?.key);
+      if (key) return `shortcuts.${key}`;
+      const name = normalizeShortcutLabelToken(shortcut?.name);
+      if (name) return `shortcuts.${name}`;
+      return `shortcuts.default_${index + 1}`;
+    }
+    const defaultShortcutLabelMap = /* @__PURE__ */ new Map();
+    const defaultShortcutLabelNameMap = /* @__PURE__ */ new Map();
+    options.defaultShortcuts = options.defaultShortcuts.map((shortcut, index) => {
+      const next = shortcut && typeof shortcut === "object" ? { ...shortcut } : {};
+      const labelKey = createDefaultShortcutLabelKey(next, index);
+      if (labelKey && !next.labelKey) next.labelKey = labelKey;
+      const lookupKey = normalizeShortcutLabelToken(next.key || next.id);
+      if (lookupKey && labelKey) {
+        const knownNames = /* @__PURE__ */ new Set();
+        if (next.name) knownNames.add(String(next.name).trim());
+        for (const locale of i18n.supportedLocales || []) {
+          const translated = getMessageAtPath(i18n.getMessages(locale), labelKey);
+          if (typeof translated === "string" && translated.trim()) knownNames.add(translated.trim());
+        }
+        defaultShortcutLabelMap.set(lookupKey, {
+          labelKey,
+          name: String(next.name || ""),
+          knownNames
+        });
+      }
+      if (labelKey) {
+        const nameEntry = {
+          labelKey,
+          name: String(next.name || ""),
+          knownNames: /* @__PURE__ */ new Set()
+        };
+        if (next.name) nameEntry.knownNames.add(String(next.name).trim());
+        for (const locale of i18n.supportedLocales || []) {
+          const translated = getMessageAtPath(i18n.getMessages(locale), labelKey);
+          if (typeof translated === "string" && translated.trim()) nameEntry.knownNames.add(translated.trim());
+        }
+        for (const knownName of nameEntry.knownNames) {
+          if (knownName && !defaultShortcutLabelNameMap.has(knownName)) {
+            defaultShortcutLabelNameMap.set(knownName, nameEntry);
+          }
+        }
+      }
+      return next;
+    });
+    function resolveShortcutLabelMetadata(shortcut) {
+      const rawLabelKey = normalizeShortcutLabelToken(shortcut?.labelKey);
+      if (rawLabelKey) return { labelKey: rawLabelKey, name: String(shortcut?.name || "") };
+      const lookupKey = normalizeShortcutLabelToken(shortcut?.key || shortcut?.id);
+      const defaults = (lookupKey ? defaultShortcutLabelMap.get(lookupKey) : null) || defaultShortcutLabelNameMap.get(String(shortcut?.name || "").trim());
+      if (!defaults) return { labelKey: "", name: String(shortcut?.name || "") };
+      const rawName = String(shortcut?.name || "").trim();
+      if (!rawName || defaults.knownNames.has(rawName)) {
+        return { labelKey: defaults.labelKey, name: defaults.name || rawName };
+      }
+      return { labelKey: "", name: String(shortcut?.name || "") };
+    }
+    function getShortcutDisplayName(shortcut) {
+      const labelKey = normalizeShortcutLabelToken(shortcut?.labelKey);
+      const fallback = String(shortcut?.name || "");
+      if (!labelKey) return fallback;
+      return i18n.t(labelKey, {}, fallback) || fallback;
+    }
+    function persistUiPrefsPatch(patch = {}) {
+      const key = options?.storageKeys?.uiPrefs;
+      if (!key) return;
+      const raw = safeGMGet(key, null);
+      const prev = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+      safeGMSet(key, { ...prev, ...patch });
+    }
+    function setLocaleMode(nextMode, { persist = true, refreshPanel = true } = {}) {
+      const changed = i18n.setLocaleMode(nextMode);
+      applyLocaleToOptions();
+      if (persist) persistUiPrefsPatch({ localeMode: state.localeMode });
+      if (engineApi && typeof engineApi.refreshMenuCommand === "function") {
+        engineApi.refreshMenuCommand();
+      }
+      try {
+        document.dispatchEvent(new CustomEvent(state.localeChangedEventName, {
+          detail: { localeMode: state.localeMode, effectiveLocale: state.effectiveLocale }
+        }));
+      } catch {
+      }
+      if (refreshPanel && changed && engineApi && typeof engineApi.reopenSettingsPanel === "function") {
+        engineApi.reopenSettingsPanel();
+      }
+      return changed;
     }
     function ensureUniqueShortcutIds(list) {
       if (!Array.isArray(list) || list.length === 0) return;
@@ -7372,10 +7995,12 @@ ${displayTargetText}`;
       }
       const dataRaw = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : null;
       const normalizeHotkey2 = typeof hotkeys?.normalize === "function" ? hotkeys.normalize : (v) => String(v || "");
+      const labelMeta = resolveShortcutLabelMetadata(shortcut);
       return {
         id,
         key,
-        name: shortcut.name || "",
+        name: labelMeta.name || shortcut.name || "",
+        labelKey: labelMeta.labelKey || "",
         actionType: shortcut.actionType || (shortcut.url ? "url" : shortcut.selector ? "selector" : shortcut.simulateKeys ? "simulate" : shortcut.customAction ? "custom" : ""),
         url: shortcut.url || "",
         urlMethod: shortcut.urlMethod || "current",
@@ -7405,7 +8030,7 @@ ${displayTargetText}`;
     const iconManager = createIconManager({ options, state, safeGMGet, safeGMSet, GMX });
     const builtinActions = createBuiltinActionTools({
       options,
-      URL_METHODS,
+      URL_METHODS: localizedUrlMethods,
       hotkeys,
       showAlert: uiShared?.dialogs?.showAlert
     });
@@ -7442,24 +8067,24 @@ ${displayTargetText}`;
           } else {
             console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'url' but has no URL defined.`);
           }
-        }, { label: options?.text?.stats?.url || "URL跳转", shortLabel: "URL", color: "#4CAF50", builtin: true });
+        }, { label: options?.text?.stats?.url || "URL jump", shortLabel: "URL", color: "#4CAF50", builtin: true });
         actions.register("selector", ({ shortcut }) => {
           if (shortcut?.selector) {
             builtinActions.clickElement(shortcut.selector);
           } else {
             console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'selector' but has no selector defined.`);
           }
-        }, { label: options?.text?.stats?.selector || "元素点击", shortLabel: "点击", color: "#FF9800", builtin: true });
+        }, { label: options?.text?.stats?.selector || "Element click", shortLabel: options?.text?.actionTypes?.selectorShortLabel || "Click", color: "#FF9800", builtin: true });
         actions.register("simulate", ({ shortcut }) => {
           if (shortcut?.simulateKeys) {
             builtinActions.simulateKeystroke(shortcut.simulateKeys);
           } else {
             console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'simulate' but has no simulateKeys defined.`);
           }
-        }, { label: options?.text?.stats?.simulate || "按键模拟", shortLabel: "按键", color: "#9C27B0", builtin: true });
+        }, { label: options?.text?.stats?.simulate || "Key simulation", shortLabel: options?.text?.actionTypes?.simulateShortLabel || "Keys", color: "#9C27B0", builtin: true });
         actions.register("custom", ({ shortcut, event }) => {
           executeCustomAction(shortcut, event);
-        }, { label: options?.text?.stats?.custom || "自定义动作", shortLabel: "自定义", color: "#607D8B", builtin: true });
+        }, { label: options?.text?.stats?.custom || "Custom action", shortLabel: options?.text?.actionTypes?.customShortLabel || "Custom", color: "#607D8B", builtin: true });
       }
       function registerUserActionHandlers() {
         const handlers = options.actionHandlers && typeof options.actionHandlers === "object" ? options.actionHandlers : null;
@@ -7547,6 +8172,7 @@ ${displayTargetText}`;
         mutateShortcuts,
         persistShortcuts: saveShortcuts,
         getShortcuts: getShortcutsSnapshot,
+        getShortcutDisplayName,
         rebuildHotkeyIndex,
         getShortcutByHotkeyNorm,
         executeShortcutAction,
@@ -7563,7 +8189,11 @@ ${displayTargetText}`;
           formatKeyToken: hotkeys.formatKeyToken
         }),
         normalizeHotkey: hotkeys.normalize,
-        normalizeShortcut
+        normalizeShortcut,
+        setLocaleMode,
+        getLocaleMode: () => state.localeMode,
+        getEffectiveLocale: () => state.effectiveLocale,
+        i18n
       });
       return coreApi;
     }
@@ -7577,16 +8207,38 @@ ${displayTargetText}`;
       cssPrefix,
       ids,
       classes,
-      URL_METHODS,
+      URL_METHODS: localizedUrlMethods,
+      i18n,
+      setLocaleMode,
       getUrlMethodDisplayText: builtinActions.getUrlMethodDisplayText,
       setIconImage: iconManager.setIconImage,
       ensureThemeAdaptiveIconStored: iconManager.ensureThemeAdaptiveIconStored,
       setTrustedHTML,
       panelFilter: Object.freeze({
         normalizeActionType: panelNormalizeActionType,
-        buildShortcutSearchHaystack: panelBuildShortcutSearchHaystack,
-        matchesSearchQuery: panelMatchesSearchQuery,
-        matchesCurrentView: panelMatchesCurrentView
+        buildShortcutSearchHaystack: (shortcut) => panelBuildShortcutSearchHaystack({
+          ...shortcut || {},
+          name: getShortcutDisplayName(shortcut)
+        }),
+        matchesSearchQuery: (shortcut, queryLower) => {
+          const query = typeof queryLower === "string" ? queryLower : "";
+          if (!query) return true;
+          return panelBuildShortcutSearchHaystack({
+            ...shortcut || {},
+            name: getShortcutDisplayName(shortcut)
+          }).includes(query);
+        },
+        matchesCurrentView: (viewCtx, shortcut) => {
+          if (!shortcut) return false;
+          const filterType = String(viewCtx?.state?.currentFilter || "all");
+          if (filterType !== "all" && panelNormalizeActionType(shortcut) !== filterType) return false;
+          const queryLower = String(viewCtx?.state?.searchQuery || "").trim().toLowerCase();
+          if (!queryLower) return true;
+          return panelBuildShortcutSearchHaystack({
+            ...shortcut || {},
+            name: getShortcutDisplayName(shortcut)
+          }).includes(queryLower);
+        }
       }),
       safeGMGet,
       safeGMSet,
@@ -8519,6 +9171,7 @@ ${displayTargetText}`;
   });
   var QUICK_INPUT_SVG_NS = "http://www.w3.org/2000/svg";
   var DEFAULT_LABELS = Object.freeze({
+    title: "快捷输入",
     tabs: Object.freeze({ input: "输入", log: "日志" }),
     fields: Object.freeze({
       images: "图片：",
@@ -8561,6 +9214,17 @@ ${displayTargetText}`;
       s: "秒",
       m: "分钟"
     }),
+    stages: Object.freeze({
+      beforeReset: "重传前",
+      beforeRepair: "补图前",
+      loopStart: "本轮开始",
+      afterComposerFocus: "输入框聚焦后",
+      beforeImages: "贴图前",
+      beforeText: "文字输入前",
+      afterText: "文字输入后",
+      beforeTool: "工具快捷键前",
+      beforeSend: "发送前"
+    }),
     aria: Object.freeze({
       close: "关闭",
       deleteHotkey: "删除该快捷键",
@@ -8601,6 +9265,15 @@ ${displayTargetText}`;
       repairedImages: (count, expectedCount) => `已自动补齐图片：${count} 张（目标共 ${expectedCount} 张）。`,
       uploadNotReady: "图片尚未上传完成：已取消发送，避免文字先发。",
       sendAttempted: (ok) => ok ? "已尝试发送（Enter/Send）。" : "发送失败。",
+      maxDelayTitle: (formattedDelay) => `最大 ${formattedDelay}`,
+      diagnostics: (json) => `诊断: ${json}`,
+      imageCountNotReady: (current, expected) => `图片数量未达到预期：当前 ${current} 张，期望至少 ${expected} 张。`,
+      imageUploadTimeout: (current) => `等待图片上传完成超时：当前识别到 ${current} 张图片。`,
+      textVerifyFailed: (stage, actualLength, expectedLength) => `文字校验失败${stage ? `（${stage}）` : ""}：当前检测到 ${actualLength} / ${expectedLength} 个字符。`,
+      imageReuploadFailed: "图片重新上传失败：已取消发送，避免文字先发。",
+      imageInsertFailed: "图片插入失败：本轮将中止发送。",
+      imagesInserted: (count) => `已成功插入图片：${count} 张。`,
+      imageReady: "图片已就绪。",
       loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), DELAY_UNIT_LABELS)) => `循环间隔等待中：${formattedDelay}（发送后 → 新对话前）。`,
       newChatTriggered: (hotkey, ok) => ok ? `已触发循环：${hotkey} 新建对话。` : `循环新建对话失败：${hotkey}。`,
       newChatRetrying: (hotkey, attempt, maxRetries) => `新对话校验失败：准备自动重试 ${attempt}/${maxRetries} 次（${hotkey}）。`,
@@ -8617,6 +9290,131 @@ ${displayTargetText}`;
       finished: "完成！",
       stopRequested: "收到停止请求，将尽快停止…",
       missingAttachAdapter: "图片发送未配置：请在 quickInput.adapter.attachImages 中实现图片插入逻辑。"
+    })
+  });
+  var DEFAULT_LABEL_MESSAGES = Object.freeze({
+    "zh-CN": DEFAULT_LABELS,
+    "en-US": Object.freeze({
+      title: "Quick Input",
+      tabs: Object.freeze({ input: "Input", log: "Log" }),
+      fields: Object.freeze({
+        images: "Images:",
+        preview: "Preview:",
+        text: "Text:",
+        hotkeys: "Tool shortcuts\n(optional):",
+        loopCount: "Loop count:",
+        newChatHotkey: "New chat shortcut:",
+        stepDelay: "Step delay:",
+        loopDelay: "Loop delay:",
+        options: "Options:"
+      }),
+      buttons: Object.freeze({
+        run: "Run",
+        replay: "Retry",
+        stop: "Stop",
+        pause: "Pause",
+        resume: "Resume",
+        addHotkey: "Add shortcut",
+        delete: "Delete",
+        clearImages: "Clear images"
+      }),
+      placeholders: Object.freeze({
+        imageDrop: "Click / paste / drag images",
+        imageDropMore: "Supports click upload, input paste, and drag upload",
+        imageDropOverlay: "Release to append images",
+        text: "Type or paste text to send...",
+        hotkeyPrimary: "Leave empty to skip (for example: CTRL+I)",
+        hotkeyExtra: "Example: CTRL+I",
+        newChatHotkey: "Example: CTRL+N"
+      }),
+      hints: Object.freeze({
+        flow: "Flow: insert images/text -> trigger shortcuts -> send -> repeat"
+      }),
+      options: Object.freeze({
+        clearBeforeRun: "Clear input and attachments before running"
+      }),
+      delayUnits: Object.freeze({
+        ms: "ms",
+        s: "sec",
+        m: "min"
+      }),
+      stages: Object.freeze({
+        beforeReset: "Before re-upload",
+        beforeRepair: "Before image repair",
+        loopStart: "Loop start",
+        afterComposerFocus: "After focusing input",
+        beforeImages: "Before inserting images",
+        beforeText: "Before text input",
+        afterText: "After text input",
+        beforeTool: "Before tool shortcut",
+        beforeSend: "Before send"
+      }),
+      aria: Object.freeze({
+        close: "Close",
+        deleteHotkey: "Delete this shortcut",
+        deleteImage: "Delete this image",
+        clearImages: "Clear images"
+      }),
+      messages: Object.freeze({
+        noImagesDetected: "No image files detected.",
+        imagesLoaded: (count, kb, totalCount = count, renamedCount = 0) => `Added images: ${count} (current total ${totalCount}, about ${kb} KB this time${renamedCount > 0 ? `, auto-renamed ${renamedCount}` : ""}).`,
+        imageDeleted: (label, remaining) => `Deleted image${label} (${remaining} remaining).`,
+        imagesCleared: "Images cleared.",
+        missingNewChatHotkey: "Please enter the new chat shortcut.",
+        missingInput: "Enter text or load images first.",
+        startRows: (loopCount, toolHotkeys, newChatHotkey, imageCount) => [
+          { label: "Loop count:", value: `${loopCount}` },
+          { label: "Tool shortcuts:", value: toolHotkeys.length ? toolHotkeys.join(", ") : "(none)" },
+          { label: "New chat shortcut:", value: newChatHotkey },
+          { label: "Images:", value: `${imageCount}` }
+        ],
+        start: (loopCount, toolHotkeys, newChatHotkey, imageCount) => [
+          `Loop count: ${loopCount}`,
+          `Tool shortcuts: ${toolHotkeys.length ? toolHotkeys.join(", ") : "(none)"}`,
+          `New chat shortcut: ${newChatHotkey}`,
+          `Images: ${imageCount}`
+        ].join("\n"),
+        startSummary: "Run configuration",
+        loopMarker: (i, loopCount) => `-- Loop ${i}/${loopCount} --`,
+        composerNotFound: "Input box not found. Click the input box once, then run again.",
+        textInserted: (ok) => ok ? "Text inserted." : "Failed to insert text.",
+        textRetrying: (stage, attempt = 1, maxAttempts = 1) => `Text verification failed${stage ? ` (${stage})` : ""}; retrying automatically ${attempt}/${maxAttempts}.`,
+        textNotReady: (stage) => `Text was not actually written to the input${stage ? ` (${stage})` : ""}; stopped to avoid sending empty content.`,
+        hotkeyTriggered: (hotkey, ok) => ok ? `Triggered shortcut: ${hotkey}` : `Failed to trigger shortcut: ${hotkey}`,
+        waitingUploads: (count) => `Waiting for image uploads... (${count})`,
+        resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `Image readiness timed out: detected ${currentCount}/${expectedCount}; clearing attachments and re-uploading the group (${attempt}/${maxAttempts}).`,
+        reuploadedImages: (count, expectedCount = count) => `Cleared current attachments and re-uploaded images: ${count} (target ${expectedCount}).`,
+        clearAttachmentsFailed: "Failed to clear current image attachments; cancelled this send.",
+        repairingImages: (missingCount, currentCount, expectedCount, attempt, maxAttempts) => `Detected missing images: current ${currentCount}/${expectedCount}; repairing ${missingCount} missing image(s) (${attempt}/${maxAttempts}).`,
+        repairedImages: (count, expectedCount) => `Repaired images: ${count} (target ${expectedCount}).`,
+        uploadNotReady: "Images are not uploaded yet; cancelled send to avoid sending text first.",
+        sendAttempted: (ok) => ok ? "Send attempted (Enter/Send)." : "Send failed.",
+        maxDelayTitle: (formattedDelay) => `Maximum ${formattedDelay}`,
+        diagnostics: (json) => `Diagnostics: ${json}`,
+        imageCountNotReady: (current, expected) => `Image count is below the expected number: current ${current}, expected at least ${expected}.`,
+        imageUploadTimeout: (current) => `Timed out waiting for image uploads: currently detected ${current} image(s).`,
+        textVerifyFailed: (stage, actualLength, expectedLength) => `Text verification failed${stage ? ` (${stage})` : ""}: detected ${actualLength}/${expectedLength} characters.`,
+        imageReuploadFailed: "Image re-upload failed; cancelled send to avoid sending text first.",
+        imageInsertFailed: "Image insertion failed; this loop will stop.",
+        imagesInserted: (count) => `Inserted images successfully: ${count}.`,
+        imageReady: "Images are ready.",
+        loopDelayBeforeNewChat: (ms, formattedDelay = formatDelayWithUnit(ms, inferDelayUnitFromMs(ms), { ms: "ms", s: "sec", m: "min" })) => `Waiting between loops: ${formattedDelay} (after send -> before new chat).`,
+        newChatTriggered: (hotkey, ok) => ok ? `Loop triggered: ${hotkey} new chat.` : `Failed to create new chat for loop: ${hotkey}.`,
+        newChatRetrying: (hotkey, attempt, maxRetries) => `New chat verification failed; retrying ${attempt}/${maxRetries} (${hotkey}).`,
+        newChatNotReady: "New chat is still not ready after retries; stopped to avoid continuing in the old context.",
+        replayNewChatTriggered: (hotkey, ok) => ok ? "" : `Failed to create new chat before retry: ${hotkey}.`,
+        replayNewChatRetrying: (hotkey, attempt, maxRetries) => `New chat verification before retry failed; retrying ${attempt}/${maxRetries} (${hotkey}).`,
+        replayNewChatNotReady: "New chat before retry is still not ready after retries; cancelled this retry.",
+        inputUrlRecovering: (stage, hotkey) => `URL verification before input failed${stage ? ` (${stage})` : ""}; triggering ${hotkey} to create a new chat.`,
+        inputUrlNotReady: (stage) => `URL verification before input failed${stage ? ` (${stage})` : ""}; recovery failed, so later loops were stopped.`,
+        paused: "Paused.",
+        resumed: "Resumed.",
+        stopped: "Stopped.",
+        failed: "Failed.",
+        finished: "Finished.",
+        stopRequested: "Stop requested; stopping as soon as possible...",
+        missingAttachAdapter: "Image sending is not configured. Implement image insertion in quickInput.adapter.attachImages."
+      })
     })
   });
   var DEFAULT_CONFIG = Object.freeze({
@@ -10616,12 +11414,38 @@ ${displayTargetText}`;
     const idPrefix = String(options.idPrefix || "").trim() || "quick-input";
     const storageKey = String(options.storageKey || `${idPrefix}_quick_input_v1`).trim() || `${idPrefix}_quick_input_v1`;
     const draftStorageKey = getDraftStorageKey(storageKey);
-    const titleText = String(options.title || "快捷输入").trim() || "快捷输入";
     const primaryColor = String(options.primaryColor || "#4285F4").trim() || "#4285F4";
     const overlayId = `${idPrefix}-quick-input-overlay`;
     const themeMode = normalizeThemeMode(options.themeMode);
     const logTag = "[QuickInput]";
-    const labels = deepMerge(deepMerge({}, DEFAULT_LABELS), options.labels || {});
+    const engineI18n = engine?.i18n && typeof engine.i18n === "object" ? engine.i18n : null;
+    const quickI18n = createI18nContext({
+      localeMode: engineI18n?.getLocaleMode?.() || options.locale || "auto",
+      fallbackLocale: "zh-CN",
+      messages: mergeLocaleMessages(DEFAULT_LABEL_MESSAGES, options?.i18n?.labels || {})
+    });
+    function getEffectiveLocale() {
+      return engineI18n?.getEffectiveLocale?.() || quickI18n.getEffectiveLocale();
+    }
+    function resolveLabels() {
+      const effectiveLocale = getEffectiveLocale();
+      const nextLabels = deepMerge({}, quickI18n.getMessages(effectiveLocale));
+      if (effectiveLocale === "zh-CN" && options.labels && typeof options.labels === "object") {
+        deepMerge(nextLabels, options.labels);
+      }
+      return nextLabels;
+    }
+    function resolveTitleText() {
+      const titleKey = String(options.titleKey || "").trim();
+      const localeLabels = quickI18n.getMessages(getEffectiveLocale());
+      const fallback = String(options.title || localeLabels.title || "Quick Input").trim();
+      if (titleKey && engineI18n?.t) {
+        return String(engineI18n.t(titleKey, {}, fallback) || fallback).trim() || fallback;
+      }
+      return fallback || String(localeLabels.title || "Quick Input").trim() || "Quick Input";
+    }
+    let labels = resolveLabels();
+    let titleText = resolveTitleText();
     const defaults = deepMerge(deepMerge({}, DEFAULT_CONFIG), options.defaults || {});
     const rawAdapter = options.adapter && typeof options.adapter === "object" ? options.adapter : {};
     const adapter = Object.freeze({
@@ -10635,12 +11459,12 @@ ${displayTargetText}`;
       waitForReadyToSend: typeof rawAdapter.waitForReadyToSend === "function" ? rawAdapter.waitForReadyToSend : null,
       waitForNewChatReady: typeof rawAdapter.waitForNewChatReady === "function" ? rawAdapter.waitForNewChatReady : null,
       triggerNewChat: typeof rawAdapter.triggerNewChat === "function" ? rawAdapter.triggerNewChat : typeof rawAdapter.triggerNewChatRetry === "function" ? rawAdapter.triggerNewChatRetry : async ({ hotkey }) => executeEngineShortcutByHotkey(engine, hotkey),
-      newChatLabel: typeof rawAdapter.newChatLabel === "string" ? rawAdapter.newChatLabel : typeof rawAdapter.retryNewChatLabel === "string" ? rawAdapter.retryNewChatLabel : "",
+      newChatLabel: typeof rawAdapter.newChatLabel === "string" || typeof rawAdapter.newChatLabel === "function" ? rawAdapter.newChatLabel : typeof rawAdapter.retryNewChatLabel === "string" || typeof rawAdapter.retryNewChatLabel === "function" ? rawAdapter.retryNewChatLabel : "",
       sendMessage: typeof rawAdapter.sendMessage === "function" ? rawAdapter.sendMessage : async (composerEl) => simulateKeystroke("ENTER", { target: composerEl })
     });
     const hasCustomNewChatTrigger = typeof rawAdapter.triggerNewChat === "function" || typeof rawAdapter.triggerNewChatRetry === "function";
     const lockNewChatHotkey = !!rawAdapter.lockNewChatHotkey;
-    const lockedNewChatHotkeyDisplay = String(rawAdapter.lockedNewChatHotkeyDisplay || "").trim();
+    const lockedNewChatHotkeyDisplay = rawAdapter.lockedNewChatHotkeyDisplay;
     let overlayEl = null;
     let overlayRootEl = null;
     let backdropEl = null;
@@ -10690,6 +11514,9 @@ ${displayTargetText}`;
     let draftWriteChain = Promise.resolve(null);
     let panelLayoutRaf = 0;
     let pendingLogScrollToBottom = false;
+    if (engineI18n && typeof engineI18n.addLocaleChangeListener === "function") {
+      engineI18n.addLocaleChangeListener(() => refreshLocale());
+    }
     let dragPointerId = null;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
@@ -10720,7 +11547,7 @@ ${displayTargetText}`;
         try {
           return await task();
         } catch (error) {
-          warnQuickInput("写入 QuickInput 草稿失败。", error);
+          warnQuickInput("Failed to write QuickInput draft.", error);
           return null;
         }
       };
@@ -11106,14 +11933,31 @@ ${displayTargetText}`;
       return "system";
     }
     function getNewChatTriggerLabel(hotkey) {
-      const label = String(adapter.newChatLabel || "").trim();
+      const label = resolveDynamicText(adapter.newChatLabel, "");
       return label || String(hotkey || "").trim();
     }
     function getLockedNewChatHotkeyDisplay(cfg = null) {
       const value = String(
         cfg && typeof cfg.newChatHotkey === "string" ? cfg.newChatHotkey : defaults.newChatHotkey
       );
-      return lockedNewChatHotkeyDisplay || getNewChatTriggerLabel(value);
+      return resolveDynamicText(lockedNewChatHotkeyDisplay, "") || getNewChatTriggerLabel(value);
+    }
+    function resolveDynamicText(value, fallback = "") {
+      let raw = value;
+      if (typeof raw === "function") {
+        try {
+          raw = raw({
+            engine,
+            i18n: engineI18n || quickI18n,
+            labels,
+            locale: getEffectiveLocale()
+          });
+        } catch {
+          raw = fallback;
+        }
+      }
+      const text = String(raw ?? fallback).trim();
+      return text || String(fallback || "").trim();
     }
     function getDelayUnitLabels() {
       return labels.delayUnits && typeof labels.delayUnits === "object" ? { ...DELAY_UNIT_LABELS, ...labels.delayUnits } : DELAY_UNIT_LABELS;
@@ -11127,7 +11971,8 @@ ${displayTargetText}`;
       inputEl.min = "0";
       inputEl.step = "any";
       inputEl.max = formatDelayInputValue(maxMs, unit);
-      inputEl.title = `最大 ${formatDelayWithUnit(maxMs, unit, getDelayUnitLabels())}`;
+      const formattedMax = formatDelayWithUnit(maxMs, unit, getDelayUnitLabels());
+      inputEl.title = labels.messages?.maxDelayTitle ? labels.messages.maxDelayTitle(formattedMax) : DEFAULT_LABELS.messages.maxDelayTitle(formattedMax);
     }
     function setDelayControlValue(inputEl, unitEl, delayMs, unit, maxMs) {
       if (!inputEl || !unitEl) return;
@@ -11682,7 +12527,7 @@ ${displayTargetText}`;
       try {
         setImageFiles([], { skipDraftPersist: true });
       } catch (error) {
-        warnQuickInput("清理图片草稿状态时发生异常。", error);
+        warnQuickInput("Error while clearing image draft state.", error);
       }
       void persistDraftSnapshot({
         text: preserveText ? String(textEl?.value ?? "") : "",
@@ -11694,7 +12539,7 @@ ${displayTargetText}`;
       try {
         storedDraft = await loadDraft(draftStorageKey);
       } catch (error) {
-        warnQuickInput("读取已保存草稿失败，已忽略该草稿。", error);
+        warnQuickInput("Failed to read saved draft; ignored it.", error);
       }
       if (textEl) textEl.value = String(storedDraft.text ?? "");
       if (!storedDraft.images.length) {
@@ -11719,7 +12564,7 @@ ${displayTargetText}`;
           void persistDraftSnapshot({ text: String(textEl?.value ?? ""), images: restoredEntries });
         }
       } catch (error) {
-        warnQuickInput("恢复图片草稿失败，已跳过损坏的图片草稿数据。", error);
+        warnQuickInput("Failed to restore image draft; skipped corrupted image draft data.", error);
         clearDraftImagesState({ preserveText: true });
       }
     }
@@ -11747,8 +12592,8 @@ ${displayTargetText}`;
           delBtn.type = "button";
           delBtn.className = "qi-preview-del";
           delBtn.textContent = "×";
-          delBtn.title = labels.buttons?.delete || "删除";
-          delBtn.setAttribute("aria-label", labels.aria?.deleteImage || "删除该图片");
+          delBtn.title = labels.buttons?.delete || DEFAULT_LABELS.buttons.delete;
+          delBtn.setAttribute("aria-label", labels.aria?.deleteImage || DEFAULT_LABELS.aria.deleteImage);
           delBtn.disabled = running;
           delBtn.addEventListener("click", (e) => {
             e.preventDefault();
@@ -11757,7 +12602,7 @@ ${displayTargetText}`;
             const next = imageFiles.filter((_, i) => i !== index);
             setImageFiles(next);
             const label = file.name ? `：${file.name}` : ` #${index + 1}`;
-            appendGlobalLog(labels.messages?.imageDeleted ? labels.messages.imageDeleted(label, next.length) : `已删除图片${label}（剩余 ${next.length} 张）。`, { level: "ok" });
+            appendGlobalLog(labels.messages?.imageDeleted ? labels.messages.imageDeleted(label, next.length) : DEFAULT_LABELS.messages.imageDeleted(label, next.length), { level: "ok" });
           });
           wrap.appendChild(delBtn);
           imagePreviewListEl.appendChild(wrap);
@@ -12233,8 +13078,8 @@ ${displayTargetText}`;
       delBtn.type = "button";
       delBtn.className = "qi-hotkey-del";
       delBtn.textContent = "×";
-      delBtn.title = labels.buttons?.delete || "删除";
-      delBtn.setAttribute("aria-label", labels.aria?.deleteHotkey || "删除该快捷键");
+      delBtn.title = labels.buttons?.delete || DEFAULT_LABELS.buttons.delete;
+      delBtn.setAttribute("aria-label", labels.aria?.deleteHotkey || DEFAULT_LABELS.aria.deleteHotkey);
       delBtn.disabled = running;
       delBtn.addEventListener("click", (e) => {
         e.preventDefault();
@@ -12436,6 +13281,10 @@ ${displayTargetText}`;
         runtime,
         chunkMs
       });
+      const getStageLabel = (key, suffix = "") => {
+        const base = String(labels.stages?.[key] || DEFAULT_LABELS.stages?.[key] || key).trim();
+        return `${base}${suffix || ""}`;
+      };
       setActiveTab?.("log");
       const startRows = labels.messages?.startRows ? labels.messages.startRows(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length) : DEFAULT_LABELS.messages.startRows(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length);
       const startMsg = labels.messages?.start ? labels.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length) : DEFAULT_LABELS.messages.start(cfg.loopCount, toolHotkeys, newChatDisplayLabel, images.length);
@@ -12446,7 +13295,7 @@ ${displayTargetText}`;
         if (typeof DEFAULT_LABELS.messages.startSummary === "string" && DEFAULT_LABELS.messages.startSummary.trim()) {
           return DEFAULT_LABELS.messages.startSummary.trim();
         }
-        return "执行配置";
+        return DEFAULT_LABELS.messages.startSummary || "Run configuration";
       })();
       runConfigGroupEl = appendConfigLogGroup(
         startSummary,
@@ -12559,7 +13408,9 @@ ${displayTargetText}`;
             return;
           }
           try {
-            appendLoopLog(`诊断: ${JSON.stringify(diag)}`, { level: "error" });
+            const json = JSON.stringify(diag);
+            const diagMsg = labels.messages?.diagnostics ? labels.messages.diagnostics(json) : DEFAULT_LABELS.messages.diagnostics(json);
+            appendLoopLog(diagMsg, { level: "error" });
           } catch {
           }
         }
@@ -12587,14 +13438,14 @@ ${displayTargetText}`;
         const expected = Math.max(0, Number(expectedCount) || 0);
         const current = getReadyAttachmentCount(readyState);
         if (expected > 0 && current < expected) {
-          return `图片数量未达到预期：当前 ${current} 张，期望至少 ${expected} 张。`;
+          return labels.messages?.imageCountNotReady ? labels.messages.imageCountNotReady(current, expected) : DEFAULT_LABELS.messages.imageCountNotReady(current, expected);
         }
         const reason = String(readyState?.reason || "").trim().toLowerCase();
         if (reason === "no-composer") {
           return labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound;
         }
         if (reason === "timeout") {
-          return `等待图片上传完成超时：当前识别到 ${current} 张图片。`;
+          return labels.messages?.imageUploadTimeout ? labels.messages.imageUploadTimeout(current) : DEFAULT_LABELS.messages.imageUploadTimeout(current);
         }
         return "";
       }
@@ -12604,7 +13455,7 @@ ${displayTargetText}`;
         }
         const actualLength = String(state?.actualText || "").length;
         const expectedLength = String(expectedText || "").length;
-        return `文字校验失败${stageLabel ? `（${stageLabel}）` : ""}：当前检测到 ${actualLength} / ${expectedLength} 个字符。`;
+        return labels.messages?.textVerifyFailed ? labels.messages.textVerifyFailed(stageLabel, actualLength, expectedLength) : DEFAULT_LABELS.messages.textVerifyFailed(stageLabel, actualLength, expectedLength);
       }
       async function attemptSetPromptText(composerEl, text) {
         try {
@@ -12801,7 +13652,7 @@ ${displayTargetText}`;
             const currentCount2 = getReadyAttachmentCount(ready);
             const resetMsg = labels.messages?.resettingImages ? labels.messages.resettingImages(currentCount2, expected, resetAttempt, maxResetAttempts) : DEFAULT_LABELS.messages.resettingImages(currentCount2, expected, resetAttempt, maxResetAttempts);
             appendLoopLog(resetMsg, { level: "error" });
-            const beforeResetReady = await verifyInputUrlReady(`重传前#${resetAttempt}`);
+            const beforeResetReady = await verifyInputUrlReady(getStageLabel("beforeReset", `#${resetAttempt}`));
             if (beforeResetReady === "cancelled") {
               return { ok: false, cancelled: true, composer: composerRef, ready };
             }
@@ -12845,7 +13696,7 @@ ${displayTargetText}`;
                 cancelled: false,
                 composer: composerRef,
                 ready: reuploadResult,
-                message: typeof reuploadResult?.message === "string" && reuploadResult.message.trim() ? reuploadResult.message.trim() : "图片重新上传失败：已取消发送，避免文字先发。"
+                message: typeof reuploadResult?.message === "string" && reuploadResult.message.trim() ? reuploadResult.message.trim() : labels.messages?.imageReuploadFailed || DEFAULT_LABELS.messages.imageReuploadFailed
               };
             }
             const reuploadedMsg = labels.messages?.reuploadedImages ? labels.messages.reuploadedImages(images.length, expected) : DEFAULT_LABELS.messages.reuploadedImages(images.length, expected);
@@ -12866,7 +13717,7 @@ ${displayTargetText}`;
           }
           const repairMsg = labels.messages?.repairingImages ? labels.messages.repairingImages(missingCount, currentCount, expected, repairAttempt, maxRepairAttempts) : DEFAULT_LABELS.messages.repairingImages(missingCount, currentCount, expected, repairAttempt, maxRepairAttempts);
           appendLoopLog(repairMsg, { level: "error" });
-          const beforeRepairReady = await verifyInputUrlReady(`补图前#${repairAttempt}`);
+          const beforeRepairReady = await verifyInputUrlReady(getStageLabel("beforeRepair", `#${repairAttempt}`));
           if (beforeRepairReady === "cancelled") {
             return { ok: false, cancelled: true, composer: composerRef, ready };
           }
@@ -12906,7 +13757,7 @@ ${displayTargetText}`;
         if (cancelRun) break;
         const marker = labels.messages?.loopMarker ? labels.messages.loopMarker(i + 1, cfg.loopCount) : DEFAULT_LABELS.messages.loopMarker(i + 1, cfg.loopCount);
         startLoopLogGroup(marker);
-        const loopUrlReady = await verifyInputUrlReady("本轮开始");
+        const loopUrlReady = await verifyInputUrlReady(getStageLabel("loopStart"));
         if (loopUrlReady !== true) {
           if (loopUrlReady === "cancelled") markRunCancelled();
           break;
@@ -12921,7 +13772,7 @@ ${displayTargetText}`;
           appendLoopLog(labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound, { level: "error" });
           break;
         }
-        const focusedUrlReady = await verifyInputUrlReady("输入框聚焦后");
+        const focusedUrlReady = await verifyInputUrlReady(getStageLabel("afterComposerFocus"));
         if (focusedUrlReady !== true) {
           if (focusedUrlReady === "cancelled") markRunCancelled();
           break;
@@ -12950,7 +13801,7 @@ ${displayTargetText}`;
           break;
         }
         if (images.length) {
-          const beforeImagesReady = await verifyInputUrlReady("贴图前");
+          const beforeImagesReady = await verifyInputUrlReady(getStageLabel("beforeImages"));
           if (beforeImagesReady !== true) {
             if (beforeImagesReady === "cancelled") markRunCancelled();
             break;
@@ -12969,25 +13820,26 @@ ${displayTargetText}`;
           if (!result?.ok) {
             markRunFailed();
             cancelRun = true;
-            const msg = typeof result?.message === "string" && result.message.trim() ? result.message.trim() : "图片插入失败：本轮将中止发送。";
+            const msg = typeof result?.message === "string" && result.message.trim() ? result.message.trim() : labels.messages?.imageInsertFailed || DEFAULT_LABELS.messages.imageInsertFailed;
             appendLoopLog(msg, { level: "error" });
             break;
           }
-          appendLoopLog(`已成功插入图片：${images.length} 张。`, { level: "ok" });
+          const insertedMsg = labels.messages?.imagesInserted ? labels.messages.imagesInserted(images.length) : DEFAULT_LABELS.messages.imagesInserted(images.length);
+          appendLoopLog(insertedMsg, { level: "ok" });
           if (!await waitStep(cfg.stepDelayMs)) {
             markRunCancelled();
             break;
           }
         }
         if (promptText.trim()) {
-          const beforeTextReady = await verifyInputUrlReady("文字输入前");
+          const beforeTextReady = await verifyInputUrlReady(getStageLabel("beforeText"));
           if (beforeTextReady !== true) {
             if (beforeTextReady === "cancelled") markRunCancelled();
             break;
           }
           const textInsertedMsg = labels.messages?.textInserted ? labels.messages.textInserted(true) : DEFAULT_LABELS.messages.textInserted(true);
           const textCommitResult = await ensurePromptCommitted(composer, promptText, {
-            stageLabel: "文字输入后",
+            stageLabel: getStageLabel("afterText"),
             shouldInsertFirst: true,
             successLog: textInsertedMsg
           });
@@ -13009,7 +13861,7 @@ ${displayTargetText}`;
         if (toolHotkeys.length) {
           for (const hotkey of toolHotkeys) {
             if (cancelRun) break;
-            const beforeToolReady = await verifyInputUrlReady(`工具快捷键前:${hotkey}`);
+            const beforeToolReady = await verifyInputUrlReady(getStageLabel("beforeTool", `:${hotkey}`));
             if (beforeToolReady !== true) {
               if (beforeToolReady === "cancelled") markRunCancelled();
               break;
@@ -13039,21 +13891,21 @@ ${displayTargetText}`;
             if (detail) appendLoopLog(detail, { level: "error" });
             break;
           }
-          appendLoopLog("图片已就绪。", { level: "ok" });
+          appendLoopLog(labels.messages?.imageReady || DEFAULT_LABELS.messages.imageReady, { level: "ok" });
           if (!await waitStep(Math.min(300, cfg.stepDelayMs), 80)) {
             markRunCancelled();
             break;
           }
         }
         if (cancelRun) break;
-        const beforeSendReady = await verifyInputUrlReady("发送前");
+        const beforeSendReady = await verifyInputUrlReady(getStageLabel("beforeSend"));
         if (beforeSendReady !== true) {
           if (beforeSendReady === "cancelled") markRunCancelled();
           break;
         }
         if (promptText.trim()) {
           const textCommitResult = await ensurePromptCommitted(composer, promptText, {
-            stageLabel: "发送前"
+            stageLabel: getStageLabel("beforeSend")
           });
           if (textCommitResult?.composer) composer = textCommitResult.composer;
           if (textCommitResult?.cancelled) {
@@ -13118,6 +13970,8 @@ ${displayTargetText}`;
     }
     function ensureUi() {
       if (overlayEl) return;
+      labels = resolveLabels();
+      titleText = resolveTitleText();
       try {
         globalThis.document?.getElementById?.(overlayId)?.remove?.();
       } catch {
@@ -13456,20 +14310,22 @@ ${displayTargetText}`;
       try {
         writeConfigToUi(loadConfig(storageKey, defaults));
       } catch (error) {
-        warnQuickInput("读取 QuickInput 配置失败，已回退到默认配置。", error);
+        warnQuickInput("Failed to read QuickInput config; fell back to defaults.", error);
         writeConfigToUi(defaults);
       }
       draftRestorePromise = restoreDraftFromStorage().catch((error) => {
-        warnQuickInput("恢复 QuickInput 草稿失败，弹窗将忽略损坏的草稿数据继续打开。", error);
+        warnQuickInput("Failed to restore QuickInput draft; continuing with corrupted draft data ignored.", error);
         clearDraftImagesState({ preserveText: true });
       });
       try {
         syncRunControls();
       } catch (error) {
-        warnQuickInput("同步 QuickInput 运行控件状态失败。", error);
+        warnQuickInput("Failed to sync QuickInput run controls.", error);
       }
     }
     function open() {
+      labels = resolveLabels();
+      titleText = resolveTitleText();
       ensureUi();
       stopDrag();
       setOverlayVisibility(true);
@@ -13498,6 +14354,56 @@ ${displayTargetText}`;
       void persistDraftText();
       stopThemeAutoSync();
       setOverlayVisibility(false);
+    }
+    function resetUiRefs() {
+      overlayEl = null;
+      overlayRootEl = null;
+      backdropEl = null;
+      panelEl = null;
+      headerEl = null;
+      logEl = null;
+      inputBodyEl = null;
+      inputActionsEl = null;
+      logActionsEl = null;
+      runConfigGroupEl = null;
+      activeLoopLogGroupEl = null;
+      activeLoopLogBodyEl = null;
+      fileInputEl = null;
+      previewRowEl = null;
+      imagePreviewShellEl = null;
+      clearAllImagesBtnEl = null;
+      imagePreviewListEl = null;
+      imageDropEl = null;
+      textEl = null;
+      hotkeyListEl = null;
+      addHotkeyBtnEl = null;
+      hotkeyInputs.length = 0;
+      newChatHotkeyEl = null;
+      loopEl = null;
+      stepDelayEl = null;
+      stepDelayUnitEl = null;
+      loopDelayEl = null;
+      loopDelayUnitEl = null;
+      clearBeforeRunEl = null;
+      stopButtons.length = 0;
+      playPauseButtons.length = 0;
+      setActiveTab = null;
+      usesShadowUi = false;
+    }
+    function refreshLocale() {
+      labels = resolveLabels();
+      titleText = resolveTitleText();
+      if (!overlayEl) return;
+      if (running) return;
+      const wasOpen = isOpen();
+      stopDrag();
+      stopThemeAutoSync();
+      try {
+        overlayEl.remove();
+      } catch {
+      }
+      resetUiRefs();
+      if (wasOpen) open();
     }
     function toggle() {
       if (isOpen()) {

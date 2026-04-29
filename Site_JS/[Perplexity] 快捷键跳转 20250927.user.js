@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         [Perplexity] 快捷键跳转 [20260423] v1.0.0
+// @name:en      [Perplexity] Shortcut Jump [20260423] v1.0.0
 // @namespace    0_V userscripts/[Perplexity] shortcut
 // @description  为 Perplexity.ai 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)、图标缓存、用户体验优化等功能。（基于 Template 模块重构）
+// @description:en Adds custom shortcuts for Perplexity.ai with URL jumps, clicks, simulated keys, custom icons, selectors, dark mode, an icon library, icon caching, and UX improvements.
 
 // @version      [20260423] v1.0.0
 // @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
 // @match        https://www.perplexity.ai/*
 
@@ -12,6 +15,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @grant        GM_unregisterMenuCommand
 
 // @connect      *
 
@@ -66,6 +70,25 @@
     const protectedIconUrls = [
       "https://www.perplexity.ai/favicon.ico"
     ];
+    const SITE_MESSAGES = Object.freeze({
+      "zh-CN": {
+        menuCommandLabel: "Perplexity - 设置快捷键",
+        panelTitle: "Perplexity - 自定义快捷键",
+        shortcuts: {
+          "New Thread": "新建线程",
+          "Toggle Incognito": "切换隐身模式",
+          "Focus Ask Input": "聚焦提问输入框",
+          "Go to Home": "前往首页",
+          "Go to Library": "前往资料库",
+          "Go to Discover": "前往发现",
+          "Go to Spaces": "前往 Spaces"
+        }
+      },
+      "en-US": {
+        menuCommandLabel: "Perplexity - Shortcut settings",
+        panelTitle: "Perplexity - Custom shortcuts"
+      }
+    });
     const defaultShortcuts = [
       // --- Perplexity原生快捷键模拟 ---
       {
@@ -159,6 +182,9 @@
         idPrefix: "perplexity",
         cssPrefix: "perplexity",
         compactBreakpoint: 800
+      },
+      i18n: {
+        messages: SITE_MESSAGES
       },
       defaultIconURL,
       iconLibrary: defaultIcons,

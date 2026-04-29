@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         [LINUX DO] 快捷键跳转 [20260423] v1.0.0
+// @name:en      [LINUX DO] Shortcut Jump [20260423] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Linux Do 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、搜索模板变量与图标库管理，并适配 Discourse 的 SPA 导航场景。
+// @description:en A visual shortcut center for Linux Do with URL jumps, element clicks, key simulation, search template variables, icon library management, and Discourse SPA navigation support.
 
 // @version      [20260423] v1.0.0
 // @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
 // @match        https://linux.do/*
 
@@ -12,6 +15,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @grant        GM_unregisterMenuCommand
 
 // @connect      *
 
@@ -82,6 +86,29 @@
       { name: "Wikipedia", url: "https://www.wikipedia.org/static/favicon/wikipedia.ico" }
     ];
     const protectedIconUrls = [defaultIconURL];
+    const SITE_MESSAGES = Object.freeze({
+      "zh-CN": {
+        menuCommandLabel: "Linux Do - 设置快捷键",
+        panelTitle: "Linux Do - 自定义快捷键",
+        shortcuts: {
+          "New created": "最新创建",
+          "My Topic": "我的主题",
+          "Views": "浏览量",
+          "Search: latest_topic": "搜索：latest_topic"
+        }
+      },
+      "en-US": {
+        menuCommandLabel: "Linux Do - Shortcut settings",
+        panelTitle: "Linux Do - Custom shortcuts",
+        shortcuts: {
+          "书签": "Bookmarks",
+          "最新帖子": "Latest posts",
+          "热门帖子": "Hot posts",
+          "分类页": "Categories",
+          "标签页": "Tags"
+        }
+      }
+    });
     const baseShortcut = {
       url: "",
       urlMethod: "current",
@@ -353,6 +380,9 @@
         cssPrefix: "linuxdo",
         compactBreakpoint: 800
       },
+      i18n: {
+        messages: SITE_MESSAGES
+      },
       defaultIconURL,
       iconLibrary: defaultIcons,
       protectedIconUrls,
@@ -363,8 +393,8 @@
       allowOverrideBuiltinActions: true,
       actionTypeMeta: {
         selector: {
-          label: "元素点击",
-          shortLabel: "点击",
+          label: "Element click",
+          shortLabel: "Click",
           color: "#FF9800",
           builtin: true
         }

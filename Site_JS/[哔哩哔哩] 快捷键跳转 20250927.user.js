@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         [哔哩哔哩] 快捷键跳转 [20260423] v1.0.0
+// @name:en      [Bilibili] Shortcut Jump [20260423] v1.0.0
 // @namespace    0_V userscripts/bilibiliSearch Shortcuts
 // @description  在 Bilibili 搜索页面，通过快捷键快速切换到对应的搜索分类，支持多种操作类型（URL跳转/元素点击/按键模拟），包含图标库管理、完善暗黑模式支持、智能事件隔离、滚动锁定等高级功能。基于模版架构全面升级。
+// @description:en Quickly switch Bilibili search categories with shortcuts. Supports URL jumps, element clicks, key simulation, icon library management, dark mode, event isolation, and scroll lock.
 
 // @version      [20260423] v1.0.0
 // @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
 // @match        https://*.bilibili.com/*
 
@@ -12,6 +15,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @grant        GM_unregisterMenuCommand
 
 // @connect      *
 
@@ -47,6 +51,22 @@
       return;
     }
     const defaultIconURL = "https://www.bilibili.com/favicon.ico";
+    const SITE_MESSAGES = Object.freeze({
+      "en-US": {
+        menuCommandLabel: "Bilibili - Shortcut settings",
+        panelTitle: "Bilibili - Custom shortcuts",
+        shortcuts: {
+          "综合搜索": "All search",
+          "视频搜索": "Video search",
+          "直播搜索": "Live search",
+          "番剧搜索": "Bangumi search",
+          "UP主搜索": "Creator search",
+          "专栏搜索": "Article search",
+          "回到首页": "Go to home",
+          "打开搜索": "Open search"
+        }
+      }
+    });
     const defaultIcons = [
       { name: "哔哩哔哩", url: "https://www.bilibili.com/favicon.ico" },
       { name: "哔哩哔哩搜索", url: "https://search.bilibili.com/favicon.ico" },
@@ -172,6 +192,9 @@
         idPrefix: "bilibili",
         cssPrefix: "bilibili",
         compactBreakpoint: 800
+      },
+      i18n: {
+        messages: SITE_MESSAGES
       },
       // 图标配置
       defaultIconURL,

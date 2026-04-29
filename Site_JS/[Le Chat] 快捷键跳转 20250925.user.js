@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         [Le Chat] 快捷键跳转 [20260423] v1.0.0
+// @name:en      [Le Chat] Shortcut Jump [20260423] v1.0.0
 // @namespace    0_V userscripts/[Le Chat] 快捷键跳转
 // @description  为 Le Chat 添加自定义快捷键，依托通用模板实现快捷面板、图标库、统计筛选、暗黑模式、自适应布局、事件隔离、快捷键捕获等功能。
+// @description:en Adds custom shortcuts for Le Chat with a shortcut panel, icon library, stats filters, dark mode, responsive layout, event isolation, and shortcut capture.
 
 // @version      [20260423] v1.0.0
 // @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
 // @match        https://chat.mistral.ai/*
 
@@ -12,6 +15,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @grant        GM_unregisterMenuCommand
 
 // @connect      *
 
@@ -64,6 +68,25 @@
       "https://chat.mistral.ai/favicon.ico",
       "https://mistral.ai/favicon.ico"
     ];
+    const SITE_MESSAGES = Object.freeze({
+      "zh-CN": {
+        menuCommandLabel: "Le Chat - 设置快捷键",
+        panelTitle: "Le Chat - 自定义快捷键",
+        shortcuts: {
+          "New Chat": "新建聊天",
+          "Toggle Think Mode": "切换思考模式",
+          "Toggle Research Mode": "切换研究模式",
+          "Upload Files": "上传文件",
+          "Voice Mode": "语音模式",
+          "Agent Selection": "选择 Agent",
+          "Tools Selection": "选择工具"
+        }
+      },
+      "en-US": {
+        menuCommandLabel: "Le Chat - Shortcut settings",
+        panelTitle: "Le Chat - Custom shortcuts"
+      }
+    });
     const defaultShortcuts = [
       {
         name: "New Chat",
@@ -166,6 +189,9 @@
         idPrefix: "lechat",
         cssPrefix: "lechat",
         compactBreakpoint: 800
+      },
+      i18n: {
+        messages: SITE_MESSAGES
       },
       defaultIconURL,
       iconLibrary: defaultIcons,

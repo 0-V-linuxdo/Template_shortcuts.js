@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         [DeepSeek] 快捷键跳转 [20260423] v1.0.0
+// @name:en      [DeepSeek] Shortcut Jump [20260423] v1.0.0
 // @namespace    0_V userscripts/[DeepSeek] shortcut
 // @description  为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025
+// @description:en Adds custom shortcuts for DeepSeek Chat with URL jumps, clicks, simulated keys, a visual settings panel, filters, dark mode, responsive layout, icon cache, and shortcut capture.
 
 // @version      [20260423] v1.0.0
 // @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
 // @match        https://chat.deepseek.com/*
 
@@ -12,6 +15,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @grant        GM_unregisterMenuCommand
 
 // @connect      *
 
@@ -66,6 +70,18 @@
     const protectedIconUrls = [
       "https://chat.deepseek.com/favicon.svg"
     ];
+    const SITE_MESSAGES = Object.freeze({
+      "en-US": {
+        menuCommandLabel: "DeepSeek - Shortcut settings",
+        panelTitle: "DeepSeek - Custom shortcuts",
+        shortcuts: {
+          "新聊天": "New chat",
+          "Search 按钮": "Search button",
+          "DeepThink 按钮": "DeepThink button",
+          "侧边栏": "Sidebar"
+        }
+      }
+    });
     const defaultShortcuts = [
       // === DeepSeek 核心功能快捷键 ===
       {
@@ -126,6 +142,9 @@
         idPrefix: "deepseek",
         cssPrefix: "deepseek",
         compactBreakpoint: 800
+      },
+      i18n: {
+        messages: SITE_MESSAGES
       },
       defaultIconURL,
       iconLibrary: defaultIcons,

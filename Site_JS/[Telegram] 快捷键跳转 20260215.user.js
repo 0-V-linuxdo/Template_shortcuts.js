@@ -1,10 +1,13 @@
 // ==UserScript==
 // @name         [Telegram] 快捷键跳转 [20260423] v1.0.0
+// @name:en      [Telegram] Shortcut Jump [20260423] v1.0.0
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description  为 Telegram 网页客户端提供 Template 架构的可视化快捷键中心。支持 URL 跳转、元素点击、按键模拟与图标库管理，并兼容旧版存储键与 Telegram 哈希路由跳转。
+// @description:en A Template-based visual shortcut center for Telegram Web with URL jumps, element clicks, key simulation, icon library management, legacy storage compatibility, and hash-route navigation.
 
 // @version      [20260423] v1.0.0
 // @update-log   1.0.0: 恢复 legacy require 架构，移除资源化启动链。
+// @update-log:en 1.0.0: Restored the legacy require architecture and removed the resource-based startup chain.
 
 // @match        https://web.telegram.org/a/*
 
@@ -12,6 +15,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
+// @grant        GM_unregisterMenuCommand
 
 // @connect      *
 
@@ -75,6 +79,20 @@
       "https://web.telegram.org/a/favicon.ico",
       "https://telegram.org/favicon.ico"
     ];
+    const SITE_MESSAGES = Object.freeze({
+      "en-US": {
+        menuCommandLabel: "Telegram - Shortcut settings",
+        panelTitle: "Telegram - Custom shortcuts",
+        shortcuts: {
+          "返回聊天列表": "Return to chat list",
+          "返回": "Back",
+          "搜索聊天": "Search chat",
+          "到底部": "Go to bottom",
+          "搜索关闭": "Close search",
+          "菜单按钮": "Menu button"
+        }
+      }
+    });
     const baseShortcut = {
       url: "",
       urlMethod: "current",
@@ -296,6 +314,9 @@
       ui: {
         idPrefix: "telegram"
       },
+      i18n: {
+        messages: SITE_MESSAGES
+      },
       defaultIconURL,
       iconLibrary: defaultIcons,
       protectedIconUrls,
@@ -307,13 +328,13 @@
       allowOverrideBuiltinActions: true,
       actionTypeMeta: {
         selector: {
-          label: "元素点击",
-          shortLabel: "点击",
+          label: "Element click",
+          shortLabel: "Click",
           color: "#FF9800",
           builtin: true
         },
         url: {
-          label: "URL跳转",
+          label: "URL jump",
           shortLabel: "URL",
           color: "#4CAF50",
           builtin: true
