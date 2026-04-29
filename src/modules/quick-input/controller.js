@@ -134,6 +134,7 @@ export function createController(userOptions = {}) {
             let draftRestorePromise = null;
             let draftWriteChain = Promise.resolve(null);
             let panelLayoutRaf = 0;
+            let panelLayoutFollowupPasses = 0;
             let pendingLogScrollToBottom = false;
             if (engineI18n && typeof engineI18n.addLocaleChangeListener === "function") {
                 engineI18n.addLocaleChangeListener(() => refreshLocale());
@@ -885,6 +886,32 @@ export function createController(userOptions = {}) {
                 return measureScrollableElementHeightPx(inputBodyEl);
             }
 
+            function measureNaturalInputBodyHeightPx() {
+                if (!inputBodyEl) return 0;
+                if (!panelEl) return measureInputBodyContentHeightPx();
+
+                const prevPanelHeight = panelEl.style.height;
+                const prevPanelMaxHeight = panelEl.style.maxHeight;
+                const prevBodyFlex = inputBodyEl.style.flex;
+                const prevBodyOverflow = inputBodyEl.style.overflow;
+
+                try {
+                    panelEl.style.height = "auto";
+                    panelEl.style.maxHeight = "none";
+                    inputBodyEl.style.flex = "0 0 auto";
+                    inputBodyEl.style.overflow = "visible";
+
+                    const scrollHeight = measureScrollableElementHeightPx(inputBodyEl);
+                    const contentHeight = measureInputBodyContentHeightPx();
+                    return Math.max(scrollHeight, contentHeight);
+                } finally {
+                    panelEl.style.height = prevPanelHeight;
+                    panelEl.style.maxHeight = prevPanelMaxHeight;
+                    inputBodyEl.style.flex = prevBodyFlex;
+                    inputBodyEl.style.overflow = prevBodyOverflow;
+                }
+            }
+
             function clampInputBodyScroll() {
                 if (!inputBodyEl) return;
                 try {
@@ -903,7 +930,7 @@ export function createController(userOptions = {}) {
                     return headerHeight + logHeight + actionsHeight + panelBorderHeight;
                 }
 
-                const bodyHeight = measureInputBodyContentHeightPx();
+                const bodyHeight = measureNaturalInputBodyHeightPx();
                 const actionsHeight = measureElementHeightPx(inputActionsEl);
                 return headerHeight + bodyHeight + actionsHeight + panelBorderHeight;
             }
@@ -911,13 +938,13 @@ export function createController(userOptions = {}) {
             function syncPanelHeight() {
                 if (!panelEl) return;
                 const maxHeight = getPanelMaxHeightPx();
-                if (maxHeight > 0) {
-                    panelEl.style.maxHeight = `${maxHeight}px`;
-                }
                 const desiredHeight = getActiveTabDesiredHeightPx();
                 const fallbackHeight = Number(panelEl.scrollHeight);
                 const next = clampPanelHeightPx(desiredHeight || fallbackHeight);
                 if (!next) return;
+                if (maxHeight > 0) {
+                    panelEl.style.maxHeight = `${maxHeight}px`;
+                }
                 panelEl.style.height = `${next}px`;
             }
 
@@ -931,10 +958,17 @@ export function createController(userOptions = {}) {
                     logEl.scrollTop = logEl.scrollHeight;
                     pendingLogScrollToBottom = false;
                 }
+                if (panelLayoutFollowupPasses > 0) {
+                    panelLayoutFollowupPasses -= 1;
+                    panelLayoutRaf = requestAnimationFrameSafe(() => {
+                        flushScheduledPanelLayout();
+                    });
+                }
             }
 
-            function schedulePanelLayout({ scrollLogToBottom = false } = {}) {
+            function schedulePanelLayout({ scrollLogToBottom = false, followupPasses = 0 } = {}) {
                 if (scrollLogToBottom) pendingLogScrollToBottom = true;
+                panelLayoutFollowupPasses = Math.max(panelLayoutFollowupPasses, Math.max(0, Number(followupPasses) || 0));
                 if (panelLayoutRaf) return;
                 panelLayoutRaf = requestAnimationFrameSafe(() => {
                     flushScheduledPanelLayout();
@@ -1014,7 +1048,7 @@ export function createController(userOptions = {}) {
                 try {
                     if (bodyEl) bodyEl.hidden = !nextOpen;
                 } catch {}
-                if (scheduleLayout) schedulePanelLayout();
+                if (scheduleLayout) schedulePanelLayout({ followupPasses: 1 });
             }
 
             function initCollapsibleRoot(rootEl, toggleEl, bodyEl, { open = false } = {}) {
