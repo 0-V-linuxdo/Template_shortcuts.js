@@ -70,7 +70,7 @@ export function createSettingsPanelLayer(ctx = {}) {
 	            }
 
             const ACTION_TYPE_COLOR_MAP = Object.freeze({
-                all: "#64748B",
+                all: "#52525B",
                 url: "#4CAF50",
                 selector: "#FF9800",
                 simulate: "#2196F3",
@@ -157,10 +157,12 @@ export function createSettingsPanelLayer(ctx = {}) {
                 const addLine = (attrs = {}) => svg.appendChild(createSvgNode("line", { ...strokeAttrs, ...attrs }));
 
                 if (type === "all") {
-                    addRect({ x: "4", y: "4", width: "6", height: "6", rx: "1.2" });
-                    addRect({ x: "14", y: "4", width: "6", height: "6", rx: "1.2" });
-                    addRect({ x: "4", y: "14", width: "6", height: "6", rx: "1.2" });
-                    addRect({ x: "14", y: "14", width: "6", height: "6", rx: "1.2" });
+                    addLine({ x1: "9", y1: "6", x2: "20", y2: "6" });
+                    addLine({ x1: "9", y1: "12", x2: "20", y2: "12" });
+                    addLine({ x1: "9", y1: "18", x2: "20", y2: "18" });
+                    addLine({ x1: "4", y1: "6", x2: "4.01", y2: "6" });
+                    addLine({ x1: "4", y1: "12", x2: "4.01", y2: "12" });
+                    addLine({ x1: "4", y1: "18", x2: "4.01", y2: "18" });
                 } else if (type === "url") {
                     addPath("M10 13a5 5 0 0 0 7.54.54l2.46-2.46a5 5 0 0 0-7.07-7.07l-1.4 1.4");
                     addPath("M14 11a5 5 0 0 0-7.54-.54L4 12.92a5 5 0 0 0 7.07 7.07l1.4-1.4");
