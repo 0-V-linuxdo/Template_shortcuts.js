@@ -3,8 +3,8 @@
 // @name:en        [Template] Shortcut Core [20260429] v1.1.3
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @version        [20260429] v1.1.3
-// @update-log     1.1.3: 对齐脚本头部字段，修正 Type 列图标居中，并降低 Total 筛选按钮视觉权重。
-// @update-log:en  1.1.3: Aligned userscript header fields, centered Type column icons, and toned down the Total filter button.
+// @update-log     1.1.3: 对齐脚本头部字段，修正 Type 列图标居中，并将 Total 筛选改为低调列表样式。
+// @update-log:en  1.1.3: Aligned userscript header fields, centered Type column icons, and changed the Total filter to a subdued list style.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -6030,7 +6030,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       return filtered;
     }
     const ACTION_TYPE_COLOR_MAP = Object.freeze({
-      all: "#64748B",
+      all: "#52525B",
       url: "#4CAF50",
       selector: "#FF9800",
       simulate: "#2196F3",
@@ -6107,10 +6107,12 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       const addRect = (attrs = {}) => svg.appendChild(createSvgNode("rect", { ...strokeAttrs, ...attrs }));
       const addLine = (attrs = {}) => svg.appendChild(createSvgNode("line", { ...strokeAttrs, ...attrs }));
       if (type === "all") {
-        addRect({ x: "4", y: "4", width: "6", height: "6", rx: "1.2" });
-        addRect({ x: "14", y: "4", width: "6", height: "6", rx: "1.2" });
-        addRect({ x: "4", y: "14", width: "6", height: "6", rx: "1.2" });
-        addRect({ x: "14", y: "14", width: "6", height: "6", rx: "1.2" });
+        addLine({ x1: "9", y1: "6", x2: "20", y2: "6" });
+        addLine({ x1: "9", y1: "12", x2: "20", y2: "12" });
+        addLine({ x1: "9", y1: "18", x2: "20", y2: "18" });
+        addLine({ x1: "4", y1: "6", x2: "4.01", y2: "6" });
+        addLine({ x1: "4", y1: "12", x2: "4.01", y2: "12" });
+        addLine({ x1: "4", y1: "18", x2: "4.01", y2: "18" });
       } else if (type === "url") {
         addPath("M10 13a5 5 0 0 0 7.54.54l2.46-2.46a5 5 0 0 0-7.07-7.07l-1.4 1.4");
         addPath("M14 11a5 5 0 0 0-7.54-.54L4 12.92a5 5 0 0 0 7.07 7.07l1.4-1.4");
