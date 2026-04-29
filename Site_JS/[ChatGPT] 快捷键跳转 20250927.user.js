@@ -6,8 +6,8 @@
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
 // @version      [20260429] v1.0.0
-// @update-log   1.0.0: 完成完整 i18n 支持，并修复默认快捷键名称在英文环境下的自适应显示。
-// @update-log:en 1.0.0: Added full i18n support and fixed adaptive default shortcut names in English environments.
+// @update-log   1.0.0: 完成完整 i18n 支持，并更新 ChatGPT 脚本发布元数据。
+// @update-log:en 1.0.0: Added full i18n support and updated ChatGPT userscript release metadata.
 
 // @match        https://chatgpt.com/*
 
