@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         [Template] 快捷键跳转 [20260429] v1.1.1
-// @name:en      [Template] Shortcut Core [20260429] v1.1.1
+// @name         [Template] 快捷键跳转 [20260429] v1.1.2
+// @name:en      [Template] Shortcut Core [20260429] v1.1.2
 // @namespace    https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version      [20260429] v1.1.1
-// @update-log   1.1.1: 优化类别筛选按钮显示逻辑，修正类型图标样式，并将搜索按钮升级为 SVG 图标。
-// @update-log:en 1.1.1: Refined category filter labels, polished type icons, and upgraded the search button to an SVG icon.
+// @version      [20260429] v1.1.2
+// @update-log   1.1.2: 将按键模拟类别图标改为蓝色，并修正 Type 列图标居中对齐。
+// @update-log:en 1.1.2: Changed the key simulation category icon to blue and centered Type column icons.
 // @description  为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match        *://*/*
@@ -6033,7 +6033,7 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       all: "#0066cc",
       url: "#4CAF50",
       selector: "#FF9800",
-      simulate: "#9C27B0",
+      simulate: "#2196F3",
       custom: "#607D8B"
     });
     const ACTION_TYPE_COLOR_PALETTE = Object.freeze([
@@ -7198,7 +7198,9 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           color: typeMeta.color,
           textAlign: "center"
         });
-        tdType.appendChild(createActionTypeIcon(typeMeta, { size: 20 }));
+        const typeIcon = createActionTypeIcon(typeMeta, { size: 20 });
+        typeIcon.style.margin = "0 auto";
+        tdType.appendChild(typeIcon);
         styleTableCell(tdType, isDark);
         const tdTarget = document.createElement("td");
         const targetText = getShortcutTargetText(item);
@@ -8226,7 +8228,7 @@ ${displayTargetText}`;
           } else {
             console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'simulate' but has no simulateKeys defined.`);
           }
-        }, { label: options?.text?.stats?.simulate || "Key simulation", shortLabel: options?.text?.actionTypes?.simulateShortLabel || "Keys", color: "#9C27B0", builtin: true });
+        }, { label: options?.text?.stats?.simulate || "Key simulation", shortLabel: options?.text?.actionTypes?.simulateShortLabel || "Keys", color: "#2196F3", builtin: true });
         actions.register("custom", ({ shortcut, event }) => {
           executeCustomAction(shortcut, event);
         }, { label: options?.text?.stats?.custom || "Custom action", shortLabel: options?.text?.actionTypes?.customShortLabel || "Custom", color: "#607D8B", builtin: true });
