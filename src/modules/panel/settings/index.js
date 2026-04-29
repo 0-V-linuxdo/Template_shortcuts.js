@@ -127,6 +127,70 @@ export function createSettingsPanelLayer(ctx = {}) {
                 return node;
             }
 
+            function createSettingsActionIcon(action, size = 22) {
+                const svg = createSvgNode("svg", {
+                    viewBox: "0 0 24 24",
+                    fill: "none",
+                    "aria-hidden": "true",
+                    focusable: "false"
+                });
+                Object.assign(svg.style, {
+                    width: `${size}px`,
+                    height: `${size}px`,
+                    display: "block",
+                    pointerEvents: "none",
+                    flexShrink: "0"
+                });
+
+                const strokeAttrs = {
+                    stroke: "currentColor",
+                    "stroke-width": "1.8",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round"
+                };
+                const addPath = (d, attrs = {}) => svg.appendChild(createSvgNode("path", { d, ...strokeAttrs, ...attrs }));
+                const addLine = (attrs = {}) => svg.appendChild(createSvgNode("line", { ...strokeAttrs, ...attrs }));
+                const addPolyline = (points, attrs = {}) => svg.appendChild(createSvgNode("polyline", { points, ...strokeAttrs, ...attrs }));
+
+                if (action === "reset") {
+                    addPath("M3 12a9 9 0 1 0 3-6.7");
+                    addPath("M3 4v5h5");
+                } else if (action === "import") {
+                    addLine({ x1: "12", y1: "4", x2: "12", y2: "16" });
+                    addPolyline("8 12 12 16 16 12");
+                    addPath("M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2");
+                } else if (action === "export") {
+                    addLine({ x1: "12", y1: "16", x2: "12", y2: "4" });
+                    addPolyline("8 8 12 4 16 8");
+                    addPath("M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2");
+                }
+
+                return svg;
+            }
+
+            function createSettingsActionButton(action, label, bgColor, hoverColor, onClick) {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.title = label;
+                btn.setAttribute("aria-label", label);
+                btn.appendChild(createSettingsActionIcon(action));
+                btn.onclick = onClick;
+                styleButton(btn, bgColor, hoverColor);
+                Object.assign(btn.style, {
+                    width: "44px",
+                    height: "44px",
+                    minWidth: "44px",
+                    padding: "0",
+                    boxSizing: "border-box",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    lineHeight: "1",
+                    flex: "0 0 44px"
+                });
+                return btn;
+            }
+
             function createActionTypeIcon(typeMeta, iconOptions = {}) {
                 const meta = typeMeta && typeof typeMeta === "object" ? typeMeta : {};
                 const type = String(meta.type || iconOptions.type || "unknown").trim() || "unknown";
@@ -1064,44 +1128,34 @@ export function createSettingsPanelLayer(ctx = {}) {
 	                Object.assign(actions.style, {
 	                    display: "flex",
 	                    flexDirection: "row",
-                        alignItems: "stretch",
+                        alignItems: "center",
+                        justifyContent: "flex-end",
                         flexWrap: "nowrap",
-	                    gap: "10px"
+	                    gap: "8px"
 	                });
 
-	                const resetActionBtn = document.createElement("button");
-	                resetActionBtn.textContent = options.text.buttons.reset || "Reset defaults";
-	                resetActionBtn.onclick = () => {
+                    const resetActionLabel = options.text.buttons.reset || "Reset defaults";
+	                const resetActionBtn = createSettingsActionButton("reset", resetActionLabel, "#9E9E9E", "#757575", () => {
 	                    closeSettingsMenu({ restoreFocus: false });
 	                    showConfirmDialog(options?.text?.panel?.resetConfirm || "Reset to the default configuration? Changes are saved only after clicking \"Save and close\".", () => {
 	                        resetToDefaults();
 	                    });
-	                };
+	                });
 	                actions.appendChild(resetActionBtn);
-                    styleButton(resetActionBtn, "#9E9E9E", "#757575");
 
-	                const importActionBtn = document.createElement("button");
-	                importActionBtn.textContent = options.text.buttons.import || "Import";
-	                importActionBtn.onclick = () => {
+                    const importActionLabel = options.text.buttons.import || "Import";
+	                const importActionBtn = createSettingsActionButton("import", importActionLabel, "#2196F3", "#1e88e5", () => {
 	                    closeSettingsMenu({ restoreFocus: false });
 	                    openImportDialog();
-	                };
+	                });
 	                actions.appendChild(importActionBtn);
-                    styleButton(importActionBtn, "#2196F3", "#1e88e5");
 
-	                const exportActionBtn = document.createElement("button");
-	                exportActionBtn.textContent = options.text.buttons.export || "Export";
-	                exportActionBtn.onclick = () => {
+                    const exportActionLabel = options.text.buttons.export || "Export";
+	                const exportActionBtn = createSettingsActionButton("export", exportActionLabel, "#4CAF50", "#45A049", () => {
 	                    closeSettingsMenu({ restoreFocus: false });
 	                    openExportDialog();
-	                };
+	                });
 	                actions.appendChild(exportActionBtn);
-                    styleButton(exportActionBtn, "#4CAF50", "#45A049");
-
-                    [resetActionBtn, importActionBtn, exportActionBtn].forEach(btn => {
-                        btn.style.flex = "1 1 0";
-                        btn.style.minWidth = "0";
-                    });
 
 	                dialog.appendChild(actions);
 	                modal.appendChild(dialog);

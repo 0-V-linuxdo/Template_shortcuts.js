@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.1.5
-// @name:en        [Template] Shortcut Core [20260429] v1.1.5
+// @name           [Template] 快捷键跳转 [20260429] v1.2.0
+// @name:en        [Template] Shortcut Core [20260429] v1.2.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.1.5
-// @update-log     1.1.5: 修正搜索框聚焦时右侧搜索按钮被高亮背景影响的问题。
-// @update-log:en  1.1.5: Fixed the search icon button highlight leaking into the focused search field state.
+// @version        [20260429] v1.2.0
+// @update-log     1.2.0: 设置菜单底部的重置、导入、导出操作改为 SVG 图标按钮，并在 hover 时显示标题提示。
+// @update-log:en  1.2.0: Changed the settings menu reset, import, and export actions to SVG icon buttons with hover titles.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
