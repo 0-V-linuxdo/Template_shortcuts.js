@@ -172,9 +172,10 @@ export function createSettingsPanelLayer(ctx = {}) {
                 } else if (type === "simulate") {
                     addRect({ x: "3", y: "6", width: "18", height: "12", rx: "2" });
                     addLine({ x1: "7", y1: "10", x2: "7.01", y2: "10" });
-                    addLine({ x1: "11", y1: "10", x2: "11.01", y2: "10" });
-                    addLine({ x1: "15", y1: "10", x2: "15.01", y2: "10" });
-                    addLine({ x1: "8", y1: "14", x2: "16", y2: "14" });
+                    addLine({ x1: "10.5", y1: "10", x2: "10.51", y2: "10" });
+                    addLine({ x1: "13.5", y1: "10", x2: "13.51", y2: "10" });
+                    addLine({ x1: "17", y1: "10", x2: "17.01", y2: "10" });
+                    addLine({ x1: "7", y1: "14", x2: "17", y2: "14" });
                 } else if (type === "custom") {
                     addPath("M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7Z");
                 } else {
