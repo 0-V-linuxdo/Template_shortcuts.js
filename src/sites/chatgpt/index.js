@@ -67,7 +67,7 @@
         focusInput: createChatgptShortcutIconSet('<path d="M5 4h4"/><path d="M7 4v16"/><path d="M5 20h4"/><rect x="13" y="6" width="6" height="12" rx="2"/>'),
         upload: createChatgptShortcutIconSet('<path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/>'),
         temporaryChat: createChatgptShortcutIconSet('<path d="M21 12a9 9 0 1 1-9-9"/><path d="M12 7v5l3 2"/><path d="M17 3h4v4"/>'),
-        model: createChatgptShortcutIconSet('<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2"/><path d="M15 2v2"/><path d="M9 20v2"/><path d="M15 20v2"/><path d="M2 9h2"/><path d="M2 15h2"/><path d="M20 9h2"/><path d="M20 15h2"/>'),
+        model: createChatgptShortcutIconSet('<circle cx="12" cy="12" r="3"/><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M7.5 7.5 10 10"/><path d="M16.5 7.5 14 10"/><path d="M7.5 16.5 10 14"/><path d="M16.5 16.5 14 14"/>'),
         createImage: createChatgptShortcutIconSet('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>'),
         square: createChatgptShortcutIconSet('<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9z"/>'),
         deepResearch: createChatgptShortcutIconSet('<circle cx="11" cy="11" r="6"/><path d="m20 20-4.3-4.3"/><path d="M8.5 10h5"/><path d="M8.5 13h3"/>'),
@@ -80,7 +80,7 @@
         settingsDataControls: createChatgptShortcutIconSet('<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="17" r="2"/>'),
         settingsSchedules: createChatgptShortcutIconSet('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M12 14v4"/><path d="M10 16h4"/>'),
         settingsSecurity: createChatgptShortcutIconSet('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>'),
-        quickInput: createChatgptShortcutIconSet('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M7 13h10"/>')
+        quickInput: createChatgptShortcutIconSet('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M7 15h10"/>')
     });
 
     const CHATGPT_SHORTCUT_ICON_SETS = Object.freeze({

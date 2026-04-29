@@ -793,6 +793,8 @@ export function createSettingsPanelLayer(ctx = {}) {
 	                    setSearchExpanded(true, { focus: true });
 	                    return;
 	                }
+	                searchIconBtn.style.backgroundColor = "transparent";
+	                clearSearchBtn.style.backgroundColor = "transparent";
 	                searchWidget.style.borderColor = getPrimaryColor();
 	                searchWidget.style.boxShadow = `0 0 0 1px ${getPrimaryColor()}`;
 	            });
@@ -1176,9 +1178,11 @@ export function createSettingsPanelLayer(ctx = {}) {
 	                    color: getTextColor(isDark),
 	                    cursor: "pointer",
 	                    borderRadius: "6px",
+	                    outline: "none",
 	                    transition: "background-color 0.2s ease, color 0.2s ease"
 	                });
 	                searchIconBtn.onmouseover = () => {
+	                    if (document.activeElement === searchInput) return;
 	                    searchIconBtn.style.backgroundColor = getHoverColor(isDark);
 	                };
 	                searchIconBtn.onmouseout = () => {
@@ -1194,9 +1198,11 @@ export function createSettingsPanelLayer(ctx = {}) {
 	                    color: getTextColor(isDark),
 	                    cursor: "pointer",
 	                    borderRadius: "6px",
+	                    outline: "none",
 	                    transition: "background-color 0.2s ease, color 0.2s ease"
 	                });
 	                clearSearchBtn.onmouseover = () => {
+	                    if (document.activeElement === searchInput) return;
 	                    clearSearchBtn.style.backgroundColor = getHoverColor(isDark);
 	                };
 	                clearSearchBtn.onmouseout = () => {
