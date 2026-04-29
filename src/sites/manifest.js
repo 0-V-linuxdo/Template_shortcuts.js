@@ -72,16 +72,16 @@ export const SITE_MANIFEST = Object.freeze([
         sourceEntry: "src/sites/chatgpt/index.js",
         userscriptOutput: "Site_JS/[ChatGPT] 快捷键跳转 20250927.user.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260425] v1.0.7",
+            name: "[ChatGPT] 快捷键跳转 [20260429] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260425] v1.0.7",
-            updateLog: "1.0.7: 新增 Set custom instructions 原生快捷键；新增 General、Account、Data Controls、Schedules、Security 设置页快捷跳转，并为旧配置自动补齐这些默认项。",
+            version: "[20260429] v1.0.0",
+            updateLog: "1.0.0: 完成完整 i18n 支持，并修复默认快捷键名称在英文环境下的自适应显示。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260425] v1.0.7",
+                    name: "[ChatGPT] Shortcut Jump [20260429] v1.0.0",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.0.7: Added native Set custom instructions shortcut and General, Account, Data Controls, Schedules, and Security settings links; old configs are auto-filled."
+                    updateLog: "1.0.0: Added full i18n support and fixed adaptive default shortcut names in English environments."
                 }
             },
             match: [
