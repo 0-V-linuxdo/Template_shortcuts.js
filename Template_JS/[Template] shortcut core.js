@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.3.4
-// @name:en        [Template] Shortcut Core [20260429] v1.3.4
+// @name           [Template] 快捷键跳转 [20260429] v1.3.5
+// @name:en        [Template] Shortcut Core [20260429] v1.3.5
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.3.4
-// @update-log     1.3.4: 快捷输入将新对话快捷键与选项移入默认收起的“更多设置”区域，让主输入流程更紧凑。
-// @update-log:en  1.3.4: Quick Input now moves the new-chat shortcut and options into a collapsed More settings section by default, keeping the main input flow more compact.
+// @version        [20260429] v1.3.5
+// @update-log     1.3.5: 修复快捷输入“更多设置”折叠区显示不完整，重设展开布局并在展开后自动滚动到可视范围。
+// @update-log:en  1.3.5: Fixed incomplete rendering of the Quick Input More settings section by rebuilding its expanded layout and scrolling it into view when opened.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -10840,19 +10840,24 @@ ${displayTargetText}`;
                     white-space: pre-line;
                 }
                 ${hostSelector} .qi-form-collapsible {
-                    display: grid;
+                    display: flex;
+                    flex-direction: column;
                     min-width: 0;
+                    width: 100%;
                     border: 1px solid var(--qi-border);
                     border-radius: 10px;
-                    background: color-mix(in srgb, var(--qi-surface-alt) 72%, transparent);
-                    overflow: hidden;
+                    background: var(--qi-surface-alt);
+                    overflow: visible;
+                    scroll-margin-block: 12px;
                 }
                 ${hostSelector} .qi-form-collapsible-summary {
                     width: 100%;
+                    min-height: 46px;
                     border: 0;
-                    background: transparent;
+                    border-radius: 9px;
+                    background: var(--qi-surface-alt);
                     color: var(--qi-text-strong);
-                    padding: 9px 10px;
+                    padding: 10px 14px;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -10862,6 +10867,10 @@ ${displayTargetText}`;
                     font-size: 13px;
                     font-weight: 650;
                     line-height: 1.25;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    box-shadow: none;
+                    outline: none;
                 }
                 ${hostSelector} .qi-form-collapsible-summary:hover {
                     background: var(--qi-hover);
@@ -10869,6 +10878,10 @@ ${displayTargetText}`;
                 ${hostSelector} .qi-form-collapsible-summary:focus-visible {
                     outline: none;
                     box-shadow: inset 0 0 0 2px ${primaryColor};
+                }
+                ${hostSelector} .qi-form-collapsible[data-open="1"] .qi-form-collapsible-summary {
+                    border-bottom: 1px solid var(--qi-border);
+                    border-radius: 9px 9px 0 0;
                 }
                 ${hostSelector} .qi-form-collapsible-label {
                     min-width: 0;
@@ -10893,12 +10906,43 @@ ${displayTargetText}`;
                     display: none;
                 }
                 ${hostSelector} .qi-form-collapsible-body {
-                    display: grid;
-                    gap: 12px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 14px;
+                    width: 100%;
+                    height: auto;
+                    max-height: none;
                     min-width: 0;
-                    padding: 12px 10px;
-                    border-top: 1px solid var(--qi-border);
+                    padding: 14px;
+                    overflow: visible;
                     background: var(--qi-surface);
+                    border-radius: 0 0 9px 9px;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-row {
+                    grid-template-columns: minmax(112px, 0.44fr) minmax(0, 1fr);
+                    align-items: start;
+                    gap: 10px;
+                    width: 100%;
+                    min-height: 0;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-row > label {
+                    padding-top: 8px;
+                    min-width: 0;
+                    overflow-wrap: anywhere;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-inline {
+                    width: 100%;
+                    min-width: 0;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-option-check {
+                    width: 100%;
+                    min-width: 0;
+                    align-items: flex-start;
+                    padding-top: 7px;
+                }
+                ${hostSelector} .qi-form-collapsible-body .qi-option-check span {
+                    min-width: 0;
+                    overflow-wrap: anywhere;
                 }
                 ${hostSelector} input[type="text"],
                 ${hostSelector} input[type="number"],
@@ -13591,14 +13635,16 @@ ${displayTargetText}`;
     }
     function createFormCollapsibleGroup(title, { open: open2 = false } = {}) {
       const groupEl = globalThis.document.createElement("div");
-      const summaryEl = globalThis.document.createElement("button");
+      const summaryEl = globalThis.document.createElement("div");
       const labelEl = globalThis.document.createElement("span");
       const caretEl = globalThis.document.createElement("span");
       const bodyEl = globalThis.document.createElement("div");
       groupEl.className = "qi-form-collapsible";
-      summaryEl.type = "button";
       summaryEl.className = "qi-form-collapsible-summary";
+      summaryEl.setAttribute("role", "button");
+      summaryEl.tabIndex = 0;
       summaryEl.setAttribute("aria-expanded", open2 ? "true" : "false");
+      summaryEl.title = String(title || "");
       labelEl.className = "qi-form-collapsible-label";
       labelEl.textContent = String(title || "");
       caretEl.className = "qi-form-collapsible-caret";
@@ -13609,6 +13655,29 @@ ${displayTargetText}`;
       groupEl.appendChild(summaryEl);
       groupEl.appendChild(bodyEl);
       initCollapsibleRoot(groupEl, summaryEl, bodyEl, { open: open2 });
+      summaryEl.addEventListener("click", () => {
+        if (groupEl.getAttribute("data-open") !== "1") return;
+        requestAnimationFrameSafe(() => {
+          try {
+            groupEl.scrollIntoView({ block: "nearest", inline: "nearest" });
+          } catch {
+            try {
+              groupEl.scrollIntoView(false);
+            } catch {
+            }
+          }
+        });
+      });
+      summaryEl.addEventListener("keydown", (event) => {
+        const key = String(event?.key || "");
+        if (key !== "Enter" && key !== " " && key !== "Spacebar") return;
+        event.preventDefault();
+        event.stopPropagation();
+        try {
+          summaryEl.click();
+        } catch {
+        }
+      });
       return { groupEl, bodyEl };
     }
     function writeConfigToUi(cfg) {
