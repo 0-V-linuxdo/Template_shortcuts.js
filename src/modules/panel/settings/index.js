@@ -116,6 +116,74 @@ export function createSettingsPanelLayer(ctx = {}) {
                 return /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";
             }
 
+            const SVG_NS = "http://www.w3.org/2000/svg";
+
+            function createSvgNode(tag, attrs = {}) {
+                const node = document.createElementNS(SVG_NS, tag);
+                Object.entries(attrs || {}).forEach(([name, value]) => {
+                    if (value === null || value === undefined) return;
+                    node.setAttribute(name, String(value));
+                });
+                return node;
+            }
+
+            function createActionTypeIcon(typeMeta, iconOptions = {}) {
+                const meta = typeMeta && typeof typeMeta === "object" ? typeMeta : {};
+                const type = String(meta.type || iconOptions.type || "unknown").trim() || "unknown";
+                const titleText = String(meta.label || iconOptions.label || type).trim() || type;
+                const size = Number.isFinite(Number(iconOptions.size)) ? Math.max(12, Number(iconOptions.size)) : 18;
+                const svg = createSvgNode("svg", {
+                    viewBox: "0 0 24 24",
+                    fill: "none",
+                    "aria-hidden": "true",
+                    focusable: "false"
+                });
+                Object.assign(svg.style, {
+                    width: `${size}px`,
+                    height: `${size}px`,
+                    display: "block",
+                    pointerEvents: "none",
+                    flexShrink: "0"
+                });
+
+                const strokeAttrs = {
+                    stroke: "currentColor",
+                    "stroke-width": "1.8",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round"
+                };
+                const addPath = (d, attrs = {}) => svg.appendChild(createSvgNode("path", { d, ...strokeAttrs, ...attrs }));
+                const addRect = (attrs = {}) => svg.appendChild(createSvgNode("rect", { ...strokeAttrs, ...attrs }));
+                const addLine = (attrs = {}) => svg.appendChild(createSvgNode("line", { ...strokeAttrs, ...attrs }));
+
+                if (type === "all") {
+                    addRect({ x: "4", y: "4", width: "6", height: "6", rx: "1.2" });
+                    addRect({ x: "14", y: "4", width: "6", height: "6", rx: "1.2" });
+                    addRect({ x: "4", y: "14", width: "6", height: "6", rx: "1.2" });
+                    addRect({ x: "14", y: "14", width: "6", height: "6", rx: "1.2" });
+                } else if (type === "url") {
+                    addPath("M14 4h6v6");
+                    addPath("M20 4 10 14");
+                    addRect({ x: "4", y: "10", width: "10", height: "10", rx: "2" });
+                } else if (type === "selector") {
+                    addPath("M5 3 19 12 12.5 14.2 10 21 5 3Z");
+                    addLine({ x1: "12.5", y1: "14.2", x2: "17", y2: "19" });
+                } else if (type === "simulate") {
+                    addRect({ x: "3", y: "6", width: "18", height: "12", rx: "2" });
+                    addLine({ x1: "7", y1: "10", x2: "7.01", y2: "10" });
+                    addLine({ x1: "11", y1: "10", x2: "11.01", y2: "10" });
+                    addLine({ x1: "15", y1: "10", x2: "15.01", y2: "10" });
+                    addLine({ x1: "8", y1: "14", x2: "16", y2: "14" });
+                } else if (type === "custom") {
+                    addPath("M21 4.8a5.5 5.5 0 0 1-7.25 7.25L7.5 18.3a2.3 2.3 0 0 1-3.25-3.25l6.25-6.25A5.5 5.5 0 0 1 17.2 2L14 5.2 15.8 7 19 3.8c.8.1 1.5.5 2 1Z");
+                } else {
+                    addPath("M9.6 3.5a2.4 2.4 0 0 1 4.8 0v1.1h1.1a2.4 2.4 0 0 1 0 4.8h-1.1v1.2h1.2a2.4 2.4 0 0 1 0 4.8h-1.2v1.1a2.4 2.4 0 0 1-4.8 0v-1.1H8.5a2.4 2.4 0 0 1 0-4.8h1.1V9.4H8.5a2.4 2.4 0 0 1 0-4.8h1.1V3.5Z");
+                }
+
+                svg.setAttribute("title", titleText);
+                return svg;
+            }
+
             function getActionTypeMeta(actionType) {
                 const type = String(actionType || "").trim() || "unknown";
                 const entry = (typeof core?.actions?.get === "function") ? core.actions.get(type) : null;
@@ -178,7 +246,9 @@ export function createSettingsPanelLayer(ctx = {}) {
                 buttons.forEach(button => {
                     const filterType = button.dataset.filterType;
                     const isActive = state.currentFilter === filterType;
-                    const color = getButtonColor(filterType);
+                    const color = filterType === "all"
+                        ? getButtonColor("all")
+                        : getActionTypeMeta(filterType).color;
                     button.dataset.active = isActive ? "1" : "0";
                     try {
                         const prefix = String(cssPrefix || "").trim();
@@ -203,6 +273,9 @@ export function createSettingsPanelLayer(ctx = {}) {
 	                button.className = classes.filterButton;
 	                button.dataset.filterType = filterType;
 	                button.type = "button";
+                    const labelText = String(label ?? "");
+                    button.title = labelText;
+                    button.setAttribute("aria-label", `${labelText}: ${String(count ?? "")}`);
 	                const isActive = state.currentFilter === filterType;
                     button.dataset.active = isActive ? "1" : "0";
                     try {
@@ -212,7 +285,18 @@ export function createSettingsPanelLayer(ctx = {}) {
 
                     const labelSpan = document.createElement("span");
                     labelSpan.className = classes.filterLabel;
-                    labelSpan.textContent = String(label ?? "");
+                    Object.assign(labelSpan.style, {
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        lineHeight: "0"
+                    });
+                    const iconMeta = filterType === "all"
+                        ? { type: "all", label: labelText, color, builtin: true }
+                        : getActionTypeMeta(filterType);
+                    labelSpan.title = iconMeta.label;
+                    labelSpan.setAttribute("aria-label", iconMeta.label);
+                    labelSpan.appendChild(createActionTypeIcon(iconMeta, { size: 16 }));
 
                     const countSpan = document.createElement("span");
                     countSpan.className = classes.filterCount;
@@ -1232,9 +1316,13 @@ export function createSettingsPanelLayer(ctx = {}) {
 
                 const tdType = document.createElement("td");
                 const typeMeta = getActionTypeMeta(item.actionType);
-                tdType.textContent = typeMeta.label;
-                tdType.title = typeMeta.type;
-                Object.assign(tdType.style, { fontSize: "0.9em", opacity: "0.8" });
+                tdType.title = typeMeta.label;
+                tdType.setAttribute("aria-label", typeMeta.label);
+                Object.assign(tdType.style, {
+                    color: typeMeta.color,
+                    textAlign: "center"
+                });
+                tdType.appendChild(createActionTypeIcon(typeMeta, { size: 20 }));
                 styleTableCell(tdType, isDark);
 
                 const tdTarget = document.createElement("td");
@@ -1326,14 +1414,18 @@ export function createSettingsPanelLayer(ctx = {}) {
                 Object.assign(typeContainer.style, {
                     backgroundColor: typeMeta.color,
                     color: "white",
-                    padding: "2px 6px",
+                    padding: "4px 6px",
                     borderRadius: "4px",
-                    fontSize: "12px",
-                    fontWeight: "bold",
-                    whiteSpace: "nowrap"
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    lineHeight: "0",
+                    whiteSpace: "nowrap",
+                    flexShrink: "0"
                 });
-                typeContainer.textContent = typeMeta.shortLabel;
                 typeContainer.title = typeMeta.label;
+                typeContainer.setAttribute("aria-label", typeMeta.label);
+                typeContainer.appendChild(createActionTypeIcon(typeMeta, { size: 16 }));
 
                 const hotkeyContainer = document.createElement("div");
                 Object.assign(hotkeyContainer.style, {
