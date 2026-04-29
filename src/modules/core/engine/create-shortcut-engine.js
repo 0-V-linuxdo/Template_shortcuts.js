@@ -227,50 +227,65 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
             return token || fallback;
         }
 
+        function hasShortcutLabelMessage(labelKey) {
+            const key = normalizeShortcutLabelToken(labelKey);
+            if (!key) return false;
+            for (const locale of i18n.supportedLocales || []) {
+                const translated = getMessageAtPath(i18n.getMessages(locale), key);
+                if (typeof translated === "string" && translated.trim()) return true;
+            }
+            return false;
+        }
+
         function createDefaultShortcutLabelKey(shortcut, index) {
             const explicit = normalizeShortcutLabelToken(shortcut?.labelKey);
             if (explicit) return explicit;
             const key = normalizeShortcutLabelToken(shortcut?.key);
-            if (key) return `shortcuts.${key}`;
             const name = normalizeShortcutLabelToken(shortcut?.name);
-            if (name) return `shortcuts.${name}`;
+            const keyLabel = key ? `shortcuts.${key}` : "";
+            const nameLabel = name ? `shortcuts.${name}` : "";
+            if (keyLabel) {
+                if (!nameLabel || hasShortcutLabelMessage(keyLabel) || !hasShortcutLabelMessage(nameLabel)) {
+                    return keyLabel;
+                }
+            }
+            if (nameLabel) return nameLabel;
             return `shortcuts.default_${index + 1}`;
         }
 
+        function createDefaultShortcutLabelEntry(shortcut, labelKey) {
+            const entry = {
+                labelKey,
+                name: String(shortcut?.name || ""),
+                knownNames: new Set()
+            };
+            if (shortcut?.name) entry.knownNames.add(String(shortcut.name).trim());
+            for (const locale of i18n.supportedLocales || []) {
+                const translated = getMessageAtPath(i18n.getMessages(locale), labelKey);
+                if (typeof translated === "string" && translated.trim()) entry.knownNames.add(translated.trim());
+            }
+            return entry;
+        }
+
         const defaultShortcutLabelMap = new Map();
+        const defaultShortcutLabelKeyMap = new Map();
         const defaultShortcutLabelNameMap = new Map();
         options.defaultShortcuts = options.defaultShortcuts.map((shortcut, index) => {
             const next = shortcut && typeof shortcut === "object" ? { ...shortcut } : {};
             const labelKey = createDefaultShortcutLabelKey(next, index);
             if (labelKey && !next.labelKey) next.labelKey = labelKey;
             const lookupKey = normalizeShortcutLabelToken(next.key || next.id);
+            const labelEntry = labelKey ? createDefaultShortcutLabelEntry(next, labelKey) : null;
             if (lookupKey && labelKey) {
-                const knownNames = new Set();
-                if (next.name) knownNames.add(String(next.name).trim());
-                for (const locale of i18n.supportedLocales || []) {
-                    const translated = getMessageAtPath(i18n.getMessages(locale), labelKey);
-                    if (typeof translated === "string" && translated.trim()) knownNames.add(translated.trim());
-                }
-                defaultShortcutLabelMap.set(lookupKey, {
-                    labelKey,
-                    name: String(next.name || ""),
-                    knownNames
-                });
+                defaultShortcutLabelMap.set(lookupKey, labelEntry);
             }
-            if (labelKey) {
-                const nameEntry = {
-                    labelKey,
-                    name: String(next.name || ""),
-                    knownNames: new Set()
-                };
-                if (next.name) nameEntry.knownNames.add(String(next.name).trim());
-                for (const locale of i18n.supportedLocales || []) {
-                    const translated = getMessageAtPath(i18n.getMessages(locale), labelKey);
-                    if (typeof translated === "string" && translated.trim()) nameEntry.knownNames.add(translated.trim());
+            if (labelEntry) {
+                if (!defaultShortcutLabelKeyMap.has(labelKey)) {
+                    defaultShortcutLabelKeyMap.set(labelKey, labelEntry);
                 }
-                for (const knownName of nameEntry.knownNames) {
+                for (const knownName of labelEntry.knownNames) {
                     if (knownName && !defaultShortcutLabelNameMap.has(knownName)) {
-                        defaultShortcutLabelNameMap.set(knownName, nameEntry);
+                        defaultShortcutLabelNameMap.set(knownName, labelEntry);
                     }
                 }
             }
@@ -279,7 +294,15 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
 
         function resolveShortcutLabelMetadata(shortcut) {
             const rawLabelKey = normalizeShortcutLabelToken(shortcut?.labelKey);
-            if (rawLabelKey) return { labelKey: rawLabelKey, name: String(shortcut?.name || "") };
+            if (rawLabelKey) {
+                const defaults = defaultShortcutLabelKeyMap.get(rawLabelKey);
+                if (!defaults) return { labelKey: rawLabelKey, name: String(shortcut?.name || "") };
+                const rawName = String(shortcut?.name || "").trim();
+                if (!rawName || defaults.knownNames.has(rawName)) {
+                    return { labelKey: rawLabelKey, name: defaults.name || rawName };
+                }
+                return { labelKey: "", name: String(shortcut?.name || "") };
+            }
 
             const lookupKey = normalizeShortcutLabelToken(shortcut?.key || shortcut?.id);
             const defaults = (lookupKey ? defaultShortcutLabelMap.get(lookupKey) : null)
@@ -297,6 +320,11 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
             const labelKey = normalizeShortcutLabelToken(shortcut?.labelKey);
             const fallback = String(shortcut?.name || "");
             if (!labelKey) return fallback;
+            const direct = (typeof i18n.tOwn === "function")
+                ? i18n.tOwn(labelKey, {}, "", state.effectiveLocale)
+                : "";
+            if (String(direct || "").trim()) return direct;
+            if (state.effectiveLocale !== i18n.fallbackLocale && fallback) return fallback;
             return i18n.t(labelKey, {}, fallback) || fallback;
         }
 
