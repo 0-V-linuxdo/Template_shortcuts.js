@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260429] v1.1.3
-// @name:en        [ChatGPT] Shortcut Jump [20260429] v1.1.3
+// @name           [ChatGPT] 快捷键跳转 [20260429] v1.1.4
+// @name:en        [ChatGPT] Shortcut Jump [20260429] v1.1.4
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260429] v1.1.3
-// @update-log     1.1.3: 同步 Template v1.1.3，优化快捷键类别筛选视觉、Total 列表图标与脚本头部对齐。
-// @update-log:en  1.1.3: Synced Template v1.1.3 with refined category filters, the Total list icon, and aligned userscript headers.
+// @version        [20260429] v1.1.4
+// @update-log     1.1.4: 同步 Template v1.1.4，修正按键模拟类别图标对称性，并优化 Quick Input 键盘图标线条。
+// @update-log:en  1.1.4: Synced Template v1.1.4 with symmetric key-simulation category icons and refined Quick Input keyboard icon strokes.
 
 // @match          https://chatgpt.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/ChatGPT_keycap.svg
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.3
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260429.1.1.4
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -111,7 +111,7 @@
       settingsDataControls: createChatgptShortcutIconSet('<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/><circle cx="8" cy="7" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="17" r="2"/>'),
       settingsSchedules: createChatgptShortcutIconSet('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M12 14v4"/><path d="M10 16h4"/>'),
       settingsSecurity: createChatgptShortcutIconSet('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>'),
-      quickInput: createChatgptShortcutIconSet('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M7 13h10"/><path d="M9 17h6"/>')
+      quickInput: createChatgptShortcutIconSet('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M7 13h10"/>')
     });
     const CHATGPT_SHORTCUT_ICON_SETS = Object.freeze({
       ...CHATGPT_STROKE_SHORTCUT_ICON_SETS,

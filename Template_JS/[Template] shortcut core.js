@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.1.3
-// @name:en        [Template] Shortcut Core [20260429] v1.1.3
+// @name           [Template] 快捷键跳转 [20260429] v1.1.4
+// @name:en        [Template] Shortcut Core [20260429] v1.1.4
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.1.3
-// @update-log     1.1.3: 对齐脚本头部字段，修正 Type 列图标居中，并将 Total 筛选改为低调列表样式。
-// @update-log:en  1.1.3: Aligned userscript header fields, centered Type column icons, and changed the Total filter to a subdued list style.
+// @version        [20260429] v1.1.4
+// @update-log     1.1.4: 修正按键模拟类别图标的按键点对称性，并优化键盘样式图标的空格键线条。
+// @update-log:en  1.1.4: Fixed key-simulation category icon symmetry and refined keyboard-style icon spacebar strokes.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -6122,9 +6122,10 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       } else if (type === "simulate") {
         addRect({ x: "3", y: "6", width: "18", height: "12", rx: "2" });
         addLine({ x1: "7", y1: "10", x2: "7.01", y2: "10" });
-        addLine({ x1: "11", y1: "10", x2: "11.01", y2: "10" });
-        addLine({ x1: "15", y1: "10", x2: "15.01", y2: "10" });
-        addLine({ x1: "8", y1: "14", x2: "16", y2: "14" });
+        addLine({ x1: "10.5", y1: "10", x2: "10.51", y2: "10" });
+        addLine({ x1: "13.5", y1: "10", x2: "13.51", y2: "10" });
+        addLine({ x1: "17", y1: "10", x2: "17.01", y2: "10" });
+        addLine({ x1: "7", y1: "14", x2: "17", y2: "14" });
       } else if (type === "custom") {
         addPath("M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.7-3.7a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.7 3.7Z");
       } else {
