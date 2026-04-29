@@ -342,8 +342,8 @@ const STEP_DELAY_MAX_MS = 30000;
             toolHotkey: "CTRL+I",
             newChatHotkey: "CTRL+N",
             loopCount: 1,
-            stepDelayMs: 120,
-            loopDelayMs: 800,
+            stepDelayMs: 1000,
+            loopDelayMs: 20000,
             imageRecovery: Object.freeze({
                 maxRepairAttempts: 4,
                 maxResetAttempts: 3
@@ -402,8 +402,8 @@ const STEP_DELAY_MAX_MS = 30000;
                 return { left, top };
             })();
 
-            const stepDelayMs = clampInt(raw.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 }) });
-            const loopDelayMs = clampInt(raw.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 }) });
+            const stepDelayMs = clampInt(raw.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1000 }) });
+            const loopDelayMs = clampInt(raw.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 20000 }) });
 
             return {
                 toolHotkeys,
@@ -453,8 +453,8 @@ const STEP_DELAY_MAX_MS = 30000;
                 return { left, top };
             })();
 
-            const stepDelayMs = clampInt(safe.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 }) });
-            const loopDelayMs = clampInt(safe.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 }) });
+            const stepDelayMs = clampInt(safe.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(base.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1000 }) });
+            const loopDelayMs = clampInt(safe.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(base.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 20000 }) });
 
             const payload = {
                 toolHotkeys,

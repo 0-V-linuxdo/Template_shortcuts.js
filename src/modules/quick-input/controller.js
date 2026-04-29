@@ -1675,8 +1675,8 @@ export function createController(userOptions = {}) {
             }
 
             function readConfigFromUi() {
-                const defaultStepDelayMs = clampInt(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 });
-                const defaultLoopDelayMs = clampInt(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 });
+                const defaultStepDelayMs = clampInt(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1000 });
+                const defaultLoopDelayMs = clampInt(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 20000 });
                 const stepDelay = readDelayControlValue(stepDelayEl, stepDelayUnitEl, {
                     fallbackMs: defaultStepDelayMs,
                     fallbackUnit: defaults.stepDelayUnit,
@@ -1894,7 +1894,7 @@ export function createController(userOptions = {}) {
                         const name = getShortcutOptionName(shortcut);
                         optionsList.push({
                             value: hotkey,
-                            label: name ? `${name} · ${hotkeyLabel || hotkey}` : (hotkeyLabel || hotkey)
+                            label: name ? `${hotkeyLabel || hotkey} ${name}` : (hotkeyLabel || hotkey)
                         });
                     }
                 }
@@ -2061,14 +2061,14 @@ export function createController(userOptions = {}) {
                 setDelayControlValue(
                     stepDelayEl,
                     stepDelayUnitEl,
-                    clampInt(cfg.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 120 }) }),
+                    clampInt(cfg.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: clampInt(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1000 }) }),
                     cfg.stepDelayUnit || defaults.stepDelayUnit,
                     STEP_DELAY_MAX_MS
                 );
                 setDelayControlValue(
                     loopDelayEl,
                     loopDelayUnitEl,
-                    clampInt(cfg.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 800 }) }),
+                    clampInt(cfg.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: clampInt(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 20000 }) }),
                     cfg.loopDelayUnit || defaults.loopDelayUnit,
                     LOOP_DELAY_MAX_MS
                 );
