@@ -99,6 +99,39 @@ function toRepoRelative(filePath) {
   return path.relative(repoRoot, filePath).replace(/\\/g, "/");
 }
 
+function getPrimaryUserscriptName(siteEntry) {
+  const metadataName = typeof siteEntry?.metadata?.name === "string" ? siteEntry.metadata.name.trim() : "";
+  if (metadataName) return metadataName;
+
+  const displayName = typeof siteEntry?.displayName === "string" ? siteEntry.displayName.trim() : "";
+  if (displayName) return displayName;
+
+  return typeof siteEntry?.siteId === "string" ? siteEntry.siteId.trim() : "";
+}
+
+function getUserscriptOutputFileName(siteEntry) {
+  const scriptName = getPrimaryUserscriptName(siteEntry);
+  return scriptName ? `${scriptName}.user.js` : "";
+}
+
+function getUserscriptOutputRelativePath(siteEntry) {
+  const fileName = getUserscriptOutputFileName(siteEntry);
+  return fileName ? `Site_JS/${fileName}` : "";
+}
+
+function assertSafeUserscriptOutputFileName(fileName, siteId) {
+  if (!fileName) throw new Error(`Missing userscript @name for site "${siteId}"`);
+  if (!fileName.endsWith(".user.js")) {
+    throw new Error(`Userscript output must end with .user.js for site "${siteId}": ${fileName}`);
+  }
+  if (fileName === ".user.js" || fileName.startsWith(".")) {
+    throw new Error(`Userscript output file name must not be hidden for site "${siteId}": ${fileName}`);
+  }
+  if (/[<>:"/\\|?*\0]/.test(fileName)) {
+    throw new Error(`Userscript @name contains characters that are unsafe for a file name: ${siteId} -> ${fileName}`);
+  }
+}
+
 function findLineNumbers(text, needleRegex) {
   const lines = String(text).split("\n");
   const hits = [];
@@ -331,18 +364,19 @@ function ensureManifestIntegrity(entries) {
   for (const entry of entries) {
     const siteId = typeof entry?.siteId === "string" ? entry.siteId.trim() : "";
     const sourceEntry = typeof entry?.sourceEntry === "string" ? entry.sourceEntry.trim() : "";
-    const userscriptOutput = typeof entry?.userscriptOutput === "string" ? entry.userscriptOutput.trim() : "";
     const metadata = entry?.metadata && typeof entry.metadata === "object" ? entry.metadata : null;
+    const userscriptOutputFileName = getUserscriptOutputFileName(entry);
+    const userscriptOutput = getUserscriptOutputRelativePath(entry);
 
     if (!siteId) throw new Error(`Invalid siteId in SITE_MANIFEST entry: ${JSON.stringify(entry)}`);
     if (!sourceEntry) throw new Error(`Missing sourceEntry for site "${siteId}"`);
-    if (!userscriptOutput) throw new Error(`Missing userscriptOutput for site "${siteId}"`);
     if (!metadata) throw new Error(`Missing metadata object for site "${siteId}"`);
+    assertSafeUserscriptOutputFileName(userscriptOutputFileName, siteId);
 
     if (seenSiteIds.has(siteId)) throw new Error(`Duplicate siteId in SITE_MANIFEST: ${siteId}`);
     if (seenSourceEntries.has(sourceEntry)) throw new Error(`Duplicate sourceEntry in SITE_MANIFEST: ${sourceEntry}`);
     if (seenUserscriptOutputs.has(userscriptOutput)) {
-      throw new Error(`Duplicate userscriptOutput in SITE_MANIFEST: ${userscriptOutput}`);
+      throw new Error(`Duplicate derived userscript output in SITE_MANIFEST: ${userscriptOutput}`);
     }
 
     seenSiteIds.add(siteId);
@@ -402,7 +436,7 @@ function renderUserscriptHeader(siteEntry, templateCoreRequireUrl) {
   const connects = Array.isArray(metadata.connect) ? metadata.connect : [];
   const lines = [
     "// ==UserScript==",
-    formatMetadataLine("name", metadata.name || siteEntry.displayName || siteEntry.siteId),
+    formatMetadataLine("name", getPrimaryUserscriptName(siteEntry)),
     formatMetadataLine("namespace", metadata.namespace || "https://github.com/0-V-linuxdo/Template_shortcuts.js")
   ];
 
@@ -458,15 +492,16 @@ function assertBuiltTemplateCore(coreText) {
   }
 }
 
-function assertBuiltUserscript(siteEntry, userscriptText, templateCoreRequireUrl) {
+function assertBuiltUserscript(siteEntry, userscriptText, templateCoreRequireUrl, userscriptOutputPath) {
+  const userscriptOutput = toRepoRelative(userscriptOutputPath);
   if (!/^\/\/\s*@require\b/m.test(userscriptText)) {
-    throw new Error(`Generated userscript is missing @require: ${siteEntry.userscriptOutput}`);
+    throw new Error(`Generated userscript is missing @require: ${userscriptOutput}`);
   }
   if (/^\/\/\s*@resource\b/m.test(userscriptText)) {
-    throw new Error(`Generated userscript still contains @resource: ${siteEntry.userscriptOutput}`);
+    throw new Error(`Generated userscript still contains @resource: ${userscriptOutput}`);
   }
   if (/\bGM_getResourceURL\b/.test(userscriptText)) {
-    throw new Error(`Generated userscript still references GM_getResourceURL: ${siteEntry.userscriptOutput}`);
+    throw new Error(`Generated userscript still references GM_getResourceURL: ${userscriptOutput}`);
   }
 
   const bodyText = userscriptText.includes("// ==/UserScript==")
@@ -483,14 +518,14 @@ function assertBuiltUserscript(siteEntry, userscriptText, templateCoreRequireUrl
   for (const forbidden of forbiddenPatterns) {
     if (forbidden.regex.test(bodyText)) {
       throw new Error(
-        `Generated userscript still contains forbidden ${forbidden.label}: ${siteEntry.userscriptOutput}`
+        `Generated userscript still contains forbidden ${forbidden.label}: ${userscriptOutput}`
       );
     }
   }
 
   const expectedRequire = formatMetadataLine("require", templateCoreRequireUrl);
   if (!userscriptText.includes(expectedRequire)) {
-    throw new Error(`Generated userscript is missing expected core require URL: ${siteEntry.userscriptOutput}`);
+    throw new Error(`Generated userscript is missing expected core require URL: ${userscriptOutput}`);
   }
 }
 
@@ -530,6 +565,7 @@ export async function build() {
 
   fs.rmSync(distEsmDir, { recursive: true, force: true });
   fs.mkdirSync(templateJsDir, { recursive: true });
+  fs.rmSync(siteJsDir, { recursive: true, force: true });
   fs.mkdirSync(siteJsDir, { recursive: true });
 
   fs.writeFileSync(
@@ -542,7 +578,7 @@ export async function build() {
 
   for (const siteEntry of SITE_MANIFEST) {
     const sourceEntryPath = path.join(repoRoot, siteEntry.sourceEntry);
-    const userscriptOutputPath = path.join(repoRoot, siteEntry.userscriptOutput);
+    const userscriptOutputPath = path.join(siteJsDir, getUserscriptOutputFileName(siteEntry));
     const siteScriptText = await bundleJavaScript(sourceEntryPath, "iife");
     const userscriptText = [
       renderUserscriptHeader(siteEntry, templateCoreRequireUrl).trimEnd(),
@@ -550,7 +586,7 @@ export async function build() {
       siteScriptText.trimEnd()
     ].join("\n\n") + "\n";
 
-    assertBuiltUserscript(siteEntry, userscriptText, templateCoreRequireUrl);
+    assertBuiltUserscript(siteEntry, userscriptText, templateCoreRequireUrl, userscriptOutputPath);
     fs.mkdirSync(path.dirname(userscriptOutputPath), { recursive: true });
     fs.writeFileSync(userscriptOutputPath, userscriptText, "utf8");
     builtSiteOutputs.push({ siteId: siteEntry.siteId, userscriptOutputPath });

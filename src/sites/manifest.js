@@ -70,7 +70,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "chatgpt",
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
-        userscriptOutput: "Site_JS/[ChatGPT] 快捷键跳转 20250927.user.js",
         metadata: {
             name: "[ChatGPT] 快捷键跳转 [20260429] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
@@ -103,7 +102,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "claude",
         displayName: "[Claude] 快捷键跳转",
         sourceEntry: "src/sites/claude/index.js",
-        userscriptOutput: "Site_JS/[Claude] 快捷键跳转 20250927.user.js",
         metadata: {
             name: "[Claude] 快捷键跳转 [20260423] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
@@ -136,7 +134,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "deepseek",
         displayName: "[DeepSeek] 快捷键跳转",
         sourceEntry: "src/sites/deepseek/index.js",
-        userscriptOutput: "Site_JS/[DeepSeek] 快捷键跳转 20250926.user.js",
         metadata: {
             name: "[DeepSeek] 快捷键跳转 [20260423] v1.0.0",
             namespace: "0_V userscripts/[DeepSeek] shortcut",
@@ -169,7 +166,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "gemini",
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
-        userscriptOutput: "Site_JS/[Gemini] 快捷键跳转 20251213.user.js",
         metadata: {
             name: "[Gemini] 快捷键跳转 [20260425] v1.0.2",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
@@ -203,7 +199,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "grok",
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
-        userscriptOutput: "Site_JS/[Grok] 快捷键跳转 20250927.user.js",
         metadata: {
             name: "[Grok] 快捷键跳转 [20260424] v1.0.2",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
@@ -238,7 +233,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "kagi",
         displayName: "[Kagi] 快捷键跳转",
         sourceEntry: "src/sites/kagi/index.js",
-        userscriptOutput: "Site_JS/[Kagi] 快捷键跳转 20250924.user.js",
         metadata: {
             name: "[Kagi] 快捷键跳转 [20260423] v1.0.0",
             namespace: "0_V userscripts/[Kagi] shortcut",
@@ -271,7 +265,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "linux-do",
         displayName: "[LINUX DO] 快捷键跳转",
         sourceEntry: "src/sites/linux-do/index.js",
-        userscriptOutput: "Site_JS/[LINUX DO] 快捷键跳转 20250927.user.js",
         metadata: {
             name: "[LINUX DO] 快捷键跳转 [20260423] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
@@ -304,7 +297,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "le-chat",
         displayName: "[Le Chat] 快捷键跳转",
         sourceEntry: "src/sites/le-chat/index.js",
-        userscriptOutput: "Site_JS/[Le Chat] 快捷键跳转 20250925.user.js",
         metadata: {
             name: "[Le Chat] 快捷键跳转 [20260423] v1.0.0",
             namespace: "0_V userscripts/[Le Chat] 快捷键跳转",
@@ -337,7 +329,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "perplexity",
         displayName: "[Perplexity] 快捷键跳转",
         sourceEntry: "src/sites/perplexity/index.js",
-        userscriptOutput: "Site_JS/[Perplexity] 快捷键跳转 20250927.user.js",
         metadata: {
             name: "[Perplexity] 快捷键跳转 [20260423] v1.0.0",
             namespace: "0_V userscripts/[Perplexity] shortcut",
@@ -370,7 +361,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "poe",
         displayName: "[Poe] 快捷键跳转",
         sourceEntry: "src/sites/poe/index.js",
-        userscriptOutput: "Site_JS/[Poe] 快捷键跳转 20260213.user.js",
         metadata: {
             name: "[Poe] 快捷键跳转 [20260423] v1.0.5",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
@@ -404,7 +394,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "telegram",
         displayName: "[Telegram] 快捷键跳转",
         sourceEntry: "src/sites/telegram/index.js",
-        userscriptOutput: "Site_JS/[Telegram] 快捷键跳转 20260215.user.js",
         metadata: {
             name: "[Telegram] 快捷键跳转 [20260423] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
@@ -437,7 +426,6 @@ export const SITE_MANIFEST = Object.freeze([
         siteId: "bilibili",
         displayName: "[哔哩哔哩] 快捷键跳转",
         sourceEntry: "src/sites/bilibili/index.js",
-        userscriptOutput: "Site_JS/[哔哩哔哩] 快捷键跳转 20250927.user.js",
         metadata: {
             name: "[哔哩哔哩] 快捷键跳转 [20260423] v1.0.0",
             namespace: "0_V userscripts/bilibiliSearch Shortcuts",
