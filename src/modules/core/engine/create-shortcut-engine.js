@@ -474,7 +474,7 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
                     } else {
                         console.warn(`${options.consoleTag} Shortcut "${shortcut?.name || ""}" is type 'simulate' but has no simulateKeys defined.`);
                     }
-                }, { label: options?.text?.stats?.simulate || "Key simulation", shortLabel: options?.text?.actionTypes?.simulateShortLabel || "Keys", color: "#9C27B0", builtin: true });
+                }, { label: options?.text?.stats?.simulate || "Key simulation", shortLabel: options?.text?.actionTypes?.simulateShortLabel || "Keys", color: "#2196F3", builtin: true });
 
                 actions.register("custom", ({ shortcut, event }) => {
                     executeCustomAction(shortcut, event);

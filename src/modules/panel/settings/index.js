@@ -73,7 +73,7 @@ export function createSettingsPanelLayer(ctx = {}) {
                 all: "#0066cc",
                 url: "#4CAF50",
                 selector: "#FF9800",
-                simulate: "#9C27B0",
+                simulate: "#2196F3",
                 custom: "#607D8B"
             });
 
@@ -1340,7 +1340,9 @@ export function createSettingsPanelLayer(ctx = {}) {
                     color: typeMeta.color,
                     textAlign: "center"
                 });
-                tdType.appendChild(createActionTypeIcon(typeMeta, { size: 20 }));
+                const typeIcon = createActionTypeIcon(typeMeta, { size: 20 });
+                typeIcon.style.margin = "0 auto";
+                tdType.appendChild(typeIcon);
                 styleTableCell(tdType, isDark);
 
                 const tdTarget = document.createElement("td");
