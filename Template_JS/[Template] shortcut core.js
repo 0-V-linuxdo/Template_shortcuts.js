@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260429] v1.1.4
-// @name:en        [Template] Shortcut Core [20260429] v1.1.4
+// @name           [Template] 快捷键跳转 [20260429] v1.1.5
+// @name:en        [Template] Shortcut Core [20260429] v1.1.5
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260429] v1.1.4
-// @update-log     1.1.4: 修正按键模拟类别图标的按键点对称性，并优化键盘样式图标的空格键线条。
-// @update-log:en  1.1.4: Fixed key-simulation category icon symmetry and refined keyboard-style icon spacebar strokes.
+// @version        [20260429] v1.1.5
+// @update-log     1.1.5: 修正搜索框聚焦时右侧搜索按钮被高亮背景影响的问题。
+// @update-log:en  1.1.5: Fixed the search icon button highlight leaking into the focused search field state.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -6703,6 +6703,8 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           setSearchExpanded(true, { focus: true });
           return;
         }
+        searchIconBtn.style.backgroundColor = "transparent";
+        clearSearchBtn.style.backgroundColor = "transparent";
         searchWidget.style.borderColor = getPrimaryColor();
         searchWidget.style.boxShadow = `0 0 0 1px ${getPrimaryColor()}`;
       });
@@ -7050,9 +7052,11 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           color: getTextColor(isDark),
           cursor: "pointer",
           borderRadius: "6px",
+          outline: "none",
           transition: "background-color 0.2s ease, color 0.2s ease"
         });
         searchIconBtn.onmouseover = () => {
+          if (document.activeElement === searchInput) return;
           searchIconBtn.style.backgroundColor = getHoverColor(isDark);
         };
         searchIconBtn.onmouseout = () => {
@@ -7066,9 +7070,11 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
           color: getTextColor(isDark),
           cursor: "pointer",
           borderRadius: "6px",
+          outline: "none",
           transition: "background-color 0.2s ease, color 0.2s ease"
         });
         clearSearchBtn.onmouseover = () => {
+          if (document.activeElement === searchInput) return;
           clearSearchBtn.style.backgroundColor = getHoverColor(isDark);
         };
         clearSearchBtn.onmouseout = () => {
