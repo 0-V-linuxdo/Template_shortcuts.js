@@ -480,60 +480,46 @@ export function createController(userOptions = {}) {
                     focusable: "false"
                 });
 
-                svg.appendChild(createPlayerActionSvgNode("path", {
-                    d: "M8.25 5.25H7.4C6.35 5.25 5.5 6.1 5.5 7.15V18.85C5.5 19.9 6.35 20.75 7.4 20.75H16.6C17.65 20.75 18.5 19.9 18.5 18.85V7.15C18.5 6.1 17.65 5.25 16.6 5.25H15.75",
-                    stroke: "currentColor",
-                    "stroke-width": "1.8",
-                    "stroke-linecap": "round",
-                    "stroke-linejoin": "round"
-                }));
-                svg.appendChild(createPlayerActionSvgNode("path", {
-                    d: "M9 5.35C9 4.19 9.94 3.25 11.1 3.25H12.9C14.06 3.25 15 4.19 15 5.35V6.75H9V5.35Z",
-                    stroke: "currentColor",
-                    "stroke-width": "1.8",
-                    "stroke-linejoin": "round"
-                }));
-
                 if (normalized === "import") {
                     svg.appendChild(createPlayerActionSvgNode("path", {
-                        d: "M8.6 9.25H13.8L16 11.45V17.25H8.6V9.25Z",
+                        d: "M8.2 6.35H7.3C6.47 6.35 5.8 7.02 5.8 7.85V18.1C5.8 18.93 6.47 19.6 7.3 19.6H16.7C17.53 19.6 18.2 18.93 18.2 18.1V7.85C18.2 7.02 17.53 6.35 16.7 6.35H15.8",
                         stroke: "currentColor",
-                        "stroke-width": "1.55",
-                        "stroke-linejoin": "round"
-                    }));
-                    svg.appendChild(createPlayerActionSvgNode("path", {
-                        d: "M13.8 9.25V11.45H16",
-                        stroke: "currentColor",
-                        "stroke-width": "1.55",
+                        "stroke-width": "1.65",
                         "stroke-linecap": "round",
                         "stroke-linejoin": "round"
                     }));
                     svg.appendChild(createPlayerActionSvgNode("path", {
-                        d: "M10.3 13.35H14.3M10.3 15.25H14.3",
+                        d: "M9 6.35V5.45C9 4.87 9.47 4.4 10.05 4.4H13.95C14.53 4.4 15 4.87 15 5.45V6.35H9Z",
                         stroke: "currentColor",
-                        "stroke-width": "1.55",
-                        "stroke-linecap": "round",
+                        "stroke-width": "1.65",
+                        "stroke-linejoin": "round"
+                    }));
+                    svg.appendChild(createPlayerActionSvgNode("path", {
+                        d: "M9.35 10.2H14.65C15.15 10.2 15.55 10.6 15.55 11.1V16.35C15.55 16.85 15.15 17.25 14.65 17.25H9.35C8.85 17.25 8.45 16.85 8.45 16.35V11.1C8.45 10.6 8.85 10.2 9.35 10.2Z",
+                        stroke: "currentColor",
+                        "stroke-width": "1.65",
+                        "stroke-linejoin": "round"
                     }));
                     return svg;
                 }
 
                 svg.appendChild(createPlayerActionSvgNode("rect", {
-                    x: "8.3",
-                    y: "11.05",
-                    width: "5.45",
-                    height: "5.45",
-                    rx: "0.75",
+                    x: "7.1",
+                    y: "8.35",
+                    width: "8.1",
+                    height: "8.1",
+                    rx: "1.2",
                     stroke: "currentColor",
-                    "stroke-width": "1.55"
+                    "stroke-width": "1.75"
                 }));
                 svg.appendChild(createPlayerActionSvgNode("rect", {
-                    x: "10.25",
-                    y: "9.1",
-                    width: "5.45",
-                    height: "5.45",
-                    rx: "0.75",
+                    x: "9.35",
+                    y: "6.1",
+                    width: "8.1",
+                    height: "8.1",
+                    rx: "1.2",
                     stroke: "currentColor",
-                    "stroke-width": "1.55"
+                    "stroke-width": "1.75"
                 }));
                 return svg;
             }
