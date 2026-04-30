@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260430] v1.1.6
-// @name:en        [Template] Shortcut Core [20260430] v1.1.6
+// @name           [Template] 快捷键跳转 [20260430] v1.1.7
+// @name:en        [Template] Shortcut Core [20260430] v1.1.7
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260430] v1.1.6
-// @update-log     1.1.6: 优化快捷输入导入/导出按钮质感，提升圆形按钮的层次、主色呼应与悬停反馈。
-// @update-log:en  1.1.6: Polished Quick Input import/export button styling with richer circular surfaces, primary-color accents, and hover feedback.
+// @version        [20260430] v1.1.7
+// @update-log     1.1.7: 撤销快捷输入导入/导出按钮外壳样式改动，改为仅优化复制/粘贴图标线稿。
+// @update-log:en  1.1.7: Reverted Quick Input import/export button surface styling and refined only the copy/paste icon line art.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*

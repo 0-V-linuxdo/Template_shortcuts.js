@@ -30,13 +30,10 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     --qi-warn: #fdba74;
                     --qi-danger-bg: rgba(239, 68, 68, 0.92);
                     --qi-danger-border: rgba(255,255,255,0.18);
-                    --qi-icon-btn-bg: color-mix(in srgb, ${primaryColor} 14%, #2b2b2b);
-                    --qi-icon-btn-hover: color-mix(in srgb, ${primaryColor} 22%, #343434);
-                    --qi-icon-btn-border: color-mix(in srgb, ${primaryColor} 28%, rgba(255,255,255,0.2));
-                    --qi-icon-btn-color: rgba(255,255,255,0.88);
-                    --qi-io-btn-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 7px 16px rgba(0,0,0,0.26);
-                    --qi-io-btn-hover-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 10px 22px rgba(0,0,0,0.32);
-                    --qi-io-btn-gloss: rgba(255,255,255,0.14);
+                    --qi-icon-btn-bg: rgba(255,255,255,0.08);
+                    --qi-icon-btn-hover: rgba(255,255,255,0.16);
+                    --qi-icon-btn-border: rgba(255,255,255,0.16);
+                    --qi-icon-btn-color: rgba(255,255,255,0.76);
                     --qi-icon-btn-danger-bg: rgba(239,68,68,0.18);
                     --qi-icon-btn-danger-hover: rgba(239,68,68,0.26);
                     --qi-icon-btn-danger-border: rgba(248,113,113,0.34);
@@ -73,13 +70,10 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     --qi-success: #15803d;
                     --qi-warn: #c2410c;
                     --qi-danger-border: rgba(185, 28, 28, 0.35);
-                    --qi-icon-btn-bg: color-mix(in srgb, ${primaryColor} 9%, #fff);
-                    --qi-icon-btn-hover: color-mix(in srgb, ${primaryColor} 14%, #fff);
-                    --qi-icon-btn-border: color-mix(in srgb, ${primaryColor} 24%, rgba(17,24,39,0.16));
-                    --qi-icon-btn-color: color-mix(in srgb, ${primaryColor} 50%, rgba(17,24,39,0.78));
-                    --qi-io-btn-shadow: inset 0 1px 0 rgba(255,255,255,0.78), 0 7px 18px rgba(15,23,42,0.1);
-                    --qi-io-btn-hover-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 24px rgba(15,23,42,0.15);
-                    --qi-io-btn-gloss: rgba(255,255,255,0.58);
+                    --qi-icon-btn-bg: rgba(17,24,39,0.08);
+                    --qi-icon-btn-hover: rgba(17,24,39,0.14);
+                    --qi-icon-btn-border: rgba(17,24,39,0.14);
+                    --qi-icon-btn-color: rgba(17,24,39,0.72);
                     --qi-icon-btn-danger-bg: rgba(220,38,38,0.08);
                     --qi-icon-btn-danger-hover: rgba(220,38,38,0.14);
                     --qi-icon-btn-danger-border: rgba(220,38,38,0.2);
@@ -233,18 +227,18 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 }
                 ${hostSelector} .qi-tab-panel[data-active="1"] { display: flex; }
                 ${hostSelector} .qi-actions {
-                    padding: 5px 9px 6px;
+                    padding: 4px 8px 5px;
                     border-top: 1px solid var(--qi-border);
                     background: var(--qi-actions-bg);
                     display: flex;
                     justify-content: flex-end;
                     align-items: center;
-                    gap: 8px;
+                    gap: 7px;
                 }
                 ${hostSelector} .qi-io-actions {
                     display: inline-flex;
                     align-items: center;
-                    gap: 8px;
+                    gap: 6px;
                     margin-right: auto;
                     min-width: 0;
                 }
@@ -253,59 +247,26 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     line-height: 1;
                 }
                 ${hostSelector} .qi-actions .qi-io-btn {
-                    width: 36px;
-                    height: 36px;
-                    min-width: 36px;
+                    width: 32px;
+                    height: 32px;
+                    min-width: 32px;
                     padding: 0;
                     border-radius: 999px;
                     display: inline-flex;
                     align-items: center;
                     justify-content: center;
-                    position: relative;
-                    overflow: hidden;
                     color: var(--qi-icon-btn-color);
                     background: var(--qi-icon-btn-bg);
                     border-color: var(--qi-icon-btn-border);
-                    box-shadow: var(--qi-io-btn-shadow);
-                    transition:
-                        transform 160ms ease,
-                        box-shadow 160ms ease,
-                        background 160ms ease,
-                        border-color 160ms ease,
-                        color 160ms ease;
-                }
-                ${hostSelector} .qi-actions .qi-io-btn::before {
-                    content: "";
-                    position: absolute;
-                    inset: 1px;
-                    border-radius: inherit;
-                    background: linear-gradient(180deg, var(--qi-io-btn-gloss), transparent 46%);
-                    pointer-events: none;
-                    opacity: 0.72;
                 }
                 ${hostSelector} .qi-actions .qi-io-btn:not(:disabled):hover {
                     background: var(--qi-icon-btn-hover);
                     color: var(--qi-text-strong);
-                    border-color: color-mix(in srgb, ${primaryColor} 42%, var(--qi-icon-btn-border));
-                    box-shadow: var(--qi-io-btn-hover-shadow);
-                    transform: translateY(-1px);
-                }
-                ${hostSelector} .qi-actions .qi-io-btn:not(:disabled):active {
-                    transform: translateY(0);
-                    box-shadow: var(--qi-io-btn-shadow);
                 }
                 ${hostSelector} .qi-actions .qi-io-btn svg {
                     width: 19px;
                     height: 19px;
                     display: block;
-                    pointer-events: none;
-                    position: relative;
-                    z-index: 1;
-                }
-                ${hostSelector} .qi-actions .qi-io-btn:focus-visible {
-                    outline: none;
-                    border-color: ${primaryColor};
-                    box-shadow: 0 0 0 2px ${primaryColor}33, var(--qi-io-btn-hover-shadow);
                 }
                 ${hostSelector} .qi-actions .qi-player-btn {
                     width: 38px;
@@ -872,7 +833,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     font-size: 13px;
                     font-weight: 650;
                 }
-                ${hostSelector} .qi-btn:not(.qi-btn-primary):not(.qi-btn-danger):not(.qi-io-btn):hover { background: var(--qi-hover); }
+                ${hostSelector} .qi-btn:not(.qi-btn-primary):not(.qi-btn-danger):hover { background: var(--qi-hover); }
                 ${hostSelector} .qi-btn-primary {
                     background: ${primaryColor};
                     border-color: ${primaryColor};
