@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260430] v1.0.2
-// @name:en        [Template] Shortcut Core [20260430] v1.0.2
+// @name           [Template] 快捷键跳转 [20260430] v1.1.0
+// @name:en        [Template] Shortcut Core [20260430] v1.1.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260430] v1.0.2
-// @update-log     1.0.2: 优化快捷输入 More settings 展开分割线，新对话快捷键改为可输入并以 native 作为默认占位。
-// @update-log:en  1.0.2: Improved Quick Input More settings with an expanded divider and made the new-chat shortcut editable with native as the default placeholder.
+// @version        [20260430] v1.1.0
+// @update-log     1.1.0: 为快捷输入新增一键导出到剪贴板和从剪贴板导入，支持完整恢复文字、图片与运行设置。
+// @update-log:en  1.1.0: Added one-click Quick Input export to clipboard and import from clipboard, restoring text, images, and run settings.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -9411,6 +9411,8 @@ ${displayTargetText}`;
       resume: "继续",
       addHotkey: "增加快捷键",
       delete: "删除",
+      exportToClipboard: "导出到剪贴板",
+      importFromClipboard: "从剪贴板导入",
       clearImages: "清空图片"
     }),
     placeholders: Object.freeze({
@@ -9447,6 +9449,8 @@ ${displayTargetText}`;
     }),
     aria: Object.freeze({
       close: "关闭",
+      exportToClipboard: "导出当前快捷输入到剪贴板",
+      importFromClipboard: "从剪贴板导入快捷输入",
       deleteHotkey: "删除该快捷键",
       deleteImage: "删除该图片",
       clearImages: "清空图片"
@@ -9510,6 +9514,13 @@ ${displayTargetText}`;
       failed: "失败！",
       finished: "完成！",
       stopRequested: "收到停止请求，将尽快停止…",
+      exportSuccess: "已导出快捷输入到剪贴板。",
+      exportFailed: "导出失败：请检查剪贴板权限后重试。",
+      importSuccess: "已从剪贴板导入快捷输入。",
+      importClipboardReadFailed: "导入失败：无法读取剪贴板，请检查浏览器权限。",
+      importJsonParseFailed: "导入失败：剪贴板内容不是有效 JSON。",
+      importInvalidPayload: "导入失败：剪贴板中未找到有效的 Quick Input 数据。",
+      importImageRestoreFailed: "导入失败：图片数据无法恢复，当前内容未改变。",
       missingAttachAdapter: "图片发送未配置：请在 quickInput.adapter.attachImages 中实现图片插入逻辑。"
     })
   });
@@ -9540,6 +9551,8 @@ ${displayTargetText}`;
         resume: "Resume",
         addHotkey: "Add shortcut",
         delete: "Delete",
+        exportToClipboard: "Export to clipboard",
+        importFromClipboard: "Import from clipboard",
         clearImages: "Clear images"
       }),
       placeholders: Object.freeze({
@@ -9576,6 +9589,8 @@ ${displayTargetText}`;
       }),
       aria: Object.freeze({
         close: "Close",
+        exportToClipboard: "Export this Quick Input session to clipboard",
+        importFromClipboard: "Import Quick Input from clipboard",
         deleteHotkey: "Delete this shortcut",
         deleteImage: "Delete this image",
         clearImages: "Clear images"
@@ -9639,6 +9654,13 @@ ${displayTargetText}`;
         failed: "Failed.",
         finished: "Finished.",
         stopRequested: "Stop requested; stopping as soon as possible...",
+        exportSuccess: "Quick Input exported to clipboard.",
+        exportFailed: "Export failed. Check clipboard permission and try again.",
+        importSuccess: "Quick Input imported from clipboard.",
+        importClipboardReadFailed: "Import failed. Unable to read clipboard; check browser permission.",
+        importJsonParseFailed: "Import failed. Clipboard content is not valid JSON.",
+        importInvalidPayload: "Import failed. No valid Quick Input data was found in clipboard.",
+        importImageRestoreFailed: "Import failed. Image data could not be restored, so current content was left unchanged.",
         missingAttachAdapter: "Image sending is not configured. Implement image insertion in quickInput.adapter.attachImages."
       })
     })
@@ -10772,9 +10794,38 @@ ${displayTargetText}`;
                     align-items: center;
                     gap: 7px;
                 }
+                ${hostSelector} .qi-io-actions {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    margin-right: auto;
+                    min-width: 0;
+                }
                 ${hostSelector} .qi-actions .qi-btn {
                     font-size: 12px;
                     line-height: 1;
+                }
+                ${hostSelector} .qi-actions .qi-io-btn {
+                    width: 32px;
+                    height: 32px;
+                    min-width: 32px;
+                    padding: 0;
+                    border-radius: 999px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--qi-icon-btn-color);
+                    background: var(--qi-icon-btn-bg);
+                    border-color: var(--qi-icon-btn-border);
+                }
+                ${hostSelector} .qi-actions .qi-io-btn:not(:disabled):hover {
+                    background: var(--qi-icon-btn-hover);
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-actions .qi-io-btn svg {
+                    width: 17px;
+                    height: 17px;
+                    display: block;
                 }
                 ${hostSelector} .qi-actions .qi-player-btn {
                     width: 38px;
@@ -11765,6 +11816,8 @@ ${displayTargetText}`;
   }
 
   // src/modules/quick-input/controller.js
+  var QUICK_INPUT_CLIPBOARD_SCHEMA_VERSION = 1;
+  var QUICK_INPUT_CLIPBOARD_TYPE = "template-shortcuts.quick-input";
   function createController(userOptions = {}) {
     const options = userOptions && typeof userOptions === "object" ? userOptions : {};
     const engine = options.engine;
@@ -11852,6 +11905,7 @@ ${displayTargetText}`;
     let loopDelayEl = null;
     let loopDelayUnitEl = null;
     let clearBeforeRunEl = null;
+    const ioButtons = [];
     const stopButtons = [];
     const playPauseButtons = [];
     let activeTab = "input";
@@ -11860,6 +11914,7 @@ ${displayTargetText}`;
     let draftImageEntries = [];
     let imageObjectUrls = [];
     let running = false;
+    let ioBusy = false;
     let cancelRun = false;
     let paused = false;
     let pauseStartedAtMs = 0;
@@ -12095,6 +12150,20 @@ ${displayTargetText}`;
           return labels.buttons?.run || DEFAULT_LABELS.buttons.run;
       }
     }
+    function getIoActionLabel(action) {
+      const normalized = String(action ?? "").trim().toLowerCase();
+      if (normalized === "import") {
+        return labels.buttons?.importFromClipboard || DEFAULT_LABELS.buttons.importFromClipboard || "Import";
+      }
+      return labels.buttons?.exportToClipboard || DEFAULT_LABELS.buttons.exportToClipboard || "Export";
+    }
+    function getIoActionAriaLabel(action) {
+      const normalized = String(action ?? "").trim().toLowerCase();
+      if (normalized === "import") {
+        return labels.aria?.importFromClipboard || DEFAULT_LABELS.aria.importFromClipboard || getIoActionLabel(action);
+      }
+      return labels.aria?.exportToClipboard || DEFAULT_LABELS.aria.exportToClipboard || getIoActionLabel(action);
+    }
     function createPlayerActionSvgNode(tag, attrs = {}) {
       const node = globalThis.document.createElementNS(QUICK_INPUT_SVG_NS, tag);
       Object.entries(attrs).forEach(([name, value]) => {
@@ -12155,6 +12224,65 @@ ${displayTargetText}`;
       }));
       return svg;
     }
+    function createIoActionIcon(action) {
+      const normalized = String(action ?? "").trim().toLowerCase();
+      const svg = createPlayerActionSvgNode("svg", {
+        viewBox: "0 0 24 24",
+        fill: "none",
+        "aria-hidden": "true",
+        focusable: "false"
+      });
+      svg.appendChild(createPlayerActionSvgNode("path", {
+        d: "M5 14.5V18.2C5 18.9 5.55 19.45 6.25 19.45H17.75C18.45 19.45 19 18.9 19 18.2V14.5",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round"
+      }));
+      if (normalized === "import") {
+        svg.appendChild(createPlayerActionSvgNode("path", {
+          d: "M12 4.5V14.5",
+          stroke: "currentColor",
+          "stroke-width": "2",
+          "stroke-linecap": "round"
+        }));
+        svg.appendChild(createPlayerActionSvgNode("path", {
+          d: "M8 10.5L12 14.5L16 10.5",
+          stroke: "currentColor",
+          "stroke-width": "2",
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round"
+        }));
+        return svg;
+      }
+      svg.appendChild(createPlayerActionSvgNode("path", {
+        d: "M12 14.5V4.5",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round"
+      }));
+      svg.appendChild(createPlayerActionSvgNode("path", {
+        d: "M8 8.5L12 4.5L16 8.5",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round"
+      }));
+      return svg;
+    }
+    function createIoActionButton(action, onClick) {
+      const normalized = String(action ?? "").trim().toLowerCase() || "export";
+      const btn = globalThis.document.createElement("button");
+      btn.type = "button";
+      btn.className = "qi-btn qi-io-btn";
+      btn.setAttribute("data-action", normalized);
+      btn.title = getIoActionLabel(normalized);
+      btn.setAttribute("aria-label", getIoActionAriaLabel(normalized));
+      btn.replaceChildren(createIoActionIcon(normalized));
+      if (typeof onClick === "function") btn.addEventListener("click", onClick);
+      ioButtons.push(btn);
+      return btn;
+    }
     function setPlayerActionButtonVisual(btn, action) {
       if (!btn) return;
       const normalized = String(action ?? "").trim().toLowerCase();
@@ -12179,9 +12307,16 @@ ${displayTargetText}`;
       if (typeof onClick === "function") btn.addEventListener("click", onClick);
       return btn;
     }
-    function createPlayerActionsBar() {
+    function createPlayerActionsBar({ includeIoActions = false } = {}) {
       const actionsEl = globalThis.document.createElement("div");
       actionsEl.className = "qi-actions";
+      if (includeIoActions) {
+        const ioActionsEl = globalThis.document.createElement("div");
+        ioActionsEl.className = "qi-io-actions";
+        ioActionsEl.appendChild(createIoActionButton("export", handleQuickInputExport));
+        ioActionsEl.appendChild(createIoActionButton("import", handleQuickInputImport));
+        actionsEl.appendChild(ioActionsEl);
+      }
       const stopBtn = createPlayerActionButton("stop", stopMacro, { disabled: true });
       stopBtn.hidden = !running;
       stopBtn.setAttribute("aria-hidden", running ? "false" : "true");
@@ -12225,6 +12360,9 @@ ${displayTargetText}`;
       if (loopDelayEl) loopDelayEl.disabled = isBusy;
       if (loopDelayUnitEl) loopDelayUnitEl.disabled = isBusy;
       if (clearBeforeRunEl) clearBeforeRunEl.disabled = isBusy;
+      for (const btn of ioButtons) {
+        if (btn) btn.disabled = isBusy || ioBusy;
+      }
       if (newChatHotkeyEl) newChatHotkeyEl.disabled = isBusy;
       if (textEl) textEl.disabled = isBusy;
       if (imageDropEl) {
@@ -13039,6 +13177,260 @@ ${displayTargetText}`;
       } catch (error) {
         warnQuickInput("Failed to restore image draft; skipped corrupted image draft data.", error);
         clearDraftImagesState({ preserveText: true });
+      }
+    }
+    function setIoBusy(nextBusy) {
+      ioBusy = !!nextBusy;
+      syncRunControls();
+    }
+    function getClipboardApi() {
+      const scope = getGlobalScope();
+      return scope?.navigator?.clipboard || null;
+    }
+    async function tryCopyTextToClipboard(text) {
+      const value = String(text ?? "");
+      const clipboard = getClipboardApi();
+      try {
+        if (clipboard && typeof clipboard.writeText === "function") {
+          await clipboard.writeText(value);
+          return true;
+        }
+      } catch {
+      }
+      const doc = globalThis.document || null;
+      const body = doc?.body || null;
+      if (!doc || !body) return false;
+      let textarea = null;
+      try {
+        textarea = doc.createElement("textarea");
+        textarea.value = value;
+        textarea.setAttribute("readonly", "readonly");
+        Object.assign(textarea.style, {
+          position: "fixed",
+          top: "-1000px",
+          left: "-1000px",
+          width: "1px",
+          height: "1px",
+          opacity: "0"
+        });
+        body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        return !!(doc.execCommand && doc.execCommand("copy"));
+      } catch {
+        return false;
+      } finally {
+        try {
+          textarea?.remove?.();
+        } catch {
+        }
+      }
+    }
+    async function readTextFromClipboard() {
+      const clipboard = getClipboardApi();
+      if (!clipboard || typeof clipboard.readText !== "function") {
+        throw new Error("Clipboard readText is unavailable");
+      }
+      return String(await clipboard.readText());
+    }
+    async function serializeImageFileForExport(file, index = 0) {
+      const dataUrl = await readFileAsDataUrl(file);
+      const entry = normalizeDraftImageEntry({
+        name: file?.name,
+        type: file?.type,
+        size: file?.size,
+        lastModified: file?.lastModified,
+        dataUrl
+      }, index);
+      if (!entry) throw new Error("Invalid image data");
+      return entry;
+    }
+    async function serializeCurrentDraftForExport() {
+      await waitForDraftRestore();
+      const files = Array.from(imageFiles || []).filter(isImageFileLike);
+      const images = [];
+      for (let index = 0; index < files.length; index++) {
+        images.push(await serializeImageFileForExport(files[index], index));
+      }
+      return {
+        text: String(textEl?.value ?? ""),
+        images: normalizeDraftImages(images)
+      };
+    }
+    function buildQuickInputExportPayload(draft) {
+      const cfg = readConfigFromUi();
+      return {
+        schemaVersion: QUICK_INPUT_CLIPBOARD_SCHEMA_VERSION,
+        type: QUICK_INPUT_CLIPBOARD_TYPE,
+        exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        config: {
+          toolHotkeys: Array.isArray(cfg.toolHotkeys) ? cfg.toolHotkeys : [],
+          toolHotkey: String(cfg.toolHotkey || ""),
+          newChatHotkey: String(cfg.newChatHotkey || ""),
+          loopCount: cfg.loopCount,
+          stepDelayMs: cfg.stepDelayMs,
+          stepDelayUnit: cfg.stepDelayUnit,
+          loopDelayMs: cfg.loopDelayMs,
+          loopDelayUnit: cfg.loopDelayUnit,
+          clearBeforeRun: cfg.clearBeforeRun !== false
+        },
+        draft: {
+          text: String(draft?.text ?? ""),
+          images: normalizeDraftImages(draft?.images)
+        }
+      };
+    }
+    function normalizeImportedQuickInputConfig(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        throw new Error("Missing Quick Input config");
+      }
+      const importedToolHotkeys = Array.isArray(value.toolHotkeys) ? value.toolHotkeys : typeof value.toolHotkey === "string" ? [value.toolHotkey] : [];
+      const toolHotkeys = importedToolHotkeys.map((item) => String(item ?? "").trim()).filter(Boolean);
+      const stepDelayMs = clampInt2(value.stepDelayMs, {
+        min: 0,
+        max: STEP_DELAY_MAX_MS,
+        fallback: clampInt2(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1e3 })
+      });
+      const loopDelayMs = clampInt2(value.loopDelayMs, {
+        min: 0,
+        max: LOOP_DELAY_MAX_MS,
+        fallback: clampInt2(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 2e4 })
+      });
+      return {
+        toolHotkeys,
+        toolHotkey: toolHotkeys[0] || "",
+        newChatHotkey: typeof value.newChatHotkey === "string" ? value.newChatHotkey : defaults.newChatHotkey,
+        loopCount: clampInt2(value.loopCount, {
+          min: 1,
+          max: 999,
+          fallback: clampInt2(defaults.loopCount, { min: 1, max: 999, fallback: 1 })
+        }),
+        stepDelayMs,
+        stepDelayUnit: normalizeDelayUnit(value.stepDelayUnit) || normalizeDelayUnit(defaults.stepDelayUnit) || inferDelayUnitFromMs(stepDelayMs),
+        loopDelayMs,
+        loopDelayUnit: normalizeDelayUnit(value.loopDelayUnit) || normalizeDelayUnit(defaults.loopDelayUnit) || inferDelayUnitFromMs(loopDelayMs),
+        clearBeforeRun: value.clearBeforeRun !== false
+      };
+    }
+    function normalizeQuickInputImportPayload(parsed) {
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Invalid Quick Input payload");
+      }
+      if (String(parsed.type || "").trim() !== QUICK_INPUT_CLIPBOARD_TYPE) {
+        throw new Error("Invalid Quick Input payload type");
+      }
+      if (Number(parsed.schemaVersion) !== QUICK_INPUT_CLIPBOARD_SCHEMA_VERSION) {
+        throw new Error("Unsupported Quick Input payload version");
+      }
+      if (!parsed.draft || typeof parsed.draft !== "object" || Array.isArray(parsed.draft)) {
+        throw new Error("Missing Quick Input draft");
+      }
+      const rawImages = Array.isArray(parsed.draft.images) ? parsed.draft.images : [];
+      const images = normalizeDraftImages(rawImages);
+      if (images.length !== rawImages.length) {
+        throw new Error("Invalid Quick Input image entries");
+      }
+      return {
+        config: normalizeImportedQuickInputConfig(parsed.config),
+        draft: {
+          text: typeof parsed.draft.text === "string" ? parsed.draft.text : String(parsed.draft.text ?? ""),
+          images
+        }
+      };
+    }
+    function restoreImportedDraftImages(images) {
+      const normalizedImages = normalizeDraftImages(images);
+      const files = [];
+      const entries = [];
+      normalizedImages.forEach((entry, index) => {
+        const normalized = normalizeDraftImageEntry(entry, index);
+        if (!normalized) throw new Error("Invalid image entry");
+        const file = dataUrlToFile(normalized.dataUrl, normalized);
+        if (!file || !isImageFileLike(file)) throw new Error("Failed to restore image file");
+        files.push(file);
+        entries.push(normalized);
+      });
+      return { files, entries };
+    }
+    async function handleQuickInputExport(e) {
+      try {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+      } catch {
+      }
+      if (running || ioBusy) return;
+      setIoBusy(true);
+      try {
+        const draft = await serializeCurrentDraftForExport();
+        const payload = buildQuickInputExportPayload(draft);
+        const ok = await tryCopyTextToClipboard(JSON.stringify(payload, null, 2));
+        if (!ok) {
+          appendGlobalLog(labels.messages?.exportFailed || DEFAULT_LABELS.messages.exportFailed, { level: "error" });
+          return;
+        }
+        void persistDraftSnapshot({ text: draft.text, images: draft.images });
+        appendGlobalLog(labels.messages?.exportSuccess || DEFAULT_LABELS.messages.exportSuccess, { level: "ok" });
+      } catch (error) {
+        warnQuickInput("QuickInput export failed.", error);
+        appendGlobalLog(labels.messages?.exportFailed || DEFAULT_LABELS.messages.exportFailed, { level: "error" });
+      } finally {
+        setIoBusy(false);
+      }
+    }
+    async function handleQuickInputImport(e) {
+      try {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+      } catch {
+      }
+      if (running || ioBusy) return;
+      setIoBusy(true);
+      try {
+        let raw = "";
+        try {
+          raw = await readTextFromClipboard();
+        } catch (error) {
+          warnQuickInput("QuickInput clipboard read failed.", error);
+          appendGlobalLog(labels.messages?.importClipboardReadFailed || DEFAULT_LABELS.messages.importClipboardReadFailed, { level: "error" });
+          return;
+        }
+        let parsed = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          appendGlobalLog(labels.messages?.importJsonParseFailed || DEFAULT_LABELS.messages.importJsonParseFailed, { level: "error" });
+          return;
+        }
+        let payload = null;
+        try {
+          payload = normalizeQuickInputImportPayload(parsed);
+        } catch (error) {
+          warnQuickInput("QuickInput import payload rejected.", error);
+          appendGlobalLog(labels.messages?.importInvalidPayload || DEFAULT_LABELS.messages.importInvalidPayload, { level: "error" });
+          return;
+        }
+        let restored = null;
+        try {
+          restored = restoreImportedDraftImages(payload.draft.images);
+        } catch (error) {
+          warnQuickInput("QuickInput import image restore failed.", error);
+          appendGlobalLog(labels.messages?.importImageRestoreFailed || DEFAULT_LABELS.messages.importImageRestoreFailed, { level: "error" });
+          return;
+        }
+        writeConfigToUi(payload.config);
+        saveConfig(storageKey, readConfigFromUi(), defaults);
+        if (textEl) textEl.value = payload.draft.text;
+        draftPersistToken += 1;
+        setImageFiles(restored.files, { draftEntries: restored.entries, skipDraftPersist: true });
+        await persistDraftSnapshot({ text: payload.draft.text, images: restored.entries });
+        appendGlobalLog(labels.messages?.importSuccess || DEFAULT_LABELS.messages.importSuccess, { level: "ok" });
+        schedulePanelLayout({ followupPasses: 2 });
+        try {
+          textEl?.focus?.();
+        } catch {
+        }
+      } finally {
+        setIoBusy(false);
       }
     }
     function setImageFiles(nextFiles, { draftEntries = null, skipDraftPersist = false } = {}) {
@@ -14938,7 +15330,7 @@ ${displayTargetText}`;
       inputBodyEl.appendChild(loopRow);
       inputBodyEl.appendChild(delayRow);
       inputBodyEl.appendChild(moreSettingsGroup.groupEl);
-      inputActionsEl = createPlayerActionsBar();
+      inputActionsEl = createPlayerActionsBar({ includeIoActions: true });
       inputPanel.appendChild(inputBodyEl);
       inputPanel.appendChild(inputActionsEl);
       const logPanel = globalThis.document.createElement("div");
@@ -15059,9 +15451,11 @@ ${displayTargetText}`;
       loopDelayEl = null;
       loopDelayUnitEl = null;
       clearBeforeRunEl = null;
+      ioButtons.length = 0;
       stopButtons.length = 0;
       playPauseButtons.length = 0;
       setActiveTab = null;
+      ioBusy = false;
       usesShadowUi = false;
     }
     function refreshLocale() {

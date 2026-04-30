@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260430] v1.0.2
-// @name:en        [ChatGPT] Shortcut Jump [20260430] v1.0.2
+// @name           [ChatGPT] 快捷键跳转 [20260430] v1.1.0
+// @name:en        [ChatGPT] Shortcut Jump [20260430] v1.1.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260430] v1.0.2
-// @update-log     1.0.2: 同步 Template v1.0.2，优化快捷输入 More settings 展开分割线，新对话快捷键改为可输入并以 native 作为默认占位。
-// @update-log:en  1.0.2: Synced Template v1.0.2; improved Quick Input More settings with an expanded divider and made the new-chat shortcut editable with native as the default placeholder.
+// @version        [20260430] v1.1.0
+// @update-log     1.1.0: 同步 Template v1.1.0，为快捷输入新增一键导出到剪贴板和从剪贴板导入，支持完整恢复文字、图片与运行设置。
+// @update-log:en  1.1.0: Synced Template v1.1.0; added one-click Quick Input export to clipboard and import from clipboard, restoring text, images, and run settings.
 
 // @match          https://chatgpt.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/ChatGPT_keycap.svg
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260430.1.0.2
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260430.1.1.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
