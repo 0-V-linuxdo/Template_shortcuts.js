@@ -284,6 +284,7 @@
     };
 
     const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
+    const CHATGPT_NATIVE_NEW_CHAT_HOTKEY = "CMD+SHIFT+O";
     const CHATGPT_MENU_TARGETS = Object.freeze({
         createImage: Object.freeze({
             id: "createImage",
@@ -614,12 +615,11 @@
 
         const overlayId = `${String(idPrefix || "").trim() || "chatgpt"}-quick-input-overlay`;
         const CHATGPT_ROOT_URL = "https://chatgpt.com/";
-        const NATIVE_NEW_CHAT_HOTKEY = "CMD+SHIFT+O";
         function qiText(key, vars = {}, fallback = "") {
             return engine?.i18n?.t?.(`quickInput.${key}`, vars, fallback) || fallback;
         }
         function getNativeNewChatLabel() {
-            return qiText("nativeNewChatLabel", {}, `${NATIVE_NEW_CHAT_HOTKEY} (native)`);
+            return qiText("nativeNewChatLabel", {}, `${CHATGPT_NATIVE_NEW_CHAT_HOTKEY} (native)`);
         }
         const isInsideOverlayTree = typeof dom?.isInsideOverlayTree === "function"
             ? dom.isInsideOverlayTree
@@ -795,7 +795,7 @@
             if (cancelFn && cancelFn()) return { ok: false, label: getNativeNewChatLabel() };
 
             try {
-                if (simulateKeystroke(NATIVE_NEW_CHAT_HOTKEY, { target: document.body })) {
+                if (simulateKeystroke(CHATGPT_NATIVE_NEW_CHAT_HOTKEY, { target: document.body })) {
                     return { ok: true, label: getNativeNewChatLabel() };
                 }
             } catch { }
@@ -2662,6 +2662,9 @@
             titleKey: "quickInputTitle",
             primaryColor: "#5D5CDE",
             themeMode: "system",
+            defaults: {
+                newChatHotkey: CHATGPT_NATIVE_NEW_CHAT_HOTKEY
+            },
             adapter
         });
         return quickInputController;

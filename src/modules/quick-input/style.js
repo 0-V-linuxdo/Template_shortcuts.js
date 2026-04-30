@@ -364,6 +364,10 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 ${hostSelector} .qi-form-collapsible[data-open="1"] .qi-form-collapsible-caret {
                     transform: rotate(180deg);
                 }
+                ${hostSelector} .qi-form-collapsible[data-open="1"] {
+                    border-top: 1px solid color-mix(in srgb, var(--qi-border) 78%, transparent);
+                    padding-top: 10px;
+                }
                 ${hostSelector} .qi-form-collapsible[data-open="0"] .qi-form-collapsible-body {
                     display: none;
                 }

@@ -599,19 +599,36 @@ export function createController(userOptions = {}) {
                 return label || String(hotkey || "").trim();
             }
 
-            function getLockedNewChatHotkeyValue(cfg = null) {
-                return String(
-                    (cfg && typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey
-                );
+            function normalizeHotkeyComparisonToken(value) {
+                return String(value ?? "").trim().replace(/\s+/g, "").toUpperCase();
             }
 
-            function getLockedNewChatHotkeyDisplay(cfg = null) {
-                const value = getLockedNewChatHotkeyValue(cfg);
+            function getLockedNewChatDefaultHotkeyValue() {
+                return String(typeof defaults.newChatHotkey === "string" ? defaults.newChatHotkey : "");
+            }
+
+            function getLockedNewChatHotkeyDisplay() {
+                const value = getLockedNewChatDefaultHotkeyValue();
                 return resolveDynamicText(lockedNewChatHotkeyDisplay, "") || getNewChatTriggerLabel(value);
             }
 
-            function getLockedNewChatHotkeyTitle(cfg = null) {
-                const value = getLockedNewChatHotkeyValue(cfg).trim();
+            function isDefaultLockedNewChatHotkeyValue(value) {
+                const token = normalizeHotkeyComparisonToken(value);
+                if (!token) return true;
+                const defaultToken = normalizeHotkeyComparisonToken(getLockedNewChatDefaultHotkeyValue());
+                const legacyDefaultToken = normalizeHotkeyComparisonToken(DEFAULT_CONFIG.newChatHotkey);
+                const displayToken = normalizeHotkeyComparisonToken(getLockedNewChatHotkeyDisplay());
+                return token === defaultToken || token === legacyDefaultToken || token === displayToken;
+            }
+
+            function getLockedNewChatHotkeyInputValue(cfg = null) {
+                const raw = String((cfg && typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : "");
+                if (isDefaultLockedNewChatHotkeyValue(raw)) return "";
+                return raw;
+            }
+
+            function getLockedNewChatHotkeyTitle() {
+                const value = getLockedNewChatDefaultHotkeyValue().trim();
                 if (!value) return "";
                 const formatter = engine?.core?.hotkeys?.formatForDisplay || null;
                 if (typeof formatter === "function") {
@@ -704,10 +721,8 @@ export function createController(userOptions = {}) {
             }
 
             function getNewChatHotkeyConfigValueFromUi() {
-                if (!lockNewChatHotkey) return String(newChatHotkeyEl?.value ?? "");
-                const cfg = loadConfig(storageKey, defaults);
-                if (cfg && typeof cfg.newChatHotkey === "string") return cfg.newChatHotkey;
-                return typeof defaults.newChatHotkey === "string" ? defaults.newChatHotkey : "";
+                const value = String(newChatHotkeyEl?.value ?? "");
+                return lockNewChatHotkey ? value.trim() : value;
             }
 
             async function triggerNewChatAction({ hotkey, phase = "primary", attempt = 1, shouldCancel = null, runtime = null } = {}) {
@@ -2222,10 +2237,13 @@ export function createController(userOptions = {}) {
                 }
                 if (newChatHotkeyEl) {
                     if (lockNewChatHotkey) {
-                        newChatHotkeyEl.value = getLockedNewChatHotkeyDisplay(cfg);
-                        newChatHotkeyEl.title = getLockedNewChatHotkeyTitle(cfg);
+                        newChatHotkeyEl.value = getLockedNewChatHotkeyInputValue(cfg);
+                        newChatHotkeyEl.placeholder = getLockedNewChatHotkeyDisplay();
+                        newChatHotkeyEl.title = getLockedNewChatHotkeyTitle();
                     } else {
                         newChatHotkeyEl.value = (typeof cfg.newChatHotkey === "string") ? cfg.newChatHotkey : defaults.newChatHotkey;
+                        newChatHotkeyEl.placeholder = labels.placeholders?.newChatHotkey || DEFAULT_LABELS.placeholders.newChatHotkey;
+                        newChatHotkeyEl.title = "";
                     }
                 }
                 if (loopEl) loopEl.value = String(clampInt(cfg.loopCount, { min: 1, max: 999, fallback: clampInt(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }));
@@ -3450,14 +3468,18 @@ export function createController(userOptions = {}) {
                 newChatLabel.textContent = labels.fields?.newChatHotkey || DEFAULT_LABELS.fields.newChatHotkey;
                 newChatHotkeyEl = globalThis.document.createElement("input");
                 newChatHotkeyEl.type = "text";
-                newChatHotkeyEl.placeholder = labels.placeholders?.newChatHotkey || DEFAULT_LABELS.placeholders.newChatHotkey;
+                newChatHotkeyEl.placeholder = lockNewChatHotkey
+                    ? getLockedNewChatHotkeyDisplay()
+                    : (labels.placeholders?.newChatHotkey || DEFAULT_LABELS.placeholders.newChatHotkey);
                 if (lockNewChatHotkey) {
-                    newChatHotkeyEl.readOnly = true;
-                    newChatHotkeyEl.setAttribute("aria-readonly", "true");
-                    newChatHotkeyEl.tabIndex = -1;
-                    newChatHotkeyEl.style.cursor = "default";
                     newChatHotkeyEl.title = getLockedNewChatHotkeyTitle();
                 }
+                newChatHotkeyEl.addEventListener("input", () => {
+                    saveConfig(storageKey, readConfigFromUi(), defaults);
+                });
+                newChatHotkeyEl.addEventListener("change", () => {
+                    saveConfig(storageKey, readConfigFromUi(), defaults);
+                });
                 newChatRow.appendChild(newChatLabel);
                 newChatRow.appendChild(newChatHotkeyEl);
 
