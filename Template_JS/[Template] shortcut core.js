@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260430] v1.1.6
-// @name:en        [Template] Shortcut Core [20260430] v1.1.6
+// @name           [Template] 快捷键跳转 [20260430] v1.1.7
+// @name:en        [Template] Shortcut Core [20260430] v1.1.7
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260430] v1.1.6
-// @update-log     1.1.6: 优化快捷输入导入/导出按钮质感，提升圆形按钮的层次、主色呼应与悬停反馈。
-// @update-log:en  1.1.6: Polished Quick Input import/export button styling with richer circular surfaces, primary-color accents, and hover feedback.
+// @version        [20260430] v1.1.7
+// @update-log     1.1.7: 撤销快捷输入导入/导出按钮外壳样式改动，改为仅优化复制/粘贴图标线稿。
+// @update-log:en  1.1.7: Reverted Quick Input import/export button surface styling and refined only the copy/paste icon line art.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -10589,13 +10589,10 @@ ${displayTargetText}`;
                     --qi-warn: #fdba74;
                     --qi-danger-bg: rgba(239, 68, 68, 0.92);
                     --qi-danger-border: rgba(255,255,255,0.18);
-                    --qi-icon-btn-bg: color-mix(in srgb, ${primaryColor} 14%, #2b2b2b);
-                    --qi-icon-btn-hover: color-mix(in srgb, ${primaryColor} 22%, #343434);
-                    --qi-icon-btn-border: color-mix(in srgb, ${primaryColor} 28%, rgba(255,255,255,0.2));
-                    --qi-icon-btn-color: rgba(255,255,255,0.88);
-                    --qi-io-btn-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 7px 16px rgba(0,0,0,0.26);
-                    --qi-io-btn-hover-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 10px 22px rgba(0,0,0,0.32);
-                    --qi-io-btn-gloss: rgba(255,255,255,0.14);
+                    --qi-icon-btn-bg: rgba(255,255,255,0.08);
+                    --qi-icon-btn-hover: rgba(255,255,255,0.16);
+                    --qi-icon-btn-border: rgba(255,255,255,0.16);
+                    --qi-icon-btn-color: rgba(255,255,255,0.76);
                     --qi-icon-btn-danger-bg: rgba(239,68,68,0.18);
                     --qi-icon-btn-danger-hover: rgba(239,68,68,0.26);
                     --qi-icon-btn-danger-border: rgba(248,113,113,0.34);
@@ -10632,13 +10629,10 @@ ${displayTargetText}`;
                     --qi-success: #15803d;
                     --qi-warn: #c2410c;
                     --qi-danger-border: rgba(185, 28, 28, 0.35);
-                    --qi-icon-btn-bg: color-mix(in srgb, ${primaryColor} 9%, #fff);
-                    --qi-icon-btn-hover: color-mix(in srgb, ${primaryColor} 14%, #fff);
-                    --qi-icon-btn-border: color-mix(in srgb, ${primaryColor} 24%, rgba(17,24,39,0.16));
-                    --qi-icon-btn-color: color-mix(in srgb, ${primaryColor} 50%, rgba(17,24,39,0.78));
-                    --qi-io-btn-shadow: inset 0 1px 0 rgba(255,255,255,0.78), 0 7px 18px rgba(15,23,42,0.1);
-                    --qi-io-btn-hover-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 24px rgba(15,23,42,0.15);
-                    --qi-io-btn-gloss: rgba(255,255,255,0.58);
+                    --qi-icon-btn-bg: rgba(17,24,39,0.08);
+                    --qi-icon-btn-hover: rgba(17,24,39,0.14);
+                    --qi-icon-btn-border: rgba(17,24,39,0.14);
+                    --qi-icon-btn-color: rgba(17,24,39,0.72);
                     --qi-icon-btn-danger-bg: rgba(220,38,38,0.08);
                     --qi-icon-btn-danger-hover: rgba(220,38,38,0.14);
                     --qi-icon-btn-danger-border: rgba(220,38,38,0.2);
@@ -10792,18 +10786,18 @@ ${displayTargetText}`;
                 }
                 ${hostSelector} .qi-tab-panel[data-active="1"] { display: flex; }
                 ${hostSelector} .qi-actions {
-                    padding: 5px 9px 6px;
+                    padding: 4px 8px 5px;
                     border-top: 1px solid var(--qi-border);
                     background: var(--qi-actions-bg);
                     display: flex;
                     justify-content: flex-end;
                     align-items: center;
-                    gap: 8px;
+                    gap: 7px;
                 }
                 ${hostSelector} .qi-io-actions {
                     display: inline-flex;
                     align-items: center;
-                    gap: 8px;
+                    gap: 6px;
                     margin-right: auto;
                     min-width: 0;
                 }
@@ -10812,59 +10806,26 @@ ${displayTargetText}`;
                     line-height: 1;
                 }
                 ${hostSelector} .qi-actions .qi-io-btn {
-                    width: 36px;
-                    height: 36px;
-                    min-width: 36px;
+                    width: 32px;
+                    height: 32px;
+                    min-width: 32px;
                     padding: 0;
                     border-radius: 999px;
                     display: inline-flex;
                     align-items: center;
                     justify-content: center;
-                    position: relative;
-                    overflow: hidden;
                     color: var(--qi-icon-btn-color);
                     background: var(--qi-icon-btn-bg);
                     border-color: var(--qi-icon-btn-border);
-                    box-shadow: var(--qi-io-btn-shadow);
-                    transition:
-                        transform 160ms ease,
-                        box-shadow 160ms ease,
-                        background 160ms ease,
-                        border-color 160ms ease,
-                        color 160ms ease;
-                }
-                ${hostSelector} .qi-actions .qi-io-btn::before {
-                    content: "";
-                    position: absolute;
-                    inset: 1px;
-                    border-radius: inherit;
-                    background: linear-gradient(180deg, var(--qi-io-btn-gloss), transparent 46%);
-                    pointer-events: none;
-                    opacity: 0.72;
                 }
                 ${hostSelector} .qi-actions .qi-io-btn:not(:disabled):hover {
                     background: var(--qi-icon-btn-hover);
                     color: var(--qi-text-strong);
-                    border-color: color-mix(in srgb, ${primaryColor} 42%, var(--qi-icon-btn-border));
-                    box-shadow: var(--qi-io-btn-hover-shadow);
-                    transform: translateY(-1px);
-                }
-                ${hostSelector} .qi-actions .qi-io-btn:not(:disabled):active {
-                    transform: translateY(0);
-                    box-shadow: var(--qi-io-btn-shadow);
                 }
                 ${hostSelector} .qi-actions .qi-io-btn svg {
                     width: 19px;
                     height: 19px;
                     display: block;
-                    pointer-events: none;
-                    position: relative;
-                    z-index: 1;
-                }
-                ${hostSelector} .qi-actions .qi-io-btn:focus-visible {
-                    outline: none;
-                    border-color: ${primaryColor};
-                    box-shadow: 0 0 0 2px ${primaryColor}33, var(--qi-io-btn-hover-shadow);
                 }
                 ${hostSelector} .qi-actions .qi-player-btn {
                     width: 38px;
@@ -11431,7 +11392,7 @@ ${displayTargetText}`;
                     font-size: 13px;
                     font-weight: 650;
                 }
-                ${hostSelector} .qi-btn:not(.qi-btn-primary):not(.qi-btn-danger):not(.qi-io-btn):hover { background: var(--qi-hover); }
+                ${hostSelector} .qi-btn:not(.qi-btn-primary):not(.qi-btn-danger):hover { background: var(--qi-hover); }
                 ${hostSelector} .qi-btn-primary {
                     background: ${primaryColor};
                     border-color: ${primaryColor};
@@ -12273,43 +12234,39 @@ ${displayTargetText}`;
       });
       if (normalized === "import") {
         svg.appendChild(createPlayerActionSvgNode("path", {
-          d: "M8.2 6.35H7.3C6.47 6.35 5.8 7.02 5.8 7.85V18.1C5.8 18.93 6.47 19.6 7.3 19.6H16.7C17.53 19.6 18.2 18.93 18.2 18.1V7.85C18.2 7.02 17.53 6.35 16.7 6.35H15.8",
+          d: "M8.35 7.05H7.55C6.72 7.05 6.05 7.72 6.05 8.55V17.95C6.05 18.78 6.72 19.45 7.55 19.45H16.45C17.28 19.45 17.95 18.78 17.95 17.95V8.55C17.95 7.72 17.28 7.05 16.45 7.05H15.65",
           stroke: "currentColor",
-          "stroke-width": "1.65",
+          "stroke-width": "1.7",
           "stroke-linecap": "round",
           "stroke-linejoin": "round"
         }));
         svg.appendChild(createPlayerActionSvgNode("path", {
-          d: "M9 6.35V5.45C9 4.87 9.47 4.4 10.05 4.4H13.95C14.53 4.4 15 4.87 15 5.45V6.35H9Z",
+          d: "M9.1 7.05V6C9.1 5.42 9.57 4.95 10.15 4.95H13.85C14.43 4.95 14.9 5.42 14.9 6V7.05H9.1Z",
           stroke: "currentColor",
-          "stroke-width": "1.65",
+          "stroke-width": "1.7",
+          "stroke-linecap": "round",
           "stroke-linejoin": "round"
         }));
         svg.appendChild(createPlayerActionSvgNode("path", {
-          d: "M9.35 10.2H14.65C15.15 10.2 15.55 10.6 15.55 11.1V16.35C15.55 16.85 15.15 17.25 14.65 17.25H9.35C8.85 17.25 8.45 16.85 8.45 16.35V11.1C8.45 10.6 8.85 10.2 9.35 10.2Z",
+          d: "M9.3 11.35H14.7M9.3 14.05H13.55",
           stroke: "currentColor",
-          "stroke-width": "1.65",
-          "stroke-linejoin": "round"
+          "stroke-width": "1.7",
+          "stroke-linecap": "round"
         }));
         return svg;
       }
-      svg.appendChild(createPlayerActionSvgNode("rect", {
-        x: "7.1",
-        y: "8.35",
-        width: "8.1",
-        height: "8.1",
-        rx: "1.2",
+      svg.appendChild(createPlayerActionSvgNode("path", {
+        d: "M8.65 7.15H15.1C16 7.15 16.75 7.9 16.75 8.8V15.25",
         stroke: "currentColor",
-        "stroke-width": "1.75"
+        "stroke-width": "1.75",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round"
       }));
-      svg.appendChild(createPlayerActionSvgNode("rect", {
-        x: "9.35",
-        y: "6.1",
-        width: "8.1",
-        height: "8.1",
-        rx: "1.2",
+      svg.appendChild(createPlayerActionSvgNode("path", {
+        d: "M7.45 9.05H14.85C15.68 9.05 16.35 9.72 16.35 10.55V17.95C16.35 18.78 15.68 19.45 14.85 19.45H7.45C6.62 19.45 5.95 18.78 5.95 17.95V10.55C5.95 9.72 6.62 9.05 7.45 9.05Z",
         stroke: "currentColor",
-        "stroke-width": "1.75"
+        "stroke-width": "1.75",
+        "stroke-linejoin": "round"
       }));
       return svg;
     }
