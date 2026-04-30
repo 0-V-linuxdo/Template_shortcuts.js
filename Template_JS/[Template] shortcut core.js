@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260430] v1.1.4
-// @name:en        [Template] Shortcut Core [20260430] v1.1.4
+// @name           [Template] 快捷键跳转 [20260430] v1.1.5
+// @name:en        [Template] Shortcut Core [20260430] v1.1.5
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260430] v1.1.4
-// @update-log     1.1.4: 美化快捷输入导入/导出按钮图标，增强复制/粘贴语义在小尺寸下的识别度。
-// @update-log:en  1.1.4: Refined Quick Input import/export icons to make copy/paste semantics clearer at small sizes.
+// @version        [20260430] v1.1.5
+// @update-log     1.1.5: 回调快捷输入导入/导出按钮图标为更轻巧的视觉样式，改善小尺寸下的整体观感。
+// @update-log:en  1.1.5: Restored lighter Quick Input import/export icons for a cleaner small-size appearance.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -12234,43 +12234,43 @@ ${displayTargetText}`;
       });
       if (normalized === "import") {
         svg.appendChild(createPlayerActionSvgNode("path", {
-          d: "M8.5 6.45H7.7C6.76 6.45 6 7.21 6 8.15V18.15C6 19.09 6.76 19.85 7.7 19.85H16.3C17.24 19.85 18 19.09 18 18.15V8.15C18 7.21 17.24 6.45 16.3 6.45H15.5",
+          d: "M8.2 6.35H7.3C6.47 6.35 5.8 7.02 5.8 7.85V18.1C5.8 18.93 6.47 19.6 7.3 19.6H16.7C17.53 19.6 18.2 18.93 18.2 18.1V7.85C18.2 7.02 17.53 6.35 16.7 6.35H15.8",
           stroke: "currentColor",
-          "stroke-width": "1.9",
+          "stroke-width": "1.65",
           "stroke-linecap": "round",
           "stroke-linejoin": "round"
         }));
         svg.appendChild(createPlayerActionSvgNode("path", {
-          d: "M9 6.45V5.55C9 4.86 9.56 4.3 10.25 4.3H13.75C14.44 4.3 15 4.86 15 5.55V6.45H9Z",
+          d: "M9 6.35V5.45C9 4.87 9.47 4.4 10.05 4.4H13.95C14.53 4.4 15 4.87 15 5.45V6.35H9Z",
           stroke: "currentColor",
-          "stroke-width": "1.9",
+          "stroke-width": "1.65",
           "stroke-linejoin": "round"
         }));
         svg.appendChild(createPlayerActionSvgNode("path", {
-          d: "M9.4 11.1H14.6M9.4 14.05H14.6",
+          d: "M9.35 10.2H14.65C15.15 10.2 15.55 10.6 15.55 11.1V16.35C15.55 16.85 15.15 17.25 14.65 17.25H9.35C8.85 17.25 8.45 16.85 8.45 16.35V11.1C8.45 10.6 8.85 10.2 9.35 10.2Z",
           stroke: "currentColor",
-          "stroke-width": "1.9",
-          "stroke-linecap": "round"
+          "stroke-width": "1.65",
+          "stroke-linejoin": "round"
         }));
         return svg;
       }
       svg.appendChild(createPlayerActionSvgNode("rect", {
-        x: "6.25",
+        x: "7.1",
         y: "8.35",
-        width: "9.6",
-        height: "9.6",
-        rx: "1.6",
+        width: "8.1",
+        height: "8.1",
+        rx: "1.2",
         stroke: "currentColor",
-        "stroke-width": "1.9"
+        "stroke-width": "1.75"
       }));
       svg.appendChild(createPlayerActionSvgNode("rect", {
-        x: "8.15",
-        y: "6.45",
-        width: "9.6",
-        height: "9.6",
-        rx: "1.6",
+        x: "9.35",
+        y: "6.1",
+        width: "8.1",
+        height: "8.1",
+        rx: "1.2",
         stroke: "currentColor",
-        "stroke-width": "1.9"
+        "stroke-width": "1.75"
       }));
       return svg;
     }
