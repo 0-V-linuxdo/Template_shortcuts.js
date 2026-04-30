@@ -71,16 +71,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260430] v1.1.7",
+            name: "[ChatGPT] 快捷键跳转 [20260430] v1.1.8",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260430] v1.1.7",
-            updateLog: "1.1.7: 同步 Template v1.1.7，撤销快捷输入导入/导出按钮外壳样式改动，改为仅优化复制/粘贴图标线稿。",
+            version: "[20260430] v1.1.8",
+            updateLog: "1.1.8: 同步 Template v1.1.8，将快捷输入导入/导出按钮替换为 Lucide clipboard-copy / clipboard-paste 图标，提升复制/粘贴语义识别度。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260430] v1.1.7",
+                    name: "[ChatGPT] Shortcut Jump [20260430] v1.1.8",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.1.7: Synced Template v1.1.7; reverted Quick Input import/export button surface styling and refined only the copy/paste icon line art."
+                    updateLog: "1.1.8: Synced Template v1.1.8; replaced Quick Input import/export buttons with Lucide clipboard-copy and clipboard-paste icons for clearer copy/paste semantics."
                 }
             },
             match: [
