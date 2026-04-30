@@ -264,8 +264,8 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     color: var(--qi-text-strong);
                 }
                 ${hostSelector} .qi-actions .qi-io-btn svg {
-                    width: 17px;
-                    height: 17px;
+                    width: 19px;
+                    height: 19px;
                     display: block;
                 }
                 ${hostSelector} .qi-actions .qi-player-btn {
