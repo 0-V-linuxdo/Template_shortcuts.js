@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260430] v1.0.1
-// @name:en        [Template] Shortcut Core [20260430] v1.0.1
+// @name           [Template] 快捷键跳转 [20260430] v1.0.2
+// @name:en        [Template] Shortcut Core [20260430] v1.0.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260430] v1.0.1
-// @update-log     1.0.1: 修复快捷输入初次打开时草稿图片恢复后高度未重测，避免弹窗过矮和内容被截断。
-// @update-log:en  1.0.1: Fixed Quick Input first-open height remeasurement after draft images restore, preventing a too-short panel and clipped content.
+// @version        [20260430] v1.0.2
+// @update-log     1.0.2: 优化快捷输入 More settings 展开分割线，新对话快捷键改为可输入并以 native 作为默认占位。
+// @update-log:en  1.0.2: Improved Quick Input More settings with an expanded divider and made the new-chat shortcut editable with native as the default placeholder.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -10901,6 +10901,10 @@ ${displayTargetText}`;
                 ${hostSelector} .qi-form-collapsible[data-open="1"] .qi-form-collapsible-caret {
                     transform: rotate(180deg);
                 }
+                ${hostSelector} .qi-form-collapsible[data-open="1"] {
+                    border-top: 1px solid color-mix(in srgb, var(--qi-border) 78%, transparent);
+                    padding-top: 10px;
+                }
                 ${hostSelector} .qi-form-collapsible[data-open="0"] .qi-form-collapsible-body {
                     display: none;
                 }
@@ -12291,17 +12295,31 @@ ${displayTargetText}`;
       const label = resolveDynamicText(adapter.newChatLabel, "");
       return label || String(hotkey || "").trim();
     }
-    function getLockedNewChatHotkeyValue(cfg = null) {
-      return String(
-        cfg && typeof cfg.newChatHotkey === "string" ? cfg.newChatHotkey : defaults.newChatHotkey
-      );
+    function normalizeHotkeyComparisonToken(value) {
+      return String(value ?? "").trim().replace(/\s+/g, "").toUpperCase();
     }
-    function getLockedNewChatHotkeyDisplay(cfg = null) {
-      const value = getLockedNewChatHotkeyValue(cfg);
+    function getLockedNewChatDefaultHotkeyValue() {
+      return String(typeof defaults.newChatHotkey === "string" ? defaults.newChatHotkey : "");
+    }
+    function getLockedNewChatHotkeyDisplay() {
+      const value = getLockedNewChatDefaultHotkeyValue();
       return resolveDynamicText(lockedNewChatHotkeyDisplay, "") || getNewChatTriggerLabel(value);
     }
-    function getLockedNewChatHotkeyTitle(cfg = null) {
-      const value = getLockedNewChatHotkeyValue(cfg).trim();
+    function isDefaultLockedNewChatHotkeyValue(value) {
+      const token = normalizeHotkeyComparisonToken(value);
+      if (!token) return true;
+      const defaultToken = normalizeHotkeyComparisonToken(getLockedNewChatDefaultHotkeyValue());
+      const legacyDefaultToken = normalizeHotkeyComparisonToken(DEFAULT_CONFIG.newChatHotkey);
+      const displayToken = normalizeHotkeyComparisonToken(getLockedNewChatHotkeyDisplay());
+      return token === defaultToken || token === legacyDefaultToken || token === displayToken;
+    }
+    function getLockedNewChatHotkeyInputValue(cfg = null) {
+      const raw = String(cfg && typeof cfg.newChatHotkey === "string" ? cfg.newChatHotkey : "");
+      if (isDefaultLockedNewChatHotkeyValue(raw)) return "";
+      return raw;
+    }
+    function getLockedNewChatHotkeyTitle() {
+      const value = getLockedNewChatDefaultHotkeyValue().trim();
       if (!value) return "";
       const formatter = engine?.core?.hotkeys?.formatForDisplay || null;
       if (typeof formatter === "function") {
@@ -12381,10 +12399,8 @@ ${displayTargetText}`;
       persistDelayControls();
     }
     function getNewChatHotkeyConfigValueFromUi() {
-      if (!lockNewChatHotkey) return String(newChatHotkeyEl?.value ?? "");
-      const cfg = loadConfig(storageKey, defaults);
-      if (cfg && typeof cfg.newChatHotkey === "string") return cfg.newChatHotkey;
-      return typeof defaults.newChatHotkey === "string" ? defaults.newChatHotkey : "";
+      const value = String(newChatHotkeyEl?.value ?? "");
+      return lockNewChatHotkey ? value.trim() : value;
     }
     async function triggerNewChatAction({ hotkey, phase = "primary", attempt = 1, shouldCancel = null, runtime = null } = {}) {
       const fallbackHotkey = String(hotkey || "").trim();
@@ -13795,10 +13811,13 @@ ${displayTargetText}`;
       }
       if (newChatHotkeyEl) {
         if (lockNewChatHotkey) {
-          newChatHotkeyEl.value = getLockedNewChatHotkeyDisplay(cfg);
-          newChatHotkeyEl.title = getLockedNewChatHotkeyTitle(cfg);
+          newChatHotkeyEl.value = getLockedNewChatHotkeyInputValue(cfg);
+          newChatHotkeyEl.placeholder = getLockedNewChatHotkeyDisplay();
+          newChatHotkeyEl.title = getLockedNewChatHotkeyTitle();
         } else {
           newChatHotkeyEl.value = typeof cfg.newChatHotkey === "string" ? cfg.newChatHotkey : defaults.newChatHotkey;
+          newChatHotkeyEl.placeholder = labels.placeholders?.newChatHotkey || DEFAULT_LABELS.placeholders.newChatHotkey;
+          newChatHotkeyEl.title = "";
         }
       }
       if (loopEl) loopEl.value = String(clampInt2(cfg.loopCount, { min: 1, max: 999, fallback: clampInt2(defaults.loopCount, { min: 1, max: 999, fallback: 1 }) }));
@@ -14806,14 +14825,16 @@ ${displayTargetText}`;
       newChatLabel.textContent = labels.fields?.newChatHotkey || DEFAULT_LABELS.fields.newChatHotkey;
       newChatHotkeyEl = globalThis.document.createElement("input");
       newChatHotkeyEl.type = "text";
-      newChatHotkeyEl.placeholder = labels.placeholders?.newChatHotkey || DEFAULT_LABELS.placeholders.newChatHotkey;
+      newChatHotkeyEl.placeholder = lockNewChatHotkey ? getLockedNewChatHotkeyDisplay() : labels.placeholders?.newChatHotkey || DEFAULT_LABELS.placeholders.newChatHotkey;
       if (lockNewChatHotkey) {
-        newChatHotkeyEl.readOnly = true;
-        newChatHotkeyEl.setAttribute("aria-readonly", "true");
-        newChatHotkeyEl.tabIndex = -1;
-        newChatHotkeyEl.style.cursor = "default";
         newChatHotkeyEl.title = getLockedNewChatHotkeyTitle();
       }
+      newChatHotkeyEl.addEventListener("input", () => {
+        saveConfig(storageKey, readConfigFromUi(), defaults);
+      });
+      newChatHotkeyEl.addEventListener("change", () => {
+        saveConfig(storageKey, readConfigFromUi(), defaults);
+      });
       newChatRow.appendChild(newChatLabel);
       newChatRow.appendChild(newChatHotkeyEl);
       const delayRow = globalThis.document.createElement("div");

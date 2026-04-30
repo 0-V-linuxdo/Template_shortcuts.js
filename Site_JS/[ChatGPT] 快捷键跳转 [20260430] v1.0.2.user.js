@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260430] v1.0.1
-// @name:en        [ChatGPT] Shortcut Jump [20260430] v1.0.1
+// @name           [ChatGPT] 快捷键跳转 [20260430] v1.0.2
+// @name:en        [ChatGPT] Shortcut Jump [20260430] v1.0.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260430] v1.0.1
-// @update-log     1.0.1: 同步 Template v1.0.1，修复快捷输入初次打开时草稿图片恢复后高度未重测，避免弹窗过矮和内容被截断。
-// @update-log:en  1.0.1: Synced Template v1.0.1; fixed Quick Input first-open height remeasurement after draft images restore, preventing a too-short panel and clipped content.
+// @version        [20260430] v1.0.2
+// @update-log     1.0.2: 同步 Template v1.0.2，优化快捷输入 More settings 展开分割线，新对话快捷键改为可输入并以 native 作为默认占位。
+// @update-log:en  1.0.2: Synced Template v1.0.2; improved Quick Input More settings with an expanded divider and made the new-chat shortcut editable with native as the default placeholder.
 
 // @match          https://chatgpt.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/ChatGPT_keycap.svg
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260430.1.0.1
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260430.1.0.2
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -304,6 +304,7 @@
       topModelMenuItem: "[role='menuitem'], [role='menuitemradio']"
     };
     const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
+    const CHATGPT_NATIVE_NEW_CHAT_HOTKEY = "CMD+SHIFT+O";
     const CHATGPT_MENU_TARGETS = Object.freeze({
       createImage: Object.freeze({
         id: "createImage",
@@ -596,12 +597,11 @@
       }
       const overlayId = `${String(idPrefix || "").trim() || "chatgpt"}-quick-input-overlay`;
       const CHATGPT_ROOT_URL = "https://chatgpt.com/";
-      const NATIVE_NEW_CHAT_HOTKEY = "CMD+SHIFT+O";
       function qiText(key, vars = {}, fallback = "") {
         return engine2?.i18n?.t?.(`quickInput.${key}`, vars, fallback) || fallback;
       }
       function getNativeNewChatLabel() {
-        return qiText("nativeNewChatLabel", {}, `${NATIVE_NEW_CHAT_HOTKEY} (native)`);
+        return qiText("nativeNewChatLabel", {}, `${CHATGPT_NATIVE_NEW_CHAT_HOTKEY} (native)`);
       }
       const isInsideOverlayTree = typeof dom?.isInsideOverlayTree === "function" ? dom.isInsideOverlayTree : (target, targetOverlayId) => {
         if (!target || !targetOverlayId) return false;
@@ -768,7 +768,7 @@
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
         if (cancelFn && cancelFn()) return { ok: false, label: getNativeNewChatLabel() };
         try {
-          if (simulateKeystroke(NATIVE_NEW_CHAT_HOTKEY, { target: document.body })) {
+          if (simulateKeystroke(CHATGPT_NATIVE_NEW_CHAT_HOTKEY, { target: document.body })) {
             return { ok: true, label: getNativeNewChatLabel() };
           }
         } catch {
@@ -2493,6 +2493,9 @@
         titleKey: "quickInputTitle",
         primaryColor: "#5D5CDE",
         themeMode: "system",
+        defaults: {
+          newChatHotkey: CHATGPT_NATIVE_NEW_CHAT_HOTKEY
+        },
         adapter
       });
       return quickInputController;
