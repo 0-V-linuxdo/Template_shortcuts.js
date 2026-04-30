@@ -235,9 +235,38 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     align-items: center;
                     gap: 7px;
                 }
+                ${hostSelector} .qi-io-actions {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    margin-right: auto;
+                    min-width: 0;
+                }
                 ${hostSelector} .qi-actions .qi-btn {
                     font-size: 12px;
                     line-height: 1;
+                }
+                ${hostSelector} .qi-actions .qi-io-btn {
+                    width: 32px;
+                    height: 32px;
+                    min-width: 32px;
+                    padding: 0;
+                    border-radius: 999px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--qi-icon-btn-color);
+                    background: var(--qi-icon-btn-bg);
+                    border-color: var(--qi-icon-btn-border);
+                }
+                ${hostSelector} .qi-actions .qi-io-btn:not(:disabled):hover {
+                    background: var(--qi-icon-btn-hover);
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-actions .qi-io-btn svg {
+                    width: 17px;
+                    height: 17px;
+                    display: block;
                 }
                 ${hostSelector} .qi-actions .qi-player-btn {
                     width: 38px;

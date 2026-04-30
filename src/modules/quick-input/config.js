@@ -109,6 +109,8 @@ const STEP_DELAY_MAX_MS = 30000;
                 resume: "继续",
                 addHotkey: "增加快捷键",
                 delete: "删除",
+                exportToClipboard: "导出到剪贴板",
+                importFromClipboard: "从剪贴板导入",
                 clearImages: "清空图片"
             }),
             placeholders: Object.freeze({
@@ -145,6 +147,8 @@ const STEP_DELAY_MAX_MS = 30000;
             }),
             aria: Object.freeze({
                 close: "关闭",
+                exportToClipboard: "导出当前快捷输入到剪贴板",
+                importFromClipboard: "从剪贴板导入快捷输入",
                 deleteHotkey: "删除该快捷键",
                 deleteImage: "删除该图片",
                 clearImages: "清空图片"
@@ -208,6 +212,13 @@ const STEP_DELAY_MAX_MS = 30000;
                 failed: "失败！",
                 finished: "完成！",
                 stopRequested: "收到停止请求，将尽快停止…",
+                exportSuccess: "已导出快捷输入到剪贴板。",
+                exportFailed: "导出失败：请检查剪贴板权限后重试。",
+                importSuccess: "已从剪贴板导入快捷输入。",
+                importClipboardReadFailed: "导入失败：无法读取剪贴板，请检查浏览器权限。",
+                importJsonParseFailed: "导入失败：剪贴板内容不是有效 JSON。",
+                importInvalidPayload: "导入失败：剪贴板中未找到有效的 Quick Input 数据。",
+                importImageRestoreFailed: "导入失败：图片数据无法恢复，当前内容未改变。",
                 missingAttachAdapter: "图片发送未配置：请在 quickInput.adapter.attachImages 中实现图片插入逻辑。"
             })
         });
@@ -239,6 +250,8 @@ const STEP_DELAY_MAX_MS = 30000;
                     resume: "Resume",
                     addHotkey: "Add shortcut",
                     delete: "Delete",
+                    exportToClipboard: "Export to clipboard",
+                    importFromClipboard: "Import from clipboard",
                     clearImages: "Clear images"
                 }),
                 placeholders: Object.freeze({
@@ -275,6 +288,8 @@ const STEP_DELAY_MAX_MS = 30000;
                 }),
                 aria: Object.freeze({
                     close: "Close",
+                    exportToClipboard: "Export this Quick Input session to clipboard",
+                    importFromClipboard: "Import Quick Input from clipboard",
                     deleteHotkey: "Delete this shortcut",
                     deleteImage: "Delete this image",
                     clearImages: "Clear images"
@@ -338,6 +353,13 @@ const STEP_DELAY_MAX_MS = 30000;
                     failed: "Failed.",
                     finished: "Finished.",
                     stopRequested: "Stop requested; stopping as soon as possible...",
+                    exportSuccess: "Quick Input exported to clipboard.",
+                    exportFailed: "Export failed. Check clipboard permission and try again.",
+                    importSuccess: "Quick Input imported from clipboard.",
+                    importClipboardReadFailed: "Import failed. Unable to read clipboard; check browser permission.",
+                    importJsonParseFailed: "Import failed. Clipboard content is not valid JSON.",
+                    importInvalidPayload: "Import failed. No valid Quick Input data was found in clipboard.",
+                    importImageRestoreFailed: "Import failed. Image data could not be restored, so current content was left unchanged.",
                     missingAttachAdapter: "Image sending is not configured. Implement image insertion in quickInput.adapter.attachImages."
                 })
             })

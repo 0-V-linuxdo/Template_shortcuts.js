@@ -11,6 +11,9 @@ import { STEP_DELAY_MAX_MS, LOOP_DELAY_MAX_MS, DELAY_UNIT_FACTORS, DELAY_UNIT_LA
 import { executeEngineShortcutByHotkey, sleepWithCancel, waitForObservedState } from "./runtime.js";
 import { ensureQuickInputStyle } from "./style.js";
 
+const QUICK_INPUT_CLIPBOARD_SCHEMA_VERSION = 1;
+const QUICK_INPUT_CLIPBOARD_TYPE = "template-shortcuts.quick-input";
+
 export function createController(userOptions = {}) {
             const options = userOptions && typeof userOptions === "object" ? userOptions : {};
             const engine = options.engine;
@@ -114,6 +117,7 @@ export function createController(userOptions = {}) {
             let loopDelayEl = null;
             let loopDelayUnitEl = null;
             let clearBeforeRunEl = null;
+            const ioButtons = [];
             const stopButtons = [];
             const playPauseButtons = [];
             let activeTab = "input";
@@ -123,6 +127,7 @@ export function createController(userOptions = {}) {
             let draftImageEntries = [];
             let imageObjectUrls = [];
             let running = false;
+            let ioBusy = false;
             let cancelRun = false;
             let paused = false;
             let pauseStartedAtMs = 0;
@@ -380,6 +385,26 @@ export function createController(userOptions = {}) {
                 }
             }
 
+            function getIoActionLabel(action) {
+                const normalized = String(action ?? "").trim().toLowerCase();
+                if (normalized === "import") {
+                    return labels.buttons?.importFromClipboard || DEFAULT_LABELS.buttons.importFromClipboard || "Import";
+                }
+                return labels.buttons?.exportToClipboard || DEFAULT_LABELS.buttons.exportToClipboard || "Export";
+            }
+
+            function getIoActionAriaLabel(action) {
+                const normalized = String(action ?? "").trim().toLowerCase();
+                if (normalized === "import") {
+                    return labels.aria?.importFromClipboard
+                        || DEFAULT_LABELS.aria.importFromClipboard
+                        || getIoActionLabel(action);
+                }
+                return labels.aria?.exportToClipboard
+                    || DEFAULT_LABELS.aria.exportToClipboard
+                    || getIoActionLabel(action);
+            }
+
             function createPlayerActionSvgNode(tag, attrs = {}) {
                 const node = globalThis.document.createElementNS(QUICK_INPUT_SVG_NS, tag);
                 Object.entries(attrs).forEach(([name, value]) => {
@@ -446,6 +471,70 @@ export function createController(userOptions = {}) {
                 return svg;
             }
 
+            function createIoActionIcon(action) {
+                const normalized = String(action ?? "").trim().toLowerCase();
+                const svg = createPlayerActionSvgNode("svg", {
+                    viewBox: "0 0 24 24",
+                    fill: "none",
+                    "aria-hidden": "true",
+                    focusable: "false"
+                });
+
+                svg.appendChild(createPlayerActionSvgNode("path", {
+                    d: "M5 14.5V18.2C5 18.9 5.55 19.45 6.25 19.45H17.75C18.45 19.45 19 18.9 19 18.2V14.5",
+                    stroke: "currentColor",
+                    "stroke-width": "2",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round"
+                }));
+
+                if (normalized === "import") {
+                    svg.appendChild(createPlayerActionSvgNode("path", {
+                        d: "M12 4.5V14.5",
+                        stroke: "currentColor",
+                        "stroke-width": "2",
+                        "stroke-linecap": "round"
+                    }));
+                    svg.appendChild(createPlayerActionSvgNode("path", {
+                        d: "M8 10.5L12 14.5L16 10.5",
+                        stroke: "currentColor",
+                        "stroke-width": "2",
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round"
+                    }));
+                    return svg;
+                }
+
+                svg.appendChild(createPlayerActionSvgNode("path", {
+                    d: "M12 14.5V4.5",
+                    stroke: "currentColor",
+                    "stroke-width": "2",
+                    "stroke-linecap": "round"
+                }));
+                svg.appendChild(createPlayerActionSvgNode("path", {
+                    d: "M8 8.5L12 4.5L16 8.5",
+                    stroke: "currentColor",
+                    "stroke-width": "2",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round"
+                }));
+                return svg;
+            }
+
+            function createIoActionButton(action, onClick) {
+                const normalized = String(action ?? "").trim().toLowerCase() || "export";
+                const btn = globalThis.document.createElement("button");
+                btn.type = "button";
+                btn.className = "qi-btn qi-io-btn";
+                btn.setAttribute("data-action", normalized);
+                btn.title = getIoActionLabel(normalized);
+                btn.setAttribute("aria-label", getIoActionAriaLabel(normalized));
+                btn.replaceChildren(createIoActionIcon(normalized));
+                if (typeof onClick === "function") btn.addEventListener("click", onClick);
+                ioButtons.push(btn);
+                return btn;
+            }
+
             function setPlayerActionButtonVisual(btn, action) {
                 if (!btn) return;
                 const normalized = String(action ?? "").trim().toLowerCase();
@@ -472,9 +561,17 @@ export function createController(userOptions = {}) {
                 return btn;
             }
 
-            function createPlayerActionsBar() {
+            function createPlayerActionsBar({ includeIoActions = false } = {}) {
                 const actionsEl = globalThis.document.createElement("div");
                 actionsEl.className = "qi-actions";
+
+                if (includeIoActions) {
+                    const ioActionsEl = globalThis.document.createElement("div");
+                    ioActionsEl.className = "qi-io-actions";
+                    ioActionsEl.appendChild(createIoActionButton("export", handleQuickInputExport));
+                    ioActionsEl.appendChild(createIoActionButton("import", handleQuickInputImport));
+                    actionsEl.appendChild(ioActionsEl);
+                }
 
                 const stopBtn = createPlayerActionButton("stop", stopMacro, { disabled: true });
                 stopBtn.hidden = !running;
@@ -521,6 +618,9 @@ export function createController(userOptions = {}) {
                 if (loopDelayEl) loopDelayEl.disabled = isBusy;
                 if (loopDelayUnitEl) loopDelayUnitEl.disabled = isBusy;
                 if (clearBeforeRunEl) clearBeforeRunEl.disabled = isBusy;
+                for (const btn of ioButtons) {
+                    if (btn) btn.disabled = isBusy || ioBusy;
+                }
                 if (newChatHotkeyEl) newChatHotkeyEl.disabled = isBusy;
                 if (textEl) textEl.disabled = isBusy;
                 if (imageDropEl) {
@@ -1438,6 +1538,285 @@ export function createController(userOptions = {}) {
                 } catch (error) {
                     warnQuickInput("Failed to restore image draft; skipped corrupted image draft data.", error);
                     clearDraftImagesState({ preserveText: true });
+                }
+            }
+
+            function setIoBusy(nextBusy) {
+                ioBusy = !!nextBusy;
+                syncRunControls();
+            }
+
+            function getClipboardApi() {
+                const scope = getGlobalScope();
+                return scope?.navigator?.clipboard || null;
+            }
+
+            async function tryCopyTextToClipboard(text) {
+                const value = String(text ?? "");
+                const clipboard = getClipboardApi();
+                try {
+                    if (clipboard && typeof clipboard.writeText === "function") {
+                        await clipboard.writeText(value);
+                        return true;
+                    }
+                } catch {}
+
+                const doc = globalThis.document || null;
+                const body = doc?.body || null;
+                if (!doc || !body) return false;
+
+                let textarea = null;
+                try {
+                    textarea = doc.createElement("textarea");
+                    textarea.value = value;
+                    textarea.setAttribute("readonly", "readonly");
+                    Object.assign(textarea.style, {
+                        position: "fixed",
+                        top: "-1000px",
+                        left: "-1000px",
+                        width: "1px",
+                        height: "1px",
+                        opacity: "0"
+                    });
+                    body.appendChild(textarea);
+                    textarea.focus();
+                    textarea.select();
+                    return !!(doc.execCommand && doc.execCommand("copy"));
+                } catch {
+                    return false;
+                } finally {
+                    try { textarea?.remove?.(); } catch {}
+                }
+            }
+
+            async function readTextFromClipboard() {
+                const clipboard = getClipboardApi();
+                if (!clipboard || typeof clipboard.readText !== "function") {
+                    throw new Error("Clipboard readText is unavailable");
+                }
+                return String(await clipboard.readText());
+            }
+
+            async function serializeImageFileForExport(file, index = 0) {
+                const dataUrl = await readFileAsDataUrl(file);
+                const entry = normalizeDraftImageEntry({
+                    name: file?.name,
+                    type: file?.type,
+                    size: file?.size,
+                    lastModified: file?.lastModified,
+                    dataUrl
+                }, index);
+                if (!entry) throw new Error("Invalid image data");
+                return entry;
+            }
+
+            async function serializeCurrentDraftForExport() {
+                await waitForDraftRestore();
+                const files = Array.from(imageFiles || []).filter(isImageFileLike);
+                const images = [];
+                for (let index = 0; index < files.length; index++) {
+                    images.push(await serializeImageFileForExport(files[index], index));
+                }
+                return {
+                    text: String(textEl?.value ?? ""),
+                    images: normalizeDraftImages(images)
+                };
+            }
+
+            function buildQuickInputExportPayload(draft) {
+                const cfg = readConfigFromUi();
+                return {
+                    schemaVersion: QUICK_INPUT_CLIPBOARD_SCHEMA_VERSION,
+                    type: QUICK_INPUT_CLIPBOARD_TYPE,
+                    exportedAt: new Date().toISOString(),
+                    config: {
+                        toolHotkeys: Array.isArray(cfg.toolHotkeys) ? cfg.toolHotkeys : [],
+                        toolHotkey: String(cfg.toolHotkey || ""),
+                        newChatHotkey: String(cfg.newChatHotkey || ""),
+                        loopCount: cfg.loopCount,
+                        stepDelayMs: cfg.stepDelayMs,
+                        stepDelayUnit: cfg.stepDelayUnit,
+                        loopDelayMs: cfg.loopDelayMs,
+                        loopDelayUnit: cfg.loopDelayUnit,
+                        clearBeforeRun: cfg.clearBeforeRun !== false
+                    },
+                    draft: {
+                        text: String(draft?.text ?? ""),
+                        images: normalizeDraftImages(draft?.images)
+                    }
+                };
+            }
+
+            function normalizeImportedQuickInputConfig(value) {
+                if (!value || typeof value !== "object" || Array.isArray(value)) {
+                    throw new Error("Missing Quick Input config");
+                }
+
+                const importedToolHotkeys = Array.isArray(value.toolHotkeys)
+                    ? value.toolHotkeys
+                    : (typeof value.toolHotkey === "string" ? [value.toolHotkey] : []);
+                const toolHotkeys = importedToolHotkeys
+                    .map(item => String(item ?? "").trim())
+                    .filter(Boolean);
+                const stepDelayMs = clampInt(value.stepDelayMs, {
+                    min: 0,
+                    max: STEP_DELAY_MAX_MS,
+                    fallback: clampInt(defaults.stepDelayMs, { min: 0, max: STEP_DELAY_MAX_MS, fallback: 1000 })
+                });
+                const loopDelayMs = clampInt(value.loopDelayMs, {
+                    min: 0,
+                    max: LOOP_DELAY_MAX_MS,
+                    fallback: clampInt(defaults.loopDelayMs, { min: 0, max: LOOP_DELAY_MAX_MS, fallback: 20000 })
+                });
+
+                return {
+                    toolHotkeys,
+                    toolHotkey: toolHotkeys[0] || "",
+                    newChatHotkey: typeof value.newChatHotkey === "string" ? value.newChatHotkey : defaults.newChatHotkey,
+                    loopCount: clampInt(value.loopCount, {
+                        min: 1,
+                        max: 999,
+                        fallback: clampInt(defaults.loopCount, { min: 1, max: 999, fallback: 1 })
+                    }),
+                    stepDelayMs,
+                    stepDelayUnit: normalizeDelayUnit(value.stepDelayUnit)
+                        || normalizeDelayUnit(defaults.stepDelayUnit)
+                        || inferDelayUnitFromMs(stepDelayMs),
+                    loopDelayMs,
+                    loopDelayUnit: normalizeDelayUnit(value.loopDelayUnit)
+                        || normalizeDelayUnit(defaults.loopDelayUnit)
+                        || inferDelayUnitFromMs(loopDelayMs),
+                    clearBeforeRun: value.clearBeforeRun !== false
+                };
+            }
+
+            function normalizeQuickInputImportPayload(parsed) {
+                if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                    throw new Error("Invalid Quick Input payload");
+                }
+                if (String(parsed.type || "").trim() !== QUICK_INPUT_CLIPBOARD_TYPE) {
+                    throw new Error("Invalid Quick Input payload type");
+                }
+                if (Number(parsed.schemaVersion) !== QUICK_INPUT_CLIPBOARD_SCHEMA_VERSION) {
+                    throw new Error("Unsupported Quick Input payload version");
+                }
+                if (!parsed.draft || typeof parsed.draft !== "object" || Array.isArray(parsed.draft)) {
+                    throw new Error("Missing Quick Input draft");
+                }
+
+                const rawImages = Array.isArray(parsed.draft.images) ? parsed.draft.images : [];
+                const images = normalizeDraftImages(rawImages);
+                if (images.length !== rawImages.length) {
+                    throw new Error("Invalid Quick Input image entries");
+                }
+
+                return {
+                    config: normalizeImportedQuickInputConfig(parsed.config),
+                    draft: {
+                        text: typeof parsed.draft.text === "string"
+                            ? parsed.draft.text
+                            : String(parsed.draft.text ?? ""),
+                        images
+                    }
+                };
+            }
+
+            function restoreImportedDraftImages(images) {
+                const normalizedImages = normalizeDraftImages(images);
+                const files = [];
+                const entries = [];
+                normalizedImages.forEach((entry, index) => {
+                    const normalized = normalizeDraftImageEntry(entry, index);
+                    if (!normalized) throw new Error("Invalid image entry");
+                    const file = dataUrlToFile(normalized.dataUrl, normalized);
+                    if (!file || !isImageFileLike(file)) throw new Error("Failed to restore image file");
+                    files.push(file);
+                    entries.push(normalized);
+                });
+                return { files, entries };
+            }
+
+            async function handleQuickInputExport(e) {
+                try {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                } catch {}
+                if (running || ioBusy) return;
+
+                setIoBusy(true);
+                try {
+                    const draft = await serializeCurrentDraftForExport();
+                    const payload = buildQuickInputExportPayload(draft);
+                    const ok = await tryCopyTextToClipboard(JSON.stringify(payload, null, 2));
+                    if (!ok) {
+                        appendGlobalLog(labels.messages?.exportFailed || DEFAULT_LABELS.messages.exportFailed, { level: "error" });
+                        return;
+                    }
+                    void persistDraftSnapshot({ text: draft.text, images: draft.images });
+                    appendGlobalLog(labels.messages?.exportSuccess || DEFAULT_LABELS.messages.exportSuccess, { level: "ok" });
+                } catch (error) {
+                    warnQuickInput("QuickInput export failed.", error);
+                    appendGlobalLog(labels.messages?.exportFailed || DEFAULT_LABELS.messages.exportFailed, { level: "error" });
+                } finally {
+                    setIoBusy(false);
+                }
+            }
+
+            async function handleQuickInputImport(e) {
+                try {
+                    e?.preventDefault?.();
+                    e?.stopPropagation?.();
+                } catch {}
+                if (running || ioBusy) return;
+
+                setIoBusy(true);
+                try {
+                    let raw = "";
+                    try {
+                        raw = await readTextFromClipboard();
+                    } catch (error) {
+                        warnQuickInput("QuickInput clipboard read failed.", error);
+                        appendGlobalLog(labels.messages?.importClipboardReadFailed || DEFAULT_LABELS.messages.importClipboardReadFailed, { level: "error" });
+                        return;
+                    }
+
+                    let parsed = null;
+                    try {
+                        parsed = JSON.parse(raw);
+                    } catch {
+                        appendGlobalLog(labels.messages?.importJsonParseFailed || DEFAULT_LABELS.messages.importJsonParseFailed, { level: "error" });
+                        return;
+                    }
+
+                    let payload = null;
+                    try {
+                        payload = normalizeQuickInputImportPayload(parsed);
+                    } catch (error) {
+                        warnQuickInput("QuickInput import payload rejected.", error);
+                        appendGlobalLog(labels.messages?.importInvalidPayload || DEFAULT_LABELS.messages.importInvalidPayload, { level: "error" });
+                        return;
+                    }
+
+                    let restored = null;
+                    try {
+                        restored = restoreImportedDraftImages(payload.draft.images);
+                    } catch (error) {
+                        warnQuickInput("QuickInput import image restore failed.", error);
+                        appendGlobalLog(labels.messages?.importImageRestoreFailed || DEFAULT_LABELS.messages.importImageRestoreFailed, { level: "error" });
+                        return;
+                    }
+
+                    writeConfigToUi(payload.config);
+                    saveConfig(storageKey, readConfigFromUi(), defaults);
+                    if (textEl) textEl.value = payload.draft.text;
+                    draftPersistToken += 1;
+                    setImageFiles(restored.files, { draftEntries: restored.entries, skipDraftPersist: true });
+                    await persistDraftSnapshot({ text: payload.draft.text, images: restored.entries });
+                    appendGlobalLog(labels.messages?.importSuccess || DEFAULT_LABELS.messages.importSuccess, { level: "ok" });
+                    schedulePanelLayout({ followupPasses: 2 });
+                    try { textEl?.focus?.(); } catch {}
+                } finally {
+                    setIoBusy(false);
                 }
             }
 
@@ -3592,7 +3971,7 @@ export function createController(userOptions = {}) {
                 inputBodyEl.appendChild(delayRow);
                 inputBodyEl.appendChild(moreSettingsGroup.groupEl);
 
-                inputActionsEl = createPlayerActionsBar();
+                inputActionsEl = createPlayerActionsBar({ includeIoActions: true });
 
                 inputPanel.appendChild(inputBodyEl);
                 inputPanel.appendChild(inputActionsEl);
@@ -3725,9 +4104,11 @@ export function createController(userOptions = {}) {
                 loopDelayEl = null;
                 loopDelayUnitEl = null;
                 clearBeforeRunEl = null;
+                ioButtons.length = 0;
                 stopButtons.length = 0;
                 playPauseButtons.length = 0;
                 setActiveTab = null;
+                ioBusy = false;
                 usesShadowUi = false;
             }
 
