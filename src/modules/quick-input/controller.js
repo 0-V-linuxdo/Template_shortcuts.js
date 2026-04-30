@@ -496,33 +496,44 @@ export function createController(userOptions = {}) {
 
                 if (normalized === "import") {
                     svg.appendChild(createPlayerActionSvgNode("path", {
-                        d: "M12 9.25V16.25",
+                        d: "M8.6 9.25H13.8L16 11.45V17.25H8.6V9.25Z",
                         stroke: "currentColor",
-                        "stroke-width": "2",
-                        "stroke-linecap": "round"
+                        "stroke-width": "1.55",
+                        "stroke-linejoin": "round"
                     }));
                     svg.appendChild(createPlayerActionSvgNode("path", {
-                        d: "M9.25 13.55L12 16.3L14.75 13.55",
+                        d: "M13.8 9.25V11.45H16",
                         stroke: "currentColor",
-                        "stroke-width": "2",
+                        "stroke-width": "1.55",
                         "stroke-linecap": "round",
                         "stroke-linejoin": "round"
+                    }));
+                    svg.appendChild(createPlayerActionSvgNode("path", {
+                        d: "M10.3 13.35H14.3M10.3 15.25H14.3",
+                        stroke: "currentColor",
+                        "stroke-width": "1.55",
+                        "stroke-linecap": "round",
                     }));
                     return svg;
                 }
 
-                svg.appendChild(createPlayerActionSvgNode("path", {
-                    d: "M12 16.25V9.25",
+                svg.appendChild(createPlayerActionSvgNode("rect", {
+                    x: "8.3",
+                    y: "11.05",
+                    width: "5.45",
+                    height: "5.45",
+                    rx: "0.75",
                     stroke: "currentColor",
-                    "stroke-width": "2",
-                    "stroke-linecap": "round"
+                    "stroke-width": "1.55"
                 }));
-                svg.appendChild(createPlayerActionSvgNode("path", {
-                    d: "M9.25 11.95L12 9.2L14.75 11.95",
+                svg.appendChild(createPlayerActionSvgNode("rect", {
+                    x: "10.25",
+                    y: "9.1",
+                    width: "5.45",
+                    height: "5.45",
+                    rx: "0.75",
                     stroke: "currentColor",
-                    "stroke-width": "2",
-                    "stroke-linecap": "round",
-                    "stroke-linejoin": "round"
+                    "stroke-width": "1.55"
                 }));
                 return svg;
             }
