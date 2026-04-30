@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260430] v1.1.1
-// @name:en        [Template] Shortcut Core [20260430] v1.1.1
+// @name           [Template] 快捷键跳转 [20260430] v1.1.2
+// @name:en        [Template] Shortcut Core [20260430] v1.1.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260430] v1.1.1
-// @update-log     1.1.1: 优化快捷输入导入/导出按钮图标，改为更清晰的剪贴板语义图标且保持纯图标显示。
-// @update-log:en  1.1.1: Improved Quick Input import/export buttons with clearer clipboard-style icons while keeping icon-only controls.
+// @version        [20260430] v1.1.2
+// @update-log     1.1.2: 重做快捷输入导入/导出按钮图标，移除上传/下载方向箭头，改为更直观的复制/粘贴语义。
+// @update-log:en  1.1.2: Redesigned Quick Input import/export icons by removing upload/download arrows and using clearer copy/paste semantics.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -12247,32 +12247,43 @@ ${displayTargetText}`;
       }));
       if (normalized === "import") {
         svg.appendChild(createPlayerActionSvgNode("path", {
-          d: "M12 9.25V16.25",
+          d: "M8.6 9.25H13.8L16 11.45V17.25H8.6V9.25Z",
           stroke: "currentColor",
-          "stroke-width": "2",
-          "stroke-linecap": "round"
+          "stroke-width": "1.55",
+          "stroke-linejoin": "round"
         }));
         svg.appendChild(createPlayerActionSvgNode("path", {
-          d: "M9.25 13.55L12 16.3L14.75 13.55",
+          d: "M13.8 9.25V11.45H16",
           stroke: "currentColor",
-          "stroke-width": "2",
+          "stroke-width": "1.55",
           "stroke-linecap": "round",
           "stroke-linejoin": "round"
         }));
+        svg.appendChild(createPlayerActionSvgNode("path", {
+          d: "M10.3 13.35H14.3M10.3 15.25H14.3",
+          stroke: "currentColor",
+          "stroke-width": "1.55",
+          "stroke-linecap": "round"
+        }));
         return svg;
       }
-      svg.appendChild(createPlayerActionSvgNode("path", {
-        d: "M12 16.25V9.25",
+      svg.appendChild(createPlayerActionSvgNode("rect", {
+        x: "8.3",
+        y: "11.05",
+        width: "5.45",
+        height: "5.45",
+        rx: "0.75",
         stroke: "currentColor",
-        "stroke-width": "2",
-        "stroke-linecap": "round"
+        "stroke-width": "1.55"
       }));
-      svg.appendChild(createPlayerActionSvgNode("path", {
-        d: "M9.25 11.95L12 9.2L14.75 11.95",
+      svg.appendChild(createPlayerActionSvgNode("rect", {
+        x: "10.25",
+        y: "9.1",
+        width: "5.45",
+        height: "5.45",
+        rx: "0.75",
         stroke: "currentColor",
-        "stroke-width": "2",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round"
+        "stroke-width": "1.55"
       }));
       return svg;
     }
