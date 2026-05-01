@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260430] v1.1.8
-// @name:en        [ChatGPT] Shortcut Jump [20260430] v1.1.8
+// @name           [ChatGPT] 快捷键跳转 [20260501] v1.0.0
+// @name:en        [ChatGPT] Shortcut Jump [20260501] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260430] v1.1.8
-// @update-log     1.1.8: 同步 Template v1.1.8，将快捷输入导入/导出按钮替换为 Lucide clipboard-copy / clipboard-paste 图标，提升复制/粘贴语义识别度。
-// @update-log:en  1.1.8: Synced Template v1.1.8; replaced Quick Input import/export buttons with Lucide clipboard-copy and clipboard-paste icons for clearer copy/paste semantics.
+// @version        [20260501] v1.0.0
+// @update-log     1.0.0: 适配 ChatGPT 新/旧 UI 的 Thinking 快捷键，支持新版输入框内模型选择器并优先切换 Extended effort。
+// @update-log:en  1.0.0: Adapted the Thinking shortcut for both old and new ChatGPT UIs, including the new composer model picker with Extended effort preference.
 
 // @match          https://chatgpt.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/ChatGPT_keycap.svg
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260430.1.1.8
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260501.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -299,7 +299,13 @@
       composerModeBtn: "button.__composer-pill[aria-haspopup='menu'], [data-testid='composer-footer-actions'] button[aria-haspopup='menu']",
       composerModeMenuRoot: "div[role='menu'][data-radix-menu-content]",
       composerModeMenuItem: "[role='menuitem'], [role='menuitemradio']",
-      topModelSelectorBtn: "button[data-testid='model-switcher-dropdown-button'], button[aria-label='Model selector'], button[aria-label='模型选择器']",
+      topModelSelectorBtn: [
+        "button[data-testid='model-switcher-dropdown-button']",
+        "button[aria-label='Model selector']",
+        "button[aria-label='模型选择器']",
+        "form[data-type='unified-composer'] button.__composer-pill[aria-haspopup='menu']",
+        "[data-composer-surface] button.__composer-pill[aria-haspopup='menu']"
+      ].join(", "),
       topModelMenuRoot: "div[role='menu'][data-radix-menu-content]",
       topModelMenuItem: "[role='menuitem'], [role='menuitemradio']"
     };
@@ -349,6 +355,8 @@
     const CHATGPT_THINKING_EFFORT_TRIGGER_ICON_IDS = Object.freeze(["127a53"]);
     const CHATGPT_THINKING_EFFORT_EXTENDED_ICON_IDS = Object.freeze(["143e56"]);
     const CHATGPT_TOP_MODEL_THINKING_DATA_TEST_ID_REGEX = /(?:^|[-_])thinking(?:[-_]|$)/i;
+    const CHATGPT_TOP_MODEL_SELECTOR_LABEL_REGEX = /\bmodel\s*selector\b|模型选择器/i;
+    const CHATGPT_TOP_MODEL_SELECTOR_TEXT_HINT_REGEX = /\b(?:instant|thinking|gpt|auto|legacy|fast)\b|思考/i;
     const CHATGPT_ASPECT_RATIO_TARGETS = Object.freeze({
       auto: Object.freeze({
         id: "auto",
@@ -2865,10 +2873,208 @@
       if (ASPECT_RATIO_LABEL_REGEX.test(rawText) || ASPECT_RATIO_VALUE_REGEX.test(rawText)) return false;
       return COMPOSER_MODE_TRIGGER_HINT_REGEX.test(rawText) || COMPOSER_MODE_TRIGGER_HINT_REGEX.test(normalizedText) || THINKING_EFFORT_TRIGGER_ARIA_REGEX.test(ariaLabel);
     }
+    function chatgptElementMatches(element, selector) {
+      if (!element || !selector) return false;
+      try {
+        return !!element.matches?.(selector);
+      } catch {
+        return false;
+      }
+    }
+    function closestChatgptElement(element, selector) {
+      if (!element || !selector) return null;
+      try {
+        return element.closest?.(selector) || null;
+      } catch {
+        return null;
+      }
+    }
+    function getChatgptDataTestId(element) {
+      return String(element?.getAttribute?.("data-testid") || "").trim().toLowerCase();
+    }
+    function isTopModelThinkingEffortActionElement(element) {
+      if (!element) return false;
+      const actionEl = closestChatgptElement(element, "[data-model-picker-thinking-effort-action], [data-trailing-button]");
+      if (actionEl) return true;
+      const dataTestId = getChatgptDataTestId(element);
+      if (/(?:^|[-_])thinking[-_]effort(?:[-_]|$)/i.test(dataTestId)) return true;
+      const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+      return /\beffort\b/i.test(ariaLabel) && /(?:^|[-_])thinking(?:[-_]|$)/i.test(dataTestId);
+    }
+    function isTopModelMenuItemCandidate(element) {
+      if (!element || !isVisibleElement(element) || isTopModelThinkingEffortActionElement(element)) return false;
+      const role = String(element.getAttribute?.("role") || "").trim().toLowerCase();
+      const dataTestId = getChatgptDataTestId(element);
+      if (dataTestId.startsWith("model-switcher-")) return true;
+      return role === "menuitemradio" && chatgptMenuTextMatches(getChatgptUiElementText(element), TOP_MODEL_THINKING_TEXT_MATCH, element);
+    }
+    function isTopModelMenuCandidate(menuElement) {
+      if (!menuElement || !isVisibleElement(menuElement)) return false;
+      const items = safeQueryAll(menuElement, SELECTORS.topModelMenuItem).filter(isVisibleElement);
+      return items.some(isTopModelMenuItemCandidate);
+    }
     function isTopModelThinkingMenuItem(rawText, element) {
-      const dataTestId = String(element?.getAttribute?.("data-testid") || "").trim().toLowerCase();
-      if (CHATGPT_TOP_MODEL_THINKING_DATA_TEST_ID_REGEX.test(dataTestId)) return true;
-      return chatgptMenuTextMatches(rawText, TOP_MODEL_THINKING_TEXT_MATCH, element);
+      if (!element || !isVisibleElement(element) || isTopModelThinkingEffortActionElement(element)) return false;
+      const role = String(element.getAttribute?.("role") || "").trim().toLowerCase();
+      const dataTestId = getChatgptDataTestId(element);
+      if (dataTestId.startsWith("model-switcher-") && CHATGPT_TOP_MODEL_THINKING_DATA_TEST_ID_REGEX.test(dataTestId)) return true;
+      return role === "menuitemradio" && chatgptMenuTextMatches(rawText, TOP_MODEL_THINKING_TEXT_MATCH, element);
+    }
+    function isTopModelSelectorExcludedTrigger(element) {
+      if (!element || !isVisibleElement(element)) return true;
+      if (chatgptElementMatches(element, SELECTORS.composerPlusBtn)) return true;
+      if (chatgptElementMatches(element, SELECTORS.aspectRatioBtn)) return true;
+      if (closestChatgptElement(element, "[role='menu']")) return true;
+      if (isTopModelThinkingEffortActionElement(element)) return true;
+      const dataTestId = getChatgptDataTestId(element);
+      if (/^(?:send-button|composer-plus-btn)$/.test(dataTestId)) return true;
+      if (/thinking[-_]effort/i.test(dataTestId)) return true;
+      const id = String(element.getAttribute?.("id") || "").trim().toLowerCase();
+      if (id === "composer-submit-button" || id === "composer-plus-btn") return true;
+      const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+      if (/\b(?:add files|send prompt|start dictation|choose image aspect ratio|effort)\b/i.test(ariaLabel)) return true;
+      return false;
+    }
+    function scoreTopModelSelectorTriggerCandidate(element) {
+      if (isTopModelSelectorExcludedTrigger(element)) return -1;
+      const dataTestId = getChatgptDataTestId(element);
+      const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+      const rawText = getChatgptUiElementText(element);
+      const normalizedText = getAspectRatioComparableText(rawText);
+      const className = String(element.className || "");
+      const inComposerSurface = !!closestChatgptElement(element, "form[data-type='unified-composer'], [data-composer-surface]");
+      let score = 0;
+      if (dataTestId === "model-switcher-dropdown-button") score += 520;
+      if (dataTestId.startsWith("model-switcher-")) score += 440;
+      if (CHATGPT_TOP_MODEL_SELECTOR_LABEL_REGEX.test(ariaLabel)) score += 500;
+      if (className.includes("__composer-pill") && inComposerSurface) score += 420;
+      else if (className.includes("__composer-pill")) score += 240;
+      if (CHATGPT_TOP_MODEL_SELECTOR_TEXT_HINT_REGEX.test(rawText) || CHATGPT_TOP_MODEL_SELECTOR_TEXT_HINT_REGEX.test(normalizedText)) score += 120;
+      if (String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "menu") score += 20;
+      return score > 0 ? score : -1;
+    }
+    function findTopModelSelectorTriggerElement() {
+      const seen = /* @__PURE__ */ new Set();
+      const candidates = [];
+      for (const element of safeQueryAll(document, SELECTORS.topModelSelectorBtn)) {
+        if (!element || seen.has(element)) continue;
+        seen.add(element);
+        const score = scoreTopModelSelectorTriggerCandidate(element);
+        if (score < 0) continue;
+        let bottom = 0;
+        try {
+          bottom = Number(element.getBoundingClientRect?.().bottom || 0);
+        } catch {
+        }
+        candidates.push({ element, score, bottom });
+      }
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.bottom - a.bottom;
+      });
+      return candidates[0]?.element || null;
+    }
+    function findTopModelMenuRoot(triggerEl = null) {
+      if (triggerEl) {
+        const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+        if (controlsId) {
+          const controlledMenu = document.getElementById(controlsId);
+          if (isTopModelMenuCandidate(controlledMenu)) return controlledMenu;
+        }
+        const triggerId = String(triggerEl.getAttribute?.("id") || "").trim();
+        if (triggerId) {
+          const selector = `${SELECTORS.topModelMenuRoot}[aria-labelledby="${escapeAttributeSelector(triggerId)}"]`;
+          const labelledMenu = document.querySelector(selector);
+          if (isTopModelMenuCandidate(labelledMenu)) return labelledMenu;
+        }
+      }
+      const visibleMenus = safeQueryAll(document, SELECTORS.topModelMenuRoot).filter(isTopModelMenuCandidate);
+      if (visibleMenus.length === 0) return null;
+      visibleMenus.sort((a, b) => {
+        const aBottom = Number(a.getBoundingClientRect?.().bottom || 0);
+        const bBottom = Number(b.getBoundingClientRect?.().bottom || 0);
+        return bBottom - aBottom;
+      });
+      return visibleMenus[0] || null;
+    }
+    async function ensureTopModelMenuOpen(triggerEl, { timeoutMs = 2500, intervalMs = 120 } = {}) {
+      const existing = findTopModelMenuRoot(triggerEl);
+      if (existing) return existing;
+      if (!triggerEl) return null;
+      if (!simulateClickElement(triggerEl, { nativeFallback: true })) return null;
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+      while (Date.now() < deadline) {
+        const menuRoot = findTopModelMenuRoot(triggerEl);
+        if (menuRoot) return menuRoot;
+        await sleepMenuStep(intervalMs);
+      }
+      return findTopModelMenuRoot(triggerEl);
+    }
+    function findTopModelThinkingMenuItem(menuRoot, selector = SELECTORS.topModelMenuItem) {
+      if (!menuRoot) return null;
+      const items = safeQueryAll(menuRoot, selector).filter(isVisibleElement);
+      for (const item of items) {
+        if (isTopModelThinkingMenuItem(getChatgptUiElementText(item), item)) return item;
+      }
+      return null;
+    }
+    function isTopModelThinkingExtendedItem(thinkingItem) {
+      return !!thinkingItem && chatgptMenuTextMatches(getChatgptUiElementText(thinkingItem), THINKING_EFFORT_EXTENDED_TEXT_MATCH, thinkingItem);
+    }
+    function findTopModelThinkingEffortAction(thinkingItem) {
+      if (!thinkingItem) return null;
+      const row = closestChatgptElement(thinkingItem, "[data-model-picker-thinking-effort-row]") || thinkingItem.parentElement;
+      if (!row) return null;
+      const selectors = [
+        "[data-model-picker-thinking-effort-action]",
+        "button[data-testid*='thinking-effort']",
+        "button[data-trailing-button]",
+        "[data-trailing-button]"
+      ].join(", ");
+      const candidates = safeQueryAll(row, selectors).filter(isVisibleElement);
+      return candidates.find((candidate) => !candidate.disabled) || null;
+    }
+    function isThinkingEffortMenuCandidate(menuElement) {
+      if (!menuElement || !isVisibleElement(menuElement)) return false;
+      const items = safeQueryAll(menuElement, SELECTORS.composerModeMenuItem).filter(isVisibleElement);
+      return items.some((item) => chatgptMenuTextMatches(getChatgptUiElementText(item), THINKING_EFFORT_EXTENDED_TEXT_MATCH, item));
+    }
+    function findThinkingEffortMenuRoot(triggerEl = null) {
+      if (triggerEl) {
+        const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+        if (controlsId) {
+          const controlledMenu = document.getElementById(controlsId);
+          if (isThinkingEffortMenuCandidate(controlledMenu)) return controlledMenu;
+        }
+        const triggerId = String(triggerEl.getAttribute?.("id") || "").trim();
+        if (triggerId) {
+          const selector = `${SELECTORS.composerModeMenuRoot}[aria-labelledby="${escapeAttributeSelector(triggerId)}"]`;
+          const labelledMenu = document.querySelector(selector);
+          if (isThinkingEffortMenuCandidate(labelledMenu)) return labelledMenu;
+        }
+      }
+      const visibleMenus = safeQueryAll(document, SELECTORS.composerModeMenuRoot).filter(isThinkingEffortMenuCandidate);
+      return visibleMenus[visibleMenus.length - 1] || null;
+    }
+    async function clickTopModelThinkingExtendedEffort(thinkingItem, { timeoutMs = 2500, intervalMs = 120 } = {}) {
+      const actionEl = findTopModelThinkingEffortAction(thinkingItem);
+      if (!actionEl) return false;
+      let menuRoot = findThinkingEffortMenuRoot(actionEl);
+      if (!menuRoot) {
+        if (!simulateClickElement(actionEl, { nativeFallback: true })) return false;
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() < deadline) {
+          menuRoot = findThinkingEffortMenuRoot(actionEl);
+          if (menuRoot) break;
+          await sleepMenuStep(intervalMs);
+        }
+      }
+      if (!menuRoot) return false;
+      const target = findVisibleMenuItem(menuRoot, SELECTORS.composerModeMenuItem, {
+        textMatch: THINKING_EFFORT_EXTENDED_TEXT_MATCH,
+        fallbackToFirst: false
+      });
+      return !!(target && simulateClickElement(target, { nativeFallback: true }));
     }
     function scoreComposerModeTriggerCandidate(element, { preferredTextMatch = null } = {}) {
       if (!element || !isVisibleElement(element)) return -1;
@@ -3024,18 +3230,31 @@
     async function clickTopModelSelectorThinking({
       engine: engine2,
       selector = SELECTORS.topModelMenuItem,
-      waitForItem = true
+      waitForItem = true,
+      timeoutMs = 2500,
+      intervalMs = 120
     } = {}) {
       const ctx = { engine: engine2 };
-      const triggerEl = topModelSelectorMenu.getTriggerElement(ctx);
-      if (!triggerEl) return null;
-      const clicked = await topModelSelectorMenu.oneStepClick(ctx, {
-        selector,
-        textMatch: isTopModelThinkingMenuItem,
-        fallbackToFirst: false,
-        waitForItem
-      });
-      return clicked ? true : null;
+      const triggerEl = findTopModelSelectorTriggerElement() || topModelSelectorMenu.getTriggerElement(ctx);
+      const existingMenuRoot = findTopModelMenuRoot(triggerEl);
+      if (!triggerEl && !existingMenuRoot) return null;
+      const menuRoot = existingMenuRoot || await ensureTopModelMenuOpen(triggerEl, { timeoutMs, intervalMs });
+      if (!menuRoot) return false;
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+      do {
+        const currentRoot = findTopModelMenuRoot(triggerEl) || menuRoot;
+        const target = findTopModelThinkingMenuItem(currentRoot, selector);
+        if (target) {
+          if (!isTopModelThinkingExtendedItem(target)) {
+            const extendedClicked = await clickTopModelThinkingExtendedEffort(target, { timeoutMs, intervalMs });
+            if (extendedClicked) return true;
+          }
+          return !!simulateClickElement(target, { nativeFallback: true });
+        }
+        if (!waitForItem || Date.now() >= deadline) break;
+        await sleepMenuStep(intervalMs);
+      } while (true);
+      return false;
     }
     function getChatgptMenuActionSpec(shortcut) {
       const data = getShortcutDataObject(shortcut);
@@ -3153,11 +3372,11 @@
             selector: spec.selector,
             waitForItem: spec.waitForItem
           });
-          if (thinkingEffortClicked !== null) {
-            if (!thinkingEffortClicked) {
-              console.warn("[ChatGPT Shortcut] chatgptMenu: Thinking effort selector found, but selecting Extended failed.");
-            }
-            return !!thinkingEffortClicked;
+          if (thinkingEffortClicked) {
+            return true;
+          }
+          if (thinkingEffortClicked === false) {
+            console.warn("[ChatGPT Shortcut] chatgptMenu: Thinking effort selector found, but selecting Extended failed; trying model selector fallback.");
           }
           const topModelThinkingClicked = await clickTopModelSelectorThinking({
             engine: engine2,
@@ -3165,6 +3384,9 @@
             waitForItem: spec.waitForItem
           });
           if (topModelThinkingClicked) return true;
+          if (topModelThinkingClicked === false) {
+            console.warn("[ChatGPT Shortcut] chatgptMenu: Thinking model selector found, but selecting Thinking failed.");
+          }
         }
         const shouldTryModeMenu = !isThinkingShortcut && (spec.preferModeMenu || isComposerModeRequest(spec.textMatch));
         switch (spec.action) {
