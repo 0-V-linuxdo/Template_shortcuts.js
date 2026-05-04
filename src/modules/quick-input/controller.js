@@ -266,7 +266,7 @@ export function createController(userOptions = {}) {
                 now: runtimeTiming.now
             });
 
-            const TEXT_COMMIT_SETTLE_MS = 200;
+            const TEXT_COMMIT_SETTLE_MS = 900;
             const TEXT_COMMIT_POLL_MS = 120;
             const TEXT_COMMIT_OBSERVED_ATTRIBUTES = Object.freeze([
                 "class",
@@ -340,7 +340,7 @@ export function createController(userOptions = {}) {
 
             function getTextCommitTimeoutMs(text) {
                 const length = normalizeComposerText(text).length;
-                return Math.max(1500, Math.min(8000, 800 + length * 2));
+                return Math.max(2800, Math.min(8000, 800 + length * 2));
             }
 
             function normalizeTextCommitValue(text) {

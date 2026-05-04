@@ -900,8 +900,8 @@
             }
         }
 
-        const CHATGPT_TEXT_ATTEMPT_TIMEOUT_MS = 700;
-        const CHATGPT_TEXT_ATTEMPT_SETTLE_MS = 100;
+        const CHATGPT_TEXT_ATTEMPT_TIMEOUT_MS = 2800;
+        const CHATGPT_TEXT_ATTEMPT_SETTLE_MS = 900;
         const CHATGPT_TEXT_ATTEMPT_POLL_MS = 80;
         const CHATGPT_TEXT_INSERT_CHUNK_SIZE = 64;
         const CHATGPT_TEXT_INSERT_CHUNK_DELAY_MS = 12;
@@ -1026,13 +1026,13 @@
             if (!composer) return "";
 
             let text = "";
-            const fallbackText = readChatGPTFallbackTextareaValue(composer);
-            if (fallbackText) {
-                text = fallbackText;
-            } else if (composer.isContentEditable || composer.contentEditable === "true") {
+            if (composer.isContentEditable || composer.contentEditable === "true") {
                 text = serializeChatGPTComposerText(composer);
-            } else {
+            } else if (["TEXTAREA", "INPUT"].includes(String(composer.tagName || "").toUpperCase())) {
                 text = genericGetComposerText(composer);
+            } else {
+                const fallbackText = readChatGPTFallbackTextareaValue(composer);
+                text = fallbackText || genericGetComposerText(composer);
             }
 
             return genericNormalizeComposerText(text, { trimTrailingEditorNewlines });
@@ -1277,8 +1277,13 @@
             moveChatGPTComposerCaretToEnd(composerEl);
 
             let fired = false;
-            fired = dispatchBeforeInputFromPaste(composerEl, dt) || fired;
             fired = dispatchPasteEvent(composerEl, dt) || fired;
+            if (fired) {
+                dispatchChatGPTComposerInput(composerEl, { inputType: "insertFromPaste", data: plainText });
+                return true;
+            }
+
+            fired = dispatchBeforeInputFromPaste(composerEl, dt) || fired;
             fired = dispatchInputFromPaste(composerEl, dt) || fired;
             return fired;
         }
@@ -1342,7 +1347,7 @@
 
             const state = observed?.state || computeState();
             return {
-                ok: !!state?.ok,
+                ok: !!observed?.ok,
                 composer: state?.composer || composerRef,
                 actualText: state?.actualText || "",
                 expectedText: normalizedExpected
@@ -1427,9 +1432,9 @@
                 if (!text) return true;
 
                 const attempts = [
+                    () => Promise.resolve(tryPasteTextIntoChatGPTComposer(composer, text)),
                     () => tryInsertTextIntoChatGPTComposerViaExecCommand(composer, text),
-                    () => tryBridgeTextViaChatGPTFallbackTextarea(composer, text),
-                    () => Promise.resolve(tryPasteTextIntoChatGPTComposer(composer, text))
+                    () => tryBridgeTextViaChatGPTFallbackTextarea(composer, text)
                 ];
 
                 for (let index = 0; index < attempts.length; index++) {
@@ -1442,7 +1447,7 @@
                     const inserted = await attempts[index]();
                     const matched = await waitForChatGPTComposerTextMatch(composer, text);
                     if (matched?.composer) composer = matched.composer;
-                    if (inserted && matched?.ok) {
+                    if (matched?.ok) {
                         return true;
                     }
 
