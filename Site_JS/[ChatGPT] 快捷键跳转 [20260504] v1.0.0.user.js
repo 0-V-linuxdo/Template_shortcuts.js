@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260501] v1.0.0
-// @name:en        [ChatGPT] Shortcut Jump [20260501] v1.0.0
+// @name           [ChatGPT] 快捷键跳转 [20260504] v1.0.0
+// @name:en        [ChatGPT] Shortcut Jump [20260504] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260501] v1.0.0
-// @update-log     1.0.0: 适配 ChatGPT 新/旧 UI 的 Thinking 快捷键，支持新版输入框内模型选择器并优先切换 Extended effort。
-// @update-log:en  1.0.0: Adapted the Thinking shortcut for both old and new ChatGPT UIs, including the new composer model picker with Extended effort preference.
+// @version        [20260504] v1.0.0
+// @update-log     1.0.0: 修复旧版 ChatGPT UI 快捷输入文字写入后被清空仍误判成功的问题，改为 paste 优先并增强稳定确认。
+// @update-log:en  1.0.0: Fixed false-success text insertion on the legacy ChatGPT UI by preferring paste insertion and stronger stable verification.
 
 // @match          https://chatgpt.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Site_Icon/ChatGPT_keycap.svg
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260501.1.0.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260504.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -873,8 +873,8 @@
           return null;
         }
       }
-      const CHATGPT_TEXT_ATTEMPT_TIMEOUT_MS = 700;
-      const CHATGPT_TEXT_ATTEMPT_SETTLE_MS = 100;
+      const CHATGPT_TEXT_ATTEMPT_TIMEOUT_MS = 2800;
+      const CHATGPT_TEXT_ATTEMPT_SETTLE_MS = 900;
       const CHATGPT_TEXT_ATTEMPT_POLL_MS = 80;
       const CHATGPT_TEXT_INSERT_CHUNK_SIZE = 64;
       const CHATGPT_TEXT_INSERT_CHUNK_DELAY_MS = 12;
@@ -964,13 +964,13 @@
         const composer = resolveLiveChatGPTComposerElement(composerEl);
         if (!composer) return "";
         let text = "";
-        const fallbackText = readChatGPTFallbackTextareaValue(composer);
-        if (fallbackText) {
-          text = fallbackText;
-        } else if (composer.isContentEditable || composer.contentEditable === "true") {
+        if (composer.isContentEditable || composer.contentEditable === "true") {
           text = serializeChatGPTComposerText(composer);
-        } else {
+        } else if (["TEXTAREA", "INPUT"].includes(String(composer.tagName || "").toUpperCase())) {
           text = genericGetComposerText(composer);
+        } else {
+          const fallbackText = readChatGPTFallbackTextareaValue(composer);
+          text = fallbackText || genericGetComposerText(composer);
         }
         return genericNormalizeComposerText(text, { trimTrailingEditorNewlines });
       }
@@ -1210,8 +1210,12 @@
         }
         moveChatGPTComposerCaretToEnd(composerEl);
         let fired = false;
-        fired = dispatchBeforeInputFromPaste(composerEl, dt) || fired;
         fired = dispatchPasteEvent(composerEl, dt) || fired;
+        if (fired) {
+          dispatchChatGPTComposerInput(composerEl, { inputType: "insertFromPaste", data: plainText });
+          return true;
+        }
+        fired = dispatchBeforeInputFromPaste(composerEl, dt) || fired;
         fired = dispatchInputFromPaste(composerEl, dt) || fired;
         return fired;
       }
@@ -1269,7 +1273,7 @@
         });
         const state = observed?.state || computeState();
         return {
-          ok: !!state?.ok,
+          ok: !!observed?.ok,
           composer: state?.composer || composerRef,
           actualText: state?.actualText || "",
           expectedText: normalizedExpected
@@ -1354,9 +1358,9 @@
           await clearChatGPTInputValue(composer);
           if (!text) return true;
           const attempts = [
+            () => Promise.resolve(tryPasteTextIntoChatGPTComposer(composer, text)),
             () => tryInsertTextIntoChatGPTComposerViaExecCommand(composer, text),
-            () => tryBridgeTextViaChatGPTFallbackTextarea(composer, text),
-            () => Promise.resolve(tryPasteTextIntoChatGPTComposer(composer, text))
+            () => tryBridgeTextViaChatGPTFallbackTextarea(composer, text)
           ];
           for (let index = 0; index < attempts.length; index++) {
             composer = resolveLiveChatGPTComposerElement(composer) || composer;
@@ -1372,7 +1376,7 @@
             const inserted = await attempts[index]();
             const matched = await waitForChatGPTComposerTextMatch(composer, text);
             if (matched?.composer) composer = matched.composer;
-            if (inserted && matched?.ok) {
+            if (matched?.ok) {
               return true;
             }
             if (index < attempts.length - 1) {
