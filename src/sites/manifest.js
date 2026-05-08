@@ -70,9 +70,6 @@ function svgDataUrl(svgText) {
     return normalizedSvg ? `data:image/svg+xml,${encodeURIComponent(normalizedSvg)}` : "";
 }
 
-const KEYCAP_OUTLINE_PATH = "M52 2H12C6.478 2 2 6.477 2 11.999V52c0 5.522 4.478 10 10 10h40c5.522 0 10-4.478 10-10V11.999C62 6.477 57.522 2 52 2z";
-const KEYCAP_FRAME_MARKUP = `<path d="${KEYCAP_OUTLINE_PATH}" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"></path>`;
-
 const CHATGPT_KEYCAP_ICON = svgDataUrl(`
 <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="img" preserveAspectRatio="xMidYMid meet" class="chatgpt-keycap-icon">
   <style>
@@ -80,10 +77,16 @@ const CHATGPT_KEYCAP_ICON = svgDataUrl(`
     .chatgpt-keycap-icon { color: #000000; }
     @media (prefers-color-scheme: dark) { .chatgpt-keycap-icon { color: #FFFFFF; } }
   </style>
-  ${KEYCAP_FRAME_MARKUP}
+  <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+  <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+  <g id="SVGRepo_iconCarrier">
+    <path d="M52 2H12C6.478 2 2 6.477 2 11.999V52c0 5.522 4.478 10 10 10h40c5.522 0 10-4.478 10-10V11.999C62 6.477 57.522 2 52 2zm5 43.666A8.333 8.333 0 0 1 48.667 54H15.333A8.333 8.333 0 0 1 7 45.666V12.333A8.332 8.332 0 0 1 15.333 4h33.334A8.332 8.332 0 0 1 57 12.333v33.333z" fill="currentColor"></path>
+  </g>
   <svg x="11.5" y="9" width="41" height="41" fill="currentColor" fill-rule="evenodd" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>OpenAI</title><path d="M21.55 10.004a5.416 5.416 0 00-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59 5.59 0 0010.831 1C8.39.995 6.224 2.546 5.473 4.838A5.553 5.553 0 001.76 7.496a5.487 5.487 0 00.691 6.5 5.416 5.416 0 00.477 4.502c1.217 2.09 3.662 3.165 6.05 2.66A5.586 5.586 0 0013.168 23c2.443.006 4.61-1.546 5.361-3.84a5.553 5.553 0 003.715-2.66 5.488 5.488 0 00-.693-6.497v.001zm-8.381 11.558a4.199 4.199 0 01-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71 0 00.364-.623v-6.176l1.877 1.069c.02.01.033.029.036.05v5.115c-.003 2.274-1.87 4.118-4.174 4.123zM4.192 17.78a4.059 4.059 0 01-.498-2.763c.032.02.09.055.131.078l4.44 2.53c.225.13.504.13.73 0l5.42-3.088v2.138a.068.068 0 01-.027.057L9.9 19.288c-1.999 1.136-4.552.46-5.707-1.51h-.001zM3.023 8.216A4.15 4.15 0 015.198 6.41l-.002.151v5.06a.711.711 0 00.364.624l5.42 3.087-1.876 1.07a.067.067 0 01-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h-.001zm15.417 3.54l-5.42-3.088L14.896 7.6a.067.067 0 01.063-.006l4.489 2.557c1.998 1.14 2.683 3.662 1.529 5.633a4.163 4.163 0 01-2.174 1.807V12.38a.71.71 0 00-.363-.623zm1.867-2.773a6.04 6.04 0 00-.132-.078l-4.44-2.53a.731.731 0 00-.729 0l-5.42 3.088V7.325a.068.068 0 01.027-.057L14.1 4.713c2-1.137 4.555-.46 5.707 1.513.487.833.664 1.809.499 2.757h.001zm-11.741 3.81l-1.877-1.068a.065.065 0 01-.036-.051V6.559c.001-2.277 1.873-4.122 4.181-4.12.976 0 1.92.338 2.671.954-.034.018-.092.05-.131.073l-4.44 2.53a.71.71 0 00-.365.623l-.003 6.173v.002zm1.02-2.168L12 9.25l2.414 1.375v2.75L12 14.75l-2.415-1.375v-2.75z"></path></svg>
 </svg>
 `);
+
+const KEYCAP_FRAME_PATH = "M52 2H12C6.478 2 2 6.477 2 11.999V52c0 5.522 4.478 10 10 10h40c5.522 0 10-4.478 10-10V11.999C62 6.477 57.522 2 52 2zm5 43.666A8.333 8.333 0 0 1 48.667 54H15.333A8.333 8.333 0 0 1 7 45.666V12.333A8.332 8.332 0 0 1 15.333 4h33.334A8.332 8.332 0 0 1 57 12.333v33.333z";
 
 function themeAdaptiveKeycapIcon(className, innerMarkup) {
     const safeClassName = String(className || "theme-keycap-icon").trim() || "theme-keycap-icon";
@@ -94,7 +97,7 @@ function themeAdaptiveKeycapIcon(className, innerMarkup) {
     .${safeClassName} { color: #000000; }
     @media (prefers-color-scheme: dark) { .${safeClassName} { color: #FFFFFF; } }
   </style>
-  ${KEYCAP_FRAME_MARKUP}
+  <path d="${KEYCAP_FRAME_PATH}" fill="currentColor"></path>
   ${innerMarkup}
 </svg>
 `);
@@ -121,16 +124,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260508] v1.0.0",
+            name: "[ChatGPT] 快捷键跳转 [20260507] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 改用无填充描边键帽，确保脚本图标键帽区域透明，并保持普通模式黑色、黑暗模式白色。",
+            version: "[20260507] v1.0.0",
+            updateLog: "1.0.0: 将 ChatGPT 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260508] v1.0.0",
+                    name: "[ChatGPT] Shortcut Jump [20260507] v1.0.0",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.0.0: Switched the script icon keycap to a no-fill stroke so the keycap area stays transparent while using black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Inlined the ChatGPT script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -250,16 +253,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260508] v1.0.0",
+            name: "[Grok] 快捷键跳转 [20260508] v1.0.2",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 改用无填充描边键帽，确保脚本图标键帽区域透明，并保持普通模式黑色、黑暗模式白色。",
+            version: "[20260508] v1.0.2",
+            updateLog: "1.0.2: 将 Grok 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260508] v1.0.0",
+                    name: "[Grok] Shortcut Jump [20260508] v1.0.2",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.0.0: Switched the script icon keycap to a no-fill stroke so the keycap area stays transparent while using black in light mode and white in dark mode."
+                    updateLog: "1.0.2: Inlined the Grok script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -384,12 +387,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "0_V userscripts/[Perplexity] shortcut",
             description: "为 Perplexity.ai 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)、图标缓存、用户体验优化等功能。（基于 Template 模块重构）",
             version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 改用无填充描边键帽，确保脚本图标键帽区域透明，并保持普通模式黑色、黑暗模式白色。",
+            updateLog: "1.0.0: 将 Perplexity 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
                     name: "[Perplexity] Shortcut Jump [20260508] v1.0.0",
                     description: "Adds custom shortcuts for Perplexity.ai with URL jumps, clicks, simulated keys, custom icons, selectors, dark mode, an icon library, icon caching, and UX improvements.",
-                    updateLog: "1.0.0: Switched the script icon keycap to a no-fill stroke so the keycap area stays transparent while using black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Inlined the Perplexity script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -481,12 +484,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "0_V userscripts/bilibiliSearch Shortcuts",
             description: "在 Bilibili 搜索页面，通过快捷键快速切换到对应的搜索分类，支持多种操作类型（URL跳转/元素点击/按键模拟），包含图标库管理、完善暗黑模式支持、智能事件隔离、滚动锁定等高级功能。基于模版架构全面升级。",
             version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 改用无填充描边键帽，确保脚本图标键帽区域透明，并保持普通模式黑色、黑暗模式白色。",
+            updateLog: "1.0.0: 将哔哩哔哩脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
                     name: "[Bilibili] Shortcut Jump [20260508] v1.0.0",
                     description: "Quickly switch Bilibili search categories with shortcuts. Supports URL jumps, element clicks, key simulation, icon library management, dark mode, event isolation, and scroll lock.",
-                    updateLog: "1.0.0: Switched the script icon keycap to a no-fill stroke so the keycap area stays transparent while using black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Inlined the Bilibili script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
