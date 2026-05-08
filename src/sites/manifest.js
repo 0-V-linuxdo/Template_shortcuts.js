@@ -71,16 +71,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260504] v1.0.0",
+            name: "[ChatGPT] 快捷键跳转 [20260507] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260504] v1.0.0",
-            updateLog: "1.0.0: 修复旧版 ChatGPT UI 快捷输入文字写入后被清空仍误判成功的问题，改为 paste 优先并增强稳定确认。",
+            version: "[20260507] v1.0.0",
+            updateLog: "1.0.0: 升级 ChatGPT 脚本图标，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260504] v1.0.0",
+                    name: "[ChatGPT] Shortcut Jump [20260507] v1.0.0",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.0.0: Fixed false-success text insertion on the legacy ChatGPT UI by preferring paste insertion and stronger stable verification."
+                    updateLog: "1.0.0: Updated the ChatGPT script icon to use black in light mode and white in dark mode."
                 }
             },
             match: [
