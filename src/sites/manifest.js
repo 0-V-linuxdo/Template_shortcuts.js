@@ -148,6 +148,11 @@ const LE_CHAT_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     `<g transform="translate(15.2, 13.4) scale(1.4)"><path d="M3.428 3.4h3.429v3.428H3.428V3.4zm13.714 0h3.43v3.428h-3.43V3.4z" fill="gold"></path><path d="M3.428 6.828h6.857v3.429H3.429V6.828zm10.286 0h6.857v3.429h-6.857V6.828z" fill="#FFAF00"></path><path d="M3.428 10.258h17.144v3.428H3.428v-3.428z" fill="#FF8205"></path><path d="M3.428 13.686h3.429v3.428H3.428v-3.428zm6.858 0h3.429v3.428h-3.429v-3.428zm6.856 0h3.43v3.428h-3.43v-3.428z" fill="#FA500F"></path><path d="M0 17.114h10.286v3.429H0v-3.429zm13.714 0H24v3.429H13.714v-3.429z" fill="#E10500"></path></g>`
 );
 
+const TELEGRAM_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "telegram-keycap-icon",
+    `<g transform="translate(7.168 4.168) scale(0.097)" fill="currentColor"><path d="M199 404c-11 0-10-4-13-14l-32-105 245-144"></path><path d="M199 404c7 0 11-4 16-8l45-43-56-34"></path><path d="M204 319l135 99c14 9 26 4 30-14l55-258c5-22-9-32-24-25L79 245c-21 8-21 21-4 26l83 26 190-121c9-5 17-3 11 4"></path></g>`
+);
+
 export const SITE_MANIFEST = Object.freeze([
     {
         siteId: "chatgpt",
@@ -478,16 +483,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Telegram] 快捷键跳转",
         sourceEntry: "src/sites/telegram/index.js",
         metadata: {
-            name: "[Telegram] 快捷键跳转 [20260423] v1.0.0",
+            name: "[Telegram] 快捷键跳转 [20260508] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Telegram 网页客户端提供 Template 架构的可视化快捷键中心。支持 URL 跳转、元素点击、按键模拟与图标库管理，并兼容旧版存储键与 Telegram 哈希路由跳转。",
-            version: "[20260423] v1.0.0",
-            updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            version: "[20260508] v1.0.0",
+            updateLog: "1.0.0: 保留原键帽样式，将 Telegram 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
             localized: {
                 "en-US": {
-                    name: "[Telegram] Shortcut Jump [20260423] v1.0.0",
+                    name: "[Telegram] Shortcut Jump [20260508] v1.0.0",
                     description: "A Template-based visual shortcut center for Telegram Web with URL jumps, element clicks, key simulation, icon library management, legacy storage compatibility, and hash-route navigation.",
-                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                    updateLog: "1.0.0: Kept the original keycap style and made the Telegram script icon keycap adapt to black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -502,7 +507,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: "data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20xmlns%3Axlink%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxlink%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20class%3D%22iconify%20iconify--emojione-monotone%22%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3Cfilter%20id%3D%22telegram-shadow%22%20x%3D%22-50%25%22%20y%3D%22-50%25%22%20width%3D%22200%25%22%20height%3D%22200%25%22%3E%0A%20%20%20%20%20%20%3CfeDropShadow%20dx%3D%222%22%20dy%3D%222%22%20stdDeviation%3D%223%22%20flood-color%3D%22%23000000%22%20flood-opacity%3D%220.4%22%2F%3E%0A%20%20%20%20%3C%2Ffilter%3E%0A%20%20%3C%2Fdefs%3E%0A%20%20%3Cg%20id%3D%22SVGRepo_iconCarrier%22%3E%0A%20%20%20%20%3C!--%20Keycap%20background%20changed%20to%20Telegram's%20light%20blue%20--%3E%0A%20%20%20%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22%2337aee2%22%3E%3C%2Fpath%3E%0A%0A%20%20%20%20%3C!--%20Telegram%20paper%20plane%20scaled%2C%20centered%2C%20and%20with%20shadow%20--%3E%0A%20%20%20%20%3Cg%20transform%3D%22translate(7.168%204.168)%20scale(0.097)%22%20filter%3D%22url(%23telegram-shadow)%22%3E%0A%20%20%20%20%20%20%3Cpath%20fill%3D%22%23c8daea%22%20d%3D%22M199%20404c-11%200-10-4-13-14l-32-105%20245-144%22%3E%3C%2Fpath%3E%0A%20%20%20%20%20%20%3Cpath%20fill%3D%22%23a9c9dd%22%20d%3D%22M199%20404c7%200%2011-4%2016-8l45-43-56-34%22%3E%3C%2Fpath%3E%0A%20%20%20%20%20%20%3Cpath%20fill%3D%22%23f6fbfe%22%20d%3D%22M204%20319l135%2099c14%209%2026%204%2030-14l55-258c5-22-9-32-24-25L79%20245c-21%208-21%2021-4%2026l83%2026%20190-121c9-5%2017-3%2011%204%22%3E%3C%2Fpath%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%3C%2Fg%3E%0A%3C%2Fsvg%3E"
+            icon: TELEGRAM_KEYCAP_ICON
         }
     },
     {
