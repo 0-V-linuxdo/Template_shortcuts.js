@@ -161,9 +161,156 @@ export function createController(userOptions = {}) {
 
             let usesShadowUi = false;
             let themeSyncCleanup = null;
+            let lastOverlayFocusEl = null;
+            let focusGuardRaf = 0;
+            let documentFocusGuardBound = false;
+            const OVERLAY_ISOLATED_EVENT_TYPES = Object.freeze([
+                "keydown",
+                "keyup",
+                "keypress",
+                "beforeinput",
+                "input",
+                "change",
+                "paste",
+                "copy",
+                "cut",
+                "compositionstart",
+                "compositionupdate",
+                "compositionend",
+                "mousedown",
+                "mouseup",
+                "click",
+                "dblclick",
+                "pointerdown",
+                "pointerup",
+                "pointermove",
+                "touchstart",
+                "touchend",
+                "dragenter",
+                "dragover",
+                "dragleave",
+                "drop",
+                "wheel",
+                "focusin",
+                "focusout"
+            ]);
 
             function isInsideOverlay(el) {
                 return isInsideOverlayTree(el, overlayId);
+            }
+
+            function isQuickInputOpen() {
+                return !!overlayEl && overlayEl.getAttribute("data-open") === "1";
+            }
+
+            function isEditableElement(el) {
+                if (!el) return false;
+                const tag = String(el.tagName || "").toUpperCase();
+                return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !!el.isContentEditable;
+            }
+
+            function isFocusTargetUsable(el) {
+                if (!el || !isInsideOverlay(el)) return false;
+                try {
+                    if (el.disabled || el.hidden) return false;
+                    if (el.getAttribute?.("aria-hidden") === "true") return false;
+                    if (el.getAttribute?.("data-disabled") === "1") return false;
+                } catch {}
+                return isElementVisible(el);
+            }
+
+            function getShadowActiveElement() {
+                try { return overlayRootEl?.activeElement || null; } catch { return null; }
+            }
+
+            function isQuickInputFocusInside() {
+                const shadowActive = getShadowActiveElement();
+                if (shadowActive && isInsideOverlay(shadowActive)) return true;
+                const active = globalThis.document?.activeElement || null;
+                return !!(active && isInsideOverlay(active));
+            }
+
+            function rememberOverlayFocusTarget(el) {
+                if (isFocusTargetUsable(el)) lastOverlayFocusEl = el;
+            }
+
+            function getPreferredOverlayFocusTarget({ preferText = false } = {}) {
+                if (preferText && isFocusTargetUsable(textEl)) return textEl;
+                if (isFocusTargetUsable(lastOverlayFocusEl)) return lastOverlayFocusEl;
+                if (isFocusTargetUsable(textEl)) return textEl;
+                if (isFocusTargetUsable(imageDropEl)) return imageDropEl;
+                if (isFocusTargetUsable(panelEl)) return panelEl;
+                return null;
+            }
+
+            function focusPreferredOverlayTarget({ preferText = false } = {}) {
+                const target = getPreferredOverlayFocusTarget({ preferText });
+                if (!target) return false;
+                try {
+                    target.focus({ preventScroll: true });
+                } catch {
+                    try { target.focus(); } catch { return false; }
+                }
+                rememberOverlayFocusTarget(target);
+                return true;
+            }
+
+            function cancelFocusGuardRestore() {
+                if (!focusGuardRaf) return;
+                cancelAnimationFrameSafe(focusGuardRaf);
+                focusGuardRaf = 0;
+            }
+
+            function shouldGuardQuickInputFocus() {
+                return isQuickInputOpen() && !running && !ioBusy;
+            }
+
+            function scheduleQuickInputFocusRestore({ preferText = false } = {}) {
+                if (!shouldGuardQuickInputFocus()) return;
+                if (focusGuardRaf) return;
+                focusGuardRaf = requestAnimationFrameSafe(() => {
+                    focusGuardRaf = 0;
+                    if (!shouldGuardQuickInputFocus()) return;
+                    if (isQuickInputFocusInside()) {
+                        rememberOverlayFocusTarget(getShadowActiveElement() || globalThis.document?.activeElement || null);
+                        return;
+                    }
+                    focusPreferredOverlayTarget({ preferText: preferText || activeTab === "input" });
+                });
+            }
+
+            function handleOverlayFocusIn(event) {
+                rememberOverlayFocusTarget(event?.target || getShadowActiveElement());
+            }
+
+            function handleDocumentFocusIn(event) {
+                if (!shouldGuardQuickInputFocus()) return;
+                if (isQuickInputFocusInside()) return;
+                if (!isEditableElement(event?.target)) return;
+                scheduleQuickInputFocusRestore({ preferText: activeTab === "input" });
+            }
+
+            function ensureDocumentFocusGuard() {
+                if (documentFocusGuardBound) return;
+                globalThis.document?.addEventListener?.("focusin", handleDocumentFocusIn, true);
+                documentFocusGuardBound = true;
+            }
+
+            function stopOverlayEventPropagation(event) {
+                if (!event) return;
+                try { event.stopPropagation(); } catch {}
+                if (event.type === "keydown" || event.type === "keypress" || event.type === "beforeinput" || event.type === "input") {
+                    if (!isQuickInputFocusInside()) {
+                        scheduleQuickInputFocusRestore({ preferText: activeTab === "input" });
+                    }
+                }
+            }
+
+            function bindOverlayEventIsolation(rootEl) {
+                if (!rootEl) return;
+                for (const type of OVERLAY_ISOLATED_EVENT_TYPES) {
+                    rootEl.addEventListener(type, stopOverlayEventPropagation);
+                }
             }
 
             function warnQuickInput(message, error = null) {
@@ -1972,6 +2119,8 @@ export function createController(userOptions = {}) {
                         if (running) return;
                         const files = extractImageFilesFromTransfer(e.clipboardData);
                         if (files.length === 0) return;
+                        try { e.preventDefault(); } catch {}
+                        try { e.stopPropagation(); } catch {}
                         onPickFiles(files);
                         clearImageDropFocus({ focusText });
                     });
@@ -2023,7 +2172,7 @@ export function createController(userOptions = {}) {
                 if (!focusText) return;
                 if (activeTab !== "input") return;
                 if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
-                try { textEl?.focus?.(); } catch {}
+                focusPreferredOverlayTarget({ preferText: true });
             }
 
             function setRunning(nextRunning) {
@@ -3662,7 +3811,10 @@ export function createController(userOptions = {}) {
 
                 panelEl = globalThis.document.createElement("div");
                 panelEl.className = "qi-panel";
-                panelEl.addEventListener("click", (e) => e.stopPropagation());
+                panelEl.tabIndex = -1;
+                bindOverlayEventIsolation(panelEl);
+                overlayRootEl.addEventListener?.("focusin", handleOverlayFocusIn, true);
+                ensureDocumentFocusGuard();
 
                 headerEl = globalThis.document.createElement("div");
                 headerEl.className = "qi-header";
@@ -4046,7 +4198,8 @@ export function createController(userOptions = {}) {
                 void Promise.resolve(draftRestorePromise).then(() => {
                     scheduleInputContentLayout();
                 });
-                try { if (activeTab === "input") imageDropEl?.focus?.(); } catch {}
+                focusPreferredOverlayTarget({ preferText: activeTab === "input" });
+                scheduleQuickInputFocusRestore({ preferText: activeTab === "input" });
             }
 
             function isOpen() {
@@ -4064,6 +4217,8 @@ export function createController(userOptions = {}) {
                 stopDrag();
                 void persistDraftText();
                 stopThemeAutoSync();
+                cancelFocusGuardRestore();
+                lastOverlayFocusEl = null;
                 setOverlayVisibility(false);
             }
 
@@ -4103,6 +4258,8 @@ export function createController(userOptions = {}) {
                 setActiveTab = null;
                 ioBusy = false;
                 usesShadowUi = false;
+                cancelFocusGuardRestore();
+                lastOverlayFocusEl = null;
             }
 
             function refreshLocale() {

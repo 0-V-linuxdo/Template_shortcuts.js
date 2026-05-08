@@ -36,6 +36,21 @@ import { getDocument, getWindow } from "../../shared/platform/browser.js";
                 return (isAllowedTag || isContentEditable) && !isHotkeyCapturer;
             }
 
+            function isQuickInputOverlayEvent(e) {
+                let path = [];
+                try {
+                    path = typeof e?.composedPath === "function" ? e.composedPath() : [];
+                } catch {
+                    path = [];
+                }
+                for (const node of path) {
+                    if (!node || node.nodeType !== 1) continue;
+                    const id = String(node.id || "");
+                    if (id.endsWith("-quick-input-overlay")) return true;
+                }
+                return false;
+            }
+
             function defaultIsAllowedShortcut(e) {
                 const key = String(e.key || "").toLowerCase();
                 const code = String(e.code || "");
@@ -111,6 +126,7 @@ import { getDocument, getWindow } from "../../shared/platform/browser.js";
 
             function onKeydown(e) {
                 if (!e) return;
+                if (isQuickInputOverlayEvent(e)) return;
 
                 if (state.isSettingsPanelOpen) {
                     if (isInHotkeyCaptureMode(e.target)) {
