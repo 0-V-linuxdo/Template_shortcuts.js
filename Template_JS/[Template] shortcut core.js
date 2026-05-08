@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260504] v1.0.0
-// @name:en        [Template] Shortcut Core [20260504] v1.0.0
+// @name           [Template] 快捷键跳转 [20260508] v1.0.0
+// @name:en        [Template] Shortcut Core [20260508] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260504] v1.0.0
-// @update-log     1.0.0: 增强 Quick Input 文本提交确认，避免输入框短暂写入后被页面回滚时误报成功。
-// @update-log:en  1.0.0: Strengthened Quick Input text commit verification to avoid false success when a page rolls back transient input.
+// @version        [20260508] v1.0.0
+// @update-log     1.0.0: 修复 Quick Input 输入时焦点被网页输入框抢走的问题，并隔离弹窗内键盘/粘贴事件。
+// @update-log:en  1.0.0: Fixed Quick Input focus being stolen by page inputs while typing, and isolated keyboard/paste events inside the overlay.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260504";
+  var TEMPLATE_VERSION = "20260508";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -3718,6 +3718,20 @@
       const isHotkeyCapturer = isInHotkeyCaptureMode(activeEl);
       return (isAllowedTag || isContentEditable) && !isHotkeyCapturer;
     }
+    function isQuickInputOverlayEvent(e) {
+      let path = [];
+      try {
+        path = typeof e?.composedPath === "function" ? e.composedPath() : [];
+      } catch {
+        path = [];
+      }
+      for (const node of path) {
+        if (!node || node.nodeType !== 1) continue;
+        const id = String(node.id || "");
+        if (id.endsWith("-quick-input-overlay")) return true;
+      }
+      return false;
+    }
     function defaultIsAllowedShortcut(e) {
       const key = String(e.key || "").toLowerCase();
       const code = String(e.code || "");
@@ -3770,6 +3784,7 @@
     }
     function onKeydown(e) {
       if (!e) return;
+      if (isQuickInputOverlayEvent(e)) return;
       if (state.isSettingsPanelOpen) {
         if (isInHotkeyCaptureMode(e.target)) {
           return;
@@ -11946,8 +11961,151 @@ ${displayTargetText}`;
     let dragRestore = null;
     let usesShadowUi = false;
     let themeSyncCleanup = null;
+    let lastOverlayFocusEl = null;
+    let focusGuardRaf = 0;
+    let documentFocusGuardBound = false;
+    const OVERLAY_ISOLATED_EVENT_TYPES = Object.freeze([
+      "keydown",
+      "keyup",
+      "keypress",
+      "beforeinput",
+      "input",
+      "change",
+      "paste",
+      "copy",
+      "cut",
+      "compositionstart",
+      "compositionupdate",
+      "compositionend",
+      "mousedown",
+      "mouseup",
+      "click",
+      "dblclick",
+      "pointerdown",
+      "pointerup",
+      "pointermove",
+      "touchstart",
+      "touchend",
+      "dragenter",
+      "dragover",
+      "dragleave",
+      "drop",
+      "wheel",
+      "focusin",
+      "focusout"
+    ]);
     function isInsideOverlay(el) {
       return isInsideOverlayTree(el, overlayId);
+    }
+    function isQuickInputOpen() {
+      return !!overlayEl && overlayEl.getAttribute("data-open") === "1";
+    }
+    function isEditableElement(el) {
+      if (!el) return false;
+      const tag = String(el.tagName || "").toUpperCase();
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || !!el.isContentEditable;
+    }
+    function isFocusTargetUsable(el) {
+      if (!el || !isInsideOverlay(el)) return false;
+      try {
+        if (el.disabled || el.hidden) return false;
+        if (el.getAttribute?.("aria-hidden") === "true") return false;
+        if (el.getAttribute?.("data-disabled") === "1") return false;
+      } catch {
+      }
+      return isElementVisible(el);
+    }
+    function getShadowActiveElement() {
+      try {
+        return overlayRootEl?.activeElement || null;
+      } catch {
+        return null;
+      }
+    }
+    function isQuickInputFocusInside() {
+      const shadowActive = getShadowActiveElement();
+      if (shadowActive && isInsideOverlay(shadowActive)) return true;
+      const active = globalThis.document?.activeElement || null;
+      return !!(active && isInsideOverlay(active));
+    }
+    function rememberOverlayFocusTarget(el) {
+      if (isFocusTargetUsable(el)) lastOverlayFocusEl = el;
+    }
+    function getPreferredOverlayFocusTarget({ preferText = false } = {}) {
+      if (preferText && isFocusTargetUsable(textEl)) return textEl;
+      if (isFocusTargetUsable(lastOverlayFocusEl)) return lastOverlayFocusEl;
+      if (isFocusTargetUsable(textEl)) return textEl;
+      if (isFocusTargetUsable(imageDropEl)) return imageDropEl;
+      if (isFocusTargetUsable(panelEl)) return panelEl;
+      return null;
+    }
+    function focusPreferredOverlayTarget({ preferText = false } = {}) {
+      const target = getPreferredOverlayFocusTarget({ preferText });
+      if (!target) return false;
+      try {
+        target.focus({ preventScroll: true });
+      } catch {
+        try {
+          target.focus();
+        } catch {
+          return false;
+        }
+      }
+      rememberOverlayFocusTarget(target);
+      return true;
+    }
+    function cancelFocusGuardRestore() {
+      if (!focusGuardRaf) return;
+      cancelAnimationFrameSafe(focusGuardRaf);
+      focusGuardRaf = 0;
+    }
+    function shouldGuardQuickInputFocus() {
+      return isQuickInputOpen() && !running && !ioBusy;
+    }
+    function scheduleQuickInputFocusRestore({ preferText = false } = {}) {
+      if (!shouldGuardQuickInputFocus()) return;
+      if (focusGuardRaf) return;
+      focusGuardRaf = requestAnimationFrameSafe(() => {
+        focusGuardRaf = 0;
+        if (!shouldGuardQuickInputFocus()) return;
+        if (isQuickInputFocusInside()) {
+          rememberOverlayFocusTarget(getShadowActiveElement() || globalThis.document?.activeElement || null);
+          return;
+        }
+        focusPreferredOverlayTarget({ preferText: preferText || activeTab === "input" });
+      });
+    }
+    function handleOverlayFocusIn(event) {
+      rememberOverlayFocusTarget(event?.target || getShadowActiveElement());
+    }
+    function handleDocumentFocusIn(event) {
+      if (!shouldGuardQuickInputFocus()) return;
+      if (isQuickInputFocusInside()) return;
+      if (!isEditableElement(event?.target)) return;
+      scheduleQuickInputFocusRestore({ preferText: activeTab === "input" });
+    }
+    function ensureDocumentFocusGuard() {
+      if (documentFocusGuardBound) return;
+      globalThis.document?.addEventListener?.("focusin", handleDocumentFocusIn, true);
+      documentFocusGuardBound = true;
+    }
+    function stopOverlayEventPropagation(event) {
+      if (!event) return;
+      try {
+        event.stopPropagation();
+      } catch {
+      }
+      if (event.type === "keydown" || event.type === "keypress" || event.type === "beforeinput" || event.type === "input") {
+        if (!isQuickInputFocusInside()) {
+          scheduleQuickInputFocusRestore({ preferText: activeTab === "input" });
+        }
+      }
+    }
+    function bindOverlayEventIsolation(rootEl) {
+      if (!rootEl) return;
+      for (const type of OVERLAY_ISOLATED_EVENT_TYPES) {
+        rootEl.addEventListener(type, stopOverlayEventPropagation);
+      }
     }
     function warnQuickInput(message, error = null) {
       try {
@@ -13565,6 +13723,14 @@ ${displayTargetText}`;
           if (running) return;
           const files = extractImageFilesFromTransfer(e.clipboardData);
           if (files.length === 0) return;
+          try {
+            e.preventDefault();
+          } catch {
+          }
+          try {
+            e.stopPropagation();
+          } catch {
+          }
           onPickFiles(files);
           clearImageDropFocus({ focusText });
         });
@@ -13626,10 +13792,7 @@ ${displayTargetText}`;
       if (!focusText) return;
       if (activeTab !== "input") return;
       if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
-      try {
-        textEl?.focus?.();
-      } catch {
-      }
+      focusPreferredOverlayTarget({ preferText: true });
     }
     function setRunning(nextRunning) {
       running = !!nextRunning;
@@ -15049,7 +15212,10 @@ ${displayTargetText}`;
       });
       panelEl = globalThis.document.createElement("div");
       panelEl.className = "qi-panel";
-      panelEl.addEventListener("click", (e) => e.stopPropagation());
+      panelEl.tabIndex = -1;
+      bindOverlayEventIsolation(panelEl);
+      overlayRootEl.addEventListener?.("focusin", handleOverlayFocusIn, true);
+      ensureDocumentFocusGuard();
       headerEl = globalThis.document.createElement("div");
       headerEl.className = "qi-header";
       headerEl.addEventListener("pointerdown", onHeaderPointerDown);
@@ -15394,10 +15560,8 @@ ${displayTargetText}`;
       void Promise.resolve(draftRestorePromise).then(() => {
         scheduleInputContentLayout();
       });
-      try {
-        if (activeTab === "input") imageDropEl?.focus?.();
-      } catch {
-      }
+      focusPreferredOverlayTarget({ preferText: activeTab === "input" });
+      scheduleQuickInputFocusRestore({ preferText: activeTab === "input" });
     }
     function isOpen() {
       return !!overlayEl && overlayEl.getAttribute("data-open") === "1";
@@ -15413,6 +15577,8 @@ ${displayTargetText}`;
       stopDrag();
       void persistDraftText();
       stopThemeAutoSync();
+      cancelFocusGuardRestore();
+      lastOverlayFocusEl = null;
       setOverlayVisibility(false);
     }
     function resetUiRefs() {
@@ -15451,6 +15617,8 @@ ${displayTargetText}`;
       setActiveTab = null;
       ioBusy = false;
       usesShadowUi = false;
+      cancelFocusGuardRestore();
+      lastOverlayFocusEl = null;
     }
     function refreshLocale() {
       labels = resolveLabels();
