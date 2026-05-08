@@ -86,6 +86,38 @@ const CHATGPT_KEYCAP_ICON = svgDataUrl(`
 </svg>
 `);
 
+const KEYCAP_FRAME_PATH = "M52 2H12C6.478 2 2 6.477 2 11.999V52c0 5.522 4.478 10 10 10h40c5.522 0 10-4.478 10-10V11.999C62 6.477 57.522 2 52 2zm5 43.666A8.333 8.333 0 0 1 48.667 54H15.333A8.333 8.333 0 0 1 7 45.666V12.333A8.332 8.332 0 0 1 15.333 4h33.334A8.332 8.332 0 0 1 57 12.333v33.333z";
+
+function themeAdaptiveKeycapIcon(className, innerMarkup) {
+    const safeClassName = String(className || "theme-keycap-icon").trim() || "theme-keycap-icon";
+    return svgDataUrl(`
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="img" preserveAspectRatio="xMidYMid meet" class="${safeClassName}">
+  <style>
+    :root { color-scheme: light dark; }
+    .${safeClassName} { color: #000000; }
+    @media (prefers-color-scheme: dark) { .${safeClassName} { color: #FFFFFF; } }
+  </style>
+  <path d="${KEYCAP_FRAME_PATH}" fill="currentColor"></path>
+  ${innerMarkup}
+</svg>
+`);
+}
+
+const GROK_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "grok-keycap-icon",
+    `<g transform="translate(13,10) scale(0.16)" fill="currentColor" fill-rule="evenodd"><path d="m92.7 152.9 79.78 -58.97c3.91 -2.9 9.5 -1.77 11.37 2.72 9.8 23.69 5.42 52.15 -14.1 71.69s-46.67 23.82 -71.49 14.06l-27.11 12.57c38.89 26.61 86.11 20.03 115.62 -9.53 23.41 -23.44 30.66 -55.39 23.88 -84.2l0.06 0.07c-9.83 -42.32 2.42 -59.24 27.5 -93.83Q239.11 6.25 240 5l-33.01 33.05v-0.1L92.67 152.92m-16.44 14.31c-27.92 -26.7 -23.1 -68.01 0.71 -91.84 17.61 -17.63 46.47 -24.83 71.66 -14.25l27.05 -12.5a78 78 0 0 0 -18.29 -10A89.75 89.75 0 0 0 59.84 58.3c-25.33 25.36 -33.3 64.36 -19.62 97.64 10.22 24.87 -6.53 42.46 -23.4 60.22 -5.99 6.3 -11.99 12.59 -16.82 19.25l76.2 -68.15"></path></g>`
+);
+
+const PERPLEXITY_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "perplexity-keycap-icon",
+    `<path d="m42.78 14.56-10.791 9.131h10.79zm-10.791 9.131-9.961-9.13v9.13zm0-10.791v34.032m9.96-13.28-9.96-9.961v12.7l9.96 8.881zm-19.921 0 9.96-9.961v12.444l-9.96 9.137zm-4.15-9.961v13.281h4.15v-3.32l9.96-9.961zm14.11 0 9.962 9.96v3.32h4.15v-13.28z" stroke="currentColor" stroke-width="1.66" stroke-miterlimit="10" fill="none"></path>`
+);
+
+const BILIBILI_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "bilibili-keycap-icon",
+    `<g transform="translate(12, 12) scale(1.666)"><path fill="none" d="M0 0h24v24H0z"></path><path d="M7.172 2.757L10.414 6h3.171l3.243-3.242a1 1 0 0 1 1.415 1.415l-1.829 1.827L18.5 6A3.5 3.5 0 0 1 22 9.5v8a3.5 3.5 0 0 1-3.5 3.5h-13A3.5 3.5 0 0 1 2 17.5v-8A3.5 3.5 0 0 1 5.5 6h2.085L5.757 4.171a1 1 0 0 1 1.415-1.415zM18.5 8h-13a1.5 1.5 0 0 0-1.493 1.356L4 9.5v8a1.5 1.5 0 0 0 1.356 1.493L5.5 19h13a1.5 1.5 0 0 0 1.493-1.356L20 17.5v-8A1.5 1.5 0 0 0 18.5 8zM8 11a1 1 0 0 1 1 1v2a1 1 0 0 1-2 0v-2a1 1 0 0 1 1-1zm8 0a1 1 0 0 1 1 1v2a1 1 0 0 1-2 0v-2a1 1 0 0 1 1-1z" fill="currentColor"></path></g>`
+);
+
 export const SITE_MANIFEST = Object.freeze([
     {
         siteId: "chatgpt",
@@ -221,16 +253,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260424] v1.0.2",
+            name: "[Grok] 快捷键跳转 [20260508] v1.0.2",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260424] v1.0.2",
-            updateLog: "1.0.2: 修复 Grok 侧边栏状态误判导致的展开/折叠来回横跳；继续保留 viewport 宽度 <= 1024px 的后台自动展开抑制。",
+            version: "[20260508] v1.0.2",
+            updateLog: "1.0.2: 将 Grok 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260424] v1.0.2",
+                    name: "[Grok] Shortcut Jump [20260508] v1.0.2",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.0.2: Fixed Grok sidebar state detection loops and kept background auto-expand suppressed for viewports <= 1024px."
+                    updateLog: "1.0.2: Inlined the Grok script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -247,7 +279,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: releaseIcon("grok_keycap.svg")
+            icon: GROK_KEYCAP_ICON
         }
     },
     {
@@ -351,16 +383,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Perplexity] 快捷键跳转",
         sourceEntry: "src/sites/perplexity/index.js",
         metadata: {
-            name: "[Perplexity] 快捷键跳转 [20260423] v1.0.0",
+            name: "[Perplexity] 快捷键跳转 [20260508] v1.0.0",
             namespace: "0_V userscripts/[Perplexity] shortcut",
             description: "为 Perplexity.ai 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)、图标缓存、用户体验优化等功能。（基于 Template 模块重构）",
-            version: "[20260423] v1.0.0",
-            updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            version: "[20260508] v1.0.0",
+            updateLog: "1.0.0: 将 Perplexity 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
-                    name: "[Perplexity] Shortcut Jump [20260423] v1.0.0",
+                    name: "[Perplexity] Shortcut Jump [20260508] v1.0.0",
                     description: "Adds custom shortcuts for Perplexity.ai with URL jumps, clicks, simulated keys, custom icons, selectors, dark mode, an icon library, icon caching, and UX improvements.",
-                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                    updateLog: "1.0.0: Inlined the Perplexity script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -375,7 +407,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: releaseIcon("Perplexity_keycap.svg")
+            icon: PERPLEXITY_KEYCAP_ICON
         }
     },
     {
@@ -448,16 +480,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[哔哩哔哩] 快捷键跳转",
         sourceEntry: "src/sites/bilibili/index.js",
         metadata: {
-            name: "[哔哩哔哩] 快捷键跳转 [20260423] v1.0.0",
+            name: "[哔哩哔哩] 快捷键跳转 [20260508] v1.0.0",
             namespace: "0_V userscripts/bilibiliSearch Shortcuts",
             description: "在 Bilibili 搜索页面，通过快捷键快速切换到对应的搜索分类，支持多种操作类型（URL跳转/元素点击/按键模拟），包含图标库管理、完善暗黑模式支持、智能事件隔离、滚动锁定等高级功能。基于模版架构全面升级。",
-            version: "[20260423] v1.0.0",
-            updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            version: "[20260508] v1.0.0",
+            updateLog: "1.0.0: 将哔哩哔哩脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
-                    name: "[Bilibili] Shortcut Jump [20260423] v1.0.0",
+                    name: "[Bilibili] Shortcut Jump [20260508] v1.0.0",
                     description: "Quickly switch Bilibili search categories with shortcuts. Supports URL jumps, element clicks, key simulation, icon library management, dark mode, event isolation, and scroll lock.",
-                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                    updateLog: "1.0.0: Inlined the Bilibili script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -472,7 +504,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: releaseIcon("bilibili_keycap.svg")
+            icon: BILIBILI_KEYCAP_ICON
         }
     }
 ]);
