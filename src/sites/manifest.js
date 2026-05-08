@@ -118,6 +118,36 @@ const BILIBILI_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     `<g transform="translate(12, 12) scale(1.666)"><path fill="none" d="M0 0h24v24H0z"></path><path d="M7.172 2.757L10.414 6h3.171l3.243-3.242a1 1 0 0 1 1.415 1.415l-1.829 1.827L18.5 6A3.5 3.5 0 0 1 22 9.5v8a3.5 3.5 0 0 1-3.5 3.5h-13A3.5 3.5 0 0 1 2 17.5v-8A3.5 3.5 0 0 1 5.5 6h2.085L5.757 4.171a1 1 0 0 1 1.415-1.415zM18.5 8h-13a1.5 1.5 0 0 0-1.493 1.356L4 9.5v8a1.5 1.5 0 0 0 1.356 1.493L5.5 19h13a1.5 1.5 0 0 0 1.493-1.356L20 17.5v-8A1.5 1.5 0 0 0 18.5 8zM8 11a1 1 0 0 1 1 1v2a1 1 0 0 1-2 0v-2a1 1 0 0 1 1-1zm8 0a1 1 0 0 1 1 1v2a1 1 0 0 1-2 0v-2a1 1 0 0 1 1-1z" fill="currentColor"></path></g>`
 );
 
+const CLAUDE_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "claude-keycap-icon",
+    `<path fill="#d97757" d="m19.798 35.671 7.822-4.389.131-.38-.131-.213h-.381l-1.307-.08-4.47-.121-3.876-.161-3.755-.202-.945-.2-.886-1.17.091-.582.795-.534 1.138.099 2.515.172 3.774.26 2.738.161 4.056.422h.644l.092-.26-.22-.162-.172-.16-3.906-2.648-4.228-2.797-2.214-1.61-1.197-.816-.604-.765-.26-1.67 1.086-1.197 1.46.1.374.099 1.479 1.138 3.16 2.445 4.125 3.039.604.502.242-.172.03-.12-.272-.454-2.244-4.056-2.394-4.126-1.066-1.71-.282-1.025c-.1-.422-.172-.776-.172-1.208l1.238-1.68.684-.22 1.651.22.695.603 1.026 2.346 1.661 3.694 2.577 5.022.754 1.49.403 1.38.15.421h.26v-.241l.213-2.83.392-3.473.38-4.47.132-1.259.623-1.508L35.25 9.8l.966.462.795 1.138-.11.735-.473 3.071-.926 4.81-.604 3.222h.352l.402-.403 1.63-2.164 2.738-3.422 1.208-1.358 1.409-1.5.904-.715h1.71l1.26 1.871-.564 1.933-1.761 2.233-1.46 1.892-2.094 2.819-1.308 2.255.121.18.312-.03 4.73-1.007 2.555-.461 3.05-.524 1.379.645.15.655-.542 1.339-3.261.805-3.826.765-5.696 1.348-.07.05.081.1 2.566.242 1.098.059h2.687l5.004.373 1.307.864.784 1.058-.132.805-2.013 1.026-2.716-.645-6.34-1.508-2.175-.542h-.3v.18l1.811 1.771 3.32 2.998 4.159 3.866.212.955-.535.755-.563-.08-3.654-2.75-1.409-1.237-3.191-2.687h-.212v.282l.735 1.076 3.884 5.839.202 1.79-.282.582-1.007.352-1.106-.201-2.273-3.192-2.347-3.594-1.892-3.221-.23.131L32.58 47.92l-.524.614-1.208.462-1.006-.765-.535-1.237.535-2.446.644-3.192.523-2.536.473-3.152.281-1.046-.018-.07-.231.03-2.376 3.26-3.613 4.883-2.859 3.06-.684.272-1.187-.615.11-1.098.664-.977 3.956-5.033 2.387-3.12 1.54-1.8-.01-.26h-.092l-10.509 6.823-1.87.241-.806-.754.1-1.237.38-.403 3.16-2.174-.01.01Z"></path>`
+);
+
+const DEEPSEEK_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "deepseek-keycap-icon",
+    `<g transform="translate(32,32) scale(1.5) translate(-12,-13.5)"><path d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z" fill="#4D6BFE"></path></g>`
+);
+
+const GEMINI_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "gemini-keycap-icon",
+    `<svg x="13" y="11" width="38" height="38" viewBox="0 0 24 24"><defs><linearGradient gradientUnits="userSpaceOnUse" id="gemini-keycap-gradient-0" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="gemini-keycap-gradient-1" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="gemini-keycap-gradient-2" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-keycap-gradient-0)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-keycap-gradient-1)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-keycap-gradient-2)"></path></svg>`
+);
+
+const KAGI_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "kagi-keycap-icon",
+    `<path d="M35.262 38.36H28.51c-1.855 0-2.138-1.99-1.792-2.789.165-.379.539-.927.892-1.376a9.06 9.06 0 0 0 4.389 1.13 9.13 9.13 0 0 0 9.12-9.122 9.1 9.1 0 0 0-3.022-6.775l.21-.212a2.32 2.32 0 0 1 1.9-.68l1.097.116v-4.47h-1.918a5.21 5.21 0 0 0-4.833 3.267 9.1 9.1 0 0 0-2.559-.366 9.13 9.13 0 0 0-6.446 2.674 9.13 9.13 0 0 0-2.675 6.446 9.08 9.08 0 0 0 1.774 5.402l-.54.416a4 4 0 0 0-.267.229c-1.848 1.723-2.695 3.98-2.211 6.49.265 1.376 1.433 2.804 2.621 3.561a5.35 5.35 0 0 0 2.823.82l7.569-.306a2.49 2.49 0 0 1 2.109 1.155l.989 1.785 4.692-1.568-.803-1.748a7.01 7.01 0 0 0-6.367-4.079m-3.263-16.519a4.367 4.367 0 0 1 4.36 4.36 4.367 4.367 0 0 1-4.36 4.359 4.367 4.367 0 0 1-4.36-4.36A4.367 4.367 0 0 1 32 21.842" fill="#FFB319"></path>`
+);
+
+const LINUX_DO_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "linux-do-keycap-icon",
+    `<defs><clipPath id="linux-do-keycap-clip"><circle cx="60" cy="60" r="47"></circle></clipPath></defs><g transform="translate(12 7) scale(0.3333)"><circle fill="#f0f0f0" cx="60" cy="60" r="50"></circle><rect fill="#1c1c1e" clip-path="url(#linux-do-keycap-clip)" x="10" y="10" width="100" height="30"></rect><rect fill="#f0f0f0" clip-path="url(#linux-do-keycap-clip)" x="10" y="40" width="100" height="40"></rect><rect fill="#ffb003" clip-path="url(#linux-do-keycap-clip)" x="10" y="80" width="100" height="30"></rect></g>`
+);
+
+const LE_CHAT_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "le-chat-keycap-icon",
+    `<g transform="translate(15.2, 13.4) scale(1.4)"><path d="M3.428 3.4h3.429v3.428H3.428V3.4zm13.714 0h3.43v3.428h-3.43V3.4z" fill="gold"></path><path d="M3.428 6.828h6.857v3.429H3.429V6.828zm10.286 0h6.857v3.429h-6.857V6.828z" fill="#FFAF00"></path><path d="M3.428 10.258h17.144v3.428H3.428v-3.428z" fill="#FF8205"></path><path d="M3.428 13.686h3.429v3.428H3.428v-3.428zm6.858 0h3.429v3.428h-3.429v-3.428zm6.856 0h3.43v3.428h-3.43v-3.428z" fill="#FA500F"></path><path d="M0 17.114h10.286v3.429H0v-3.429zm13.714 0H24v3.429H13.714v-3.429z" fill="#E10500"></path></g>`
+);
+
 export const SITE_MANIFEST = Object.freeze([
     {
         siteId: "chatgpt",
@@ -156,16 +186,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Claude] 快捷键跳转",
         sourceEntry: "src/sites/claude/index.js",
         metadata: {
-            name: "[Claude] 快捷键跳转 [20260423] v1.0.0",
+            name: "[Claude] 快捷键跳转 [20260508] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。",
-            version: "[20260423] v1.0.0",
-            updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            version: "[20260508] v1.0.0",
+            updateLog: "1.0.0: 保留原键帽样式，将 Claude 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
             localized: {
                 "en-US": {
-                    name: "[Claude] Shortcut Jump [20260423] v1.0.0",
+                    name: "[Claude] Shortcut Jump [20260508] v1.0.0",
                     description: "Adds visual custom shortcuts for Claude AI, including URL jumps, clicks, simulated keys, custom icons, dark mode, and a reusable icon library.",
-                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                    updateLog: "1.0.0: Kept the original keycap style and made the Claude script icon keycap adapt to black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -180,7 +210,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: releaseIcon("claude_keycap.svg")
+            icon: CLAUDE_KEYCAP_ICON
         }
     },
     {
@@ -188,16 +218,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[DeepSeek] 快捷键跳转",
         sourceEntry: "src/sites/deepseek/index.js",
         metadata: {
-            name: "[DeepSeek] 快捷键跳转 [20260423] v1.0.0",
+            name: "[DeepSeek] 快捷键跳转 [20260508] v1.0.0",
             namespace: "0_V userscripts/[DeepSeek] shortcut",
             description: "为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025",
-            version: "[20260423] v1.0.0",
-            updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            version: "[20260508] v1.0.0",
+            updateLog: "1.0.0: 保留原键帽样式，将 DeepSeek 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
             localized: {
                 "en-US": {
-                    name: "[DeepSeek] Shortcut Jump [20260423] v1.0.0",
+                    name: "[DeepSeek] Shortcut Jump [20260508] v1.0.0",
                     description: "Adds custom shortcuts for DeepSeek Chat with URL jumps, clicks, simulated keys, a visual settings panel, filters, dark mode, responsive layout, icon cache, and shortcut capture.",
-                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                    updateLog: "1.0.0: Kept the original keycap style and made the DeepSeek script icon keycap adapt to black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -212,7 +242,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: releaseIcon("deepseek_keycap.svg")
+            icon: DEEPSEEK_KEYCAP_ICON
         }
     },
     {
@@ -220,16 +250,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260430] v1.0.1",
+            name: "[Gemini] 快捷键跳转 [20260508] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260430] v1.0.1",
-            updateLog: "1.0.1: 同步 Template v1.0.1，修复快捷输入初次打开时草稿图片恢复后高度未重测，避免弹窗过矮和内容被截断。",
+            version: "[20260508] v1.0.0",
+            updateLog: "1.0.0: 保留原键帽样式，将 Gemini 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260430] v1.0.1",
+                    name: "[Gemini] Shortcut Jump [20260508] v1.0.0",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.1: Synced Template v1.0.1; fixed Quick Input first-open height remeasurement after draft images restore, preventing a too-short panel and clipped content."
+                    updateLog: "1.0.0: Kept the original keycap style and made the Gemini script icon keycap adapt to black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -245,7 +275,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: mainIcon("gemini_keycap.svg")
+            icon: GEMINI_KEYCAP_ICON
         }
     },
     {
@@ -287,16 +317,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Kagi] 快捷键跳转",
         sourceEntry: "src/sites/kagi/index.js",
         metadata: {
-            name: "[Kagi] 快捷键跳转 [20260423] v1.0.0",
+            name: "[Kagi] 快捷键跳转 [20260508] v1.0.0",
             namespace: "0_V userscripts/[Kagi] shortcut",
             description: "为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025",
-            version: "[20260423] v1.0.0",
-            updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            version: "[20260508] v1.0.0",
+            updateLog: "1.0.0: 保留原键帽样式，将 Kagi 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
             localized: {
                 "en-US": {
-                    name: "[Kagi] Shortcut Jump [20260423] v1.0.0",
+                    name: "[Kagi] Shortcut Jump [20260508] v1.0.0",
                     description: "Custom shortcuts for Kagi Assistant and Kagi Search with a visual settings panel, icon library, type filters, and dark mode support.",
-                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                    updateLog: "1.0.0: Kept the original keycap style and made the Kagi script icon keycap adapt to black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -311,7 +341,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: releaseIcon("Kagi_keycap.svg")
+            icon: KAGI_KEYCAP_ICON
         }
     },
     {
@@ -319,16 +349,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[LINUX DO] 快捷键跳转",
         sourceEntry: "src/sites/linux-do/index.js",
         metadata: {
-            name: "[LINUX DO] 快捷键跳转 [20260423] v1.0.0",
+            name: "[LINUX DO] 快捷键跳转 [20260508] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Linux Do 提供可视化快捷键中心：支持 URL 跳转、元素点击、按键模拟、搜索模板变量与图标库管理，并适配 Discourse 的 SPA 导航场景。",
-            version: "[20260423] v1.0.0",
-            updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            version: "[20260508] v1.0.0",
+            updateLog: "1.0.0: 保留原键帽样式，将 Linux Do 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
             localized: {
                 "en-US": {
-                    name: "[LINUX DO] Shortcut Jump [20260423] v1.0.0",
+                    name: "[LINUX DO] Shortcut Jump [20260508] v1.0.0",
                     description: "A visual shortcut center for Linux Do with URL jumps, element clicks, key simulation, search template variables, icon library management, and Discourse SPA navigation support.",
-                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                    updateLog: "1.0.0: Kept the original keycap style and made the Linux Do script icon keycap adapt to black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -343,7 +373,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: releaseIcon("linux.do_keycap.svg")
+            icon: LINUX_DO_KEYCAP_ICON
         }
     },
     {
@@ -351,16 +381,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Le Chat] 快捷键跳转",
         sourceEntry: "src/sites/le-chat/index.js",
         metadata: {
-            name: "[Le Chat] 快捷键跳转 [20260423] v1.0.0",
+            name: "[Le Chat] 快捷键跳转 [20260508] v1.0.0",
             namespace: "0_V userscripts/[Le Chat] 快捷键跳转",
             description: "为 Le Chat 添加自定义快捷键，依托通用模板实现快捷面板、图标库、统计筛选、暗黑模式、自适应布局、事件隔离、快捷键捕获等功能。",
-            version: "[20260423] v1.0.0",
-            updateLog: "1.0.0: 恢复 legacy require 架构，移除资源化启动链。",
+            version: "[20260508] v1.0.0",
+            updateLog: "1.0.0: 保留原键帽样式，将 Le Chat 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
             localized: {
                 "en-US": {
-                    name: "[Le Chat] Shortcut Jump [20260423] v1.0.0",
+                    name: "[Le Chat] Shortcut Jump [20260508] v1.0.0",
                     description: "Adds custom shortcuts for Le Chat with a shortcut panel, icon library, stats filters, dark mode, responsive layout, event isolation, and shortcut capture.",
-                    updateLog: "1.0.0: Restored the legacy require architecture and removed the resource-based startup chain."
+                    updateLog: "1.0.0: Kept the original keycap style and made the Le Chat script icon keycap adapt to black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -375,7 +405,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: releaseIcon("Le_Chat_keycap.svg")
+            icon: LE_CHAT_KEYCAP_ICON
         }
     },
     {
