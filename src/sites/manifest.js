@@ -77,7 +77,6 @@ const CHATGPT_KEYCAP_ICON = svgDataUrl(`
     .chatgpt-keycap-icon { color: #000000; }
     @media (prefers-color-scheme: dark) { .chatgpt-keycap-icon { color: #FFFFFF; } }
   </style>
-  <rect x="7" y="4" width="50" height="50" rx="8.333" fill="transparent" fill-opacity="0"></rect>
   <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
   <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
   <g id="SVGRepo_iconCarrier">
@@ -88,7 +87,6 @@ const CHATGPT_KEYCAP_ICON = svgDataUrl(`
 `);
 
 const KEYCAP_FRAME_PATH = "M52 2H12C6.478 2 2 6.477 2 11.999V52c0 5.522 4.478 10 10 10h40c5.522 0 10-4.478 10-10V11.999C62 6.477 57.522 2 52 2zm5 43.666A8.333 8.333 0 0 1 48.667 54H15.333A8.333 8.333 0 0 1 7 45.666V12.333A8.332 8.332 0 0 1 15.333 4h33.334A8.332 8.332 0 0 1 57 12.333v33.333z";
-const KEYCAP_TRANSPARENT_SURFACE = `<rect x="7" y="4" width="50" height="50" rx="8.333" fill="transparent" fill-opacity="0"></rect>`;
 
 function themeAdaptiveKeycapIcon(className, innerMarkup) {
     const safeClassName = String(className || "theme-keycap-icon").trim() || "theme-keycap-icon";
@@ -99,7 +97,6 @@ function themeAdaptiveKeycapIcon(className, innerMarkup) {
     .${safeClassName} { color: #000000; }
     @media (prefers-color-scheme: dark) { .${safeClassName} { color: #FFFFFF; } }
   </style>
-  ${KEYCAP_TRANSPARENT_SURFACE}
   <path d="${KEYCAP_FRAME_PATH}" fill="currentColor"></path>
   ${innerMarkup}
 </svg>
@@ -127,16 +124,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260508] v1.0.0",
+            name: "[ChatGPT] 快捷键跳转 [20260507] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 显式保持 ChatGPT 脚本图标键帽区域透明，普通模式使用黑色配色，黑暗模式使用白色配色。",
+            version: "[20260507] v1.0.0",
+            updateLog: "1.0.0: 将 ChatGPT 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260508] v1.0.0",
+                    name: "[ChatGPT] Shortcut Jump [20260507] v1.0.0",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.0.0: Explicitly kept the ChatGPT script icon keycap area transparent while using black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Inlined the ChatGPT script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -256,16 +253,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260508] v1.0.0",
+            name: "[Grok] 快捷键跳转 [20260508] v1.0.2",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 显式保持 Grok 脚本图标键帽区域透明，普通模式使用黑色配色，黑暗模式使用白色配色。",
+            version: "[20260508] v1.0.2",
+            updateLog: "1.0.2: 将 Grok 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260508] v1.0.0",
+                    name: "[Grok] Shortcut Jump [20260508] v1.0.2",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.0.0: Explicitly kept the Grok script icon keycap area transparent while using black in light mode and white in dark mode."
+                    updateLog: "1.0.2: Inlined the Grok script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -390,12 +387,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "0_V userscripts/[Perplexity] shortcut",
             description: "为 Perplexity.ai 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)、图标缓存、用户体验优化等功能。（基于 Template 模块重构）",
             version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 显式保持 Perplexity 脚本图标键帽区域透明，普通模式使用黑色配色，黑暗模式使用白色配色。",
+            updateLog: "1.0.0: 将 Perplexity 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
                     name: "[Perplexity] Shortcut Jump [20260508] v1.0.0",
                     description: "Adds custom shortcuts for Perplexity.ai with URL jumps, clicks, simulated keys, custom icons, selectors, dark mode, an icon library, icon caching, and UX improvements.",
-                    updateLog: "1.0.0: Explicitly kept the Perplexity script icon keycap area transparent while using black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Inlined the Perplexity script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
@@ -487,12 +484,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "0_V userscripts/bilibiliSearch Shortcuts",
             description: "在 Bilibili 搜索页面，通过快捷键快速切换到对应的搜索分类，支持多种操作类型（URL跳转/元素点击/按键模拟），包含图标库管理、完善暗黑模式支持、智能事件隔离、滚动锁定等高级功能。基于模版架构全面升级。",
             version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 显式保持哔哩哔哩脚本图标键帽区域透明，普通模式使用黑色配色，黑暗模式使用白色配色。",
+            updateLog: "1.0.0: 将哔哩哔哩脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
             localized: {
                 "en-US": {
                     name: "[Bilibili] Shortcut Jump [20260508] v1.0.0",
                     description: "Quickly switch Bilibili search categories with shortcuts. Supports URL jumps, element clicks, key simulation, icon library management, dark mode, event isolation, and scroll lock.",
-                    updateLog: "1.0.0: Explicitly kept the Bilibili script icon keycap area transparent while using black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Inlined the Bilibili script icon in the userscript header, using black in light mode and white in dark mode."
                 }
             },
             match: [
