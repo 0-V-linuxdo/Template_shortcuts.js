@@ -167,6 +167,7 @@
                 rootUrlMismatch: "当前 URL 必须匹配 QuickInput Notebook 目标 {targetUrl}，实际是 {currentUrl}",
                 notebookNewPageMismatch: "当前 Notebook 不是新聊天空白页，目标是 {targetUrl}，实际是 {currentUrl}",
                 notebookNewChatButtonMissing: "未找到安全的 Notebook 内新建聊天入口，已停止以避免写入旧上下文。",
+                notebookHomeResetFailed: "Notebook 主页刷新后仍不是空白新页，目标是 {targetUrl}，实际是 {currentUrl}",
                 emptyUrl: "(空)",
                 imageInsertUrlPrefix: "图片插入前 URL 校验失败：",
                 newChatVerifyPrefix: "Notebook 校验失败：",
@@ -206,6 +207,7 @@
                 rootUrlMismatch: "Current URL must match the QuickInput Notebook target {targetUrl}; actual URL is {currentUrl}",
                 notebookNewPageMismatch: "Current Notebook is not a blank new-chat page. Target: {targetUrl}; actual URL: {currentUrl}",
                 notebookNewChatButtonMissing: "No safe Notebook new-chat control was found, so Quick Input stopped to avoid writing into old context.",
+                notebookHomeResetFailed: "Notebook home still was not a blank new-chat page after route reset. Target: {targetUrl}; actual URL: {currentUrl}",
                 emptyUrl: "(empty)",
                 imageInsertUrlPrefix: "URL check failed before inserting images: ",
                 newChatVerifyPrefix: "Notebook verification failed: ",
@@ -2361,6 +2363,7 @@
 
         const GEMINI_ORIGIN = "https://gemini.google.com";
         const GEMINI_ROOT_URL = `${GEMINI_ORIGIN}/`;
+        const GEMINI_APP_RESET_URL = `${GEMINI_ORIGIN}/app`;
         const GEMINI_NOTEBOOK_ID_RE = /^[A-Za-z0-9-]+$/;
         const GEMINI_NOTEBOOK_TARGET_TTL_MS = 330000;
         const GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE = /(?:^|\b)(?:new|start)\s+(?:chat|conversation)(?:\b|$)|新(?:建)?(?:聊天|对话)|开始(?:聊天|对话)/i;
@@ -2501,17 +2504,41 @@
             );
         }
 
-        function navigateGeminiSpaToTarget(target) {
-            if (!target || typeof target.targetUrl !== "string" || !target.targetUrl) return false;
+        function navigateGeminiSpaToUrl(url) {
+            const targetUrl = String(url || "").trim();
+            if (!targetUrl) return false;
             try {
-                const urlObj = new URL(target.targetUrl, GEMINI_ROOT_URL);
+                const urlObj = new URL(targetUrl, GEMINI_ROOT_URL);
                 if (urlObj.origin !== GEMINI_ORIGIN) return false;
-                window.history.pushState({ url: target.targetUrl }, document.title, urlObj.pathname + urlObj.search + urlObj.hash);
-                window.dispatchEvent(new PopStateEvent("popstate", { state: { url: target.targetUrl } }));
+                window.history.pushState({ url: urlObj.href }, document.title, urlObj.pathname + urlObj.search + urlObj.hash);
+                window.dispatchEvent(new PopStateEvent("popstate", { state: { url: urlObj.href } }));
                 return true;
             } catch {
                 return false;
             }
+        }
+
+        function navigateGeminiSpaToTarget(target) {
+            if (!target || typeof target.targetUrl !== "string" || !target.targetUrl) return false;
+            return navigateGeminiSpaToUrl(target.targetUrl);
+        }
+
+        async function resetGeminiNotebookRouteToHome(target, { shouldCancel = null, runtime = null, intervalMs = 160 } = {}) {
+            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            if (!target || target.kind !== "notebook" || !target.notebookId || !target.targetUrl) return false;
+            if (cancelFn && cancelFn()) return false;
+            rememberPendingGeminiNotebookTarget(target);
+            clearGeminiNotebookArmed();
+
+            if (!navigateGeminiSpaToUrl(GEMINI_APP_RESET_URL)) return false;
+            if (!(await runtimeSleep(runtime, Math.max(120, Number(intervalMs) || 0), { shouldCancel: cancelFn }))) return false;
+            if (cancelFn && cancelFn()) return false;
+
+            rememberPendingGeminiNotebookTarget(target);
+            if (!navigateGeminiSpaToTarget(target)) return false;
+            if (!(await runtimeSleep(runtime, Math.max(260, Number(intervalMs) || 0), { shouldCancel: cancelFn }))) return false;
+            rememberPendingGeminiNotebookTarget(target);
+            return !(cancelFn && cancelFn());
         }
 
         function buildGeminiTargetUrlMismatchMessage(currentUrl, { target = null, prefix = "" } = {}) {
@@ -2542,6 +2569,17 @@
                 {},
                 "No safe Notebook new-chat control was found, so Quick Input stopped to avoid writing into old context."
             );
+            return prefix ? `${prefix}${base}` : base;
+        }
+
+        function buildGeminiNotebookHomeResetFailedMessage(currentUrl, { target = null, prefix = "" } = {}) {
+            const expectedTarget = target || getGeminiNewChatTriggerTarget();
+            const targetUrl = String(expectedTarget?.targetUrl || GEMINI_ROOT_URL);
+            const base = qiText("notebookHomeResetFailed", {
+                rootUrl: targetUrl,
+                targetUrl,
+                currentUrl: currentUrl || qiText("emptyUrl", {}, "(empty)")
+            }, `Notebook home still was not a blank new-chat page after route reset. Target: ${targetUrl}; actual URL: ${currentUrl || "(empty)"}`);
             return prefix ? `${prefix}${base}` : base;
         }
 
@@ -2906,12 +2944,16 @@
             }
 
             const currentTarget = parseGeminiQuickInputTarget();
+            if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
+                return { ok: true, label, targetUrl: nextTarget.targetUrl };
+            }
+
             const navigatedHome = navigateGeminiSpaToTarget(nextTarget);
             if (navigatedHome) {
                 return { ok: true, label, targetUrl: nextTarget.targetUrl };
             }
 
-            if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
+            if (currentTarget?.kind === "notebook" && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
                 const ok = clickGeminiNotebookNewChatControl(nextTarget);
                 return {
                     ok,
@@ -2950,7 +2992,8 @@
             const settle = Math.max(0, Number(settleMs) || 0);
             let stableSince = 0;
             let recoveryAttempted = false;
-            let homeNavigationAttempted = false;
+            let routeResetAttempted = false;
+            let routeResetFailed = false;
             let newChatClickAttempted = false;
             let missingNewChatControl = false;
 
@@ -2986,12 +3029,12 @@
                             continue;
                         }
                     }
-                    if (matchesTarget && !homeNavigationAttempted) {
-                        homeNavigationAttempted = true;
-                        if (navigateGeminiSpaToTarget(expectedTarget)) {
-                            await runtimeSleep(runtime, Math.max(220, interval), { shouldCancel: cancelFn });
+                    if (matchesTarget && !routeResetAttempted) {
+                        routeResetAttempted = true;
+                        if (await resetGeminiNotebookRouteToHome(expectedTarget, { shouldCancel: cancelFn, runtime, intervalMs: interval })) {
                             continue;
                         }
+                        routeResetFailed = true;
                     }
                     if (matchesTarget && !newChatClickAttempted) {
                         newChatClickAttempted = true;
@@ -3021,15 +3064,20 @@
                     ? buildGeminiNotebookNewChatButtonMissingMessage({
                         prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
                     })
-                    : (matchesTarget
-                        ? buildGeminiNotebookNewPageMismatchMessage(currentUrl, {
+                    : ((routeResetFailed || routeResetAttempted)
+                        ? buildGeminiNotebookHomeResetFailedMessage(currentUrl, {
                             target: expectedTarget,
                             prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
                         })
-                        : buildGeminiTargetUrlMismatchMessage(currentUrl, {
-                            target: expectedTarget,
-                            prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
-                        }))
+                        : (matchesTarget
+                            ? buildGeminiNotebookNewPageMismatchMessage(currentUrl, {
+                                target: expectedTarget,
+                                prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
+                            })
+                            : buildGeminiTargetUrlMismatchMessage(currentUrl, {
+                                target: expectedTarget,
+                                prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
+                            })))
             };
         }
 

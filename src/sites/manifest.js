@@ -255,16 +255,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260511] v1.2.3",
+            name: "[Gemini] 快捷键跳转 [20260511] v1.2.4",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260511] v1.2.3",
-            updateLog: "1.2.3: 修复 Gemini Notebook Quick Input 循环新建话题没有先回 Notebook 主页的问题；现在会把 `/notebook/<id>/...` 视为旧话题/子页面，先跳回 canonical `/notebook/<id>` 再校验空白新页。",
+            version: "[20260511] v1.2.4",
+            updateLog: "1.2.4: 修复 Gemini Notebook 主页 URL 卡住时 Quick Input 循环新建话题失败的问题；现在会通过临时 `/app` SPA 绕路回 Notebook 主页，并严格校验空白新页后再继续。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260511] v1.2.3",
+                    name: "[Gemini] Shortcut Jump [20260511] v1.2.4",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.2.3: Fixed Gemini Notebook Quick Input loop transitions not returning to the Notebook home target first; `/notebook/<id>/...` is now treated as an old topic/subpage and Quick Input jumps back to canonical `/notebook/<id>` before checking for a blank new page."
+                    updateLog: "1.2.4: Fixed Gemini Notebook Quick Input loop transitions failing when the Notebook home URL stays stuck on stale topic DOM; Quick Input now briefly routes through `/app`, returns to the Notebook home target, and continues only after a blank new page is confirmed."
                 }
             },
             match: [
