@@ -159,16 +159,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260511] v1.0.1",
+            name: "[ChatGPT] 快捷键跳转 [20260511] v1.1.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260511] v1.0.1",
-            updateLog: "1.0.1: 修复 ChatGPT Project 场景下 Quick Input 新建对话仍调用原生快捷键的问题，改为通过 Project URL 跳转新建，避免循环中断。",
+            version: "[20260511] v1.1.0",
+            updateLog: "1.1.0: 修复 ChatGPT Project 场景下 Quick Input 循环运行一段时间后掉回普通 ChatGPT 的问题；现在会在面板打开期间持续保留 Project 目标，并在校验失败时自动跳回同一 Project。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260511] v1.0.1",
+                    name: "[ChatGPT] Shortcut Jump [20260511] v1.1.0",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.0.1: Fixed ChatGPT Quick Input still using the native new-chat hotkey in Projects; Project runs now create new chats by jumping to the Project URL to avoid loop interruption."
+                    updateLog: "1.1.0: Fixed ChatGPT Quick Input Project loops drifting back to regular ChatGPT after running for a while; Project targets are now kept while the panel is open and recovered with a jump back to the same Project when verification fails."
                 }
             },
             match: [

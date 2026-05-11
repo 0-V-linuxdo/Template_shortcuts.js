@@ -627,7 +627,7 @@
         const CHATGPT_ORIGIN = "https://chatgpt.com";
         const CHATGPT_ROOT_URL = `${CHATGPT_ORIGIN}/`;
         const CHATGPT_PROJECT_KEY_RE = /^g-p-[A-Za-z0-9][A-Za-z0-9-]*$/;
-        const CHATGPT_NEW_CHAT_TARGET_TTL_MS = 60000;
+        const CHATGPT_NEW_CHAT_TARGET_TTL_MS = 330000;
         let pendingChatGPTNewChatTarget = null;
         let pendingChatGPTNewChatTargetAt = 0;
         function qiText(key, vars = {}, fallback = "") {
@@ -667,6 +667,14 @@
 
         function isInsideQuickInputOverlay(el) {
             return isInsideOverlayTree(el, overlayId);
+        }
+
+        function isChatGPTQuickInputOverlayOpen() {
+            try {
+                return document.getElementById(overlayId)?.getAttribute?.("data-open") === "1";
+            } catch {
+                return false;
+            }
         }
 
         function getRuntimeNow(runtime = null) {
@@ -776,7 +784,7 @@
         }
 
         function rememberPendingChatGPTNewChatTarget(target) {
-            if (!target || typeof target.targetUrl !== "string") return;
+            if (!target || target.kind !== "project" || !target.projectKey || typeof target.targetUrl !== "string") return;
             pendingChatGPTNewChatTarget = { ...target };
             pendingChatGPTNewChatTargetAt = Date.now();
         }
@@ -793,9 +801,16 @@
 
         function getChatGPTNewChatTriggerTarget() {
             const currentTarget = parseChatGPTQuickInputTarget();
+            if (currentTarget?.kind === "project") {
+                rememberPendingChatGPTNewChatTarget(currentTarget);
+                return currentTarget;
+            }
+
             const pendingTarget = getPendingChatGPTNewChatTarget();
-            if (currentTarget?.kind === "project") return currentTarget;
-            if (pendingTarget?.kind === "project") return pendingTarget;
+            if (pendingTarget?.kind === "project" && isChatGPTQuickInputOverlayOpen()) {
+                return pendingTarget;
+            }
+
             return pendingTarget || currentTarget || createChatGPTRootTarget();
         }
 
@@ -2655,18 +2670,17 @@
                 if (currentTarget?.ready && isSameChatGPTQuickInputTarget(currentTarget, expectedTarget)) {
                     if (!stableSince) stableSince = getRuntimeNow(runtime);
                     if (getRuntimeNow(runtime) - stableSince >= settle) {
-                        clearPendingChatGPTNewChatTarget(expectedTarget);
+                        rememberPendingChatGPTNewChatTarget(expectedTarget);
                         return { ok: true, cancelled: false, url: expectedTarget.targetUrl, targetUrl: expectedTarget.targetUrl };
                     }
                 } else {
                     stableSince = 0;
                     if (
                         expectedTarget.kind === "project" &&
-                        !projectRecoveryAttempted &&
-                        currentTarget?.kind === "root" &&
-                        currentTarget?.ready
+                        !projectRecoveryAttempted
                     ) {
                         projectRecoveryAttempted = true;
+                        rememberPendingChatGPTNewChatTarget(expectedTarget);
                         if (navigateChatGPTSpaToTarget(expectedTarget)) {
                             await runtimeSleep(runtime, Math.max(120, Number(intervalMs) || 0), { shouldCancel: cancelFn });
                             continue;
