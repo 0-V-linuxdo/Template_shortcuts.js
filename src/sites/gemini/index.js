@@ -163,7 +163,7 @@
             },
             quickInput: {
                 nativeNewChatLabel: "CMD+SHIFT+O (原生)",
-                notebookNewChatLabel: "Notebook 内新建聊天",
+                notebookNewChatLabel: "Notebook 主页跳转",
                 rootUrlMismatch: "当前 URL 必须匹配 QuickInput Notebook 目标 {targetUrl}，实际是 {currentUrl}",
                 notebookNewPageMismatch: "当前 Notebook 不是新聊天空白页，目标是 {targetUrl}，实际是 {currentUrl}",
                 notebookNewChatButtonMissing: "未找到安全的 Notebook 内新建聊天入口，已停止以避免写入旧上下文。",
@@ -202,7 +202,7 @@
             },
             quickInput: {
                 nativeNewChatLabel: "CMD+SHIFT+O (native)",
-                notebookNewChatLabel: "Notebook new chat",
+                notebookNewChatLabel: "Notebook home jump",
                 rootUrlMismatch: "Current URL must match the QuickInput Notebook target {targetUrl}; actual URL is {currentUrl}",
                 notebookNewPageMismatch: "Current Notebook is not a blank new-chat page. Target: {targetUrl}; actual URL: {currentUrl}",
                 notebookNewChatButtonMissing: "No safe Notebook new-chat control was found, so Quick Input stopped to avoid writing into old context.",
@@ -2234,7 +2234,7 @@
             return qiText("nativeNewChatLabel", {}, `${GEMINI_NATIVE_NEW_CHAT_HOTKEY} (native)`);
         }
         function getNotebookNewChatLabel() {
-            return qiText("notebookNewChatLabel", {}, "Notebook new chat");
+            return qiText("notebookNewChatLabel", {}, "Notebook home jump");
         }
 
         const focusComposer = dom?.focusComposer;
@@ -2392,6 +2392,15 @@
             };
         }
 
+        function normalizeGeminiNotebookPath(pathname = "") {
+            const path = String(pathname || "").replace(/\/+$/g, "");
+            return path || "/";
+        }
+
+        function getGeminiNotebookTargetUrl(notebookId) {
+            return `${GEMINI_ORIGIN}/notebook/${notebookId}`;
+        }
+
         function parseGeminiQuickInputTarget(currentUrl = getCurrentGeminiUrl()) {
             const rawUrl = String(currentUrl || "").trim();
             if (!rawUrl) return null;
@@ -2406,11 +2415,14 @@
             const segments = url.pathname.split("/").filter(Boolean);
             const notebookId = String(segments[1] || "").trim();
             if (segments[0] === "notebook" && GEMINI_NOTEBOOK_ID_RE.test(notebookId)) {
+                const targetUrl = getGeminiNotebookTargetUrl(notebookId);
+                const targetPath = normalizeGeminiNotebookPath(new URL(targetUrl).pathname);
+                const currentPath = normalizeGeminiNotebookPath(url.pathname);
                 return {
                     kind: "notebook",
-                    ready: true,
+                    ready: currentPath === targetPath,
                     notebookId,
-                    targetUrl: `${GEMINI_ORIGIN}/notebook/${notebookId}`,
+                    targetUrl,
                     url: url.href
                 };
             }
@@ -2894,9 +2906,13 @@
             }
 
             const currentTarget = parseGeminiQuickInputTarget();
-            let ok = false;
+            const navigatedHome = navigateGeminiSpaToTarget(nextTarget);
+            if (navigatedHome) {
+                return { ok: true, label, targetUrl: nextTarget.targetUrl };
+            }
+
             if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
-                ok = clickGeminiNotebookNewChatControl(nextTarget);
+                const ok = clickGeminiNotebookNewChatControl(nextTarget);
                 return {
                     ok,
                     label,
@@ -2905,8 +2921,7 @@
                 };
             }
 
-            ok = navigateGeminiSpaToTarget(nextTarget);
-            return { ok, label, targetUrl: nextTarget.targetUrl };
+            return { ok: false, label, targetUrl: nextTarget.targetUrl };
         }
 
         async function triggerGeminiNewChat({ shouldCancel = null } = {}) {
@@ -2935,6 +2950,7 @@
             const settle = Math.max(0, Number(settleMs) || 0);
             let stableSince = 0;
             let recoveryAttempted = false;
+            let homeNavigationAttempted = false;
             let newChatClickAttempted = false;
             let missingNewChatControl = false;
 
@@ -2967,6 +2983,13 @@
                         recoveryAttempted = true;
                         if (navigateGeminiSpaToTarget(expectedTarget)) {
                             await runtimeSleep(runtime, interval, { shouldCancel: cancelFn });
+                            continue;
+                        }
+                    }
+                    if (matchesTarget && !homeNavigationAttempted) {
+                        homeNavigationAttempted = true;
+                        if (navigateGeminiSpaToTarget(expectedTarget)) {
+                            await runtimeSleep(runtime, Math.max(220, interval), { shouldCancel: cancelFn });
                             continue;
                         }
                     }
