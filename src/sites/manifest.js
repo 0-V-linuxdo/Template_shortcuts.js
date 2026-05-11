@@ -255,16 +255,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260511] v1.2.0",
+            name: "[Gemini] 快捷键跳转 [20260511] v1.2.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260511] v1.2.0",
-            updateLog: "1.2.0: 适配 Gemini Notebook 页面 Quick Input，Notebook 运行会保持在当前 Notebook，并在 URL 漂移时停止或回到目标 Notebook，避免误跳普通 /app 聊天。",
+            version: "[20260511] v1.2.1",
+            updateLog: "1.2.1: 修复 Gemini Notebook Quick Input 新建聊天未确认空白新页面的问题，按 ChatGPT Project 方式锁定 Notebook URL，并在输入、上传、发送前防止写入旧上下文。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260511] v1.2.0",
+                    name: "[Gemini] Shortcut Jump [20260511] v1.2.1",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.2.0: Added Gemini Notebook support for Quick Input; Notebook runs now stay in the current Notebook and stop or return to the target Notebook on URL drift instead of jumping into regular /app chats."
+                    updateLog: "1.2.1: Fixed Gemini Notebook Quick Input not verifying the blank new-chat page; Notebook runs now follow the ChatGPT Project-style URL target and avoid writing into old context before input, upload, or send."
                 }
             },
             match: [
