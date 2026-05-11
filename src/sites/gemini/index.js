@@ -163,8 +163,10 @@
             },
             quickInput: {
                 nativeNewChatLabel: "CMD+SHIFT+O (原生)",
-                notebookNewChatLabel: "当前 Notebook（保持不跳转）",
+                notebookNewChatLabel: "Notebook 内新建聊天",
                 rootUrlMismatch: "当前 URL 必须匹配 QuickInput Notebook 目标 {targetUrl}，实际是 {currentUrl}",
+                notebookNewPageMismatch: "当前 Notebook 不是新聊天空白页，目标是 {targetUrl}，实际是 {currentUrl}",
+                notebookNewChatButtonMissing: "未找到安全的 Notebook 内新建聊天入口，已停止以避免写入旧上下文。",
                 emptyUrl: "(空)",
                 imageInsertUrlPrefix: "图片插入前 URL 校验失败：",
                 newChatVerifyPrefix: "Notebook 校验失败：",
@@ -200,8 +202,10 @@
             },
             quickInput: {
                 nativeNewChatLabel: "CMD+SHIFT+O (native)",
-                notebookNewChatLabel: "Current Notebook (stay here)",
+                notebookNewChatLabel: "Notebook new chat",
                 rootUrlMismatch: "Current URL must match the QuickInput Notebook target {targetUrl}; actual URL is {currentUrl}",
+                notebookNewPageMismatch: "Current Notebook is not a blank new-chat page. Target: {targetUrl}; actual URL: {currentUrl}",
+                notebookNewChatButtonMissing: "No safe Notebook new-chat control was found, so Quick Input stopped to avoid writing into old context.",
                 emptyUrl: "(empty)",
                 imageInsertUrlPrefix: "URL check failed before inserting images: ",
                 newChatVerifyPrefix: "Notebook verification failed: ",
@@ -2230,7 +2234,7 @@
             return qiText("nativeNewChatLabel", {}, `${GEMINI_NATIVE_NEW_CHAT_HOTKEY} (native)`);
         }
         function getNotebookNewChatLabel() {
-            return qiText("notebookNewChatLabel", {}, "Current Notebook (stay here)");
+            return qiText("notebookNewChatLabel", {}, "Notebook new chat");
         }
 
         const focusComposer = dom?.focusComposer;
@@ -2359,8 +2363,21 @@
         const GEMINI_ROOT_URL = `${GEMINI_ORIGIN}/`;
         const GEMINI_NOTEBOOK_ID_RE = /^[A-Za-z0-9-]+$/;
         const GEMINI_NOTEBOOK_TARGET_TTL_MS = 330000;
+        const GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE = /(?:^|\b)(?:new|start)\s+(?:chat|conversation)(?:\b|$)|新(?:建)?(?:聊天|对话)|开始(?:聊天|对话)/i;
+        const GEMINI_NOTEBOOK_ACTIVE_CONTENT_SELECTORS = Object.freeze([
+            "user-query",
+            "user-query-content",
+            "model-response",
+            "message-content",
+            "[data-test-id*='user-query' i]",
+            "[data-test-id*='model-response' i]",
+            "[data-test-id*='response' i]",
+            "[data-test-id*='message' i]",
+            "[data-test-id*='query' i]"
+        ]);
         let pendingGeminiNotebookTarget = null;
         let pendingGeminiNotebookTargetAt = 0;
+        let armedGeminiNotebookTarget = null;
 
         function getCurrentGeminiUrl() {
             try { return String(window.location.href || ""); } catch { return ""; }
@@ -2455,6 +2472,23 @@
             return true;
         }
 
+        function markGeminiNotebookArmed(target) {
+            if (!target || target.kind !== "notebook" || !target.notebookId || !target.targetUrl) return;
+            armedGeminiNotebookTarget = { ...target };
+        }
+
+        function clearGeminiNotebookArmed() {
+            armedGeminiNotebookTarget = null;
+        }
+
+        function isGeminiNotebookArmed(target) {
+            return !!(
+                target?.kind === "notebook" &&
+                armedGeminiNotebookTarget &&
+                isSameGeminiQuickInputTarget(armedGeminiNotebookTarget, target)
+            );
+        }
+
         function navigateGeminiSpaToTarget(target) {
             if (!target || typeof target.targetUrl !== "string" || !target.targetUrl) return false;
             try {
@@ -2479,6 +2513,268 @@
             return prefix ? `${prefix}${base}` : base;
         }
 
+        function buildGeminiNotebookNewPageMismatchMessage(currentUrl, { target = null, prefix = "" } = {}) {
+            const expectedTarget = target || getGeminiNewChatTriggerTarget();
+            const targetUrl = String(expectedTarget?.targetUrl || GEMINI_ROOT_URL);
+            const base = qiText("notebookNewPageMismatch", {
+                rootUrl: targetUrl,
+                targetUrl,
+                currentUrl: currentUrl || qiText("emptyUrl", {}, "(empty)")
+            }, `Current Notebook is not a blank new-chat page. Target: ${targetUrl}; actual URL: ${currentUrl || "(empty)"}`);
+            return prefix ? `${prefix}${base}` : base;
+        }
+
+        function buildGeminiNotebookNewChatButtonMissingMessage({ prefix = "" } = {}) {
+            const base = qiText(
+                "notebookNewChatButtonMissing",
+                {},
+                "No safe Notebook new-chat control was found, so Quick Input stopped to avoid writing into old context."
+            );
+            return prefix ? `${prefix}${base}` : base;
+        }
+
+        function isInsideGeminiNotebookIgnoredRegion(el) {
+            if (!el || typeof el.closest !== "function") return false;
+            try {
+                return !!el.closest([
+                    `#${overlayId}`,
+                    "bard-sidenav",
+                    "side-navigation-content",
+                    ".input-area-container",
+                    "input-area-v2",
+                    "rich-textarea",
+                    ".text-input-field",
+                    ".ql-clipboard",
+                    "toolbox-drawer",
+                    "mat-menu",
+                    ".cdk-overlay-container",
+                    "top-bar-actions"
+                ].join(", "));
+            } catch {
+                return false;
+            }
+        }
+
+        function isVisibleGeminiNotebookActiveContent(el) {
+            if (!el) return false;
+            if (isInsideQuickInputOverlay(el)) return false;
+            if (isInsideGeminiNotebookIgnoredRegion(el)) return false;
+            if (!isElementVisible(el)) return false;
+            try {
+                const text = String(el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
+                if (text.length > 0) return true;
+            } catch { }
+            try {
+                return !!el.querySelector?.("img, video, canvas, svg");
+            } catch {
+                return true;
+            }
+        }
+
+        function hasGeminiNotebookActiveContent() {
+            for (const selector of GEMINI_NOTEBOOK_ACTIVE_CONTENT_SELECTORS) {
+                let nodes = [];
+                try { nodes = Array.from(document.querySelectorAll(selector)); } catch { nodes = []; }
+                for (const node of nodes) {
+                    if (isVisibleGeminiNotebookActiveContent(node)) return true;
+                }
+            }
+            return false;
+        }
+
+        function findGeminiNotebookZeroStateElement(composerEl = null) {
+            const selectors = [
+                ".input-area-container.is-zero-state",
+                "[data-node-type='input-area'].is-zero-state",
+                ".input-area.is-zero-state"
+            ];
+
+            const scopes = [];
+            const seen = new Set();
+            const pushScope = (scope) => {
+                if (!scope || seen.has(scope)) return;
+                seen.add(scope);
+                scopes.push(scope);
+            };
+
+            try { pushScope(composerEl?.closest?.(".input-area-container") || null); } catch { }
+            try { pushScope(composerEl?.closest?.("[data-node-type='input-area']") || null); } catch { }
+            try { pushScope(composerEl?.closest?.("input-area-v2") || null); } catch { }
+            pushScope(document);
+
+            for (const scope of scopes) {
+                for (const selector of selectors) {
+                    let nodes = [];
+                    try {
+                        if (scope.matches?.(selector)) nodes.push(scope);
+                    } catch { }
+                    try { nodes.push(...Array.from(scope.querySelectorAll?.(selector) || [])); } catch { }
+                    for (const node of nodes) {
+                        if (!node) continue;
+                        if (isInsideQuickInputOverlay(node)) continue;
+                        if (!isElementVisible(node)) continue;
+                        return node;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function getGeminiNotebookNewPageState(target = null) {
+            const expectedTarget = target || getGeminiNewChatTriggerTarget();
+            const currentUrl = getCurrentGeminiUrl();
+            const currentTarget = parseGeminiQuickInputTarget(currentUrl);
+            const matchesTarget = !!(
+                expectedTarget?.kind === "notebook" &&
+                currentTarget?.ready &&
+                isSameGeminiQuickInputTarget(currentTarget, expectedTarget)
+            );
+            const composer = matchesTarget ? findGeminiComposerElement({ requireVisible: true }) : null;
+            const composerText = composer ? normalizeGeminiCommittedText(getGeminiComposerPlainText(composer, { trimTrailingEditorNewlines: true })).trim() : "";
+            const composerBlank = !!(composer && composerText.length === 0);
+            const zeroState = !!(matchesTarget && findGeminiNotebookZeroStateElement(composer));
+            const hasActiveContent = matchesTarget ? hasGeminiNotebookActiveContent() : false;
+
+            return {
+                ok: !!(matchesTarget && composer && composerBlank && zeroState && !hasActiveContent),
+                currentUrl,
+                currentTarget,
+                matchesTarget,
+                composer,
+                composerBlank,
+                zeroState,
+                hasActiveContent,
+                targetUrl: expectedTarget?.targetUrl || GEMINI_ROOT_URL
+            };
+        }
+
+        function getGeminiNotebookCandidateHref(el) {
+            let node = el;
+            for (let depth = 0; node && depth < 4; depth++) {
+                const tag = String(node.tagName || "").toUpperCase();
+                if (tag === "A") {
+                    try { return String(node.getAttribute?.("href") || node.href || "").trim(); } catch { return ""; }
+                }
+                try { node = node.parentElement || null; } catch { node = null; }
+            }
+            return "";
+        }
+
+        function isSafeGeminiNotebookNewChatCandidate(el, target) {
+            if (!el || target?.kind !== "notebook") return false;
+            if (isInsideQuickInputOverlay(el)) return false;
+            if (!isElementVisible(el)) return false;
+            try {
+                if (el.closest?.("bard-sidenav, side-navigation-content")) return false;
+            } catch { }
+            try {
+                if (el.closest?.([
+                    "user-query",
+                    "user-query-content",
+                    "model-response",
+                    "message-content",
+                    "[data-test-id*='user-query' i]",
+                    "[data-test-id*='model-response' i]",
+                    "[data-test-id*='response' i]",
+                    "[data-test-id*='message' i]",
+                    "[data-test-id*='query' i]"
+                ].join(", "))) return false;
+            } catch { }
+
+            const rawText = String(
+                el.getAttribute?.("aria-label") ||
+                el.getAttribute?.("title") ||
+                el.textContent ||
+                ""
+            );
+            const text = rawText.replace(/\s+/g, " ").trim();
+            const iconNames = getGeminiElementIconNames(el);
+            const dataTestIds = getGeminiElementDataTestIds(el).join(" ");
+            const looksLikeNewChat = GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE.test(text)
+                || GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE.test(dataTestIds)
+                || iconNames.includes("edit_square");
+            if (!looksLikeNewChat) return false;
+            if (/temporary|临时/i.test(text) || /temp-chat/i.test(dataTestIds)) return false;
+
+            const href = getGeminiNotebookCandidateHref(el);
+            if (!href) return true;
+            try {
+                const url = new URL(href, GEMINI_ROOT_URL);
+                if (url.origin !== GEMINI_ORIGIN) return false;
+                if (url.pathname === "/app" || url.pathname.startsWith("/app/")) return false;
+                if (url.pathname === `/notebook/${target.notebookId}`) return true;
+                return !url.pathname.startsWith("/app");
+            } catch {
+                return false;
+            }
+        }
+
+        function scoreGeminiNotebookNewChatCandidate(el) {
+            let score = 0;
+            const rawText = String(
+                el.getAttribute?.("aria-label") ||
+                el.getAttribute?.("title") ||
+                el.textContent ||
+                ""
+            );
+            const text = rawText.replace(/\s+/g, " ").trim();
+            if (GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE.test(text)) score += 80;
+            const dataTestIds = getGeminiElementDataTestIds(el).join(" ");
+            if (/notebook/i.test(dataTestIds)) score += 40;
+            if (/new.*chat|chat.*new/i.test(dataTestIds)) score += 30;
+            if (getGeminiElementIconNames(el).includes("edit_square")) score += 20;
+            try { if (el.closest?.("[data-test-id*='notebook' i], [class*='notebook' i]")) score += 30; } catch { }
+            try {
+                const rect = el.getBoundingClientRect();
+                score += Math.max(0, Math.min(20, rect.top / Math.max(1, window.innerHeight) * 20));
+            } catch { }
+            return score;
+        }
+
+        function findGeminiNotebookNewChatControl(target) {
+            const selectors = [
+                "button[aria-label*='New chat' i]",
+                "a[aria-label*='New chat' i]",
+                "[role='button'][aria-label*='New chat' i]",
+                "button[aria-label*='新建聊天']",
+                "button[aria-label*='新聊天']",
+                "button[data-test-id*='new-chat' i]",
+                "a[data-test-id*='new-chat' i]",
+                "[role='button'][data-test-id*='new-chat' i]",
+                "button",
+                "a",
+                "[role='button']"
+            ];
+            const candidates = [];
+            const seen = new Set();
+            for (const selector of selectors) {
+                let nodes = [];
+                try { nodes = Array.from(document.querySelectorAll(selector)); } catch { nodes = []; }
+                for (const node of nodes) {
+                    if (!node || seen.has(node)) continue;
+                    seen.add(node);
+                    if (isSafeGeminiNotebookNewChatCandidate(node, target)) candidates.push(node);
+                }
+            }
+            candidates.sort((a, b) => scoreGeminiNotebookNewChatCandidate(b) - scoreGeminiNotebookNewChatCandidate(a));
+            return candidates[0] || null;
+        }
+
+        function clickGeminiNotebookNewChatControl(target) {
+            const control = findGeminiNotebookNewChatControl(target);
+            if (!control) return false;
+            try {
+                if (TemplateUtils?.events?.simulateClick?.(control, { nativeFallback: true })) return true;
+            } catch { }
+            try {
+                control.click?.();
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
         function getGeminiUrlGuardResult() {
             const expectedTarget = getGeminiNewChatTriggerTarget();
             const currentUrl = getCurrentGeminiUrl();
@@ -2488,9 +2784,24 @@
 
             const currentTarget = parseGeminiQuickInputTarget(currentUrl);
             if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, expectedTarget)) {
-                return { ok: true, url: currentUrl, targetUrl: expectedTarget.targetUrl };
+                if (isGeminiNotebookArmed(expectedTarget)) {
+                    return { ok: true, url: currentUrl, targetUrl: expectedTarget.targetUrl };
+                }
+                const newPageState = getGeminiNotebookNewPageState(expectedTarget);
+                if (newPageState.ok) {
+                    markGeminiNotebookArmed(expectedTarget);
+                    return { ok: true, url: currentUrl, targetUrl: expectedTarget.targetUrl };
+                }
+                clearGeminiNotebookArmed();
+                return {
+                    ok: false,
+                    url: currentUrl,
+                    targetUrl: expectedTarget.targetUrl,
+                    message: buildGeminiNotebookNewPageMismatchMessage(currentUrl, { target: expectedTarget })
+                };
             }
 
+            clearGeminiNotebookArmed();
             return {
                 ok: false,
                 url: currentUrl,
@@ -2574,12 +2885,27 @@
             if (nextTarget?.kind !== "notebook") return { ok: false, label, targetUrl: nextTarget?.targetUrl || "" };
 
             rememberPendingGeminiNotebookTarget(nextTarget);
-            const currentTarget = parseGeminiQuickInputTarget();
-            if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
+            clearGeminiNotebookArmed();
+
+            const newPageState = getGeminiNotebookNewPageState(nextTarget);
+            if (newPageState.ok) {
+                markGeminiNotebookArmed(nextTarget);
                 return { ok: true, label, targetUrl: nextTarget.targetUrl };
             }
 
-            const ok = navigateGeminiSpaToTarget(nextTarget);
+            const currentTarget = parseGeminiQuickInputTarget();
+            let ok = false;
+            if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
+                ok = clickGeminiNotebookNewChatControl(nextTarget);
+                return {
+                    ok,
+                    label,
+                    targetUrl: nextTarget.targetUrl,
+                    message: ok ? "" : buildGeminiNotebookNewChatButtonMissingMessage()
+                };
+            }
+
+            ok = navigateGeminiSpaToTarget(nextTarget);
             return { ok, label, targetUrl: nextTarget.targetUrl };
         }
 
@@ -2609,6 +2935,8 @@
             const settle = Math.max(0, Number(settleMs) || 0);
             let stableSince = 0;
             let recoveryAttempted = false;
+            let newChatClickAttempted = false;
+            let missingNewChatControl = false;
 
             while (getRuntimeNow(runtime) < deadline) {
                 if (cancelFn && cancelFn()) {
@@ -2618,21 +2946,37 @@
                 const currentUrl = getCurrentGeminiUrl();
                 const currentTarget = parseGeminiQuickInputTarget(currentUrl);
                 const matchesTarget = currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, expectedTarget);
-                const composer = matchesTarget ? findGeminiComposerElement({ requireVisible: true }) : null;
-                if (matchesTarget && composer) {
+                const armed = matchesTarget && isGeminiNotebookArmed(expectedTarget);
+                const newPageState = matchesTarget && !armed ? getGeminiNotebookNewPageState(expectedTarget) : null;
+                const composer = armed
+                    ? findGeminiComposerElement({ requireVisible: true })
+                    : (newPageState?.composer || null);
+                const ready = armed ? !!composer : !!newPageState?.ok;
+
+                if (ready) {
                     if (!stableSince) stableSince = getRuntimeNow(runtime);
                     if (getRuntimeNow(runtime) - stableSince >= settle) {
+                        markGeminiNotebookArmed(expectedTarget);
                         rememberPendingGeminiNotebookTarget(expectedTarget);
                         return { ok: true, cancelled: false, url: currentUrl, targetUrl: expectedTarget.targetUrl };
                     }
                 } else {
                     stableSince = 0;
+                    clearGeminiNotebookArmed();
                     if (!matchesTarget && !recoveryAttempted) {
                         recoveryAttempted = true;
                         if (navigateGeminiSpaToTarget(expectedTarget)) {
                             await runtimeSleep(runtime, interval, { shouldCancel: cancelFn });
                             continue;
                         }
+                    }
+                    if (matchesTarget && !newChatClickAttempted) {
+                        newChatClickAttempted = true;
+                        if (clickGeminiNotebookNewChatControl(expectedTarget)) {
+                            await runtimeSleep(runtime, Math.max(220, interval), { shouldCancel: cancelFn });
+                            continue;
+                        }
+                        missingNewChatControl = true;
                     }
                 }
 
@@ -2643,15 +2987,26 @@
             }
 
             const currentUrl = getCurrentGeminiUrl();
+            const currentTarget = parseGeminiQuickInputTarget(currentUrl);
+            const matchesTarget = currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, expectedTarget);
             return {
                 ok: false,
                 cancelled: false,
                 url: currentUrl,
                 targetUrl: expectedTarget.targetUrl,
-                message: buildGeminiTargetUrlMismatchMessage(currentUrl, {
-                    target: expectedTarget,
-                    prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
-                })
+                message: missingNewChatControl
+                    ? buildGeminiNotebookNewChatButtonMissingMessage({
+                        prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
+                    })
+                    : (matchesTarget
+                        ? buildGeminiNotebookNewPageMismatchMessage(currentUrl, {
+                            target: expectedTarget,
+                            prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
+                        })
+                        : buildGeminiTargetUrlMismatchMessage(currentUrl, {
+                            target: expectedTarget,
+                            prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
+                        }))
             };
         }
 
@@ -2685,8 +3040,7 @@
         const GEMINI_TEXT_ATTEMPT_TIMEOUT_MS = 2800;
         const GEMINI_TEXT_ATTEMPT_SETTLE_MS = 900;
         const GEMINI_TEXT_ATTEMPT_POLL_MS = 80;
-        const GEMINI_TEXT_INSERT_CHUNK_SIZE = 64;
-        const GEMINI_TEXT_INSERT_CHUNK_DELAY_MS = 12;
+        const GEMINI_TEXT_INSERT_SETTLE_MS = 20;
         const GEMINI_TEXT_OBSERVED_ATTRIBUTES = Object.freeze([
             "class",
             "style",
@@ -3120,46 +3474,28 @@
             return fired;
         }
 
-        function splitGeminiTextIntoChunks(text, { chunkSize = GEMINI_TEXT_INSERT_CHUNK_SIZE } = {}) {
-            const normalized = String(text ?? "").replace(/\r\n?/g, "\n");
-            const chars = Array.from(normalized);
-            const size = Math.max(1, Number(chunkSize) || GEMINI_TEXT_INSERT_CHUNK_SIZE);
-            const chunks = [];
-            for (let index = 0; index < chars.length; index += size) {
-                chunks.push(chars.slice(index, index + size).join(""));
-            }
-            return chunks;
-        }
-
-        async function tryInsertTextIntoGeminiComposerViaExecCommand(composerEl, text) {
-            const plainText = String(text ?? "");
+        async function tryInsertTextIntoGeminiComposerAtomically(composerEl, text) {
+            const plainText = String(text ?? "").replace(/\r\n?/g, "\n");
             if (!plainText) return false;
             let composer = resolveGeminiComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
             if (!composer) return false;
 
-            let inserted = false;
-            for (const chunk of splitGeminiTextIntoChunks(plainText)) {
-                composer = resolveGeminiComposerElement(composer, { requireVisible: false }) || composer;
-                if (!composer) return false;
+            try { composer.focus?.(); } catch { }
+            try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
+            if (!selectGeminiComposerContent(composer)) return false;
 
-                try { composer.focus?.(); } catch { }
-                try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
-                if (!moveGeminiComposerCaretToEnd(composer)) return false;
+            const beforeText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composer));
+            dispatchGeminiComposerBeforeInput(composer, { inputType: "insertReplacementText", data: plainText });
+            let executed = false;
+            try { executed = !!document.execCommand?.("insertText", false, plainText); } catch { }
+            if (!executed) return false;
+            dispatchGeminiComposerInput(composer, { inputType: "insertReplacementText", data: plainText });
+            try { composer.dispatchEvent(new Event("change", { bubbles: true })); } catch { }
 
-                const beforeText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composer));
-                dispatchGeminiComposerBeforeInput(composer, { inputType: "insertText", data: chunk });
-                let executed = false;
-                try { executed = !!document.execCommand?.("insertText", false, chunk); } catch { }
-                if (!executed) return false;
-                dispatchGeminiComposerInput(composer, { inputType: "insertText", data: chunk });
-
-                await sleep(GEMINI_TEXT_INSERT_CHUNK_DELAY_MS);
-                const afterText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composer));
-                if (afterText === beforeText) return false;
-                inserted = true;
-            }
-
-            return inserted;
+            await sleep(GEMINI_TEXT_INSERT_SETTLE_MS);
+            composer = resolveGeminiComposerElement(composer, { requireVisible: false }) || composer;
+            const afterText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composer));
+            return afterText === normalizeGeminiCommittedText(plainText) || afterText !== beforeText;
         }
 
         function setGeminiComposerTextContentFallback(composerEl, text) {
@@ -3214,6 +3550,18 @@
             };
         }
 
+        function getGeminiComposerTextMatchSnapshot(composerEl, expectedText) {
+            const normalizedExpected = normalizeGeminiCommittedText(expectedText);
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+            const actualText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composer, { trimTrailingEditorNewlines: true }));
+            return {
+                composer,
+                actualText,
+                expectedText: normalizedExpected,
+                ok: actualText === normalizedExpected
+            };
+        }
+
         async function setGeminiInputValue(composerEl, value) {
             const urlGuard = getGeminiUrlGuardResult();
             if (!urlGuard.ok) return false;
@@ -3231,7 +3579,7 @@
             if (!text) return true;
 
             const attempts = [
-                () => tryInsertTextIntoGeminiComposerViaExecCommand(composer, text),
+                () => tryInsertTextIntoGeminiComposerAtomically(composer, text),
                 () => Promise.resolve(tryPasteTextIntoGeminiComposer(composer, text)),
                 () => Promise.resolve(setGeminiComposerTextContentFallback(composer, text))
             ];
@@ -3243,14 +3591,26 @@
                 try { composer.focus?.(); } catch { }
                 try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
 
-                await attempts[index]();
-                const matched = await waitForGeminiComposerTextMatch(composer, text);
-                if (matched?.composer) composer = matched.composer;
-                if (matched?.ok) return true;
+                let attemptStarted = false;
+                try { attemptStarted = !!(await attempts[index]()); } catch { attemptStarted = false; }
+                let snapshot = getGeminiComposerTextMatchSnapshot(composer, text);
+                if (snapshot?.composer) composer = snapshot.composer;
+                if (snapshot?.ok) return true;
+
+                if (attemptStarted || snapshot?.actualText) {
+                    const matched = await waitForGeminiComposerTextMatch(composer, text);
+                    if (matched?.composer) composer = matched.composer;
+                    if (matched?.ok || matched?.actualText === matched?.expectedText) return true;
+                }
 
                 if (index < attempts.length - 1) {
-                    await clearGeminiInputValue(composer);
-                    await sleep(20);
+                    snapshot = getGeminiComposerTextMatchSnapshot(composer, text);
+                    if (snapshot?.composer) composer = snapshot.composer;
+                    if (snapshot?.ok) return true;
+                    if (snapshot?.actualText) {
+                        await clearGeminiInputValue(composer);
+                        await sleep(20);
+                    }
                 }
             }
 
@@ -4181,16 +4541,30 @@
             if (!composer) return false;
 
             const btn = findSendButtonNearComposer(composer);
+            let sent = false;
             if (btn) {
-                if (isGeminiSendButtonDisabled(btn)) return false;
+                if (isGeminiSendButtonDisabled(btn)) {
+                    clearGeminiNotebookArmed();
+                    return false;
+                }
                 try {
-                    return !!TemplateUtils?.events?.simulateClick?.(btn, { nativeFallback: true });
+                    sent = !!TemplateUtils?.events?.simulateClick?.(btn, { nativeFallback: true });
+                    clearGeminiNotebookArmed();
+                    return sent;
                 } catch { }
-                try { btn.click(); return true; } catch { }
+                try { btn.click(); sent = true; } catch { }
+                clearGeminiNotebookArmed();
+                if (sent) return true;
                 return false;
             }
 
-            return simulateKeystroke("ENTER", { target: composer });
+            try {
+                sent = !!simulateKeystroke("ENTER", { target: composer });
+            } catch {
+                sent = false;
+            }
+            clearGeminiNotebookArmed();
+            return sent;
         }
 
         return Object.freeze({
