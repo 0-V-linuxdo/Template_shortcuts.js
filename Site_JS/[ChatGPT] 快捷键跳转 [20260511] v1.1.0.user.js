@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260511] v1.0.1
-// @name:en        [ChatGPT] Shortcut Jump [20260511] v1.0.1
+// @name           [ChatGPT] 快捷键跳转 [20260511] v1.1.0
+// @name:en        [ChatGPT] Shortcut Jump [20260511] v1.1.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260511] v1.0.1
-// @update-log     1.0.1: 修复 ChatGPT Project 场景下 Quick Input 新建对话仍调用原生快捷键的问题，改为通过 Project URL 跳转新建，避免循环中断。
-// @update-log:en  1.0.1: Fixed ChatGPT Quick Input still using the native new-chat hotkey in Projects; Project runs now create new chats by jumping to the Project URL to avoid loop interruption.
+// @version        [20260511] v1.1.0
+// @update-log     1.1.0: 修复 ChatGPT Project 场景下 Quick Input 循环运行一段时间后掉回普通 ChatGPT 的问题；现在会在面板打开期间持续保留 Project 目标，并在校验失败时自动跳回同一 Project。
+// @update-log:en  1.1.0: Fixed ChatGPT Quick Input Project loops drifting back to regular ChatGPT after running for a while; Project targets are now kept while the panel is open and recovered with a jump back to the same Project when verification fails.
 
 // @match          https://chatgpt.com/*
 
@@ -609,7 +609,7 @@
       const CHATGPT_ORIGIN = "https://chatgpt.com";
       const CHATGPT_ROOT_URL = `${CHATGPT_ORIGIN}/`;
       const CHATGPT_PROJECT_KEY_RE = /^g-p-[A-Za-z0-9][A-Za-z0-9-]*$/;
-      const CHATGPT_NEW_CHAT_TARGET_TTL_MS = 6e4;
+      const CHATGPT_NEW_CHAT_TARGET_TTL_MS = 33e4;
       let pendingChatGPTNewChatTarget = null;
       let pendingChatGPTNewChatTargetAt = 0;
       function qiText(key, vars = {}, fallback = "") {
@@ -651,6 +651,13 @@
       };
       function isInsideQuickInputOverlay(el) {
         return isInsideOverlayTree(el, overlayId);
+      }
+      function isChatGPTQuickInputOverlayOpen() {
+        try {
+          return document.getElementById(overlayId)?.getAttribute?.("data-open") === "1";
+        } catch {
+          return false;
+        }
       }
       function getRuntimeNow(runtime = null) {
         if (runtime && typeof runtime.now === "function") {
@@ -754,7 +761,7 @@
         return null;
       }
       function rememberPendingChatGPTNewChatTarget(target) {
-        if (!target || typeof target.targetUrl !== "string") return;
+        if (!target || target.kind !== "project" || !target.projectKey || typeof target.targetUrl !== "string") return;
         pendingChatGPTNewChatTarget = { ...target };
         pendingChatGPTNewChatTargetAt = Date.now();
       }
@@ -768,9 +775,14 @@
       }
       function getChatGPTNewChatTriggerTarget() {
         const currentTarget = parseChatGPTQuickInputTarget();
+        if (currentTarget?.kind === "project") {
+          rememberPendingChatGPTNewChatTarget(currentTarget);
+          return currentTarget;
+        }
         const pendingTarget = getPendingChatGPTNewChatTarget();
-        if (currentTarget?.kind === "project") return currentTarget;
-        if (pendingTarget?.kind === "project") return pendingTarget;
+        if (pendingTarget?.kind === "project" && isChatGPTQuickInputOverlayOpen()) {
+          return pendingTarget;
+        }
         return pendingTarget || currentTarget || createChatGPTRootTarget();
       }
       function getChatGPTNewChatLabel() {
@@ -2477,13 +2489,14 @@
           if (currentTarget?.ready && isSameChatGPTQuickInputTarget(currentTarget, expectedTarget)) {
             if (!stableSince) stableSince = getRuntimeNow(runtime);
             if (getRuntimeNow(runtime) - stableSince >= settle) {
-              clearPendingChatGPTNewChatTarget(expectedTarget);
+              rememberPendingChatGPTNewChatTarget(expectedTarget);
               return { ok: true, cancelled: false, url: expectedTarget.targetUrl, targetUrl: expectedTarget.targetUrl };
             }
           } else {
             stableSince = 0;
-            if (expectedTarget.kind === "project" && !projectRecoveryAttempted && currentTarget?.kind === "root" && currentTarget?.ready) {
+            if (expectedTarget.kind === "project" && !projectRecoveryAttempted) {
               projectRecoveryAttempted = true;
+              rememberPendingChatGPTNewChatTarget(expectedTarget);
               if (navigateChatGPTSpaToTarget(expectedTarget)) {
                 await runtimeSleep(runtime, Math.max(120, Number(intervalMs) || 0), { shouldCancel: cancelFn });
                 continue;
