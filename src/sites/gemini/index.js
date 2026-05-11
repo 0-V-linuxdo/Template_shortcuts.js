@@ -2148,6 +2148,33 @@
         const collectFileInputsFromOpenShadows = dom?.collectFileInputsFromOpenShadows;
         const trySetFileInputFiles = dom?.trySetFileInputFiles;
         const waitForObservedState = dom?.waitForObservedState;
+        const genericSetInputValue = typeof dom?.setInputValue === "function" ? dom.setInputValue : null;
+        const genericClearInputValue = typeof dom?.clearInputValue === "function" ? dom.clearInputValue : null;
+        const genericGetComposerText = typeof dom?.getComposerText === "function" ? dom.getComposerText : fallbackGetComposerText;
+        const genericNormalizeComposerText = typeof dom?.normalizeComposerText === "function" ? dom.normalizeComposerText : fallbackNormalizeComposerText;
+
+        function fallbackNormalizeComposerText(value, { trimTrailingEditorNewlines = false } = {}) {
+            let text = String(value ?? "");
+            text = text
+                .replace(/\r\n?/g, "\n")
+                .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "");
+            if (trimTrailingEditorNewlines) {
+                text = text.replace(/\n+$/g, "");
+            }
+            return text;
+        }
+
+        function fallbackGetComposerText(el) {
+            if (!el) return "";
+            const tag = String(el.tagName || "").toUpperCase();
+            if (tag === "TEXTAREA" || tag === "INPUT") {
+                try { return String(el.value ?? ""); } catch { }
+            }
+            if (el.isContentEditable || el.contentEditable === "true") {
+                try { return String(el.innerText || el.textContent || ""); } catch { }
+            }
+            try { return String(el.textContent || ""); } catch { return ""; }
+        }
 
         if (
             typeof focusComposer !== "function" ||
@@ -2309,6 +2336,662 @@
             "aria-disabled",
             "aria-busy"
         ]);
+
+        const GEMINI_COMPOSER_SELECTORS = Object.freeze([
+            ".text-input-field [contenteditable='true'][role='textbox']",
+            ".text-input-field [contenteditable='true']",
+            "rich-textarea [contenteditable='true'][role='textbox']",
+            "rich-textarea [contenteditable='true']",
+            "[contenteditable='true'][aria-label*='Gemini']",
+            "[contenteditable='true'][role='textbox']",
+            "textarea[aria-label*='Gemini']",
+            "textarea"
+        ]);
+
+        const GEMINI_TEXT_ATTEMPT_TIMEOUT_MS = 2800;
+        const GEMINI_TEXT_ATTEMPT_SETTLE_MS = 900;
+        const GEMINI_TEXT_ATTEMPT_POLL_MS = 80;
+        const GEMINI_TEXT_INSERT_CHUNK_SIZE = 64;
+        const GEMINI_TEXT_INSERT_CHUNK_DELAY_MS = 12;
+        const GEMINI_TEXT_OBSERVED_ATTRIBUTES = Object.freeze([
+            "class",
+            "style",
+            "value",
+            "placeholder",
+            "data-placeholder",
+            "data-state",
+            "aria-hidden",
+            "hidden"
+        ]);
+
+        function isGeminiComposerConnected(el) {
+            if (!el) return false;
+            try {
+                if (typeof el.isConnected === "boolean") return el.isConnected;
+            } catch { }
+            try { return !!document.contains(el); } catch { return false; }
+        }
+
+        function isGeminiAttachmentOrPreviewElement(el) {
+            if (!el || typeof el.closest !== "function") return false;
+            try {
+                return !!el.closest([
+                    ".attachment-preview-wrapper",
+                    ".uploader-file-preview-container",
+                    "uploader-file-preview-container",
+                    "uploader-file-preview",
+                    ".file-preview-wrapper",
+                    ".file-preview-chip",
+                    ".file-preview-container",
+                    "button.image-preview",
+                    "button[data-test-id='cancel-button']",
+                    "button.cancel-button"
+                ].join(", "));
+            } catch {
+                return false;
+            }
+        }
+
+        function isGeminiComposerCandidate(el, { requireVisible = true } = {}) {
+            if (!el) return false;
+            if (isInsideQuickInputOverlay(el)) return false;
+            if (!isGeminiComposerConnected(el)) return false;
+            if (requireVisible && !isElementVisible(el)) return false;
+            const tag = String(el.tagName || "").toUpperCase();
+            const isEditable = tag === "TEXTAREA" || tag === "INPUT" || el.isContentEditable || el.contentEditable === "true";
+            if (!isEditable) return false;
+            try {
+                if (el.disabled || el.hidden) return false;
+                if (el.getAttribute?.("aria-hidden") === "true") return false;
+            } catch { }
+            try {
+                if (el.closest?.(".ql-clipboard")) return false;
+            } catch { }
+            if (isGeminiAttachmentOrPreviewElement(el)) return false;
+            return true;
+        }
+
+        function scoreGeminiComposerCandidate(el) {
+            let score = 0;
+            try { if (el.closest?.(".text-input-field")) score += 120; } catch { }
+            try { if (el.closest?.("rich-textarea")) score += 90; } catch { }
+            try { if (el.classList?.contains?.("ql-editor")) score += 60; } catch { }
+            try {
+                const role = String(el.getAttribute?.("role") || "").toLowerCase();
+                if (role === "textbox") score += 40;
+            } catch { }
+            try {
+                const aria = String(el.getAttribute?.("aria-label") || "").toLowerCase();
+                if (aria.includes("prompt") || aria.includes("gemini")) score += 30;
+            } catch { }
+            try {
+                const rect = el.getBoundingClientRect();
+                score += (rect.bottom / Math.max(1, window.innerHeight)) * 12;
+                score += (rect.width / Math.max(1, window.innerWidth)) * 8;
+                score += Math.min(8, (rect.width * rect.height) / Math.max(1, window.innerWidth * window.innerHeight) * 80);
+            } catch { }
+            return score;
+        }
+
+        function findGeminiComposerInside(root, { requireVisible = true } = {}) {
+            if (!root || typeof root.querySelectorAll !== "function") return null;
+            const candidates = [];
+            for (const selector of GEMINI_COMPOSER_SELECTORS) {
+                try {
+                    candidates.push(...Array.from(root.querySelectorAll(selector)));
+                } catch { }
+            }
+            return pickBestGeminiComposerCandidate(candidates, { requireVisible });
+        }
+
+        function pickBestGeminiComposerCandidate(candidates, { requireVisible = true } = {}) {
+            let best = null;
+            let bestScore = -Infinity;
+            for (const el of Array.from(candidates || [])) {
+                if (!isGeminiComposerCandidate(el, { requireVisible })) continue;
+                const score = scoreGeminiComposerCandidate(el);
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = el;
+                }
+            }
+            return best;
+        }
+
+        function resolveGeminiComposerFromElement(el, { requireVisible = true } = {}) {
+            if (!el) return null;
+            if (isGeminiComposerCandidate(el, { requireVisible })) return el;
+
+            const scopes = [];
+            const seen = new Set();
+            const pushScope = (scope) => {
+                if (!scope || seen.has(scope)) return;
+                seen.add(scope);
+                scopes.push(scope);
+            };
+
+            try { pushScope(el.closest?.(".text-input-field") || null); } catch { }
+            try { pushScope(el.closest?.("rich-textarea") || null); } catch { }
+            try { pushScope(el.closest?.("[xapfileselectordropzone]") || null); } catch { }
+            pushScope(el);
+
+            for (const scope of scopes) {
+                const composer = findGeminiComposerInside(scope, { requireVisible });
+                if (composer) return composer;
+            }
+
+            return null;
+        }
+
+        function findGeminiComposerElement({ requireVisible = true } = {}) {
+            const active = document.activeElement || null;
+            const activeComposer = resolveGeminiComposerFromElement(active, { requireVisible });
+            if (activeComposer) return activeComposer;
+
+            const candidates = [];
+            for (const selector of GEMINI_COMPOSER_SELECTORS) {
+                try {
+                    candidates.push(...Array.from(document.querySelectorAll(selector)));
+                } catch { }
+            }
+            return pickBestGeminiComposerCandidate(candidates, { requireVisible });
+        }
+
+        function resolveGeminiComposerElement(composerEl, { requireVisible = true } = {}) {
+            return resolveGeminiComposerFromElement(composerEl, { requireVisible })
+                || findGeminiComposerElement({ requireVisible })
+                || null;
+        }
+
+        async function focusGeminiComposer({ timeoutMs = 2500, intervalMs = 120, shouldCancel = null, runtime = null } = {}) {
+            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            const deadline = getRuntimeNow(runtime) + Math.max(0, Number(timeoutMs) || 0);
+            let composer = findGeminiComposerElement();
+
+            while (!composer && getRuntimeNow(runtime) < deadline) {
+                if (cancelFn && cancelFn()) return null;
+                const waitOk = await runtimeSleep(runtime, intervalMs, { shouldCancel: cancelFn });
+                if (!waitOk) return null;
+                composer = findGeminiComposerElement();
+            }
+
+            if (!composer && typeof focusComposer === "function") {
+                const genericComposer = await focusComposer({
+                    timeoutMs: Math.max(0, deadline - getRuntimeNow(runtime)),
+                    intervalMs,
+                    shouldCancel: cancelFn,
+                    shouldIgnore: isInsideQuickInputOverlay,
+                    runtime
+                });
+                composer = resolveGeminiComposerElement(genericComposer) || genericComposer || null;
+            }
+
+            if (cancelFn && cancelFn()) return null;
+            if (!composer) return null;
+            try { composer.scrollIntoView?.({ block: "center" }); } catch { }
+            try { composer.focus?.(); } catch { }
+            try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
+            const settleOk = await runtimeSleep(runtime, 20, { shouldCancel: cancelFn });
+            if (!settleOk) return null;
+            return composer;
+        }
+
+        function createGeminiDataTransfer({ text = "", files = [] } = {}) {
+            if (typeof DataTransfer !== "function") return null;
+            try {
+                const dt = new DataTransfer();
+                const plainText = String(text ?? "");
+                if (plainText) {
+                    try { dt.setData("text/plain", plainText); } catch { }
+                }
+                for (const file of Array.from(files || [])) {
+                    if (!(file instanceof File)) continue;
+                    try { dt.items.add(file); } catch { }
+                }
+                try { dt.effectAllowed = "copy"; } catch { }
+                try { dt.dropEffect = "copy"; } catch { }
+                return dt;
+            } catch {
+                return null;
+            }
+        }
+
+        function isGeminiStructuredTextElement(node) {
+            const tag = String(node?.tagName || "").toUpperCase();
+            return (
+                tag === "P" ||
+                tag === "DIV" ||
+                tag === "LI" ||
+                tag === "BLOCKQUOTE" ||
+                tag === "PRE" ||
+                tag === "UL" ||
+                tag === "OL" ||
+                tag === "H1" ||
+                tag === "H2" ||
+                tag === "H3" ||
+                tag === "H4" ||
+                tag === "H5" ||
+                tag === "H6"
+            );
+        }
+
+        function isGeminiTrailingBreak(node) {
+            if (!node || String(node.tagName || "").toUpperCase() !== "BR") return false;
+            const parent = node.parentElement || null;
+            if (!parent) return true;
+            const siblings = Array.from(parent.childNodes || []).filter(Boolean);
+            return siblings[siblings.length - 1] === node;
+        }
+
+        function serializeGeminiInlineText(node, { preserveWhitespace = false } = {}) {
+            if (!node) return "";
+            const nodeType = Number(node.nodeType) || 0;
+            if (nodeType === 3) return String(node.nodeValue || "");
+            if (nodeType !== 1) return "";
+
+            const tag = String(node.tagName || "").toUpperCase();
+            if (tag === "BR") return isGeminiTrailingBreak(node) ? "" : "\n";
+            if (tag === "IMG" || tag === "SVG" || tag === "BUTTON") return "";
+            if (isInsideQuickInputOverlay(node) || isGeminiAttachmentOrPreviewElement(node)) return "";
+
+            const nextPreserveWhitespace = preserveWhitespace || tag === "PRE";
+            let text = "";
+            for (const child of Array.from(node.childNodes || [])) {
+                text += serializeGeminiInlineText(child, { preserveWhitespace: nextPreserveWhitespace });
+            }
+            return text;
+        }
+
+        function serializeGeminiStructuredText(node) {
+            if (!node) return "";
+            const nodeType = Number(node.nodeType) || 0;
+            if (nodeType === 3) return String(node.nodeValue || "");
+            if (nodeType !== 1) return "";
+
+            const tag = String(node.tagName || "").toUpperCase();
+            if (tag === "UL" || tag === "OL") {
+                return Array.from(node.children || [])
+                    .filter(child => String(child?.tagName || "").toUpperCase() === "LI")
+                    .map(child => serializeGeminiStructuredText(child))
+                    .join("\n");
+            }
+
+            const structuredChildren = Array.from(node.childNodes || [])
+                .filter(child => isGeminiStructuredTextElement(child));
+            if (structuredChildren.length > 0 && tag !== "LI") {
+                return structuredChildren.map(child => serializeGeminiStructuredText(child)).join("\n");
+            }
+
+            return serializeGeminiInlineText(node, { preserveWhitespace: tag === "PRE" });
+        }
+
+        function serializeGeminiComposerText(composerEl) {
+            if (!composerEl) return "";
+            const topLevelBlocks = Array.from(composerEl.childNodes || [])
+                .filter(child => isGeminiStructuredTextElement(child));
+            if (topLevelBlocks.length > 0) {
+                return topLevelBlocks.map(child => serializeGeminiStructuredText(child)).join("\n");
+            }
+            return serializeGeminiInlineText(composerEl);
+        }
+
+        function getGeminiComposerPlaceholderText(composerEl) {
+            if (!composerEl || typeof composerEl.getAttribute !== "function") return "";
+            const attrs = [
+                "data-placeholder",
+                "aria-placeholder",
+                "placeholder"
+            ];
+            for (const attr of attrs) {
+                try {
+                    const value = String(composerEl.getAttribute(attr) || "").trim();
+                    if (value) return value;
+                } catch { }
+            }
+            return "";
+        }
+
+        function isGeminiComposerBlank(composerEl) {
+            if (!composerEl) return false;
+            try {
+                if (composerEl.classList?.contains?.("ql-blank")) return true;
+            } catch { }
+            try {
+                if (composerEl.getAttribute?.("data-placeholder") && !String(composerEl.textContent || "").trim()) return true;
+            } catch { }
+            return false;
+        }
+
+        function getGeminiComposerPlainText(composerEl, { trimTrailingEditorNewlines = false } = {}) {
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false });
+            if (!composer) return "";
+
+            let text = "";
+            const tag = String(composer.tagName || "").toUpperCase();
+            if (composer.isContentEditable || composer.contentEditable === "true") {
+                text = serializeGeminiComposerText(composer);
+                if (!text) {
+                    try { text = String(composer.innerText || composer.textContent || ""); } catch { }
+                }
+            } else if (tag === "TEXTAREA" || tag === "INPUT") {
+                text = genericGetComposerText(composer);
+            } else {
+                text = genericGetComposerText(composer);
+            }
+
+            const normalized = genericNormalizeComposerText(text, { trimTrailingEditorNewlines });
+            const placeholder = genericNormalizeComposerText(getGeminiComposerPlaceholderText(composer), { trimTrailingEditorNewlines });
+            if (placeholder && isGeminiComposerBlank(composer) && normalized === placeholder) return "";
+            return normalized;
+        }
+
+        function normalizeGeminiCommittedText(value) {
+            return genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines: true });
+        }
+
+        function getGeminiSelection(composerEl) {
+            const doc = composerEl?.ownerDocument || document;
+            try { return doc.defaultView?.getSelection?.() || window.getSelection?.() || null; } catch { return null; }
+        }
+
+        function selectGeminiComposerContent(composerEl, { collapse = false, toStart = false } = {}) {
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+            if (!composer || typeof document.createRange !== "function") return false;
+            try {
+                composer.focus?.();
+                const selection = getGeminiSelection(composer);
+                if (!selection) return false;
+                const range = document.createRange();
+                range.selectNodeContents(composer);
+                if (collapse) range.collapse(!!toStart);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        function moveGeminiComposerCaretToEnd(composerEl) {
+            return selectGeminiComposerContent(composerEl, { collapse: true, toStart: false });
+        }
+
+        function dispatchGeminiComposerInput(composerEl, { inputType = "insertText", data = null } = {}) {
+            if (!composerEl) return false;
+            try {
+                composerEl.dispatchEvent(new InputEvent("input", {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    inputType,
+                    data
+                }));
+                return true;
+            } catch {
+                try {
+                    const evt = new Event("input", { bubbles: true, cancelable: true, composed: true });
+                    try { Object.defineProperty(evt, "inputType", { value: inputType, configurable: true }); } catch { }
+                    if (data != null) {
+                        try { Object.defineProperty(evt, "data", { value: data, configurable: true }); } catch { }
+                    }
+                    composerEl.dispatchEvent(evt);
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+        }
+
+        function dispatchGeminiComposerBeforeInput(composerEl, { inputType = "insertText", data = null } = {}) {
+            if (!composerEl) return false;
+            try {
+                composerEl.dispatchEvent(new InputEvent("beforeinput", {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    inputType,
+                    data
+                }));
+                return true;
+            } catch {
+                try {
+                    const evt = new Event("beforeinput", { bubbles: true, cancelable: true, composed: true });
+                    try { Object.defineProperty(evt, "inputType", { value: inputType, configurable: true }); } catch { }
+                    if (data != null) {
+                        try { Object.defineProperty(evt, "data", { value: data, configurable: true }); } catch { }
+                    }
+                    composerEl.dispatchEvent(evt);
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+        }
+
+        function tryPasteTextIntoGeminiComposer(composerEl, text) {
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+            const plainText = String(text ?? "");
+            if (!composer || !plainText) return false;
+
+            const dt = createGeminiDataTransfer({ text: plainText });
+            if (!dt) return false;
+
+            try { composer.focus?.(); } catch { }
+            moveGeminiComposerCaretToEnd(composer);
+
+            let fired = false;
+            fired = dispatchBeforeInputFromPaste(composer, dt) || fired;
+            fired = dispatchPasteEvent(composer, dt) || fired;
+            fired = dispatchInputFromPaste(composer, dt) || fired;
+            return fired;
+        }
+
+        function splitGeminiTextIntoChunks(text, { chunkSize = GEMINI_TEXT_INSERT_CHUNK_SIZE } = {}) {
+            const normalized = String(text ?? "").replace(/\r\n?/g, "\n");
+            const chars = Array.from(normalized);
+            const size = Math.max(1, Number(chunkSize) || GEMINI_TEXT_INSERT_CHUNK_SIZE);
+            const chunks = [];
+            for (let index = 0; index < chars.length; index += size) {
+                chunks.push(chars.slice(index, index + size).join(""));
+            }
+            return chunks;
+        }
+
+        async function tryInsertTextIntoGeminiComposerViaExecCommand(composerEl, text) {
+            const plainText = String(text ?? "");
+            if (!plainText) return false;
+            let composer = resolveGeminiComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+            if (!composer) return false;
+
+            let inserted = false;
+            for (const chunk of splitGeminiTextIntoChunks(plainText)) {
+                composer = resolveGeminiComposerElement(composer, { requireVisible: false }) || composer;
+                if (!composer) return false;
+
+                try { composer.focus?.(); } catch { }
+                try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
+                if (!moveGeminiComposerCaretToEnd(composer)) return false;
+
+                const beforeText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composer));
+                dispatchGeminiComposerBeforeInput(composer, { inputType: "insertText", data: chunk });
+                let executed = false;
+                try { executed = !!document.execCommand?.("insertText", false, chunk); } catch { }
+                if (!executed) return false;
+                dispatchGeminiComposerInput(composer, { inputType: "insertText", data: chunk });
+
+                await sleep(GEMINI_TEXT_INSERT_CHUNK_DELAY_MS);
+                const afterText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composer));
+                if (afterText === beforeText) return false;
+                inserted = true;
+            }
+
+            return inserted;
+        }
+
+        function setGeminiComposerTextContentFallback(composerEl, text) {
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+            if (!composer) return false;
+            const plainText = String(text ?? "").replace(/\r\n?/g, "\n");
+            try { composer.focus?.(); } catch { }
+            dispatchGeminiComposerBeforeInput(composer, { inputType: "insertText", data: plainText });
+            try {
+                composer.textContent = plainText;
+            } catch {
+                return false;
+            }
+            dispatchGeminiComposerInput(composer, { inputType: "insertText", data: plainText });
+            try { composer.dispatchEvent(new Event("change", { bubbles: true })); } catch { }
+            return true;
+        }
+
+        async function waitForGeminiComposerTextMatch(composerEl, expectedText, { timeoutMs = GEMINI_TEXT_ATTEMPT_TIMEOUT_MS } = {}) {
+            const normalizedExpected = normalizeGeminiCommittedText(expectedText);
+            let composerRef = composerEl;
+
+            const computeState = () => {
+                const resolvedComposer = resolveGeminiComposerElement(composerRef, { requireVisible: false }) || composerRef || null;
+                if (resolvedComposer) composerRef = resolvedComposer;
+                const actualText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composerRef, { trimTrailingEditorNewlines: true }));
+                return {
+                    composer: composerRef,
+                    actualText,
+                    expectedText: normalizedExpected,
+                    ok: actualText === normalizedExpected,
+                    stateKey: `${actualText.length}:${actualText === normalizedExpected ? 1 : 0}`
+                };
+            };
+
+            const observed = await waitForObservedState({
+                resolveRoots: () => getGeminiTextObservationRoots(composerRef),
+                computeState,
+                isSatisfied: (state) => !!state?.ok,
+                timeoutMs,
+                settleMs: GEMINI_TEXT_ATTEMPT_SETTLE_MS,
+                pollFallbackMs: GEMINI_TEXT_ATTEMPT_POLL_MS,
+                attributeFilter: GEMINI_TEXT_OBSERVED_ATTRIBUTES
+            });
+
+            const state = observed?.state || computeState();
+            return {
+                ok: !!observed?.ok,
+                composer: state?.composer || composerRef,
+                actualText: state?.actualText || "",
+                expectedText: normalizedExpected
+            };
+        }
+
+        async function setGeminiInputValue(composerEl, value) {
+            let composer = resolveGeminiComposerElement(composerEl, { requireVisible: false });
+            if (!composer) return false;
+
+            const text = String(value ?? "");
+            const tag = String(composer.tagName || "").toUpperCase();
+            if ((tag === "TEXTAREA" || tag === "INPUT") && typeof genericSetInputValue === "function") {
+                return !!genericSetInputValue(composer, text);
+            }
+
+            await clearGeminiInputValue(composer);
+            if (!text) return true;
+
+            const attempts = [
+                () => tryInsertTextIntoGeminiComposerViaExecCommand(composer, text),
+                () => Promise.resolve(tryPasteTextIntoGeminiComposer(composer, text)),
+                () => Promise.resolve(setGeminiComposerTextContentFallback(composer, text))
+            ];
+
+            for (let index = 0; index < attempts.length; index++) {
+                composer = resolveGeminiComposerElement(composer, { requireVisible: false }) || composer;
+                if (!composer) return false;
+
+                try { composer.focus?.(); } catch { }
+                try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
+
+                await attempts[index]();
+                const matched = await waitForGeminiComposerTextMatch(composer, text);
+                if (matched?.composer) composer = matched.composer;
+                if (matched?.ok) return true;
+
+                if (index < attempts.length - 1) {
+                    await clearGeminiInputValue(composer);
+                    await sleep(20);
+                }
+            }
+
+            return false;
+        }
+
+        function clearGeminiInputValue(composerEl) {
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false });
+            if (!composer) return false;
+
+            const tag = String(composer.tagName || "").toUpperCase();
+            if ((tag === "TEXTAREA" || tag === "INPUT") && typeof genericClearInputValue === "function") {
+                return !!genericClearInputValue(composer);
+            }
+
+            try { composer.focus?.(); } catch { }
+            try { TemplateUtils?.events?.simulateClick?.(composer, { nativeFallback: true }); } catch { }
+
+            let cleared = false;
+            dispatchGeminiComposerBeforeInput(composer, { inputType: "deleteContentBackward", data: null });
+
+            try {
+                if (selectGeminiComposerContent(composer)) {
+                    cleared = !!document.execCommand?.("delete", false, null);
+                    if (!cleared) cleared = !!document.execCommand?.("insertText", false, "");
+                }
+            } catch { }
+
+            if (!cleared) {
+                try {
+                    if (selectGeminiComposerContent(composer)) {
+                        getGeminiSelection(composer)?.deleteFromDocument?.();
+                        cleared = true;
+                    }
+                } catch { }
+            }
+
+            if (!cleared && typeof genericClearInputValue === "function") {
+                try { cleared = !!genericClearInputValue(composer); } catch { }
+            }
+
+            if (!cleared) {
+                try {
+                    composer.textContent = "";
+                    cleared = true;
+                } catch { }
+            }
+
+            dispatchGeminiComposerInput(composer, { inputType: "deleteContentBackward", data: null });
+            try { composer.dispatchEvent(new Event("change", { bubbles: true })); } catch { }
+            return cleared || !getGeminiComposerPlainText(composer, { trimTrailingEditorNewlines: true });
+        }
+
+        function getGeminiTextObservationRoots(composerEl) {
+            const roots = [];
+            const seen = new Set();
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+            const pushRoot = (node) => {
+                if (!node || seen.has(node)) return;
+                const nodeType = Number(node?.nodeType) || 0;
+                if (!(nodeType === 1 || nodeType === 9 || nodeType === 11)) return;
+                seen.add(node);
+                roots.push(node);
+            };
+
+            pushRoot(composer);
+            try { pushRoot(composer?.closest?.(".text-input-field") || null); } catch { }
+            try { pushRoot(composer?.closest?.("rich-textarea") || null); } catch { }
+            try { pushRoot(composer?.closest?.("form") || null); } catch { }
+
+            const observedRoots = getGeminiObservationRoots({
+                containerEl: composer ? findGeminiComposerContainer(composer) : null,
+                composerEl: composer
+            });
+            for (const root of observedRoots) pushRoot(root);
+            pushRoot(document.body || document || null);
+            return roots;
+        }
 
         function getGeminiAttachmentScope(containerEl) {
             const container = containerEl || document;
@@ -3147,6 +3830,11 @@
         }
 
         return Object.freeze({
+            focusComposer: focusGeminiComposer,
+            setInputValue: setGeminiInputValue,
+            clearComposerValue: clearGeminiInputValue,
+            getComposerText: getGeminiComposerPlainText,
+            getTextObservationRoots: getGeminiTextObservationRoots,
             attachImages: attachImagesToComposer,
             clearAttachments: clearGeminiAttachments,
             waitForReadyToSend: waitForGeminiReadyToSend,
