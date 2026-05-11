@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260508] v1.0.0
-// @name:en        [ChatGPT] Shortcut Jump [20260508] v1.0.0
+// @name           [ChatGPT] 快捷键跳转 [20260511] v1.0.0
+// @name:en        [ChatGPT] Shortcut Jump [20260511] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260508] v1.0.0
-// @update-log     1.0.0: 保留原键帽样式，将 ChatGPT 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。
-// @update-log:en  1.0.0: Kept the original keycap style, inlined the ChatGPT script icon in the userscript header, and used black in light mode and white in dark mode.
+// @version        [20260511] v1.0.0
+// @update-log     1.0.0: 修复 ChatGPT Quick Input 对 Projects URL 的识别，支持 Project 首页/聊天页保留同一 Project 新聊天目标，避免自动跳回普通首页。
+// @update-log:en  1.0.0: Fixed ChatGPT Quick Input's Projects URL detection so Project home/chat pages keep the same Project new-chat target instead of jumping back to the normal home page.
 
 // @match          https://chatgpt.com/*
 
@@ -197,7 +197,7 @@
         },
         quickInput: {
           nativeNewChatLabel: "CMD+SHIFT+O (原生)",
-          rootUrlMismatch: "当前 URL 必须精确等于 {rootUrl}，实际是 {currentUrl}",
+          rootUrlMismatch: "当前 URL 必须匹配 QuickInput 新聊天目标 {targetUrl}，实际是 {currentUrl}",
           emptyUrl: "(空)",
           imageInsertUrlPrefix: "图片插入前 URL 校验失败：",
           newChatVerifyPrefix: "新对话校验失败：",
@@ -244,7 +244,7 @@
         },
         quickInput: {
           nativeNewChatLabel: "CMD+SHIFT+O (native)",
-          rootUrlMismatch: "Current URL must be exactly {rootUrl}; actual URL is {currentUrl}",
+          rootUrlMismatch: "Current URL must match the QuickInput new-chat target {targetUrl}; actual URL is {currentUrl}",
           emptyUrl: "(empty)",
           imageInsertUrlPrefix: "URL check failed before inserting images: ",
           newChatVerifyPrefix: "New chat verification failed: ",
@@ -604,7 +604,12 @@
         return null;
       }
       const overlayId = `${String(idPrefix || "").trim() || "chatgpt"}-quick-input-overlay`;
-      const CHATGPT_ROOT_URL = "https://chatgpt.com/";
+      const CHATGPT_ORIGIN = "https://chatgpt.com";
+      const CHATGPT_ROOT_URL = `${CHATGPT_ORIGIN}/`;
+      const CHATGPT_PROJECT_KEY_RE = /^g-p-[A-Za-z0-9][A-Za-z0-9-]*$/;
+      const CHATGPT_NEW_CHAT_TARGET_TTL_MS = 6e4;
+      let pendingChatGPTNewChatTarget = null;
+      let pendingChatGPTNewChatTargetAt = 0;
       function qiText(key, vars = {}, fallback = "") {
         return engine2?.i18n?.t?.(`quickInput.${key}`, vars, fallback) || fallback;
       }
@@ -685,29 +690,125 @@
           return "";
         }
       }
-      function buildChatGPTRootUrlMismatchMessage(currentUrl, { prefix = "" } = {}) {
-        const base = qiText("rootUrlMismatch", {
-          rootUrl: CHATGPT_ROOT_URL,
-          currentUrl: currentUrl || qiText("emptyUrl", {}, "(empty)")
-        }, `Current URL must be exactly ${CHATGPT_ROOT_URL}; actual URL is ${currentUrl || "(empty)"}`);
-        return prefix ? `${prefix}${base}` : base;
+      function createChatGPTRootTarget() {
+        return {
+          kind: "root",
+          ready: true,
+          targetUrl: CHATGPT_ROOT_URL
+        };
       }
-      function isChatGPTRootUrl(currentUrl = getCurrentChatGPTUrl()) {
-        return currentUrl === CHATGPT_ROOT_URL;
+      function parseChatGPTQuickInputTarget(currentUrl = getCurrentChatGPTUrl()) {
+        const rawUrl = String(currentUrl || "").trim();
+        if (!rawUrl) return null;
+        let url = null;
+        try {
+          url = new URL(rawUrl, CHATGPT_ROOT_URL);
+        } catch {
+          return null;
+        }
+        if (url.origin !== CHATGPT_ORIGIN) return null;
+        const cleanUrl = !url.search && !url.hash;
+        if (url.pathname === "/" && cleanUrl) {
+          return {
+            ...createChatGPTRootTarget(),
+            url: url.href
+          };
+        }
+        const segments = url.pathname.split("/").filter(Boolean);
+        const projectKey = String(segments[1] || "");
+        if (segments[0] !== "g" || !CHATGPT_PROJECT_KEY_RE.test(projectKey)) return null;
+        const targetUrl = `${CHATGPT_ORIGIN}/g/${projectKey}/project`;
+        if (segments.length === 3 && segments[2] === "project") {
+          return {
+            kind: "project",
+            ready: true,
+            projectKey,
+            targetUrl,
+            url: url.href
+          };
+        }
+        if (segments.length === 4 && segments[2] === "c" && segments[3]) {
+          return {
+            kind: "project",
+            ready: false,
+            projectKey,
+            targetUrl,
+            url: url.href
+          };
+        }
+        return null;
+      }
+      function getPendingChatGPTNewChatTarget() {
+        if (!pendingChatGPTNewChatTarget) return null;
+        const ageMs = Date.now() - pendingChatGPTNewChatTargetAt;
+        if (ageMs >= 0 && ageMs <= CHATGPT_NEW_CHAT_TARGET_TTL_MS) {
+          return pendingChatGPTNewChatTarget;
+        }
+        pendingChatGPTNewChatTarget = null;
+        pendingChatGPTNewChatTargetAt = 0;
+        return null;
+      }
+      function rememberPendingChatGPTNewChatTarget(target) {
+        if (!target || typeof target.targetUrl !== "string") return;
+        pendingChatGPTNewChatTarget = { ...target };
+        pendingChatGPTNewChatTargetAt = Date.now();
+      }
+      function clearPendingChatGPTNewChatTarget(target = null) {
+        if (target && pendingChatGPTNewChatTarget && pendingChatGPTNewChatTarget.targetUrl !== target.targetUrl) return;
+        pendingChatGPTNewChatTarget = null;
+        pendingChatGPTNewChatTargetAt = 0;
+      }
+      function getCurrentChatGPTNewChatTarget() {
+        return parseChatGPTQuickInputTarget() || createChatGPTRootTarget();
+      }
+      function getChatGPTNewChatTriggerTarget() {
+        return getPendingChatGPTNewChatTarget() || getCurrentChatGPTNewChatTarget();
+      }
+      function isSameChatGPTQuickInputTarget(currentTarget, expectedTarget) {
+        if (!currentTarget || !expectedTarget) return false;
+        if (currentTarget.kind !== expectedTarget.kind) return false;
+        if (expectedTarget.kind === "project") {
+          return currentTarget.projectKey === expectedTarget.projectKey;
+        }
+        return currentTarget.targetUrl === expectedTarget.targetUrl;
+      }
+      function navigateChatGPTSpaToTarget(target) {
+        if (!target || typeof target.targetUrl !== "string" || !target.targetUrl) return false;
+        try {
+          const urlObj = new URL(target.targetUrl, CHATGPT_ROOT_URL);
+          if (urlObj.origin !== CHATGPT_ORIGIN) return false;
+          window.history.pushState({ url: target.targetUrl }, document.title, urlObj.pathname + urlObj.search + urlObj.hash);
+          window.dispatchEvent(new PopStateEvent("popstate", { state: { url: target.targetUrl } }));
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      function buildChatGPTTargetUrlMismatchMessage(currentUrl, { target = null, prefix = "" } = {}) {
+        const expectedTarget = target || parseChatGPTQuickInputTarget(currentUrl) || getPendingChatGPTNewChatTarget() || createChatGPTRootTarget();
+        const base = qiText("rootUrlMismatch", {
+          rootUrl: expectedTarget.targetUrl,
+          targetUrl: expectedTarget.targetUrl,
+          currentUrl: currentUrl || qiText("emptyUrl", {}, "(empty)")
+        }, `Current URL must match ${expectedTarget.targetUrl}; actual URL is ${currentUrl || "(empty)"}`);
+        return prefix ? `${prefix}${base}` : base;
       }
       function getChatGPTUrlGuardResult() {
         const currentUrl = getCurrentChatGPTUrl();
-        if (isChatGPTRootUrl(currentUrl)) {
-          return { ok: true, url: currentUrl };
+        const currentTarget = parseChatGPTQuickInputTarget(currentUrl);
+        const expectedTarget = getPendingChatGPTNewChatTarget() || currentTarget || createChatGPTRootTarget();
+        if (currentTarget?.ready && isSameChatGPTQuickInputTarget(currentTarget, expectedTarget)) {
+          return { ok: true, url: currentUrl, targetUrl: expectedTarget.targetUrl };
         }
         return {
           ok: false,
           url: currentUrl,
-          message: buildChatGPTRootUrlMismatchMessage(currentUrl)
+          targetUrl: expectedTarget.targetUrl,
+          message: buildChatGPTTargetUrlMismatchMessage(currentUrl, { target: expectedTarget })
         };
       }
       function buildChatGPTUrlGuardFailureMessage(urlGuard, { prefix = "" } = {}) {
-        const base = String(urlGuard?.message || buildChatGPTRootUrlMismatchMessage(getCurrentChatGPTUrl())).trim();
+        const base = String(urlGuard?.message || buildChatGPTTargetUrlMismatchMessage(getCurrentChatGPTUrl())).trim();
         return prefix ? `${prefix}${base}` : base;
       }
       const CHATGPT_COMPOSER_SELECTORS = [
@@ -775,9 +876,11 @@
       async function triggerNativeNewChat({ shouldCancel = null } = {}) {
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
         if (cancelFn && cancelFn()) return { ok: false, label: getNativeNewChatLabel() };
+        const target = getChatGPTNewChatTriggerTarget();
         try {
           if (simulateKeystroke(CHATGPT_NATIVE_NEW_CHAT_HOTKEY, { target: document.body })) {
-            return { ok: true, label: getNativeNewChatLabel() };
+            rememberPendingChatGPTNewChatTarget(target);
+            return { ok: true, label: getNativeNewChatLabel(), targetUrl: target.targetUrl };
           }
         } catch {
         }
@@ -795,15 +898,15 @@
           const waitOk = await runtimeSleep(runtime, 200, { shouldCancel: cancelFn });
           if (!waitOk) return true;
           if (!isChatGPTStreaming()) {
-            const rootReady = await waitForChatGPTNewChatReady({
+            const targetReady = await waitForChatGPTNewChatReady({
               timeoutMs: 6e3,
               intervalMs: 160,
               settleMs: 300,
               shouldCancel: cancelFn,
               runtime
             });
-            if (rootReady?.cancelled) return true;
-            if (rootReady?.ok) return true;
+            if (targetReady?.cancelled) return true;
+            if (targetReady?.ok) return true;
             await runtimeSleep(runtime, 300, { shouldCancel: cancelFn });
             return true;
           }
@@ -2327,22 +2430,34 @@
           sendReady: sendReady ? 1 : 0
         }, `Timed out waiting before send: attachment=${attachmentCount}, text=${textLength}, busy=${uploadBusy ? 1 : 0}, sendReady=${sendReady ? 1 : 0}`);
       }
-      async function waitForChatGPTNewChatReady({ timeoutMs = 12e3, intervalMs = 160, settleMs = 300, shouldCancel = null, runtime = null } = {}) {
+      async function waitForChatGPTNewChatReady({ target = null, timeoutMs = 12e3, intervalMs = 160, settleMs = 300, shouldCancel = null, runtime = null } = {}) {
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        const expectedTarget = target || getPendingChatGPTNewChatTarget() || getCurrentChatGPTNewChatTarget();
         const deadline = getRuntimeNow(runtime) + Math.max(0, Number(timeoutMs) || 0);
         const settle = Math.max(0, Number(settleMs) || 0);
         let stableSince = 0;
+        let projectRecoveryAttempted = false;
         while (getRuntimeNow(runtime) < deadline) {
           if (cancelFn && cancelFn()) {
             return { ok: false, cancelled: true, url: getCurrentChatGPTUrl() };
           }
-          if (isChatGPTRootUrl()) {
+          const currentUrl2 = getCurrentChatGPTUrl();
+          const currentTarget = parseChatGPTQuickInputTarget(currentUrl2);
+          if (currentTarget?.ready && isSameChatGPTQuickInputTarget(currentTarget, expectedTarget)) {
             if (!stableSince) stableSince = getRuntimeNow(runtime);
             if (getRuntimeNow(runtime) - stableSince >= settle) {
-              return { ok: true, cancelled: false, url: CHATGPT_ROOT_URL };
+              clearPendingChatGPTNewChatTarget(expectedTarget);
+              return { ok: true, cancelled: false, url: expectedTarget.targetUrl, targetUrl: expectedTarget.targetUrl };
             }
           } else {
             stableSince = 0;
+            if (expectedTarget.kind === "project" && !projectRecoveryAttempted && currentTarget?.kind === "root" && currentTarget?.ready) {
+              projectRecoveryAttempted = true;
+              if (navigateChatGPTSpaToTarget(expectedTarget)) {
+                await runtimeSleep(runtime, Math.max(120, Number(intervalMs) || 0), { shouldCancel: cancelFn });
+                continue;
+              }
+            }
           }
           const waitOk = await runtimeSleep(runtime, intervalMs, { shouldCancel: cancelFn });
           if (!waitOk) {
@@ -2354,7 +2469,9 @@
           ok: false,
           cancelled: false,
           url: currentUrl,
-          message: buildChatGPTRootUrlMismatchMessage(currentUrl, {
+          targetUrl: expectedTarget.targetUrl,
+          message: buildChatGPTTargetUrlMismatchMessage(currentUrl, {
+            target: expectedTarget,
             prefix: qiText("newChatVerifyPrefix", {}, "New chat verification failed: ")
           })
         };
