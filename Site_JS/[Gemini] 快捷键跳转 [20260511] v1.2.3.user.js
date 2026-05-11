@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260511] v1.2.2
-// @name:en        [Gemini] Shortcut Jump [20260511] v1.2.2
+// @name           [Gemini] 快捷键跳转 [20260511] v1.2.3
+// @name:en        [Gemini] Shortcut Jump [20260511] v1.2.3
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260511] v1.2.2
-// @update-log     1.2.2: 重做 Gemini Notebook Quick Input 新聊天检查：不再把同 Notebook URL 或 zero-state 输入框误判为新页面，会检测可见 user-query/model-response 旧内容，并只点击安全的 Notebook 内新建聊天入口。
-// @update-log:en  1.2.2: Reworked Gemini Notebook Quick Input new-chat checks: same Notebook URL or a zero-state composer is no longer treated as a new page when visible user-query/model-response content exists, and only safe in-Notebook new-chat controls are clicked.
+// @version        [20260511] v1.2.3
+// @update-log     1.2.3: 修复 Gemini Notebook Quick Input 循环新建话题没有先回 Notebook 主页的问题；现在会把 `/notebook/<id>/...` 视为旧话题/子页面，先跳回 canonical `/notebook/<id>` 再校验空白新页。
+// @update-log:en  1.2.3: Fixed Gemini Notebook Quick Input loop transitions not returning to the Notebook home target first; `/notebook/<id>/...` is now treated as an old topic/subpage and Quick Input jumps back to canonical `/notebook/<id>` before checking for a blank new page.
 
 // @match          https://gemini.google.com/*
 
@@ -191,7 +191,7 @@
         },
         quickInput: {
           nativeNewChatLabel: "CMD+SHIFT+O (原生)",
-          notebookNewChatLabel: "Notebook 内新建聊天",
+          notebookNewChatLabel: "Notebook 主页跳转",
           rootUrlMismatch: "当前 URL 必须匹配 QuickInput Notebook 目标 {targetUrl}，实际是 {currentUrl}",
           notebookNewPageMismatch: "当前 Notebook 不是新聊天空白页，目标是 {targetUrl}，实际是 {currentUrl}",
           notebookNewChatButtonMissing: "未找到安全的 Notebook 内新建聊天入口，已停止以避免写入旧上下文。",
@@ -230,7 +230,7 @@
         },
         quickInput: {
           nativeNewChatLabel: "CMD+SHIFT+O (native)",
-          notebookNewChatLabel: "Notebook new chat",
+          notebookNewChatLabel: "Notebook home jump",
           rootUrlMismatch: "Current URL must match the QuickInput Notebook target {targetUrl}; actual URL is {currentUrl}",
           notebookNewPageMismatch: "Current Notebook is not a blank new-chat page. Target: {targetUrl}; actual URL: {currentUrl}",
           notebookNewChatButtonMissing: "No safe Notebook new-chat control was found, so Quick Input stopped to avoid writing into old context.",
@@ -1999,7 +1999,7 @@
         return qiText("nativeNewChatLabel", {}, `${GEMINI_NATIVE_NEW_CHAT_HOTKEY} (native)`);
       }
       function getNotebookNewChatLabel() {
-        return qiText("notebookNewChatLabel", {}, "Notebook new chat");
+        return qiText("notebookNewChatLabel", {}, "Notebook home jump");
       }
       const focusComposer = dom?.focusComposer;
       const simulateKeystroke = dom?.simulateKeystroke;
@@ -2150,6 +2150,13 @@
           url: String(url || "")
         };
       }
+      function normalizeGeminiNotebookPath(pathname = "") {
+        const path = String(pathname || "").replace(/\/+$/g, "");
+        return path || "/";
+      }
+      function getGeminiNotebookTargetUrl(notebookId) {
+        return `${GEMINI_ORIGIN}/notebook/${notebookId}`;
+      }
       function parseGeminiQuickInputTarget(currentUrl = getCurrentGeminiUrl()) {
         const rawUrl = String(currentUrl || "").trim();
         if (!rawUrl) return null;
@@ -2163,11 +2170,14 @@
         const segments = url.pathname.split("/").filter(Boolean);
         const notebookId = String(segments[1] || "").trim();
         if (segments[0] === "notebook" && GEMINI_NOTEBOOK_ID_RE.test(notebookId)) {
+          const targetUrl = getGeminiNotebookTargetUrl(notebookId);
+          const targetPath = normalizeGeminiNotebookPath(new URL(targetUrl).pathname);
+          const currentPath = normalizeGeminiNotebookPath(url.pathname);
           return {
             kind: "notebook",
-            ready: true,
+            ready: currentPath === targetPath,
             notebookId,
-            targetUrl: `${GEMINI_ORIGIN}/notebook/${notebookId}`,
+            targetUrl,
             url: url.href
           };
         }
@@ -2634,9 +2644,12 @@
           return { ok: true, label, targetUrl: nextTarget.targetUrl };
         }
         const currentTarget = parseGeminiQuickInputTarget();
-        let ok = false;
+        const navigatedHome = navigateGeminiSpaToTarget(nextTarget);
+        if (navigatedHome) {
+          return { ok: true, label, targetUrl: nextTarget.targetUrl };
+        }
         if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
-          ok = clickGeminiNotebookNewChatControl(nextTarget);
+          const ok = clickGeminiNotebookNewChatControl(nextTarget);
           return {
             ok,
             label,
@@ -2644,8 +2657,7 @@
             message: ok ? "" : buildGeminiNotebookNewChatButtonMissingMessage()
           };
         }
-        ok = navigateGeminiSpaToTarget(nextTarget);
-        return { ok, label, targetUrl: nextTarget.targetUrl };
+        return { ok: false, label, targetUrl: nextTarget.targetUrl };
       }
       async function triggerGeminiNewChat({ shouldCancel = null } = {}) {
         const target = getGeminiNewChatTriggerTarget();
@@ -2671,6 +2683,7 @@
         const settle = Math.max(0, Number(settleMs) || 0);
         let stableSince = 0;
         let recoveryAttempted = false;
+        let homeNavigationAttempted = false;
         let newChatClickAttempted = false;
         let missingNewChatControl = false;
         while (getRuntimeNow(runtime) < deadline) {
@@ -2698,6 +2711,13 @@
               recoveryAttempted = true;
               if (navigateGeminiSpaToTarget(expectedTarget)) {
                 await runtimeSleep(runtime, interval, { shouldCancel: cancelFn });
+                continue;
+              }
+            }
+            if (matchesTarget2 && !homeNavigationAttempted) {
+              homeNavigationAttempted = true;
+              if (navigateGeminiSpaToTarget(expectedTarget)) {
+                await runtimeSleep(runtime, Math.max(220, interval), { shouldCancel: cancelFn });
                 continue;
               }
             }
