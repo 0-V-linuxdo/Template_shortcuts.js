@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260511] v1.1.0
-// @name:en        [Gemini] Shortcut Jump [20260511] v1.1.0
+// @name           [Gemini] 快捷键跳转 [20260511] v1.2.0
+// @name:en        [Gemini] Shortcut Jump [20260511] v1.2.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260511] v1.1.0
-// @update-log     1.1.0: 让 Delete 确认弹窗支持 Enter / NumpadEnter 确认，减少必须鼠标点击的情况。
-// @update-log:en  1.1.0: Made Delete confirmation dialogs accept Enter / NumpadEnter, reducing the need for mouse clicks.
+// @version        [20260511] v1.2.0
+// @update-log     1.2.0: 适配 Gemini Notebook 页面 Quick Input，Notebook 运行会保持在当前 Notebook，并在 URL 漂移时停止或回到目标 Notebook，避免误跳普通 /app 聊天。
+// @update-log:en  1.2.0: Added Gemini Notebook support for Quick Input; Notebook runs now stay in the current Notebook and stop or return to the target Notebook on URL drift instead of jumping into regular /app chats.
 
 // @match          https://gemini.google.com/*
 
@@ -191,6 +191,11 @@
         },
         quickInput: {
           nativeNewChatLabel: "CMD+SHIFT+O (原生)",
+          notebookNewChatLabel: "当前 Notebook（保持不跳转）",
+          rootUrlMismatch: "当前 URL 必须匹配 QuickInput Notebook 目标 {targetUrl}，实际是 {currentUrl}",
+          emptyUrl: "(空)",
+          imageInsertUrlPrefix: "图片插入前 URL 校验失败：",
+          newChatVerifyPrefix: "Notebook 校验失败：",
           clearNoComposer: "清空当前图片附件失败：未找到输入框。",
           clearNoContainer: "清空当前图片附件失败：未找到附件容器。",
           clearStillRemaining: "清空当前图片附件失败：点击移除后仍识别到 {remaining} 个附件标记。",
@@ -223,6 +228,11 @@
         },
         quickInput: {
           nativeNewChatLabel: "CMD+SHIFT+O (native)",
+          notebookNewChatLabel: "Current Notebook (stay here)",
+          rootUrlMismatch: "Current URL must match the QuickInput Notebook target {targetUrl}; actual URL is {currentUrl}",
+          emptyUrl: "(empty)",
+          imageInsertUrlPrefix: "URL check failed before inserting images: ",
+          newChatVerifyPrefix: "Notebook verification failed: ",
           clearNoComposer: "Failed to clear current image attachments: input box not found.",
           clearNoContainer: "Failed to clear current image attachments: attachment container not found.",
           clearStillRemaining: "Failed to clear current image attachments: {remaining} attachment marker(s) still detected after clicking remove.",
@@ -1984,6 +1994,9 @@
       function getNativeNewChatLabel() {
         return qiText("nativeNewChatLabel", {}, `${GEMINI_NATIVE_NEW_CHAT_HOTKEY} (native)`);
       }
+      function getNotebookNewChatLabel() {
+        return qiText("notebookNewChatLabel", {}, "Current Notebook (stay here)");
+      }
       const focusComposer = dom?.focusComposer;
       const simulateKeystroke = dom?.simulateKeystroke;
       const isElementVisible2 = dom?.isElementVisible;
@@ -2099,6 +2112,139 @@
         await sleep2(ms);
         return runtimeWaitIfPaused(runtime, { shouldCancel: cancelFn });
       }
+      const GEMINI_ORIGIN = "https://gemini.google.com";
+      const GEMINI_ROOT_URL = `${GEMINI_ORIGIN}/`;
+      const GEMINI_NOTEBOOK_ID_RE = /^[A-Za-z0-9-]+$/;
+      const GEMINI_NOTEBOOK_TARGET_TTL_MS = 33e4;
+      let pendingGeminiNotebookTarget = null;
+      let pendingGeminiNotebookTargetAt = 0;
+      function getCurrentGeminiUrl() {
+        try {
+          return String(window.location.href || "");
+        } catch {
+          return "";
+        }
+      }
+      function createGeminiAppTarget(url = getCurrentGeminiUrl()) {
+        return {
+          kind: "app",
+          ready: true,
+          targetUrl: GEMINI_ROOT_URL,
+          url: String(url || "")
+        };
+      }
+      function parseGeminiQuickInputTarget(currentUrl = getCurrentGeminiUrl()) {
+        const rawUrl = String(currentUrl || "").trim();
+        if (!rawUrl) return null;
+        let url = null;
+        try {
+          url = new URL(rawUrl, GEMINI_ROOT_URL);
+        } catch {
+          return null;
+        }
+        if (url.origin !== GEMINI_ORIGIN) return null;
+        const segments = url.pathname.split("/").filter(Boolean);
+        const notebookId = String(segments[1] || "").trim();
+        if (segments[0] === "notebook" && GEMINI_NOTEBOOK_ID_RE.test(notebookId)) {
+          return {
+            kind: "notebook",
+            ready: true,
+            notebookId,
+            targetUrl: `${GEMINI_ORIGIN}/notebook/${notebookId}`,
+            url: url.href
+          };
+        }
+        return createGeminiAppTarget(url.href);
+      }
+      function isGeminiQuickInputOverlayOpen() {
+        try {
+          return document.getElementById(overlayId)?.getAttribute?.("data-open") === "1";
+        } catch {
+          return false;
+        }
+      }
+      function getPendingGeminiNotebookTarget() {
+        if (!pendingGeminiNotebookTarget) return null;
+        const ageMs = Date.now() - pendingGeminiNotebookTargetAt;
+        if (ageMs >= 0 && ageMs <= GEMINI_NOTEBOOK_TARGET_TTL_MS) {
+          return pendingGeminiNotebookTarget;
+        }
+        pendingGeminiNotebookTarget = null;
+        pendingGeminiNotebookTargetAt = 0;
+        return null;
+      }
+      function rememberPendingGeminiNotebookTarget(target) {
+        if (!target || target.kind !== "notebook" || !target.notebookId || !target.targetUrl) return;
+        pendingGeminiNotebookTarget = { ...target };
+        pendingGeminiNotebookTargetAt = Date.now();
+      }
+      function getGeminiNewChatTriggerTarget() {
+        const currentTarget = parseGeminiQuickInputTarget();
+        if (currentTarget?.kind === "notebook") {
+          rememberPendingGeminiNotebookTarget(currentTarget);
+          return currentTarget;
+        }
+        const pendingTarget = getPendingGeminiNotebookTarget();
+        if (pendingTarget?.kind === "notebook" && isGeminiQuickInputOverlayOpen()) {
+          return pendingTarget;
+        }
+        return currentTarget || createGeminiAppTarget();
+      }
+      function getGeminiNewChatLabel() {
+        const target = getGeminiNewChatTriggerTarget();
+        return target?.kind === "notebook" ? getNotebookNewChatLabel() : getNativeNewChatLabel();
+      }
+      function isSameGeminiQuickInputTarget(currentTarget, expectedTarget) {
+        if (!currentTarget || !expectedTarget) return false;
+        if (currentTarget.kind !== expectedTarget.kind) return false;
+        if (expectedTarget.kind === "notebook") {
+          return currentTarget.notebookId === expectedTarget.notebookId;
+        }
+        return true;
+      }
+      function navigateGeminiSpaToTarget(target) {
+        if (!target || typeof target.targetUrl !== "string" || !target.targetUrl) return false;
+        try {
+          const urlObj = new URL(target.targetUrl, GEMINI_ROOT_URL);
+          if (urlObj.origin !== GEMINI_ORIGIN) return false;
+          window.history.pushState({ url: target.targetUrl }, document.title, urlObj.pathname + urlObj.search + urlObj.hash);
+          window.dispatchEvent(new PopStateEvent("popstate", { state: { url: target.targetUrl } }));
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      function buildGeminiTargetUrlMismatchMessage(currentUrl, { target = null, prefix = "" } = {}) {
+        const expectedTarget = target || getGeminiNewChatTriggerTarget();
+        const targetUrl = String(expectedTarget?.targetUrl || GEMINI_ROOT_URL);
+        const base = qiText("rootUrlMismatch", {
+          rootUrl: targetUrl,
+          targetUrl,
+          currentUrl: currentUrl || qiText("emptyUrl", {}, "(empty)")
+        }, `Current URL must match ${targetUrl}; actual URL is ${currentUrl || "(empty)"}`);
+        return prefix ? `${prefix}${base}` : base;
+      }
+      function getGeminiUrlGuardResult() {
+        const expectedTarget = getGeminiNewChatTriggerTarget();
+        const currentUrl = getCurrentGeminiUrl();
+        if (expectedTarget?.kind !== "notebook") {
+          return { ok: true, url: currentUrl, targetUrl: expectedTarget?.targetUrl || GEMINI_ROOT_URL };
+        }
+        const currentTarget = parseGeminiQuickInputTarget(currentUrl);
+        if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, expectedTarget)) {
+          return { ok: true, url: currentUrl, targetUrl: expectedTarget.targetUrl };
+        }
+        return {
+          ok: false,
+          url: currentUrl,
+          targetUrl: expectedTarget.targetUrl,
+          message: buildGeminiTargetUrlMismatchMessage(currentUrl, { target: expectedTarget })
+        };
+      }
+      function buildGeminiUrlGuardFailureMessage(urlGuard, { prefix = "" } = {}) {
+        const base = String(urlGuard?.message || buildGeminiTargetUrlMismatchMessage(getCurrentGeminiUrl())).trim();
+        return prefix ? `${prefix}${base}` : base;
+      }
       function findGeminiDropzone(composerEl) {
         try {
           const direct = composerEl?.closest?.("[xapfileselectordropzone]");
@@ -2163,6 +2309,85 @@
         } catch {
         }
         return { ok: false, label: getNativeNewChatLabel() };
+      }
+      async function triggerNotebookNewChat({ shouldCancel = null, target = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        const nextTarget = target || getGeminiNewChatTriggerTarget();
+        const label = getNotebookNewChatLabel();
+        if (cancelFn && cancelFn()) return { ok: false, label, targetUrl: nextTarget?.targetUrl || "" };
+        if (nextTarget?.kind !== "notebook") return { ok: false, label, targetUrl: nextTarget?.targetUrl || "" };
+        rememberPendingGeminiNotebookTarget(nextTarget);
+        const currentTarget = parseGeminiQuickInputTarget();
+        if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
+          return { ok: true, label, targetUrl: nextTarget.targetUrl };
+        }
+        const ok = navigateGeminiSpaToTarget(nextTarget);
+        return { ok, label, targetUrl: nextTarget.targetUrl };
+      }
+      async function triggerGeminiNewChat({ shouldCancel = null } = {}) {
+        const target = getGeminiNewChatTriggerTarget();
+        if (target?.kind === "notebook") {
+          return triggerNotebookNewChat({ shouldCancel, target });
+        }
+        return triggerNativeNewChat({ shouldCancel });
+      }
+      async function waitForGeminiNewChatReady({ target = null, timeoutMs = 12e3, intervalMs = 160, settleMs = 300, shouldCancel = null, runtime = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        const expectedTarget = target || getGeminiNewChatTriggerTarget();
+        if (expectedTarget?.kind !== "notebook") {
+          return {
+            ok: true,
+            cancelled: false,
+            url: getCurrentGeminiUrl(),
+            targetUrl: expectedTarget?.targetUrl || GEMINI_ROOT_URL
+          };
+        }
+        rememberPendingGeminiNotebookTarget(expectedTarget);
+        const deadline = getRuntimeNow(runtime) + Math.max(0, Number(timeoutMs) || 0);
+        const interval = Math.max(60, Number(intervalMs) || 160);
+        const settle = Math.max(0, Number(settleMs) || 0);
+        let stableSince = 0;
+        let recoveryAttempted = false;
+        while (getRuntimeNow(runtime) < deadline) {
+          if (cancelFn && cancelFn()) {
+            return { ok: false, cancelled: true, url: getCurrentGeminiUrl(), targetUrl: expectedTarget.targetUrl };
+          }
+          const currentUrl2 = getCurrentGeminiUrl();
+          const currentTarget = parseGeminiQuickInputTarget(currentUrl2);
+          const matchesTarget = currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, expectedTarget);
+          const composer = matchesTarget ? findGeminiComposerElement({ requireVisible: true }) : null;
+          if (matchesTarget && composer) {
+            if (!stableSince) stableSince = getRuntimeNow(runtime);
+            if (getRuntimeNow(runtime) - stableSince >= settle) {
+              rememberPendingGeminiNotebookTarget(expectedTarget);
+              return { ok: true, cancelled: false, url: currentUrl2, targetUrl: expectedTarget.targetUrl };
+            }
+          } else {
+            stableSince = 0;
+            if (!matchesTarget && !recoveryAttempted) {
+              recoveryAttempted = true;
+              if (navigateGeminiSpaToTarget(expectedTarget)) {
+                await runtimeSleep(runtime, interval, { shouldCancel: cancelFn });
+                continue;
+              }
+            }
+          }
+          const waitOk = await runtimeSleep(runtime, interval, { shouldCancel: cancelFn });
+          if (!waitOk) {
+            return { ok: false, cancelled: true, url: getCurrentGeminiUrl(), targetUrl: expectedTarget.targetUrl };
+          }
+        }
+        const currentUrl = getCurrentGeminiUrl();
+        return {
+          ok: false,
+          cancelled: false,
+          url: currentUrl,
+          targetUrl: expectedTarget.targetUrl,
+          message: buildGeminiTargetUrlMismatchMessage(currentUrl, {
+            target: expectedTarget,
+            prefix: qiText("newChatVerifyPrefix", {}, "Notebook verification failed: ")
+          })
+        };
       }
       const GEMINI_ATTACHMENT_OBSERVED_ATTRIBUTES = Object.freeze([
         "class",
@@ -2734,6 +2959,8 @@
         };
       }
       async function setGeminiInputValue(composerEl, value) {
+        const urlGuard = getGeminiUrlGuardResult();
+        if (!urlGuard.ok) return false;
         let composer = resolveGeminiComposerElement(composerEl, { requireVisible: false });
         if (!composer) return false;
         const text = String(value ?? "");
@@ -3282,6 +3509,14 @@
         if (!file || !(file instanceof File)) return { ok: false, cancelled: false };
         if (!String(file.type || "").startsWith("image/")) return { ok: false, cancelled: false };
         if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
+        const urlGuard = getGeminiUrlGuardResult();
+        if (!urlGuard.ok) return {
+          ok: false,
+          cancelled: false,
+          message: buildGeminiUrlGuardFailureMessage(urlGuard, {
+            prefix: qiText("imageInsertUrlPrefix", {}, "URL check failed before inserting images: ")
+          })
+        };
         const composer = composerEl || await focusComposer({ timeoutMs: 4e3, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay, runtime });
         if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
         const container = findGeminiComposerContainer(composer);
@@ -3504,6 +3739,14 @@
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
         const list = Array.from(files || []).filter((file) => file && file instanceof File && String(file.type || "").startsWith("image/"));
         if (list.length === 0) return { ok: false, cancelled: false, message: qiText("noImageFiles", {}, "No image files detected.") };
+        const urlGuard = getGeminiUrlGuardResult();
+        if (!urlGuard.ok) return {
+          ok: false,
+          cancelled: false,
+          message: buildGeminiUrlGuardFailureMessage(urlGuard, {
+            prefix: qiText("imageInsertUrlPrefix", {}, "URL check failed before inserting images: ")
+          })
+        };
         const composer = composerEl || await focusComposer({ timeoutMs: 4e3, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay, runtime });
         if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
         for (let i = 0; i < list.length; i++) {
@@ -3635,6 +3878,13 @@
       }
       async function waitForGeminiReadyToSend(composerEl, { requireImage = false, minAttachments = 0, timeoutMs = 45e3, intervalMs = 160, settleMs = 600, shouldCancel = null, runtime = null } = {}) {
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        const urlGuard = getGeminiUrlGuardResult();
+        if (!urlGuard.ok) return {
+          ok: false,
+          reason: "url-guard",
+          cancelled: false,
+          message: buildGeminiUrlGuardFailureMessage(urlGuard)
+        };
         const composer = composerEl || await focusComposer({ timeoutMs: 4e3, intervalMs: 120, shouldCancel: cancelFn, shouldIgnore: isInsideQuickInputOverlay, runtime });
         if (!composer) return { ok: false, reason: "no-composer", cancelled: !!(cancelFn && cancelFn()) };
         let composerRef = composer;
@@ -3670,6 +3920,8 @@
         };
       }
       async function sendGeminiMessage(composerEl) {
+        const urlGuard = getGeminiUrlGuardResult();
+        if (!urlGuard.ok) return false;
         const composer = composerEl || await focusComposer({ shouldIgnore: isInsideQuickInputOverlay });
         if (!composer) return false;
         const btn = findSendButtonNearComposer(composer);
@@ -3697,10 +3949,11 @@
         attachImages: attachImagesToComposer,
         clearAttachments: clearGeminiAttachments,
         waitForReadyToSend: waitForGeminiReadyToSend,
-        triggerNewChat: ({ shouldCancel = null } = {}) => triggerNativeNewChat({ shouldCancel }),
-        newChatLabel: getNativeNewChatLabel,
+        waitForNewChatReady: waitForGeminiNewChatReady,
+        triggerNewChat: ({ shouldCancel = null } = {}) => triggerGeminiNewChat({ shouldCancel }),
+        newChatLabel: getGeminiNewChatLabel,
         lockNewChatHotkey: true,
-        lockedNewChatHotkeyDisplay: "native",
+        lockedNewChatHotkeyDisplay: getGeminiNewChatLabel,
         sendMessage: sendGeminiMessage
       });
     }
