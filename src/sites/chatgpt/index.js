@@ -169,6 +169,7 @@
             },
             quickInput: {
                 nativeNewChatLabel: "CMD+SHIFT+O (原生)",
+                projectUrlNewChatLabel: "Project URL 跳转",
                 rootUrlMismatch: "当前 URL 必须匹配 QuickInput 新聊天目标 {targetUrl}，实际是 {currentUrl}",
                 emptyUrl: "(空)",
                 imageInsertUrlPrefix: "图片插入前 URL 校验失败：",
@@ -216,6 +217,7 @@
             },
             quickInput: {
                 nativeNewChatLabel: "CMD+SHIFT+O (native)",
+                projectUrlNewChatLabel: "Project URL jump",
                 rootUrlMismatch: "Current URL must match the QuickInput new-chat target {targetUrl}; actual URL is {currentUrl}",
                 emptyUrl: "(empty)",
                 imageInsertUrlPrefix: "URL check failed before inserting images: ",
@@ -634,6 +636,9 @@
         function getNativeNewChatLabel() {
             return qiText("nativeNewChatLabel", {}, `${CHATGPT_NATIVE_NEW_CHAT_HOTKEY} (native)`);
         }
+        function getProjectUrlNewChatLabel() {
+            return qiText("projectUrlNewChatLabel", {}, "Project URL jump");
+        }
         const isInsideOverlayTree = typeof dom?.isInsideOverlayTree === "function"
             ? dom.isInsideOverlayTree
             : (target, targetOverlayId) => {
@@ -787,7 +792,16 @@
         }
 
         function getChatGPTNewChatTriggerTarget() {
-            return getPendingChatGPTNewChatTarget() || getCurrentChatGPTNewChatTarget();
+            const currentTarget = parseChatGPTQuickInputTarget();
+            const pendingTarget = getPendingChatGPTNewChatTarget();
+            if (currentTarget?.kind === "project") return currentTarget;
+            if (pendingTarget?.kind === "project") return pendingTarget;
+            return pendingTarget || currentTarget || createChatGPTRootTarget();
+        }
+
+        function getChatGPTNewChatLabel() {
+            const target = getChatGPTNewChatTriggerTarget();
+            return target?.kind === "project" ? getProjectUrlNewChatLabel() : getNativeNewChatLabel();
         }
 
         function isSameChatGPTQuickInputTarget(currentTarget, expectedTarget) {
@@ -813,7 +827,7 @@
         }
 
         function buildChatGPTTargetUrlMismatchMessage(currentUrl, { target = null, prefix = "" } = {}) {
-            const expectedTarget = target || parseChatGPTQuickInputTarget(currentUrl) || getPendingChatGPTNewChatTarget() || createChatGPTRootTarget();
+            const expectedTarget = target || getChatGPTNewChatTriggerTarget();
             const base = qiText("rootUrlMismatch", {
                 rootUrl: expectedTarget.targetUrl,
                 targetUrl: expectedTarget.targetUrl,
@@ -825,7 +839,7 @@
         function getChatGPTUrlGuardResult() {
             const currentUrl = getCurrentChatGPTUrl();
             const currentTarget = parseChatGPTQuickInputTarget(currentUrl);
-            const expectedTarget = getPendingChatGPTNewChatTarget() || currentTarget || createChatGPTRootTarget();
+            const expectedTarget = getChatGPTNewChatTriggerTarget();
             if (currentTarget?.ready && isSameChatGPTQuickInputTarget(currentTarget, expectedTarget)) {
                 return { ok: true, url: currentUrl, targetUrl: expectedTarget.targetUrl };
             }
@@ -912,19 +926,40 @@
             return false;
         }
 
-        async function triggerNativeNewChat({ shouldCancel = null } = {}) {
+        async function triggerNativeNewChat({ shouldCancel = null, target = null } = {}) {
             const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
             if (cancelFn && cancelFn()) return { ok: false, label: getNativeNewChatLabel() };
-            const target = getChatGPTNewChatTriggerTarget();
+            const nextTarget = target || getChatGPTNewChatTriggerTarget();
 
             try {
                 if (simulateKeystroke(CHATGPT_NATIVE_NEW_CHAT_HOTKEY, { target: document.body })) {
-                    rememberPendingChatGPTNewChatTarget(target);
-                    return { ok: true, label: getNativeNewChatLabel(), targetUrl: target.targetUrl };
+                    rememberPendingChatGPTNewChatTarget(nextTarget);
+                    return { ok: true, label: getNativeNewChatLabel(), targetUrl: nextTarget.targetUrl };
                 }
             } catch { }
 
             return { ok: false, label: getNativeNewChatLabel() };
+        }
+
+        async function triggerProjectUrlNewChat({ shouldCancel = null, target = null } = {}) {
+            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            const label = getProjectUrlNewChatLabel();
+            if (cancelFn && cancelFn()) return { ok: false, label };
+            const nextTarget = target || getChatGPTNewChatTriggerTarget();
+            if (nextTarget?.kind !== "project") return { ok: false, label };
+
+            rememberPendingChatGPTNewChatTarget(nextTarget);
+            const ok = navigateChatGPTSpaToTarget(nextTarget);
+            if (!ok) clearPendingChatGPTNewChatTarget(nextTarget);
+            return { ok, label, targetUrl: nextTarget.targetUrl };
+        }
+
+        async function triggerChatGPTNewChat({ shouldCancel = null } = {}) {
+            const target = getChatGPTNewChatTriggerTarget();
+            if (target?.kind === "project") {
+                return triggerProjectUrlNewChat({ shouldCancel, target });
+            }
+            return triggerNativeNewChat({ shouldCancel, target });
         }
 
         async function triggerNewChatIfStreaming({ shouldCancel = null, runtime = null } = {}) {
@@ -935,8 +970,8 @@
                 return false; // 没有在输出，不需要新建对话
             }
 
-            // ChatGPT 正在输出，触发新建对话快捷键 CMD+SHIFT+O
-            await triggerNativeNewChat({ shouldCancel: cancelFn });
+            // ChatGPT 正在输出：Project 用 URL 跳转，普通首页使用原生新建对话快捷键。
+            await triggerChatGPTNewChat({ shouldCancel: cancelFn });
 
             // 等待页面切换到新对话
             const deadline = getRuntimeNow(runtime) + 5000;
@@ -2604,7 +2639,7 @@
 
         async function waitForChatGPTNewChatReady({ target = null, timeoutMs = 12000, intervalMs = 160, settleMs = 300, shouldCancel = null, runtime = null } = {}) {
             const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
-            const expectedTarget = target || getPendingChatGPTNewChatTarget() || getCurrentChatGPTNewChatTarget();
+            const expectedTarget = target || getChatGPTNewChatTriggerTarget();
             const deadline = getRuntimeNow(runtime) + Math.max(0, Number(timeoutMs) || 0);
             const settle = Math.max(0, Number(settleMs) || 0);
             let stableSince = 0;
@@ -2780,10 +2815,10 @@
             clearAttachments: clearChatGPTAttachments,
             waitForReadyToSend: waitForChatGPTReadyToSend,
             waitForNewChatReady: waitForChatGPTNewChatReady,
-            triggerNewChat: ({ shouldCancel = null } = {}) => triggerNativeNewChat({ shouldCancel }),
-            newChatLabel: getNativeNewChatLabel,
+            triggerNewChat: ({ shouldCancel = null } = {}) => triggerChatGPTNewChat({ shouldCancel }),
+            newChatLabel: getChatGPTNewChatLabel,
             lockNewChatHotkey: true,
-            lockedNewChatHotkeyDisplay: "native",
+            lockedNewChatHotkeyDisplay: getChatGPTNewChatLabel,
             sendMessage: sendChatGPTMessage
         });
     }
