@@ -159,16 +159,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260508] v1.0.0",
+            name: "[ChatGPT] 快捷键跳转 [20260511] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 保留原键帽样式，将 ChatGPT 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
+            version: "[20260511] v1.0.0",
+            updateLog: "1.0.0: 修复 ChatGPT Quick Input 对 Projects URL 的识别，支持 Project 首页/聊天页保留同一 Project 新聊天目标，避免自动跳回普通首页。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260508] v1.0.0",
+                    name: "[ChatGPT] Shortcut Jump [20260511] v1.0.0",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.0.0: Kept the original keycap style, inlined the ChatGPT script icon in the userscript header, and used black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Fixed ChatGPT Quick Input's Projects URL detection so Project home/chat pages keep the same Project new-chat target instead of jumping back to the normal home page."
                 }
             },
             match: [
