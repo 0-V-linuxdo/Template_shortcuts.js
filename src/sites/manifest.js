@@ -259,12 +259,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
             version: "[20260511] v1.0.0",
-            updateLog: "1.0.0: 修复 Gemini 快捷输入在富文本输入框中的首次填充校验异常，新增专用文本读写适配，避免发送前自动重写。",
+            updateLog: "1.0.0: 修复 Gemini 快捷输入在富文本输入框中的首次填充校验异常，并让 Delete 确认弹窗支持 Enter 确认。",
             localized: {
                 "en-US": {
                     name: "[Gemini] Shortcut Jump [20260511] v1.0.0",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.0: Fixed Gemini Quick Input's first-fill text verification issue in the rich text composer by adding dedicated text read/write handling, preventing automatic rewrites before send."
+                    updateLog: "1.0.0: Fixed Gemini Quick Input's first-fill text verification issue in the rich text composer, and made Delete confirmation dialogs accept Enter."
                 }
             },
             match: [
