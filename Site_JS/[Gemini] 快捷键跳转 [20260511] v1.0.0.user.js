@@ -6,8 +6,8 @@
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
 // @version        [20260511] v1.0.0
-// @update-log     1.0.0: 修复 Gemini 快捷输入在富文本输入框中的首次填充校验异常，新增专用文本读写适配，避免发送前自动重写。
-// @update-log:en  1.0.0: Fixed Gemini Quick Input's first-fill text verification issue in the rich text composer by adding dedicated text read/write handling, preventing automatic rewrites before send.
+// @update-log     1.0.0: 修复 Gemini 快捷输入在富文本输入框中的首次填充校验异常，并让 Delete 确认弹窗支持 Enter 确认。
+// @update-log:en  1.0.0: Fixed Gemini Quick Input's first-fill text verification issue in the rich text composer, and made Delete confirmation dialogs accept Enter.
 
 // @match          https://gemini.google.com/*
 
@@ -1794,24 +1794,30 @@
       const fallback = String(shortcut?.customAction || "").trim();
       return fallback || "conversationMenu";
     }
-    function findDeleteConfirmButton() {
+    let deleteConfirmEnterBridgeCleanup = null;
+    function isUsableDeleteConfirmButton(button) {
+      if (!button) return false;
+      const ariaDisabled = String(button.getAttribute?.("aria-disabled") || "").trim().toLowerCase();
+      if (button.disabled || ariaDisabled === "true") return false;
+      return isElementVisible(button);
+    }
+    function findDeleteConfirmDialog() {
       let dialogs = [];
       try {
         dialogs = Array.from(document.querySelectorAll("mat-dialog-container"));
       } catch {
         return null;
       }
-      let fallbackConfirmBtn = null;
       for (const dialog of dialogs) {
         if (!dialog) continue;
         if (!isElementVisible(dialog)) continue;
         const ariaLabel = String(dialog.getAttribute?.("aria-label") || "");
         const titleText = String(dialog.querySelector?.("[data-test-id='message-dialog-title']")?.textContent || "");
-        const looksLikeDelete = textLooksLikeDelete(ariaLabel) || textLooksLikeDelete(titleText);
-        const confirmBtn = dialog.querySelector("button[data-test-id='confirm-button']");
-        if (confirmBtn && !fallbackConfirmBtn) fallbackConfirmBtn = confirmBtn;
-        if (looksLikeDelete && confirmBtn) return confirmBtn;
+        const dialogText = String(dialog.textContent || "");
+        const looksLikeDelete = textLooksLikeDelete(ariaLabel) || textLooksLikeDelete(titleText) || textLooksLikeDelete(dialogText);
         if (!looksLikeDelete) continue;
+        const confirmBtn = dialog.querySelector("button[data-test-id='confirm-button']");
+        if (isUsableDeleteConfirmButton(confirmBtn)) return { dialog, confirmBtn };
         let candidates = [];
         try {
           candidates = Array.from(dialog.querySelectorAll("button"));
@@ -1819,28 +1825,109 @@
           candidates = [];
         }
         for (const btn of candidates) {
-          if (textLooksLikeDelete(btn.textContent || "")) return btn;
+          const buttonText = `${btn.textContent || ""} ${btn.getAttribute?.("aria-label") || ""}`;
+          if (isUsableDeleteConfirmButton(btn) && textLooksLikeDelete(buttonText)) {
+            return { dialog, confirmBtn: btn };
+          }
         }
       }
-      return fallbackConfirmBtn;
+      return null;
     }
-    async function autoFocusDeleteConfirmButton({ timeoutMs = 2500, intervalMs = 80 } = {}) {
+    function focusDeleteConfirmButton(confirmBtn) {
+      if (!confirmBtn) return false;
+      try {
+        confirmBtn.focus({ preventScroll: true });
+      } catch {
+      }
+      try {
+        confirmBtn.focus();
+      } catch {
+      }
+      return true;
+    }
+    function isPlainEnterKeyEvent(event) {
+      if (!event) return false;
+      const key = String(event.key || "");
+      const code = String(event.code || "");
+      if (key !== "Enter" && key !== "NumpadEnter" && code !== "Enter" && code !== "NumpadEnter") return false;
+      if (event.isComposing || event.keyCode === 229) return false;
+      return !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+    }
+    function clearDeleteConfirmEnterBridge() {
+      const cleanup = deleteConfirmEnterBridgeCleanup;
+      if (typeof cleanup === "function") cleanup();
+    }
+    function armDeleteConfirmEnterBridge({ dialog, confirmBtn }, { timeoutMs = 3e4, closeCheckIntervalMs = 250 } = {}) {
+      if (!dialog || !confirmBtn) return false;
+      clearDeleteConfirmEnterBridge();
+      const doc = dialog.ownerDocument || document;
+      let cleaned = false;
+      let timeoutId = 0;
+      let closeCheckId = 0;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        try {
+          doc.removeEventListener("keydown", onKeydown, true);
+        } catch {
+        }
+        try {
+          clearTimeout(timeoutId);
+        } catch {
+        }
+        try {
+          clearInterval(closeCheckId);
+        } catch {
+        }
+        if (deleteConfirmEnterBridgeCleanup === cleanup) deleteConfirmEnterBridgeCleanup = null;
+      };
+      const onKeydown = (event) => {
+        if (!isPlainEnterKeyEvent(event)) return;
+        const latest = findDeleteConfirmDialog();
+        if (!latest?.dialog || !latest?.confirmBtn) {
+          cleanup();
+          return;
+        }
+        try {
+          event.preventDefault();
+        } catch {
+        }
+        try {
+          event.stopPropagation();
+        } catch {
+        }
+        try {
+          event.stopImmediatePropagation?.();
+        } catch {
+        }
+        cleanup();
+        focusDeleteConfirmButton(latest.confirmBtn);
+        simulateGeminiMenuClick(latest.confirmBtn);
+      };
+      deleteConfirmEnterBridgeCleanup = cleanup;
+      try {
+        doc.addEventListener("keydown", onKeydown, true);
+      } catch {
+        cleanup();
+        return false;
+      }
+      focusDeleteConfirmButton(confirmBtn);
+      const timeout = Math.max(1e3, Number(timeoutMs) || 3e4);
+      const closeCheckInterval = Math.max(100, Number(closeCheckIntervalMs) || 250);
+      timeoutId = setTimeout(cleanup, timeout);
+      closeCheckId = setInterval(() => {
+        const latest = findDeleteConfirmDialog();
+        if (!latest?.dialog) cleanup();
+      }, closeCheckInterval);
+      return true;
+    }
+    async function prepareDeleteConfirmEnterBridge({ timeoutMs = 2500, intervalMs = 80 } = {}) {
       const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
       const interval = Math.max(30, Number(intervalMs) || 80);
       while (Date.now() <= deadline) {
-        const confirmBtn = findDeleteConfirmButton();
-        if (confirmBtn) {
-          try {
-            confirmBtn.focus({ preventScroll: true });
-          } catch {
-          }
-          try {
-            confirmBtn.focus();
-          } catch {
-          }
-          return true;
-        }
-        await new Promise((resolve) => setTimeout(resolve, interval));
+        const target = findDeleteConfirmDialog();
+        if (target?.confirmBtn) return armDeleteConfirmEnterBridge(target);
+        await sleep(interval);
       }
       return false;
     }
@@ -1873,7 +1960,7 @@
       }
       if (!ok) return false;
       if (!shortcutLooksLikeDelete(shortcut)) return true;
-      await autoFocusDeleteConfirmButton();
+      await prepareDeleteConfirmEnterBridge();
       return true;
     };
     const modelPickerMenuAction = createGeminiMenuAction({
