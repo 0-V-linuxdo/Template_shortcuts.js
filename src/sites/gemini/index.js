@@ -2546,6 +2546,49 @@
             newChatReadyIntervalMs: 160,
             newChatReadySettleMs: 300
         });
+        const GEMINI_NOTEBOOK_ACTIVE_THREAD_SELECTORS = Object.freeze([
+            "user-query",
+            "user-query-content",
+            "model-response",
+            "message-content",
+            "[data-test-id*='user-query' i]",
+            "[data-test-id*='model-response' i]",
+            "[data-test-id*='message-content' i]",
+            "[data-test-id*='message_content' i]",
+            "[data-test-id*='query-content' i]",
+            "[data-test-id*='query_content' i]",
+            "[data-test-id*='conversation-turn' i]",
+            "[data-test-id*='conversation_turn' i]"
+        ].join(", "));
+        const GEMINI_NOTEBOOK_BUSY_SELECTORS = Object.freeze([
+            "[aria-busy='true']",
+            "[data-loading='true']",
+            "[data-state='loading']",
+            "[role='progressbar']",
+            "mat-progress-spinner",
+            "mat-mdc-progress-spinner",
+            ".mat-progress-spinner",
+            ".mat-mdc-progress-spinner",
+            "mat-progress-bar",
+            "mat-mdc-progress-bar",
+            ".mat-progress-bar",
+            ".mat-mdc-progress-bar",
+            "progress"
+        ].join(", "));
+        const GEMINI_NOTEBOOK_PASSIVE_CONTEXT_SELECTORS = Object.freeze([
+            "bard-sidenav",
+            "side-navigation-content",
+            "mat-sidenav",
+            "[role='navigation']",
+            "[data-test-id*='side-nav' i]",
+            "[data-test-id*='sidenav' i]",
+            "[data-test-id*='history' i]",
+            "[data-test-id*='recent' i]",
+            "[data-test-id*='conversation-list' i]",
+            "[data-test-id*='conversation_list' i]",
+            "[data-test-id*='notebook-list' i]",
+            "[data-test-id*='notebook_list' i]"
+        ].join(", "));
         let pendingGeminiNotebookTarget = null;
         let pendingGeminiNotebookTargetAt = 0;
         let sessionGeminiNotebookTarget = null;
@@ -2871,6 +2914,72 @@
             return null;
         }
 
+        function isGeminiNotebookPassiveContextElement(el) {
+            if (!el) return true;
+            if (isInsideQuickInputOverlay(el)) return true;
+            try {
+                if (el.closest?.(GEMINI_NOTEBOOK_PASSIVE_CONTEXT_SELECTORS)) return true;
+            } catch { }
+            return false;
+        }
+
+        function isGeminiNotebookComposerContextElement(el, composerEl = null) {
+            if (!el) return false;
+            if (composerEl) {
+                try {
+                    if (el === composerEl || composerEl.contains?.(el) || el.contains?.(composerEl)) return true;
+                } catch { }
+            }
+            try {
+                if (el.closest?.([
+                    ".input-area-container",
+                    "[data-node-type='input-area']",
+                    "input-area-v2",
+                    ".text-input-field",
+                    "rich-textarea",
+                    "[xapfileselectordropzone]"
+                ].join(", "))) return true;
+            } catch { }
+            return false;
+        }
+
+        function isVisibleGeminiNotebookSurfaceElement(el, { composer = null, allowLargeBusyRoot = false } = {}) {
+            if (!el || !isElementVisible(el)) return false;
+            if (isGeminiNotebookPassiveContextElement(el)) return false;
+            if (isGeminiNotebookComposerContextElement(el, composer)) return false;
+            const tag = String(el.tagName || "").toUpperCase();
+            if (tag === "HTML" || tag === "BODY") return false;
+            try {
+                const rect = el.getBoundingClientRect?.();
+                if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+                const viewportW = Math.max(1, window.innerWidth || document.documentElement?.clientWidth || 1);
+                const viewportH = Math.max(1, window.innerHeight || document.documentElement?.clientHeight || 1);
+                if (rect.bottom < 0 || rect.right < 0 || rect.top > viewportH || rect.left > viewportW) return false;
+                if (!allowLargeBusyRoot && rect.width * rect.height > viewportW * viewportH * 0.75) return false;
+            } catch { }
+            return true;
+        }
+
+        function hasVisibleGeminiNotebookActiveThreadContent({ composer = null } = {}) {
+            let nodes = [];
+            try { nodes = Array.from(document.querySelectorAll(GEMINI_NOTEBOOK_ACTIVE_THREAD_SELECTORS)); } catch { nodes = []; }
+            for (const node of nodes) {
+                if (!isVisibleGeminiNotebookSurfaceElement(node, { composer, allowLargeBusyRoot: true })) continue;
+                return true;
+            }
+            return false;
+        }
+
+        function hasVisibleGeminiNotebookBusyIndicator({ composer = null } = {}) {
+            let nodes = [];
+            try { nodes = Array.from(document.querySelectorAll(GEMINI_NOTEBOOK_BUSY_SELECTORS)); } catch { nodes = []; }
+            for (const node of nodes) {
+                if (!isVisibleGeminiNotebookSurfaceElement(node, { composer })) continue;
+                return true;
+            }
+            return false;
+        }
+
         function getGeminiNotebookNewPageState(target = null) {
             const expectedTarget = target || getGeminiNewChatTriggerTarget();
             const currentUrl = getCurrentGeminiUrl();
@@ -2884,15 +2993,19 @@
             const composerText = composer ? normalizeGeminiCommittedText(getGeminiComposerPlainText(composer, { trimTrailingEditorNewlines: true })).trim() : "";
             const composerBlank = !!(composer && composerText.length === 0);
             const zeroState = !!(matchesTarget && findGeminiNotebookZeroStateElement(composer));
+            const activeThreadContent = !!(matchesTarget && hasVisibleGeminiNotebookActiveThreadContent({ composer }));
+            const busyIndicator = !!(matchesTarget && hasVisibleGeminiNotebookBusyIndicator({ composer }));
 
             return {
-                ok: !!(matchesTarget && composer && composerBlank && zeroState),
+                ok: !!(matchesTarget && composer && composerBlank && zeroState && !activeThreadContent && !busyIndicator),
                 currentUrl,
                 currentTarget,
                 matchesTarget,
                 composer,
                 composerBlank,
                 zeroState,
+                activeThreadContent,
+                busyIndicator,
                 targetUrl: expectedTarget?.targetUrl || GEMINI_ROOT_URL
             };
         }
@@ -3032,9 +3145,6 @@
 
             const currentTarget = parseGeminiQuickInputTarget(currentUrl);
             if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, expectedTarget)) {
-                if (isGeminiNotebookArmed(expectedTarget)) {
-                    return { ok: true, url: currentUrl, targetUrl: expectedTarget.targetUrl };
-                }
                 const newPageState = getGeminiNotebookNewPageState(expectedTarget);
                 if (newPageState.ok) {
                     markGeminiNotebookArmed(expectedTarget);
@@ -3142,10 +3252,6 @@
             }
 
             const currentTarget = parseGeminiQuickInputTarget();
-            if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
-                return { ok: true, label, targetUrl: nextTarget.targetUrl };
-            }
-
             const navigatedHome = navigateGeminiSpaToTarget(nextTarget);
             if (navigatedHome) {
                 return { ok: true, label, targetUrl: nextTarget.targetUrl };
@@ -3203,12 +3309,8 @@
                 const currentUrl = getCurrentGeminiUrl();
                 const currentTarget = parseGeminiQuickInputTarget(currentUrl);
                 const matchesTarget = currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, expectedTarget);
-                const armed = matchesTarget && isGeminiNotebookArmed(expectedTarget);
-                const newPageState = matchesTarget && !armed ? getGeminiNotebookNewPageState(expectedTarget) : null;
-                const composer = armed
-                    ? findGeminiComposerElement({ requireVisible: true })
-                    : (newPageState?.composer || null);
-                const ready = armed ? !!composer : !!newPageState?.ok;
+                const newPageState = matchesTarget ? getGeminiNotebookNewPageState(expectedTarget) : null;
+                const ready = !!newPageState?.ok;
 
                 if (ready) {
                     if (!stableSince) stableSince = getRuntimeNow(runtime);
@@ -3222,6 +3324,11 @@
                     clearGeminiNotebookArmed();
                     if (!matchesTarget && !recoveryAttempted) {
                         recoveryAttempted = true;
+                        routeResetAttempted = true;
+                        if (await resetGeminiNotebookRouteToHome(expectedTarget, { shouldCancel: cancelFn, runtime, intervalMs: interval })) {
+                            continue;
+                        }
+                        routeResetFailed = true;
                         if (navigateGeminiSpaToTarget(expectedTarget)) {
                             await runtimeSleep(runtime, interval, { shouldCancel: cancelFn });
                             continue;
