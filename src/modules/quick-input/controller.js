@@ -60,6 +60,13 @@ export function createController(userOptions = {}) {
             let labels = resolveLabels();
             let titleText = resolveTitleText();
             const defaults = deepMerge(deepMerge({}, DEFAULT_CONFIG), options.defaults || {});
+            const DEFAULT_NEW_CHAT_RETRY_POLICY = Object.freeze({
+                maxNewChatRetries: 1,
+                newChatReadyTimeoutMs: 12000,
+                newChatRetryDelayMs: 800,
+                newChatReadyIntervalMs: 160,
+                newChatReadySettleMs: 300
+            });
 
             const rawAdapter = options.adapter && typeof options.adapter === "object" ? options.adapter : {};
             const adapter = Object.freeze({
@@ -81,6 +88,7 @@ export function createController(userOptions = {}) {
                 newChatLabel: (typeof rawAdapter.newChatLabel === "string" || typeof rawAdapter.newChatLabel === "function")
                     ? rawAdapter.newChatLabel
                     : ((typeof rawAdapter.retryNewChatLabel === "string" || typeof rawAdapter.retryNewChatLabel === "function") ? rawAdapter.retryNewChatLabel : ""),
+                getNewChatRetryPolicy: typeof rawAdapter.getNewChatRetryPolicy === "function" ? rawAdapter.getNewChatRetryPolicy : null,
                 sendMessage: typeof rawAdapter.sendMessage === "function" ? rawAdapter.sendMessage : async (composerEl) =>
                     simulateKeystroke("ENTER", { target: composerEl })
             });
@@ -989,10 +997,79 @@ export function createController(userOptions = {}) {
                 }
             }
 
-            async function ensureNewChatReady({ newChatHotkey, shouldCancel, runtime = null, maxNewChatRetries = 1, onRetry = null } = {}) {
+            function normalizeNewChatRetryPolicy(value = null, fallback = DEFAULT_NEW_CHAT_RETRY_POLICY) {
+                const raw = value && typeof value === "object" ? value : {};
+                const base = fallback && typeof fallback === "object" ? fallback : DEFAULT_NEW_CHAT_RETRY_POLICY;
+                return {
+                    maxNewChatRetries: clampInt(raw.maxNewChatRetries ?? raw.maxRetries, {
+                        min: 0,
+                        max: 10,
+                        fallback: clampInt(base.maxNewChatRetries, { min: 0, max: 10, fallback: DEFAULT_NEW_CHAT_RETRY_POLICY.maxNewChatRetries })
+                    }),
+                    newChatReadyTimeoutMs: clampInt(raw.newChatReadyTimeoutMs ?? raw.readyTimeoutMs ?? raw.timeoutMs, {
+                        min: 1000,
+                        max: 300000,
+                        fallback: clampInt(base.newChatReadyTimeoutMs, { min: 1000, max: 300000, fallback: DEFAULT_NEW_CHAT_RETRY_POLICY.newChatReadyTimeoutMs })
+                    }),
+                    newChatRetryDelayMs: clampInt(raw.newChatRetryDelayMs ?? raw.retryDelayMs, {
+                        min: 0,
+                        max: 60000,
+                        fallback: clampInt(base.newChatRetryDelayMs, { min: 0, max: 60000, fallback: DEFAULT_NEW_CHAT_RETRY_POLICY.newChatRetryDelayMs })
+                    }),
+                    newChatReadyIntervalMs: clampInt(raw.newChatReadyIntervalMs ?? raw.intervalMs, {
+                        min: 60,
+                        max: 5000,
+                        fallback: clampInt(base.newChatReadyIntervalMs, { min: 60, max: 5000, fallback: DEFAULT_NEW_CHAT_RETRY_POLICY.newChatReadyIntervalMs })
+                    }),
+                    newChatReadySettleMs: clampInt(raw.newChatReadySettleMs ?? raw.settleMs, {
+                        min: 0,
+                        max: 10000,
+                        fallback: clampInt(base.newChatReadySettleMs, { min: 0, max: 10000, fallback: DEFAULT_NEW_CHAT_RETRY_POLICY.newChatReadySettleMs })
+                    })
+                };
+            }
+
+            function getNewChatRetryPolicy(context = {}, fallback = DEFAULT_NEW_CHAT_RETRY_POLICY) {
+                const base = normalizeNewChatRetryPolicy(fallback);
+                if (typeof adapter.getNewChatRetryPolicy !== "function") return base;
+                try {
+                    return normalizeNewChatRetryPolicy(
+                        adapter.getNewChatRetryPolicy({
+                            ...(context && typeof context === "object" ? context : {}),
+                            defaultPolicy: base
+                        }),
+                        base
+                    );
+                } catch {
+                    return base;
+                }
+            }
+
+            async function ensureNewChatReady({
+                newChatHotkey,
+                shouldCancel,
+                runtime = null,
+                maxNewChatRetries = DEFAULT_NEW_CHAT_RETRY_POLICY.maxNewChatRetries,
+                newChatReadyTimeoutMs = DEFAULT_NEW_CHAT_RETRY_POLICY.newChatReadyTimeoutMs,
+                newChatRetryDelayMs = DEFAULT_NEW_CHAT_RETRY_POLICY.newChatRetryDelayMs,
+                newChatReadyIntervalMs = DEFAULT_NEW_CHAT_RETRY_POLICY.newChatReadyIntervalMs,
+                newChatReadySettleMs = DEFAULT_NEW_CHAT_RETRY_POLICY.newChatReadySettleMs,
+                context = "newChat",
+                onRetry = null
+            } = {}) {
                 const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
                 const runtimeApi = runtime && typeof runtime === "object" ? runtime : null;
-                const safeRetryCount = Math.max(0, Number.parseInt(String(maxNewChatRetries ?? 1), 10) || 0);
+                const retryPolicy = getNewChatRetryPolicy(
+                    { phase: context, newChatHotkey },
+                    {
+                        maxNewChatRetries,
+                        newChatReadyTimeoutMs,
+                        newChatRetryDelayMs,
+                        newChatReadyIntervalMs,
+                        newChatReadySettleMs
+                    }
+                );
+                const safeRetryCount = retryPolicy.maxNewChatRetries;
                 const totalAttempts = safeRetryCount + 1;
                 let okNewChat = false;
                 let verificationMessage = "";
@@ -1016,8 +1093,9 @@ export function createController(userOptions = {}) {
                     if (attemptOk && adapter.waitForNewChatReady) {
                         const verification = await adapter.waitForNewChatReady({
                             hotkey: triggerLabel,
-                            timeoutMs: 12000,
-                            intervalMs: 160,
+                            timeoutMs: retryPolicy.newChatReadyTimeoutMs,
+                            intervalMs: retryPolicy.newChatReadyIntervalMs,
+                            settleMs: retryPolicy.newChatReadySettleMs,
                             shouldCancel: cancelFn,
                             runtime: runtimeApi
                         });
@@ -1051,7 +1129,7 @@ export function createController(userOptions = {}) {
                         } catch {}
                     }
 
-                    const retryWaitOk = await sleepWithCancel(800, { shouldCancel: cancelFn, chunkMs: 160, runtime: runtimeApi });
+                    const retryWaitOk = await sleepWithCancel(retryPolicy.newChatRetryDelayMs, { shouldCancel: cancelFn, chunkMs: 160, runtime: runtimeApi });
                     if (!retryWaitOk) {
                         return { cancelled: true, okNewChat: false, attemptsUsed, usedNewChatLabel, verificationMessage };
                     }
@@ -2809,7 +2887,8 @@ export function createController(userOptions = {}) {
                 const waitOk = await sleepWithCancel(remainMs, { shouldCancel: cancelFn, chunkMs: 160, runtime: runtimeApi });
                 if (!waitOk) return { cancelled: true, okNewChat: false };
 
-                const maxNewChatRetries = 1;
+                const retryPolicy = getNewChatRetryPolicy({ phase: "loopTransition", newChatHotkey });
+                const maxNewChatRetries = retryPolicy.maxNewChatRetries;
                 const totalAttempts = maxNewChatRetries + 1;
                 let okNewChat = false;
                 let verificationMessage = "";
@@ -2833,8 +2912,9 @@ export function createController(userOptions = {}) {
                     if (attemptOk && adapter.waitForNewChatReady) {
                         const verification = await adapter.waitForNewChatReady({
                             hotkey: triggerLabel,
-                            timeoutMs: 12000,
-                            intervalMs: 160,
+                            timeoutMs: retryPolicy.newChatReadyTimeoutMs,
+                            intervalMs: retryPolicy.newChatReadyIntervalMs,
+                            settleMs: retryPolicy.newChatReadySettleMs,
                             shouldCancel: cancelFn,
                             runtime: runtimeApi
                         });
@@ -2866,7 +2946,7 @@ export function createController(userOptions = {}) {
                             : "");
                     if (retryMsg) appendLoopLog(retryMsg);
 
-                    const retryWaitOk = await sleepWithCancel(800, { shouldCancel: cancelFn, chunkMs: 160, runtime: runtimeApi });
+                    const retryWaitOk = await sleepWithCancel(retryPolicy.newChatRetryDelayMs, { shouldCancel: cancelFn, chunkMs: 160, runtime: runtimeApi });
                     if (!retryWaitOk) return { cancelled: true, okNewChat: false };
                 }
 
@@ -2963,7 +3043,7 @@ export function createController(userOptions = {}) {
                         newChatHotkey,
                         shouldCancel,
                         runtime,
-                        maxNewChatRetries: 1,
+                        context: "replay",
                         onRetry: ({ hotkey, attempt, maxRetries }) => {
                             const retryMsg = labels.messages?.replayNewChatRetrying
                                 ? labels.messages.replayNewChatRetrying(hotkey, attempt, maxRetries)
@@ -3033,32 +3113,30 @@ export function createController(userOptions = {}) {
                             : DEFAULT_LABELS.messages.inputUrlRecovering);
                     if (recoveringMsg) appendLoopLog(recoveringMsg, { level: "error" });
 
-                    const retryTrigger = await triggerNewChatAction({
-                        hotkey: newChatHotkey,
-                        phase: "retry",
-                        attempt: 1,
+                    const recoveryTransition = await ensureNewChatReady({
+                        newChatHotkey,
                         shouldCancel,
-                        runtime
-                    });
-                    if (retryTrigger.ok && adapter.waitForNewChatReady) {
-                        verification = await adapter.waitForNewChatReady({
-                            hotkey: retryTrigger.label || retryNewChatLabel,
-                            timeoutMs: 12000,
-                            intervalMs: 160,
-                            settleMs: 300,
-                            shouldCancel,
-                            runtime
-                        });
-                        if (verification && typeof verification === "object" && verification.cancelled) return "cancelled";
-                        ok = (verification && typeof verification === "object") ? !!verification.ok : !!verification;
-                        if (ok) {
-                            const recoverOkMsg = labels.messages?.newChatTriggered
-                                ? labels.messages.newChatTriggered(retryTrigger.label || retryNewChatLabel, true)
-                                : DEFAULT_LABELS.messages.newChatTriggered(retryTrigger.label || retryNewChatLabel, true);
-                            appendLoopLog(recoverOkMsg, { level: "ok" });
-                            return true;
+                        runtime,
+                        context: "urlGuardRecovery",
+                        onRetry: ({ hotkey, attempt, maxRetries }) => {
+                            const retryMsg = labels.messages?.newChatRetrying
+                                ? labels.messages.newChatRetrying(hotkey, attempt, maxRetries)
+                                : (DEFAULT_LABELS.messages.newChatRetrying
+                                    ? DEFAULT_LABELS.messages.newChatRetrying(hotkey, attempt, maxRetries)
+                                    : "");
+                            if (retryMsg) appendLoopLog(retryMsg, { level: "warn" });
                         }
+                    });
+                    if (recoveryTransition?.cancelled) return "cancelled";
+                    if (recoveryTransition?.okNewChat) {
+                        const recoverLabel = String(recoveryTransition?.usedNewChatLabel || retryNewChatLabel || "").trim() || retryNewChatLabel;
+                        const recoverOkMsg = labels.messages?.newChatTriggered
+                            ? labels.messages.newChatTriggered(recoverLabel, true)
+                            : DEFAULT_LABELS.messages.newChatTriggered(recoverLabel, true);
+                        appendLoopLog(recoverOkMsg, { level: "ok" });
+                        return true;
                     }
+                    verification = { message: String(recoveryTransition?.verificationMessage || "").trim() };
 
                     cancelRun = true;
                     markRunFailed();

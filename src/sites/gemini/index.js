@@ -2539,6 +2539,13 @@
         const GEMINI_NOTEBOOK_ID_RE = /^[A-Za-z0-9-]+$/;
         const GEMINI_NOTEBOOK_TARGET_TTL_MS = 330000;
         const GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE = /(?:^|\b)(?:new|start)\s+(?:chat|conversation)(?:\b|$)|新(?:建)?(?:聊天|对话)|开始(?:聊天|对话)/i;
+        const GEMINI_NOTEBOOK_NEW_CHAT_RETRY_POLICY = Object.freeze({
+            maxNewChatRetries: 3,
+            newChatReadyTimeoutMs: 45000,
+            newChatRetryDelayMs: 2000,
+            newChatReadyIntervalMs: 160,
+            newChatReadySettleMs: 300
+        });
         let pendingGeminiNotebookTarget = null;
         let pendingGeminiNotebookTargetAt = 0;
         let sessionGeminiNotebookTarget = null;
@@ -2713,6 +2720,11 @@
         function getGeminiNewChatLabel() {
             const target = getGeminiNewChatTriggerTarget();
             return target?.kind === "notebook" ? getNotebookNewChatLabel() : getNativeNewChatLabel();
+        }
+
+        function getGeminiNewChatRetryPolicy() {
+            const target = getGeminiNewChatTriggerTarget();
+            return target?.kind === "notebook" ? GEMINI_NOTEBOOK_NEW_CHAT_RETRY_POLICY : null;
         }
 
         function isSameGeminiQuickInputTarget(currentTarget, expectedTarget) {
@@ -4836,6 +4848,7 @@
             waitForNewChatReady: waitForGeminiNewChatReady,
             triggerNewChat: ({ shouldCancel = null } = {}) => triggerGeminiNewChat({ shouldCancel }),
             newChatLabel: getGeminiNewChatLabel,
+            getNewChatRetryPolicy: getGeminiNewChatRetryPolicy,
             lockNewChatHotkey: true,
             lockedNewChatHotkeyDisplay: getGeminiNewChatLabel,
             sendMessage: sendGeminiMessage
