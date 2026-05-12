@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260512] v1.2.0
-// @name:en        [Gemini] Shortcut Jump [20260512] v1.2.0
+// @name           [Gemini] 快捷键跳转 [20260512] v1.2.1
+// @name:en        [Gemini] Shortcut Jump [20260512] v1.2.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260512] v1.2.0
-// @update-log     1.2.0: 修复 Gemini Notebook Quick Input 循环新页校验，允许 Notebook 主页空输入态在下方存在历史记录时继续下一轮，避免误判为旧上下文。
-// @update-log:en  1.2.0: Fixed Gemini Notebook Quick Input loop new-page verification so the blank Notebook home input state can continue the next loop even when history entries remain visible below it.
+// @version        [20260512] v1.2.1
+// @update-log     1.2.1: 修复 Gemini Notebook Quick Input 完成循环后点击重复循环可能跳出 Notebook 新建对话的问题；现在面板打开期间会固定并复用本次 Notebook 目标。
+// @update-log:en  1.2.1: Fixed Gemini Notebook Quick Input replay sometimes creating the next chat outside the Notebook after a completed loop; the open panel now pins and reuses the current Notebook target.
 
 // @match          https://gemini.google.com/*
 
@@ -2278,7 +2278,10 @@
       const GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE = /(?:^|\b)(?:new|start)\s+(?:chat|conversation)(?:\b|$)|新(?:建)?(?:聊天|对话)|开始(?:聊天|对话)/i;
       let pendingGeminiNotebookTarget = null;
       let pendingGeminiNotebookTargetAt = 0;
+      let sessionGeminiNotebookTarget = null;
       let armedGeminiNotebookTarget = null;
+      let observedGeminiQuickInputOverlayEl = null;
+      let geminiQuickInputOverlayObserver = null;
       function getCurrentGeminiUrl() {
         try {
           return String(window.location.href || "");
@@ -2327,11 +2330,15 @@
         }
         return createGeminiAppTarget(url.href);
       }
-      function isGeminiQuickInputOverlayOpen() {
+      function cloneGeminiNotebookTarget(target) {
+        if (!target || target.kind !== "notebook" || !target.notebookId || !target.targetUrl) return null;
+        return { ...target };
+      }
+      function getGeminiQuickInputOverlayElement() {
         try {
-          return document.getElementById(overlayId)?.getAttribute?.("data-open") === "1";
+          return document.getElementById(overlayId) || null;
         } catch {
-          return false;
+          return null;
         }
       }
       function getPendingGeminiNotebookTarget() {
@@ -2345,19 +2352,82 @@
         return null;
       }
       function rememberPendingGeminiNotebookTarget(target) {
-        if (!target || target.kind !== "notebook" || !target.notebookId || !target.targetUrl) return;
-        pendingGeminiNotebookTarget = { ...target };
+        const nextTarget = cloneGeminiNotebookTarget(target);
+        if (!nextTarget) return;
+        pendingGeminiNotebookTarget = nextTarget;
         pendingGeminiNotebookTargetAt = Date.now();
+      }
+      function clearPendingGeminiNotebookTarget(target = null) {
+        if (target && pendingGeminiNotebookTarget && !isSameGeminiQuickInputTarget(pendingGeminiNotebookTarget, target)) return;
+        pendingGeminiNotebookTarget = null;
+        pendingGeminiNotebookTargetAt = 0;
+      }
+      function rememberSessionGeminiNotebookTarget(target) {
+        const nextTarget = cloneGeminiNotebookTarget(target);
+        if (!nextTarget) return;
+        sessionGeminiNotebookTarget = nextTarget;
+        rememberPendingGeminiNotebookTarget(nextTarget);
+      }
+      function clearSessionGeminiNotebookTarget({ clearPending = false } = {}) {
+        sessionGeminiNotebookTarget = null;
+        clearGeminiNotebookArmed();
+        if (clearPending) clearPendingGeminiNotebookTarget();
+      }
+      function handleGeminiQuickInputOverlayState(overlayEl = getGeminiQuickInputOverlayElement()) {
+        const isOpen = !!(overlayEl && overlayEl.getAttribute?.("data-open") === "1");
+        if (!isOpen) {
+          clearSessionGeminiNotebookTarget({ clearPending: true });
+          return false;
+        }
+        const currentTarget = parseGeminiQuickInputTarget();
+        if (currentTarget?.kind === "notebook") {
+          rememberSessionGeminiNotebookTarget(currentTarget);
+        }
+        return true;
+      }
+      function observeGeminiQuickInputOverlay(overlayEl) {
+        if (observedGeminiQuickInputOverlayEl === overlayEl) return;
+        try {
+          geminiQuickInputOverlayObserver?.disconnect?.();
+        } catch {
+        }
+        observedGeminiQuickInputOverlayEl = overlayEl || null;
+        geminiQuickInputOverlayObserver = null;
+        if (!overlayEl || typeof MutationObserver !== "function") return;
+        try {
+          geminiQuickInputOverlayObserver = new MutationObserver(() => {
+            handleGeminiQuickInputOverlayState(overlayEl);
+          });
+          geminiQuickInputOverlayObserver.observe(overlayEl, {
+            attributes: true,
+            attributeFilter: ["data-open"]
+          });
+        } catch {
+          geminiQuickInputOverlayObserver = null;
+        }
+      }
+      function isGeminiQuickInputOverlayOpen() {
+        const overlayEl = getGeminiQuickInputOverlayElement();
+        observeGeminiQuickInputOverlay(overlayEl);
+        return handleGeminiQuickInputOverlayState(overlayEl);
       }
       function getGeminiNewChatTriggerTarget() {
         const currentTarget = parseGeminiQuickInputTarget();
+        const overlayOpen = isGeminiQuickInputOverlayOpen();
         if (currentTarget?.kind === "notebook") {
-          rememberPendingGeminiNotebookTarget(currentTarget);
+          if (overlayOpen) rememberSessionGeminiNotebookTarget(currentTarget);
           return currentTarget;
         }
-        const pendingTarget = getPendingGeminiNotebookTarget();
-        if (pendingTarget?.kind === "notebook" && isGeminiQuickInputOverlayOpen()) {
-          return pendingTarget;
+        if (overlayOpen) {
+          if (sessionGeminiNotebookTarget?.kind === "notebook") {
+            rememberPendingGeminiNotebookTarget(sessionGeminiNotebookTarget);
+            return sessionGeminiNotebookTarget;
+          }
+          const pendingTarget = getPendingGeminiNotebookTarget();
+          if (pendingTarget?.kind === "notebook") {
+            rememberSessionGeminiNotebookTarget(pendingTarget);
+            return pendingTarget;
+          }
         }
         return currentTarget || createGeminiAppTarget();
       }
