@@ -2541,7 +2541,10 @@
         const GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE = /(?:^|\b)(?:new|start)\s+(?:chat|conversation)(?:\b|$)|新(?:建)?(?:聊天|对话)|开始(?:聊天|对话)/i;
         let pendingGeminiNotebookTarget = null;
         let pendingGeminiNotebookTargetAt = 0;
+        let sessionGeminiNotebookTarget = null;
         let armedGeminiNotebookTarget = null;
+        let observedGeminiQuickInputOverlayEl = null;
+        let geminiQuickInputOverlayObserver = null;
 
         function getCurrentGeminiUrl() {
             try { return String(window.location.href || ""); } catch { return ""; }
@@ -2594,11 +2597,16 @@
             return createGeminiAppTarget(url.href);
         }
 
-        function isGeminiQuickInputOverlayOpen() {
+        function cloneGeminiNotebookTarget(target) {
+            if (!target || target.kind !== "notebook" || !target.notebookId || !target.targetUrl) return null;
+            return { ...target };
+        }
+
+        function getGeminiQuickInputOverlayElement() {
             try {
-                return document.getElementById(overlayId)?.getAttribute?.("data-open") === "1";
+                return document.getElementById(overlayId) || null;
             } catch {
-                return false;
+                return null;
             }
         }
 
@@ -2614,21 +2622,89 @@
         }
 
         function rememberPendingGeminiNotebookTarget(target) {
-            if (!target || target.kind !== "notebook" || !target.notebookId || !target.targetUrl) return;
-            pendingGeminiNotebookTarget = { ...target };
+            const nextTarget = cloneGeminiNotebookTarget(target);
+            if (!nextTarget) return;
+            pendingGeminiNotebookTarget = nextTarget;
             pendingGeminiNotebookTargetAt = Date.now();
+        }
+
+        function clearPendingGeminiNotebookTarget(target = null) {
+            if (target && pendingGeminiNotebookTarget && !isSameGeminiQuickInputTarget(pendingGeminiNotebookTarget, target)) return;
+            pendingGeminiNotebookTarget = null;
+            pendingGeminiNotebookTargetAt = 0;
+        }
+
+        function rememberSessionGeminiNotebookTarget(target) {
+            const nextTarget = cloneGeminiNotebookTarget(target);
+            if (!nextTarget) return;
+            sessionGeminiNotebookTarget = nextTarget;
+            rememberPendingGeminiNotebookTarget(nextTarget);
+        }
+
+        function clearSessionGeminiNotebookTarget({ clearPending = false } = {}) {
+            sessionGeminiNotebookTarget = null;
+            clearGeminiNotebookArmed();
+            if (clearPending) clearPendingGeminiNotebookTarget();
+        }
+
+        function handleGeminiQuickInputOverlayState(overlayEl = getGeminiQuickInputOverlayElement()) {
+            const isOpen = !!(overlayEl && overlayEl.getAttribute?.("data-open") === "1");
+            if (!isOpen) {
+                clearSessionGeminiNotebookTarget({ clearPending: true });
+                return false;
+            }
+
+            const currentTarget = parseGeminiQuickInputTarget();
+            if (currentTarget?.kind === "notebook") {
+                rememberSessionGeminiNotebookTarget(currentTarget);
+            }
+            return true;
+        }
+
+        function observeGeminiQuickInputOverlay(overlayEl) {
+            if (observedGeminiQuickInputOverlayEl === overlayEl) return;
+            try { geminiQuickInputOverlayObserver?.disconnect?.(); } catch { }
+            observedGeminiQuickInputOverlayEl = overlayEl || null;
+            geminiQuickInputOverlayObserver = null;
+            if (!overlayEl || typeof MutationObserver !== "function") return;
+            try {
+                geminiQuickInputOverlayObserver = new MutationObserver(() => {
+                    handleGeminiQuickInputOverlayState(overlayEl);
+                });
+                geminiQuickInputOverlayObserver.observe(overlayEl, {
+                    attributes: true,
+                    attributeFilter: ["data-open"]
+                });
+            } catch {
+                geminiQuickInputOverlayObserver = null;
+            }
+        }
+
+        function isGeminiQuickInputOverlayOpen() {
+            const overlayEl = getGeminiQuickInputOverlayElement();
+            observeGeminiQuickInputOverlay(overlayEl);
+            return handleGeminiQuickInputOverlayState(overlayEl);
         }
 
         function getGeminiNewChatTriggerTarget() {
             const currentTarget = parseGeminiQuickInputTarget();
+            const overlayOpen = isGeminiQuickInputOverlayOpen();
             if (currentTarget?.kind === "notebook") {
-                rememberPendingGeminiNotebookTarget(currentTarget);
+                if (overlayOpen) rememberSessionGeminiNotebookTarget(currentTarget);
                 return currentTarget;
             }
 
-            const pendingTarget = getPendingGeminiNotebookTarget();
-            if (pendingTarget?.kind === "notebook" && isGeminiQuickInputOverlayOpen()) {
-                return pendingTarget;
+            if (overlayOpen) {
+                if (sessionGeminiNotebookTarget?.kind === "notebook") {
+                    rememberPendingGeminiNotebookTarget(sessionGeminiNotebookTarget);
+                    return sessionGeminiNotebookTarget;
+                }
+
+                const pendingTarget = getPendingGeminiNotebookTarget();
+                if (pendingTarget?.kind === "notebook") {
+                    rememberSessionGeminiNotebookTarget(pendingTarget);
+                    return pendingTarget;
+                }
             }
 
             return currentTarget || createGeminiAppTarget();

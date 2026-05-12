@@ -255,16 +255,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260512] v1.2.0",
+            name: "[Gemini] 快捷键跳转 [20260512] v1.2.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260512] v1.2.0",
-            updateLog: "1.2.0: 修复 Gemini Notebook Quick Input 循环新页校验，允许 Notebook 主页空输入态在下方存在历史记录时继续下一轮，避免误判为旧上下文。",
+            version: "[20260512] v1.2.1",
+            updateLog: "1.2.1: 修复 Gemini Notebook Quick Input 完成循环后点击重复循环可能跳出 Notebook 新建对话的问题；现在面板打开期间会固定并复用本次 Notebook 目标。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260512] v1.2.0",
+                    name: "[Gemini] Shortcut Jump [20260512] v1.2.1",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.2.0: Fixed Gemini Notebook Quick Input loop new-page verification so the blank Notebook home input state can continue the next loop even when history entries remain visible below it."
+                    updateLog: "1.2.1: Fixed Gemini Notebook Quick Input replay sometimes creating the next chat outside the Notebook after a completed loop; the open panel now pins and reuses the current Notebook target."
                 }
             },
             match: [
