@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260512] v1.2.3
-// @name:en        [Gemini] Shortcut Jump [20260512] v1.2.3
+// @name           [Gemini] 快捷键跳转 [20260512] v1.2.2
+// @name:en        [Gemini] Shortcut Jump [20260512] v1.2.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260512] v1.2.3
-// @update-log     1.2.3: 修复 Gemini Notebook Quick Input 误把活动对话页当作新对话的问题；现在会识别 /app 活动上下文中的已发送消息与生成加载状态，并恢复到同一 Notebook 主页空输入态后再继续循环。
-// @update-log:en  1.2.3: Fixed Gemini Notebook Quick Input treating active conversation pages as new chats; sent-message and generation-loading states in /app contexts are now blocked until the same Notebook returns to the blank home input.
+// @version        [20260512] v1.2.2
+// @update-log     1.2.2: 增强 Gemini Notebook Quick Input 新对话校验：Notebook 场景改为最多 3 次重试、每次等待 45 秒、重试间隔 2 秒，以适应 Thinking 状态较久的循环。
+// @update-log:en  1.2.2: Strengthened Gemini Notebook Quick Input new-chat verification with up to 3 retries, 45 seconds per check, and a 2-second retry delay for long Thinking states.
 
 // @match          https://gemini.google.com/*
 
@@ -2283,49 +2283,6 @@
         newChatReadyIntervalMs: 160,
         newChatReadySettleMs: 300
       });
-      const GEMINI_NOTEBOOK_ACTIVE_THREAD_SELECTORS = Object.freeze([
-        "user-query",
-        "user-query-content",
-        "model-response",
-        "message-content",
-        "[data-test-id*='user-query' i]",
-        "[data-test-id*='model-response' i]",
-        "[data-test-id*='message-content' i]",
-        "[data-test-id*='message_content' i]",
-        "[data-test-id*='query-content' i]",
-        "[data-test-id*='query_content' i]",
-        "[data-test-id*='conversation-turn' i]",
-        "[data-test-id*='conversation_turn' i]"
-      ].join(", "));
-      const GEMINI_NOTEBOOK_BUSY_SELECTORS = Object.freeze([
-        "[aria-busy='true']",
-        "[data-loading='true']",
-        "[data-state='loading']",
-        "[role='progressbar']",
-        "mat-progress-spinner",
-        "mat-mdc-progress-spinner",
-        ".mat-progress-spinner",
-        ".mat-mdc-progress-spinner",
-        "mat-progress-bar",
-        "mat-mdc-progress-bar",
-        ".mat-progress-bar",
-        ".mat-mdc-progress-bar",
-        "progress"
-      ].join(", "));
-      const GEMINI_NOTEBOOK_PASSIVE_CONTEXT_SELECTORS = Object.freeze([
-        "bard-sidenav",
-        "side-navigation-content",
-        "mat-sidenav",
-        "[role='navigation']",
-        "[data-test-id*='side-nav' i]",
-        "[data-test-id*='sidenav' i]",
-        "[data-test-id*='history' i]",
-        "[data-test-id*='recent' i]",
-        "[data-test-id*='conversation-list' i]",
-        "[data-test-id*='conversation_list' i]",
-        "[data-test-id*='notebook-list' i]",
-        "[data-test-id*='notebook_list' i]"
-      ].join(", "));
       let pendingGeminiNotebookTarget = null;
       let pendingGeminiNotebookTargetAt = 0;
       let sessionGeminiNotebookTarget = null;
@@ -2624,79 +2581,6 @@
         }
         return null;
       }
-      function isGeminiNotebookPassiveContextElement(el) {
-        if (!el) return true;
-        if (isInsideQuickInputOverlay(el)) return true;
-        try {
-          if (el.closest?.(GEMINI_NOTEBOOK_PASSIVE_CONTEXT_SELECTORS)) return true;
-        } catch {
-        }
-        return false;
-      }
-      function isGeminiNotebookComposerContextElement(el, composerEl = null) {
-        if (!el) return false;
-        if (composerEl) {
-          try {
-            if (el === composerEl || composerEl.contains?.(el) || el.contains?.(composerEl)) return true;
-          } catch {
-          }
-        }
-        try {
-          if (el.closest?.([
-            ".input-area-container",
-            "[data-node-type='input-area']",
-            "input-area-v2",
-            ".text-input-field",
-            "rich-textarea",
-            "[xapfileselectordropzone]"
-          ].join(", "))) return true;
-        } catch {
-        }
-        return false;
-      }
-      function isVisibleGeminiNotebookSurfaceElement(el, { composer = null, allowLargeBusyRoot = false } = {}) {
-        if (!el || !isElementVisible2(el)) return false;
-        if (isGeminiNotebookPassiveContextElement(el)) return false;
-        if (isGeminiNotebookComposerContextElement(el, composer)) return false;
-        const tag = String(el.tagName || "").toUpperCase();
-        if (tag === "HTML" || tag === "BODY") return false;
-        try {
-          const rect = el.getBoundingClientRect?.();
-          if (!rect || rect.width <= 0 || rect.height <= 0) return false;
-          const viewportW = Math.max(1, window.innerWidth || document.documentElement?.clientWidth || 1);
-          const viewportH = Math.max(1, window.innerHeight || document.documentElement?.clientHeight || 1);
-          if (rect.bottom < 0 || rect.right < 0 || rect.top > viewportH || rect.left > viewportW) return false;
-          if (!allowLargeBusyRoot && rect.width * rect.height > viewportW * viewportH * 0.75) return false;
-        } catch {
-        }
-        return true;
-      }
-      function hasVisibleGeminiNotebookActiveThreadContent({ composer = null } = {}) {
-        let nodes = [];
-        try {
-          nodes = Array.from(document.querySelectorAll(GEMINI_NOTEBOOK_ACTIVE_THREAD_SELECTORS));
-        } catch {
-          nodes = [];
-        }
-        for (const node of nodes) {
-          if (!isVisibleGeminiNotebookSurfaceElement(node, { composer, allowLargeBusyRoot: true })) continue;
-          return true;
-        }
-        return false;
-      }
-      function hasVisibleGeminiNotebookBusyIndicator({ composer = null } = {}) {
-        let nodes = [];
-        try {
-          nodes = Array.from(document.querySelectorAll(GEMINI_NOTEBOOK_BUSY_SELECTORS));
-        } catch {
-          nodes = [];
-        }
-        for (const node of nodes) {
-          if (!isVisibleGeminiNotebookSurfaceElement(node, { composer })) continue;
-          return true;
-        }
-        return false;
-      }
       function getGeminiNotebookNewPageState(target = null) {
         const expectedTarget = target || getGeminiNewChatTriggerTarget();
         const currentUrl = getCurrentGeminiUrl();
@@ -2706,18 +2590,14 @@
         const composerText = composer ? normalizeGeminiCommittedText(getGeminiComposerPlainText(composer, { trimTrailingEditorNewlines: true })).trim() : "";
         const composerBlank = !!(composer && composerText.length === 0);
         const zeroState = !!(matchesTarget && findGeminiNotebookZeroStateElement(composer));
-        const activeThreadContent = !!(matchesTarget && hasVisibleGeminiNotebookActiveThreadContent({ composer }));
-        const busyIndicator = !!(matchesTarget && hasVisibleGeminiNotebookBusyIndicator({ composer }));
         return {
-          ok: !!(matchesTarget && composer && composerBlank && zeroState && !activeThreadContent && !busyIndicator),
+          ok: !!(matchesTarget && composer && composerBlank && zeroState),
           currentUrl,
           currentTarget,
           matchesTarget,
           composer,
           composerBlank,
           zeroState,
-          activeThreadContent,
-          busyIndicator,
           targetUrl: expectedTarget?.targetUrl || GEMINI_ROOT_URL
         };
       }
@@ -2859,6 +2739,9 @@
         }
         const currentTarget = parseGeminiQuickInputTarget(currentUrl);
         if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, expectedTarget)) {
+          if (isGeminiNotebookArmed(expectedTarget)) {
+            return { ok: true, url: currentUrl, targetUrl: expectedTarget.targetUrl };
+          }
           const newPageState = getGeminiNotebookNewPageState(expectedTarget);
           if (newPageState.ok) {
             markGeminiNotebookArmed(expectedTarget);
@@ -2963,6 +2846,9 @@
           return { ok: true, label, targetUrl: nextTarget.targetUrl };
         }
         const currentTarget = parseGeminiQuickInputTarget();
+        if (currentTarget?.ready && isSameGeminiQuickInputTarget(currentTarget, nextTarget)) {
+          return { ok: true, label, targetUrl: nextTarget.targetUrl };
+        }
         const navigatedHome = navigateGeminiSpaToTarget(nextTarget);
         if (navigatedHome) {
           return { ok: true, label, targetUrl: nextTarget.targetUrl };
@@ -3013,8 +2899,10 @@
           const currentUrl2 = getCurrentGeminiUrl();
           const currentTarget2 = parseGeminiQuickInputTarget(currentUrl2);
           const matchesTarget2 = currentTarget2?.ready && isSameGeminiQuickInputTarget(currentTarget2, expectedTarget);
-          const newPageState = matchesTarget2 ? getGeminiNotebookNewPageState(expectedTarget) : null;
-          const ready = !!newPageState?.ok;
+          const armed = matchesTarget2 && isGeminiNotebookArmed(expectedTarget);
+          const newPageState = matchesTarget2 && !armed ? getGeminiNotebookNewPageState(expectedTarget) : null;
+          const composer = armed ? findGeminiComposerElement({ requireVisible: true }) : newPageState?.composer || null;
+          const ready = armed ? !!composer : !!newPageState?.ok;
           if (ready) {
             if (!stableSince) stableSince = getRuntimeNow(runtime);
             if (getRuntimeNow(runtime) - stableSince >= settle) {
@@ -3027,11 +2915,6 @@
             clearGeminiNotebookArmed();
             if (!matchesTarget2 && !recoveryAttempted) {
               recoveryAttempted = true;
-              routeResetAttempted = true;
-              if (await resetGeminiNotebookRouteToHome(expectedTarget, { shouldCancel: cancelFn, runtime, intervalMs: interval })) {
-                continue;
-              }
-              routeResetFailed = true;
               if (navigateGeminiSpaToTarget(expectedTarget)) {
                 await runtimeSleep(runtime, interval, { shouldCancel: cancelFn });
                 continue;
