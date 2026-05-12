@@ -1848,6 +1848,13 @@
 
     const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-list-item], button.mat-mdc-list-item, [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']";
     const CONVERSATION_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitem'], [role='menuitemradio']";
+    const CONVERSATION_MENU_PANEL_SELECTOR = SELECTORS.topBarConversationMenuRoot.join(", ");
+    const CONVERSATION_MENU_MARKER_SELECTOR = [
+        "button[data-test-id='delete-button']",
+        "button[data-test-id='pin-button']",
+        "button[data-test-id='rename-button']",
+        "button[data-test-id='studio-sidebar-button']"
+    ].join(", ");
     const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio']";
 
     function inferModelKeyFromSelectorSpec(selectorSpec) {
@@ -2200,18 +2207,60 @@
         if (typeof cleanup === "function") cleanup();
     }
 
-    function armDeleteConfirmEnterBridge({ dialog, confirmBtn }, { timeoutMs = 30000, closeCheckIntervalMs = 250 } = {}) {
+    function getVisibleConversationMenuPanels() {
+        let panels = [];
+        try { panels = Array.from(document.querySelectorAll(CONVERSATION_MENU_PANEL_SELECTOR)); } catch { return []; }
+        return panels.filter((panel) => {
+            if (!panel || !isElementVisible(panel)) return false;
+            try {
+                if (panel.querySelector(CONVERSATION_MENU_MARKER_SELECTOR)) return true;
+            } catch { }
+            return false;
+        });
+    }
+
+    function isConversationMenuClosingOrOpen(ctx = {}) {
+        try { if (topBarConversationMenu.isOpen(ctx)) return true; } catch { }
+        try { if (conversationMenu.isOpen(ctx)) return true; } catch { }
+        return getVisibleConversationMenuPanels().length > 0;
+    }
+
+    async function waitForConversationMenusSettled({ engine = null, timeoutMs = 900, intervalMs = 40, settleMs = 80 } = {}) {
+        const timeout = Math.max(0, Number(timeoutMs) || 0);
+        const interval = Math.max(20, Number(intervalMs) || 40);
+        const settle = Math.max(0, Number(settleMs) || 0);
+        const deadline = Date.now() + timeout;
+        const ctx = { engine };
+        let closedSince = 0;
+
+        while (Date.now() <= deadline) {
+            if (!isConversationMenuClosingOrOpen(ctx)) {
+                if (!closedSince) closedSince = Date.now();
+                if (Date.now() - closedSince >= settle) return true;
+            } else {
+                closedSince = 0;
+            }
+            await sleep(interval);
+        }
+
+        return !isConversationMenuClosingOrOpen(ctx);
+    }
+
+    function armDeleteConfirmEnterBridge({ dialog, confirmBtn }, { engine = null, timeoutMs = 30000, closeCheckIntervalMs = 250 } = {}) {
         if (!dialog || !confirmBtn) return false;
         clearDeleteConfirmEnterBridge();
 
         const doc = dialog.ownerDocument || document;
+        const win = doc.defaultView || window;
         let cleaned = false;
         let timeoutId = 0;
         let closeCheckId = 0;
+        let handlingEnter = false;
 
         const cleanup = () => {
             if (cleaned) return;
             cleaned = true;
+            try { win?.removeEventListener?.("keydown", onKeydown, true); } catch { }
             try { doc.removeEventListener("keydown", onKeydown, true); } catch { }
             try { clearTimeout(timeoutId); } catch { }
             try { clearInterval(closeCheckId); } catch { }
@@ -2221,8 +2270,11 @@
         const onKeydown = (event) => {
             if (!isPlainEnterKeyEvent(event)) return;
 
+            if (handlingEnter) return;
+
             const latest = findDeleteConfirmDialog();
-            if (!latest?.dialog || !latest?.confirmBtn) {
+            const candidate = latest?.confirmBtn || confirmBtn;
+            if (!latest?.dialog && !isUsableDeleteConfirmButton(candidate)) {
                 cleanup();
                 return;
             }
@@ -2231,19 +2283,48 @@
             try { event.stopPropagation(); } catch { }
             try { event.stopImmediatePropagation?.(); } catch { }
 
+            handlingEnter = true;
             cleanup();
-            focusDeleteConfirmButton(latest.confirmBtn);
-            simulateGeminiMenuClick(latest.confirmBtn);
+            void (async () => {
+                await waitForConversationMenusSettled({
+                    engine,
+                    timeoutMs: 650,
+                    intervalMs: 35,
+                    settleMs: 35
+                });
+
+                const settledLatest = findDeleteConfirmDialog();
+                const target = isUsableDeleteConfirmButton(settledLatest?.confirmBtn)
+                    ? settledLatest.confirmBtn
+                    : candidate;
+                if (!isUsableDeleteConfirmButton(target)) return;
+                focusDeleteConfirmButton(target);
+                simulateGeminiMenuClick(target);
+            })();
         };
 
         deleteConfirmEnterBridgeCleanup = cleanup;
         try {
+            win?.addEventListener?.("keydown", onKeydown, true);
             doc.addEventListener("keydown", onKeydown, true);
         } catch {
             cleanup();
             return false;
         }
-        focusDeleteConfirmButton(confirmBtn);
+        void (async () => {
+            await waitForConversationMenusSettled({
+                engine,
+                timeoutMs: 900,
+                intervalMs: 40,
+                settleMs: 80
+            });
+            if (cleaned) return;
+            const latest = findDeleteConfirmDialog();
+            const target = isUsableDeleteConfirmButton(latest?.confirmBtn)
+                ? latest.confirmBtn
+                : confirmBtn;
+            if (isUsableDeleteConfirmButton(target)) focusDeleteConfirmButton(target);
+        })();
 
         const timeout = Math.max(1000, Number(timeoutMs) || 30000);
         const closeCheckInterval = Math.max(100, Number(closeCheckIntervalMs) || 250);
@@ -2255,12 +2336,12 @@
         return true;
     }
 
-    async function prepareDeleteConfirmEnterBridge({ timeoutMs = 2500, intervalMs = 80 } = {}) {
+    async function prepareDeleteConfirmEnterBridge({ engine = null, timeoutMs = 2500, intervalMs = 80 } = {}) {
         const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
         const interval = Math.max(30, Number(intervalMs) || 80);
         while (Date.now() <= deadline) {
             const target = findDeleteConfirmDialog();
-            if (target?.confirmBtn) return armDeleteConfirmEnterBridge(target);
+            if (target?.confirmBtn) return armDeleteConfirmEnterBridge(target, { engine });
             await sleep(interval);
         }
         return false;
@@ -2298,7 +2379,7 @@
         }
         if (!ok) return false;
         if (!shortcutLooksLikeDelete(shortcut)) return true;
-        await prepareDeleteConfirmEnterBridge();
+        await prepareDeleteConfirmEnterBridge({ engine });
         return true;
     };
 

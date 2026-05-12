@@ -255,16 +255,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260512] v1.0.0",
+            name: "[Gemini] 快捷键跳转 [20260512] v1.1.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260512] v1.0.0",
-            updateLog: "1.0.0: 修复 Gemini Notebook 中 Delete 快捷键误点 Delete from notebook 的问题；现在会精确匹配当前对话的 Delete 菜单项，并排除 Notebook 删除入口。",
+            version: "[20260512] v1.1.0",
+            updateLog: "1.1.0: 修复 Gemini 删除确认框在三点菜单未完全关闭时第一次 Enter 无效的问题；现在会等待菜单收起后再聚焦确认按钮，并桥接 Enter 确认。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260512] v1.0.0",
+                    name: "[Gemini] Shortcut Jump [20260512] v1.1.0",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.0: Fixed Gemini Notebook Delete shortcuts clicking Delete from notebook by mistake; Delete now precisely targets the current conversation menu item and excludes Notebook removal entries."
+                    updateLog: "1.1.0: Fixed the first Enter press being ignored when Gemini's delete confirmation appears before the three-dot menu fully closes; the script now waits for the menu to settle, focuses Confirm, and bridges Enter."
                 }
             },
             match: [
