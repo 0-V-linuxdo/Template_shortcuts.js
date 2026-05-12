@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260511] v1.2.4
-// @name:en        [Gemini] Shortcut Jump [20260511] v1.2.4
+// @name           [Gemini] 快捷键跳转 [20260512] v1.0.0
+// @name:en        [Gemini] Shortcut Jump [20260512] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260511] v1.2.4
-// @update-log     1.2.4: 修复 Gemini Notebook 主页 URL 卡住时 Quick Input 循环新建话题失败的问题；现在会通过临时 `/app` SPA 绕路回 Notebook 主页，并严格校验空白新页后再继续。
-// @update-log:en  1.2.4: Fixed Gemini Notebook Quick Input loop transitions failing when the Notebook home URL stays stuck on stale topic DOM; Quick Input now briefly routes through `/app`, returns to the Notebook home target, and continues only after a blank new page is confirmed.
+// @version        [20260512] v1.0.0
+// @update-log     1.0.0: 修复 Gemini Notebook 中 Delete 快捷键误点 Delete from notebook 的问题；现在会精确匹配当前对话的 Delete 菜单项，并排除 Notebook 删除入口。
+// @update-log:en  1.0.0: Fixed Gemini Notebook Delete shortcuts clicking Delete from notebook by mistake; Delete now precisely targets the current conversation menu item and excludes Notebook removal entries.
 
 // @match          https://gemini.google.com/*
 
@@ -1275,6 +1275,57 @@
       if (expected.size === 0) return false;
       return getGeminiElementDataTestIds(element).some((id) => expected.has(id));
     }
+    function collectGeminiElementTextExcludingIcons(node, parts = []) {
+      if (!node) return parts;
+      if (node.nodeType === 3) {
+        parts.push(node.nodeValue || "");
+        return parts;
+      }
+      if (node.nodeType !== 1) return parts;
+      const tagName = String(node.tagName || "").toLowerCase();
+      if (tagName === "mat-icon") return parts;
+      if (String(node.getAttribute?.("aria-hidden") || "").trim().toLowerCase() === "true") return parts;
+      if (node.hasAttribute?.("fonticon") || node.hasAttribute?.("data-mat-icon-name")) return parts;
+      try {
+        for (const child of Array.from(node.childNodes || [])) {
+          collectGeminiElementTextExcludingIcons(child, parts);
+        }
+      } catch {
+      }
+      return parts;
+    }
+    function getGeminiUiElementText(element) {
+      if (!element) return "";
+      const ariaLabel = element.getAttribute?.("aria-label");
+      if (ariaLabel && String(ariaLabel).trim()) return String(ariaLabel);
+      const title = element.getAttribute?.("title");
+      if (title && String(title).trim()) return String(title);
+      const textWithoutIcons = collectGeminiElementTextExcludingIcons(element, []).join(" ");
+      if (textWithoutIcons && String(textWithoutIcons).trim()) return textWithoutIcons;
+      try {
+        return String(element.textContent || "");
+      } catch {
+        return "";
+      }
+    }
+    function geminiMenuItemLooksLikeNotebook(rawText, element) {
+      const values = [
+        rawText,
+        getGeminiUiElementText(element),
+        getGeminiElementDataTestIds(element).join(" ")
+      ];
+      return values.some((value) => {
+        const text = normalizeGeminiUiText(value);
+        return !!text && (/\bnotebook\b/i.test(text) || text.includes("笔记本"));
+      });
+    }
+    function geminiMenuTextExactlyMatches(rawText, aliases, element) {
+      const aliasSet = new Set((Array.isArray(aliases) ? aliases : []).map(normalizeGeminiUiText).filter(Boolean));
+      if (aliasSet.size === 0) return false;
+      const text = element ? getGeminiUiElementText(element) : rawText;
+      const normalizedText = normalizeGeminiUiText(text);
+      return !!normalizedText && aliasSet.has(normalizedText);
+    }
     function geminiMenuTextMatches(rawText, matcher, element = null) {
       if (matcher == null) return true;
       if (typeof matcher === "function") {
@@ -1298,6 +1349,20 @@
       const target = normalizeGeminiUiText(matcher);
       return target ? text.includes(target) : true;
     }
+    function createGeminiConversationDeleteTargetMatcher(target) {
+      const dataTestIds = normalizeGeminiToolStringIds(target?.dataTestIds || []);
+      const jslogIds = normalizeGeminiToolStringIds(target?.jslogIds || []);
+      const aliases = Array.isArray(target?.aliases) ? target.aliases : ["Delete", "删除"];
+      return (rawText, element) => {
+        if (geminiMenuItemLooksLikeNotebook(rawText, element)) return false;
+        if (geminiMenuTextExactlyMatches(rawText, aliases, element)) return true;
+        const hasReadableText = !!normalizeGeminiUiText(element ? getGeminiUiElementText(element) : rawText);
+        if (hasReadableText) return false;
+        if (dataTestIds.length > 0 && elementHasGeminiDataTestId(element, dataTestIds)) return true;
+        const jslogId = getGeminiElementJslogId(element);
+        return !!jslogId && jslogIds.includes(jslogId);
+      };
+    }
     function createGeminiToolTargetMatcher(target, extraIconNames = []) {
       const iconNames = normalizeGeminiToolIconNames([
         ...target?.iconNames || [],
@@ -1317,6 +1382,9 @@
       };
     }
     function createGeminiConversationMenuTargetMatcher(target, extraIconNames = []) {
+      if (target?.id === "delete") {
+        return createGeminiConversationDeleteTargetMatcher(target);
+      }
       const dataTestIds = normalizeGeminiToolStringIds(target?.dataTestIds || []);
       const iconNames = normalizeGeminiToolIconNames([
         ...target?.iconNames || [],
@@ -1665,21 +1733,21 @@
         console.warn(`[Gemini Shortcut] ${actionName || "geminiMenu"}: unknown menu.id "${String(menu.id).trim()}"; falling back to textMatch / keyword if provided.`);
       }
       const rawTextMatch = menu.keyword !== void 0 ? menu.keyword : menu.textMatch;
+      const path = Array.isArray(menu.path) ? menu.path : null;
+      const pathParts = path && path.length ? path.map(normalizeMenuToken).filter(Boolean) : [];
+      const pathLast = pathParts.length ? pathParts[pathParts.length - 1] : "";
+      const inferredMenuTarget = menuTarget || (!hasMenuId && typeof resolveMenuTarget === "function" ? resolveMenuTarget(typeof rawTextMatch === "string" ? rawTextMatch : pathLast) : null);
+      const isConversationDeleteTarget = !!(inferredMenuTarget?.id === "delete" && String(actionName || "").startsWith("conversationMenu"));
       const extraIconNames = normalizeGeminiToolIconNames(
         menu.iconNames !== void 0 ? menu.iconNames : menu.iconName !== void 0 ? menu.iconName : menu.fonticon ?? menu.fontIcon
       );
-      const canonicalMatch = typeof createMenuTargetMatcher === "function" ? createMenuTargetMatcher(menuTarget, extraIconNames) : null;
-      let textMatch = combineGeminiMenuTextMatches(canonicalMatch, rawTextMatch);
+      const canonicalMatch = typeof createMenuTargetMatcher === "function" ? createMenuTargetMatcher(inferredMenuTarget, extraIconNames) : null;
+      let textMatch = combineGeminiMenuTextMatches(canonicalMatch, isConversationDeleteTarget ? null : rawTextMatch);
       const openSubmenus = [];
       if (Array.isArray(menu.openSubmenus)) openSubmenus.push(...menu.openSubmenus);
-      const path = Array.isArray(menu.path) ? menu.path : null;
-      if (path && path.length) {
-        const parts = path.map(normalizeMenuToken).filter(Boolean);
-        if (parts.length) {
-          const last = parts[parts.length - 1];
-          if ((textMatch === void 0 || textMatch === null || textMatch === "") && last) textMatch = last;
-          for (const label of parts.slice(0, -1)) openSubmenus.push(label);
-        }
+      if (pathParts.length) {
+        if ((textMatch === void 0 || textMatch === null || textMatch === "") && pathLast) textMatch = pathLast;
+        for (const label of pathParts.slice(0, -1)) openSubmenus.push(label);
       }
       const normalizedOpenSubmenus = Array.from(new Set(openSubmenus.map(normalizeMenuKey).filter(Boolean)));
       const action = normalizeMenuAction(menu.action);
