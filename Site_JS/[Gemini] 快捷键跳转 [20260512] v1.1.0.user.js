@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260512] v1.0.0
-// @name:en        [Gemini] Shortcut Jump [20260512] v1.0.0
+// @name           [Gemini] 快捷键跳转 [20260512] v1.1.0
+// @name:en        [Gemini] Shortcut Jump [20260512] v1.1.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260512] v1.0.0
-// @update-log     1.0.0: 修复 Gemini Notebook 中 Delete 快捷键误点 Delete from notebook 的问题；现在会精确匹配当前对话的 Delete 菜单项，并排除 Notebook 删除入口。
-// @update-log:en  1.0.0: Fixed Gemini Notebook Delete shortcuts clicking Delete from notebook by mistake; Delete now precisely targets the current conversation menu item and excludes Notebook removal entries.
+// @version        [20260512] v1.1.0
+// @update-log     1.1.0: 修复 Gemini 删除确认框在三点菜单未完全关闭时第一次 Enter 无效的问题；现在会等待菜单收起后再聚焦确认按钮，并桥接 Enter 确认。
+// @update-log:en  1.1.0: Fixed the first Enter press being ignored when Gemini's delete confirmation appears before the three-dot menu fully closes; the script now waits for the menu to settle, focuses Confirm, and bridges Enter.
 
 // @match          https://gemini.google.com/*
 
@@ -1650,6 +1650,13 @@
     }
     const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-list-item], button.mat-mdc-list-item, [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']";
     const CONVERSATION_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitem'], [role='menuitemradio']";
+    const CONVERSATION_MENU_PANEL_SELECTOR = SELECTORS.topBarConversationMenuRoot.join(", ");
+    const CONVERSATION_MENU_MARKER_SELECTOR = [
+      "button[data-test-id='delete-button']",
+      "button[data-test-id='pin-button']",
+      "button[data-test-id='rename-button']",
+      "button[data-test-id='studio-sidebar-button']"
+    ].join(", ");
     const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio']";
     function inferModelKeyFromSelectorSpec(selectorSpec) {
       const fromString = (value) => {
@@ -1941,16 +1948,67 @@
       const cleanup = deleteConfirmEnterBridgeCleanup;
       if (typeof cleanup === "function") cleanup();
     }
-    function armDeleteConfirmEnterBridge({ dialog, confirmBtn }, { timeoutMs = 3e4, closeCheckIntervalMs = 250 } = {}) {
+    function getVisibleConversationMenuPanels() {
+      let panels = [];
+      try {
+        panels = Array.from(document.querySelectorAll(CONVERSATION_MENU_PANEL_SELECTOR));
+      } catch {
+        return [];
+      }
+      return panels.filter((panel) => {
+        if (!panel || !isElementVisible(panel)) return false;
+        try {
+          if (panel.querySelector(CONVERSATION_MENU_MARKER_SELECTOR)) return true;
+        } catch {
+        }
+        return false;
+      });
+    }
+    function isConversationMenuClosingOrOpen(ctx = {}) {
+      try {
+        if (topBarConversationMenu.isOpen(ctx)) return true;
+      } catch {
+      }
+      try {
+        if (conversationMenu.isOpen(ctx)) return true;
+      } catch {
+      }
+      return getVisibleConversationMenuPanels().length > 0;
+    }
+    async function waitForConversationMenusSettled({ engine: engine2 = null, timeoutMs = 900, intervalMs = 40, settleMs = 80 } = {}) {
+      const timeout = Math.max(0, Number(timeoutMs) || 0);
+      const interval = Math.max(20, Number(intervalMs) || 40);
+      const settle = Math.max(0, Number(settleMs) || 0);
+      const deadline = Date.now() + timeout;
+      const ctx = { engine: engine2 };
+      let closedSince = 0;
+      while (Date.now() <= deadline) {
+        if (!isConversationMenuClosingOrOpen(ctx)) {
+          if (!closedSince) closedSince = Date.now();
+          if (Date.now() - closedSince >= settle) return true;
+        } else {
+          closedSince = 0;
+        }
+        await sleep(interval);
+      }
+      return !isConversationMenuClosingOrOpen(ctx);
+    }
+    function armDeleteConfirmEnterBridge({ dialog, confirmBtn }, { engine: engine2 = null, timeoutMs = 3e4, closeCheckIntervalMs = 250 } = {}) {
       if (!dialog || !confirmBtn) return false;
       clearDeleteConfirmEnterBridge();
       const doc = dialog.ownerDocument || document;
+      const win = doc.defaultView || window;
       let cleaned = false;
       let timeoutId = 0;
       let closeCheckId = 0;
+      let handlingEnter = false;
       const cleanup = () => {
         if (cleaned) return;
         cleaned = true;
+        try {
+          win?.removeEventListener?.("keydown", onKeydown, true);
+        } catch {
+        }
         try {
           doc.removeEventListener("keydown", onKeydown, true);
         } catch {
@@ -1967,8 +2025,10 @@
       };
       const onKeydown = (event) => {
         if (!isPlainEnterKeyEvent(event)) return;
+        if (handlingEnter) return;
         const latest = findDeleteConfirmDialog();
-        if (!latest?.dialog || !latest?.confirmBtn) {
+        const candidate = latest?.confirmBtn || confirmBtn;
+        if (!latest?.dialog && !isUsableDeleteConfirmButton(candidate)) {
           cleanup();
           return;
         }
@@ -1984,18 +2044,42 @@
           event.stopImmediatePropagation?.();
         } catch {
         }
+        handlingEnter = true;
         cleanup();
-        focusDeleteConfirmButton(latest.confirmBtn);
-        simulateGeminiMenuClick(latest.confirmBtn);
+        void (async () => {
+          await waitForConversationMenusSettled({
+            engine: engine2,
+            timeoutMs: 650,
+            intervalMs: 35,
+            settleMs: 35
+          });
+          const settledLatest = findDeleteConfirmDialog();
+          const target = isUsableDeleteConfirmButton(settledLatest?.confirmBtn) ? settledLatest.confirmBtn : candidate;
+          if (!isUsableDeleteConfirmButton(target)) return;
+          focusDeleteConfirmButton(target);
+          simulateGeminiMenuClick(target);
+        })();
       };
       deleteConfirmEnterBridgeCleanup = cleanup;
       try {
+        win?.addEventListener?.("keydown", onKeydown, true);
         doc.addEventListener("keydown", onKeydown, true);
       } catch {
         cleanup();
         return false;
       }
-      focusDeleteConfirmButton(confirmBtn);
+      void (async () => {
+        await waitForConversationMenusSettled({
+          engine: engine2,
+          timeoutMs: 900,
+          intervalMs: 40,
+          settleMs: 80
+        });
+        if (cleaned) return;
+        const latest = findDeleteConfirmDialog();
+        const target = isUsableDeleteConfirmButton(latest?.confirmBtn) ? latest.confirmBtn : confirmBtn;
+        if (isUsableDeleteConfirmButton(target)) focusDeleteConfirmButton(target);
+      })();
       const timeout = Math.max(1e3, Number(timeoutMs) || 3e4);
       const closeCheckInterval = Math.max(100, Number(closeCheckIntervalMs) || 250);
       timeoutId = setTimeout(cleanup, timeout);
@@ -2005,12 +2089,12 @@
       }, closeCheckInterval);
       return true;
     }
-    async function prepareDeleteConfirmEnterBridge({ timeoutMs = 2500, intervalMs = 80 } = {}) {
+    async function prepareDeleteConfirmEnterBridge({ engine: engine2 = null, timeoutMs = 2500, intervalMs = 80 } = {}) {
       const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
       const interval = Math.max(30, Number(intervalMs) || 80);
       while (Date.now() <= deadline) {
         const target = findDeleteConfirmDialog();
-        if (target?.confirmBtn) return armDeleteConfirmEnterBridge(target);
+        if (target?.confirmBtn) return armDeleteConfirmEnterBridge(target, { engine: engine2 });
         await sleep(interval);
       }
       return false;
@@ -2044,7 +2128,7 @@
       }
       if (!ok) return false;
       if (!shortcutLooksLikeDelete(shortcut)) return true;
-      await prepareDeleteConfirmEnterBridge();
+      await prepareDeleteConfirmEnterBridge({ engine: engine2 });
       return true;
     };
     const modelPickerMenuAction = createGeminiMenuAction({
