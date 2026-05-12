@@ -2539,17 +2539,6 @@
         const GEMINI_NOTEBOOK_ID_RE = /^[A-Za-z0-9-]+$/;
         const GEMINI_NOTEBOOK_TARGET_TTL_MS = 330000;
         const GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE = /(?:^|\b)(?:new|start)\s+(?:chat|conversation)(?:\b|$)|新(?:建)?(?:聊天|对话)|开始(?:聊天|对话)/i;
-        const GEMINI_NOTEBOOK_ACTIVE_CONTENT_SELECTORS = Object.freeze([
-            "user-query",
-            "user-query-content",
-            "model-response",
-            "message-content",
-            "[data-test-id*='user-query' i]",
-            "[data-test-id*='model-response' i]",
-            "[data-test-id*='response' i]",
-            "[data-test-id*='message' i]",
-            "[data-test-id*='query' i]"
-        ]);
         let pendingGeminiNotebookTarget = null;
         let pendingGeminiNotebookTargetAt = 0;
         let armedGeminiNotebookTarget = null;
@@ -2755,55 +2744,6 @@
             return prefix ? `${prefix}${base}` : base;
         }
 
-        function isInsideGeminiNotebookIgnoredRegion(el) {
-            if (!el || typeof el.closest !== "function") return false;
-            try {
-                return !!el.closest([
-                    `#${overlayId}`,
-                    "bard-sidenav",
-                    "side-navigation-content",
-                    ".input-area-container",
-                    "input-area-v2",
-                    "rich-textarea",
-                    ".text-input-field",
-                    ".ql-clipboard",
-                    "toolbox-drawer",
-                    "mat-menu",
-                    ".cdk-overlay-container",
-                    "top-bar-actions"
-                ].join(", "));
-            } catch {
-                return false;
-            }
-        }
-
-        function isVisibleGeminiNotebookActiveContent(el) {
-            if (!el) return false;
-            if (isInsideQuickInputOverlay(el)) return false;
-            if (isInsideGeminiNotebookIgnoredRegion(el)) return false;
-            if (!isElementVisible(el)) return false;
-            try {
-                const text = String(el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
-                if (text.length > 0) return true;
-            } catch { }
-            try {
-                return !!el.querySelector?.("img, video, canvas, svg");
-            } catch {
-                return true;
-            }
-        }
-
-        function hasGeminiNotebookActiveContent() {
-            for (const selector of GEMINI_NOTEBOOK_ACTIVE_CONTENT_SELECTORS) {
-                let nodes = [];
-                try { nodes = Array.from(document.querySelectorAll(selector)); } catch { nodes = []; }
-                for (const node of nodes) {
-                    if (isVisibleGeminiNotebookActiveContent(node)) return true;
-                }
-            }
-            return false;
-        }
-
         function findGeminiNotebookZeroStateElement(composerEl = null) {
             const selectors = [
                 ".input-area-container.is-zero-state",
@@ -2856,17 +2796,15 @@
             const composerText = composer ? normalizeGeminiCommittedText(getGeminiComposerPlainText(composer, { trimTrailingEditorNewlines: true })).trim() : "";
             const composerBlank = !!(composer && composerText.length === 0);
             const zeroState = !!(matchesTarget && findGeminiNotebookZeroStateElement(composer));
-            const hasActiveContent = matchesTarget ? hasGeminiNotebookActiveContent() : false;
 
             return {
-                ok: !!(matchesTarget && composer && composerBlank && zeroState && !hasActiveContent),
+                ok: !!(matchesTarget && composer && composerBlank && zeroState),
                 currentUrl,
                 currentTarget,
                 matchesTarget,
                 composer,
                 composerBlank,
                 zeroState,
-                hasActiveContent,
                 targetUrl: expectedTarget?.targetUrl || GEMINI_ROOT_URL
             };
         }
