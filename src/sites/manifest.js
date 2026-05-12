@@ -255,16 +255,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260511] v1.2.4",
+            name: "[Gemini] 快捷键跳转 [20260512] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260511] v1.2.4",
-            updateLog: "1.2.4: 修复 Gemini Notebook 主页 URL 卡住时 Quick Input 循环新建话题失败的问题；现在会通过临时 `/app` SPA 绕路回 Notebook 主页，并严格校验空白新页后再继续。",
+            version: "[20260512] v1.0.0",
+            updateLog: "1.0.0: 修复 Gemini Notebook 中 Delete 快捷键误点 Delete from notebook 的问题；现在会精确匹配当前对话的 Delete 菜单项，并排除 Notebook 删除入口。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260511] v1.2.4",
+                    name: "[Gemini] Shortcut Jump [20260512] v1.0.0",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.2.4: Fixed Gemini Notebook Quick Input loop transitions failing when the Notebook home URL stays stuck on stale topic DOM; Quick Input now briefly routes through `/app`, returns to the Notebook home target, and continues only after a blank new page is confirmed."
+                    updateLog: "1.0.0: Fixed Gemini Notebook Delete shortcuts clicking Delete from notebook by mistake; Delete now precisely targets the current conversation menu item and excludes Notebook removal entries."
                 }
             },
             match: [

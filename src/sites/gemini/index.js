@@ -1400,6 +1400,67 @@
         return getGeminiElementDataTestIds(element).some(id => expected.has(id));
     }
 
+    function collectGeminiElementTextExcludingIcons(node, parts = []) {
+        if (!node) return parts;
+        if (node.nodeType === 3) {
+            parts.push(node.nodeValue || "");
+            return parts;
+        }
+        if (node.nodeType !== 1) return parts;
+
+        const tagName = String(node.tagName || "").toLowerCase();
+        if (tagName === "mat-icon") return parts;
+        if (String(node.getAttribute?.("aria-hidden") || "").trim().toLowerCase() === "true") return parts;
+        if (node.hasAttribute?.("fonticon") || node.hasAttribute?.("data-mat-icon-name")) return parts;
+
+        try {
+            for (const child of Array.from(node.childNodes || [])) {
+                collectGeminiElementTextExcludingIcons(child, parts);
+            }
+        } catch { }
+        return parts;
+    }
+
+    function getGeminiUiElementText(element) {
+        if (!element) return "";
+        const ariaLabel = element.getAttribute?.("aria-label");
+        if (ariaLabel && String(ariaLabel).trim()) return String(ariaLabel);
+        const title = element.getAttribute?.("title");
+        if (title && String(title).trim()) return String(title);
+
+        const textWithoutIcons = collectGeminiElementTextExcludingIcons(element, []).join(" ");
+        if (textWithoutIcons && String(textWithoutIcons).trim()) return textWithoutIcons;
+
+        try {
+            return String(element.textContent || "");
+        } catch {
+            return "";
+        }
+    }
+
+    function geminiMenuItemLooksLikeNotebook(rawText, element) {
+        const values = [
+            rawText,
+            getGeminiUiElementText(element),
+            getGeminiElementDataTestIds(element).join(" ")
+        ];
+        return values.some((value) => {
+            const text = normalizeGeminiUiText(value);
+            return !!text && (/\bnotebook\b/i.test(text) || text.includes("笔记本"));
+        });
+    }
+
+    function geminiMenuTextExactlyMatches(rawText, aliases, element) {
+        const aliasSet = new Set((Array.isArray(aliases) ? aliases : [])
+            .map(normalizeGeminiUiText)
+            .filter(Boolean));
+        if (aliasSet.size === 0) return false;
+
+        const text = element ? getGeminiUiElementText(element) : rawText;
+        const normalizedText = normalizeGeminiUiText(text);
+        return !!normalizedText && aliasSet.has(normalizedText);
+    }
+
     function geminiMenuTextMatches(rawText, matcher, element = null) {
         if (matcher == null) return true;
         if (typeof matcher === "function") {
@@ -1422,6 +1483,25 @@
         const text = normalizeGeminiUiText(rawText);
         const target = normalizeGeminiUiText(matcher);
         return target ? text.includes(target) : true;
+    }
+
+    function createGeminiConversationDeleteTargetMatcher(target) {
+        const dataTestIds = normalizeGeminiToolStringIds(target?.dataTestIds || []);
+        const jslogIds = normalizeGeminiToolStringIds(target?.jslogIds || []);
+        const aliases = Array.isArray(target?.aliases) ? target.aliases : ["Delete", "删除"];
+
+        return (rawText, element) => {
+            if (geminiMenuItemLooksLikeNotebook(rawText, element)) return false;
+            if (geminiMenuTextExactlyMatches(rawText, aliases, element)) return true;
+
+            const hasReadableText = !!normalizeGeminiUiText(element ? getGeminiUiElementText(element) : rawText);
+            if (hasReadableText) return false;
+
+            if (dataTestIds.length > 0 && elementHasGeminiDataTestId(element, dataTestIds)) return true;
+
+            const jslogId = getGeminiElementJslogId(element);
+            return !!jslogId && jslogIds.includes(jslogId);
+        };
     }
 
     function createGeminiToolTargetMatcher(target, extraIconNames = []) {
@@ -1449,6 +1529,10 @@
     }
 
     function createGeminiConversationMenuTargetMatcher(target, extraIconNames = []) {
+        if (target?.id === "delete") {
+            return createGeminiConversationDeleteTargetMatcher(target);
+        }
+
         const dataTestIds = normalizeGeminiToolStringIds(target?.dataTestIds || []);
         const iconNames = normalizeGeminiToolIconNames([
             ...(target?.iconNames || []),
@@ -1870,27 +1954,34 @@
         }
 
         const rawTextMatch = (menu.keyword !== undefined) ? menu.keyword : menu.textMatch;
+        const path = Array.isArray(menu.path) ? menu.path : null;
+        const pathParts = path && path.length ? path.map(normalizeMenuToken).filter(Boolean) : [];
+        const pathLast = pathParts.length ? pathParts[pathParts.length - 1] : "";
+        const inferredMenuTarget = menuTarget || (
+            !hasMenuId && typeof resolveMenuTarget === "function"
+                ? resolveMenuTarget(typeof rawTextMatch === "string" ? rawTextMatch : pathLast)
+                : null
+        );
+        const isConversationDeleteTarget = !!(
+            inferredMenuTarget?.id === "delete" &&
+            String(actionName || "").startsWith("conversationMenu")
+        );
         const extraIconNames = normalizeGeminiToolIconNames(
             menu.iconNames !== undefined
                 ? menu.iconNames
                 : (menu.iconName !== undefined ? menu.iconName : (menu.fonticon ?? menu.fontIcon))
         );
         const canonicalMatch = (typeof createMenuTargetMatcher === "function")
-            ? createMenuTargetMatcher(menuTarget, extraIconNames)
+            ? createMenuTargetMatcher(inferredMenuTarget, extraIconNames)
             : null;
-        let textMatch = combineGeminiMenuTextMatches(canonicalMatch, rawTextMatch);
+        let textMatch = combineGeminiMenuTextMatches(canonicalMatch, isConversationDeleteTarget ? null : rawTextMatch);
 
         const openSubmenus = [];
         if (Array.isArray(menu.openSubmenus)) openSubmenus.push(...menu.openSubmenus);
 
-        const path = Array.isArray(menu.path) ? menu.path : null;
-        if (path && path.length) {
-            const parts = path.map(normalizeMenuToken).filter(Boolean);
-            if (parts.length) {
-                const last = parts[parts.length - 1];
-                if ((textMatch === undefined || textMatch === null || textMatch === "") && last) textMatch = last;
-                for (const label of parts.slice(0, -1)) openSubmenus.push(label);
-            }
+        if (pathParts.length) {
+            if ((textMatch === undefined || textMatch === null || textMatch === "") && pathLast) textMatch = pathLast;
+            for (const label of pathParts.slice(0, -1)) openSubmenus.push(label);
         }
 
         const normalizedOpenSubmenus = Array.from(new Set(openSubmenus.map(normalizeMenuKey).filter(Boolean)));
