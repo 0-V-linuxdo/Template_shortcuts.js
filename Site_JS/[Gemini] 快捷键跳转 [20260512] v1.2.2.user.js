@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260512] v1.2.1
-// @name:en        [Gemini] Shortcut Jump [20260512] v1.2.1
+// @name           [Gemini] 快捷键跳转 [20260512] v1.2.2
+// @name:en        [Gemini] Shortcut Jump [20260512] v1.2.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260512] v1.2.1
-// @update-log     1.2.1: 修复 Gemini Notebook Quick Input 完成循环后点击重复循环可能跳出 Notebook 新建对话的问题；现在面板打开期间会固定并复用本次 Notebook 目标。
-// @update-log:en  1.2.1: Fixed Gemini Notebook Quick Input replay sometimes creating the next chat outside the Notebook after a completed loop; the open panel now pins and reuses the current Notebook target.
+// @version        [20260512] v1.2.2
+// @update-log     1.2.2: 增强 Gemini Notebook Quick Input 新对话校验：Notebook 场景改为最多 3 次重试、每次等待 45 秒、重试间隔 2 秒，以适应 Thinking 状态较久的循环。
+// @update-log:en  1.2.2: Strengthened Gemini Notebook Quick Input new-chat verification with up to 3 retries, 45 seconds per check, and a 2-second retry delay for long Thinking states.
 
 // @match          https://gemini.google.com/*
 
@@ -2276,6 +2276,13 @@
       const GEMINI_NOTEBOOK_ID_RE = /^[A-Za-z0-9-]+$/;
       const GEMINI_NOTEBOOK_TARGET_TTL_MS = 33e4;
       const GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE = /(?:^|\b)(?:new|start)\s+(?:chat|conversation)(?:\b|$)|新(?:建)?(?:聊天|对话)|开始(?:聊天|对话)/i;
+      const GEMINI_NOTEBOOK_NEW_CHAT_RETRY_POLICY = Object.freeze({
+        maxNewChatRetries: 3,
+        newChatReadyTimeoutMs: 45e3,
+        newChatRetryDelayMs: 2e3,
+        newChatReadyIntervalMs: 160,
+        newChatReadySettleMs: 300
+      });
       let pendingGeminiNotebookTarget = null;
       let pendingGeminiNotebookTargetAt = 0;
       let sessionGeminiNotebookTarget = null;
@@ -2434,6 +2441,10 @@
       function getGeminiNewChatLabel() {
         const target = getGeminiNewChatTriggerTarget();
         return target?.kind === "notebook" ? getNotebookNewChatLabel() : getNativeNewChatLabel();
+      }
+      function getGeminiNewChatRetryPolicy() {
+        const target = getGeminiNewChatTriggerTarget();
+        return target?.kind === "notebook" ? GEMINI_NOTEBOOK_NEW_CHAT_RETRY_POLICY : null;
       }
       function isSameGeminiQuickInputTarget(currentTarget, expectedTarget) {
         if (!currentTarget || !expectedTarget) return false;
@@ -4542,6 +4553,7 @@
         waitForNewChatReady: waitForGeminiNewChatReady,
         triggerNewChat: ({ shouldCancel = null } = {}) => triggerGeminiNewChat({ shouldCancel }),
         newChatLabel: getGeminiNewChatLabel,
+        getNewChatRetryPolicy: getGeminiNewChatRetryPolicy,
         lockNewChatHotkey: true,
         lockedNewChatHotkeyDisplay: getGeminiNewChatLabel,
         sendMessage: sendGeminiMessage
