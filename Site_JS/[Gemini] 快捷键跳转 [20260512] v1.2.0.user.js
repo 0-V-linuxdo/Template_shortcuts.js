@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260512] v1.1.0
-// @name:en        [Gemini] Shortcut Jump [20260512] v1.1.0
+// @name           [Gemini] 快捷键跳转 [20260512] v1.2.0
+// @name:en        [Gemini] Shortcut Jump [20260512] v1.2.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260512] v1.1.0
-// @update-log     1.1.0: 修复 Gemini 删除确认框在三点菜单未完全关闭时第一次 Enter 无效的问题；现在会等待菜单收起后再聚焦确认按钮，并桥接 Enter 确认。
-// @update-log:en  1.1.0: Fixed the first Enter press being ignored when Gemini's delete confirmation appears before the three-dot menu fully closes; the script now waits for the menu to settle, focuses Confirm, and bridges Enter.
+// @version        [20260512] v1.2.0
+// @update-log     1.2.0: 修复 Gemini Notebook Quick Input 循环新页校验，允许 Notebook 主页空输入态在下方存在历史记录时继续下一轮，避免误判为旧上下文。
+// @update-log:en  1.2.0: Fixed Gemini Notebook Quick Input loop new-page verification so the blank Notebook home input state can continue the next loop even when history entries remain visible below it.
 
 // @match          https://gemini.google.com/*
 
@@ -2276,17 +2276,6 @@
       const GEMINI_NOTEBOOK_ID_RE = /^[A-Za-z0-9-]+$/;
       const GEMINI_NOTEBOOK_TARGET_TTL_MS = 33e4;
       const GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE = /(?:^|\b)(?:new|start)\s+(?:chat|conversation)(?:\b|$)|新(?:建)?(?:聊天|对话)|开始(?:聊天|对话)/i;
-      const GEMINI_NOTEBOOK_ACTIVE_CONTENT_SELECTORS = Object.freeze([
-        "user-query",
-        "user-query-content",
-        "model-response",
-        "message-content",
-        "[data-test-id*='user-query' i]",
-        "[data-test-id*='model-response' i]",
-        "[data-test-id*='response' i]",
-        "[data-test-id*='message' i]",
-        "[data-test-id*='query' i]"
-      ]);
       let pendingGeminiNotebookTarget = null;
       let pendingGeminiNotebookTargetAt = 0;
       let armedGeminiNotebookTarget = null;
@@ -2464,57 +2453,6 @@
         }, `Notebook home still was not a blank new-chat page after route reset. Target: ${targetUrl}; actual URL: ${currentUrl || "(empty)"}`);
         return prefix ? `${prefix}${base}` : base;
       }
-      function isInsideGeminiNotebookIgnoredRegion(el) {
-        if (!el || typeof el.closest !== "function") return false;
-        try {
-          return !!el.closest([
-            `#${overlayId}`,
-            "bard-sidenav",
-            "side-navigation-content",
-            ".input-area-container",
-            "input-area-v2",
-            "rich-textarea",
-            ".text-input-field",
-            ".ql-clipboard",
-            "toolbox-drawer",
-            "mat-menu",
-            ".cdk-overlay-container",
-            "top-bar-actions"
-          ].join(", "));
-        } catch {
-          return false;
-        }
-      }
-      function isVisibleGeminiNotebookActiveContent(el) {
-        if (!el) return false;
-        if (isInsideQuickInputOverlay(el)) return false;
-        if (isInsideGeminiNotebookIgnoredRegion(el)) return false;
-        if (!isElementVisible2(el)) return false;
-        try {
-          const text = String(el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
-          if (text.length > 0) return true;
-        } catch {
-        }
-        try {
-          return !!el.querySelector?.("img, video, canvas, svg");
-        } catch {
-          return true;
-        }
-      }
-      function hasGeminiNotebookActiveContent() {
-        for (const selector of GEMINI_NOTEBOOK_ACTIVE_CONTENT_SELECTORS) {
-          let nodes = [];
-          try {
-            nodes = Array.from(document.querySelectorAll(selector));
-          } catch {
-            nodes = [];
-          }
-          for (const node of nodes) {
-            if (isVisibleGeminiNotebookActiveContent(node)) return true;
-          }
-        }
-        return false;
-      }
       function findGeminiNotebookZeroStateElement(composerEl = null) {
         const selectors = [
           ".input-area-container.is-zero-state",
@@ -2571,16 +2509,14 @@
         const composerText = composer ? normalizeGeminiCommittedText(getGeminiComposerPlainText(composer, { trimTrailingEditorNewlines: true })).trim() : "";
         const composerBlank = !!(composer && composerText.length === 0);
         const zeroState = !!(matchesTarget && findGeminiNotebookZeroStateElement(composer));
-        const hasActiveContent = matchesTarget ? hasGeminiNotebookActiveContent() : false;
         return {
-          ok: !!(matchesTarget && composer && composerBlank && zeroState && !hasActiveContent),
+          ok: !!(matchesTarget && composer && composerBlank && zeroState),
           currentUrl,
           currentTarget,
           matchesTarget,
           composer,
           composerBlank,
           zeroState,
-          hasActiveContent,
           targetUrl: expectedTarget?.targetUrl || GEMINI_ROOT_URL
         };
       }
