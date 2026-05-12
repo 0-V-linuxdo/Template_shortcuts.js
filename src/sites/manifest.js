@@ -255,16 +255,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260512] v1.2.3",
+            name: "[Gemini] 快捷键跳转 [20260512] v1.2.2",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260512] v1.2.3",
-            updateLog: "1.2.3: 修复 Gemini Notebook Quick Input 误把活动对话页当作新对话的问题；现在会识别 /app 活动上下文中的已发送消息与生成加载状态，并恢复到同一 Notebook 主页空输入态后再继续循环。",
+            version: "[20260512] v1.2.2",
+            updateLog: "1.2.2: 增强 Gemini Notebook Quick Input 新对话校验：Notebook 场景改为最多 3 次重试、每次等待 45 秒、重试间隔 2 秒，以适应 Thinking 状态较久的循环。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260512] v1.2.3",
+                    name: "[Gemini] Shortcut Jump [20260512] v1.2.2",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.2.3: Fixed Gemini Notebook Quick Input treating active conversation pages as new chats; sent-message and generation-loading states in /app contexts are now blocked until the same Notebook returns to the blank home input."
+                    updateLog: "1.2.2: Strengthened Gemini Notebook Quick Input new-chat verification with up to 3 retries, 45 seconds per check, and a 2-second retry delay for long Thinking states."
                 }
             },
             match: [
