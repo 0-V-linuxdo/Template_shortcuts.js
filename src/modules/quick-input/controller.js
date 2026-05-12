@@ -13,6 +13,7 @@ import { ensureQuickInputStyle } from "./style.js";
 
 const QUICK_INPUT_CLIPBOARD_SCHEMA_VERSION = 1;
 const QUICK_INPUT_CLIPBOARD_TYPE = "template-shortcuts.quick-input";
+const IO_SUCCESS_FEEDBACK_MS = 3000;
 
 export function createController(userOptions = {}) {
             const options = userOptions && typeof userOptions === "object" ? userOptions : {};
@@ -126,6 +127,7 @@ export function createController(userOptions = {}) {
             let loopDelayUnitEl = null;
             let clearBeforeRunEl = null;
             const ioButtons = [];
+            const ioFeedbackTimers = new Map();
             const stopButtons = [];
             const playPauseButtons = [];
             let activeTab = "input";
@@ -669,15 +671,69 @@ export function createController(userOptions = {}) {
                 return svg;
             }
 
+            function createIoSuccessIcon() {
+                const svg = createPlayerActionSvgNode("svg", {
+                    viewBox: "0 0 24 24",
+                    fill: "none",
+                    stroke: "currentColor",
+                    "stroke-width": "2.6",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round",
+                    "aria-hidden": "true",
+                    focusable: "false"
+                });
+                svg.appendChild(createPlayerActionSvgNode("path", { d: "M20 6 9 17l-5-5" }));
+                return svg;
+            }
+
+            function clearIoActionFeedback(btn) {
+                if (!btn) return;
+                const timerId = ioFeedbackTimers.get(btn);
+                if (timerId == null) return;
+                try { globalThis.clearTimeout(timerId); } catch {}
+                ioFeedbackTimers.delete(btn);
+            }
+
+            function clearAllIoActionFeedback() {
+                for (const timerId of ioFeedbackTimers.values()) {
+                    try { globalThis.clearTimeout(timerId); } catch {}
+                }
+                ioFeedbackTimers.clear();
+            }
+
+            function setIoActionButtonVisual(btn, action) {
+                if (!btn) return;
+                clearIoActionFeedback(btn);
+                const normalized = String(action ?? "").trim().toLowerCase() || "export";
+                btn.classList?.remove?.("qi-io-btn-success");
+                btn.setAttribute("data-action", normalized);
+                btn.title = getIoActionLabel(normalized);
+                btn.setAttribute("aria-label", getIoActionAriaLabel(normalized));
+                btn.replaceChildren(createIoActionIcon(normalized));
+            }
+
+            function showIoActionSuccess(btn, action) {
+                if (!btn || typeof btn.replaceChildren !== "function") return;
+                clearIoActionFeedback(btn);
+                const normalized = String(action ?? btn.getAttribute?.("data-action") ?? "").trim().toLowerCase() || "export";
+                btn.classList?.add?.("qi-io-btn-success");
+                btn.setAttribute("data-action", normalized);
+                btn.title = getIoActionLabel(normalized);
+                btn.setAttribute("aria-label", getIoActionAriaLabel(normalized));
+                btn.replaceChildren(createIoSuccessIcon());
+                const timerId = globalThis.setTimeout(() => {
+                    ioFeedbackTimers.delete(btn);
+                    if (btn.isConnected) setIoActionButtonVisual(btn, normalized);
+                }, IO_SUCCESS_FEEDBACK_MS);
+                ioFeedbackTimers.set(btn, timerId);
+            }
+
             function createIoActionButton(action, onClick) {
                 const normalized = String(action ?? "").trim().toLowerCase() || "export";
                 const btn = globalThis.document.createElement("button");
                 btn.type = "button";
                 btn.className = "qi-btn qi-io-btn";
-                btn.setAttribute("data-action", normalized);
-                btn.title = getIoActionLabel(normalized);
-                btn.setAttribute("aria-label", getIoActionAriaLabel(normalized));
-                btn.replaceChildren(createIoActionIcon(normalized));
+                setIoActionButtonVisual(btn, normalized);
                 if (typeof onClick === "function") btn.addEventListener("click", onClick);
                 ioButtons.push(btn);
                 return btn;
@@ -1955,6 +2011,7 @@ export function createController(userOptions = {}) {
             }
 
             async function handleQuickInputExport(e) {
+                const actionBtn = e?.currentTarget || null;
                 try {
                     e?.preventDefault?.();
                     e?.stopPropagation?.();
@@ -1972,6 +2029,7 @@ export function createController(userOptions = {}) {
                     }
                     void persistDraftSnapshot({ text: draft.text, images: draft.images });
                     appendGlobalLog(labels.messages?.exportSuccess || DEFAULT_LABELS.messages.exportSuccess, { level: "ok" });
+                    showIoActionSuccess(actionBtn, "export");
                 } catch (error) {
                     warnQuickInput("QuickInput export failed.", error);
                     appendGlobalLog(labels.messages?.exportFailed || DEFAULT_LABELS.messages.exportFailed, { level: "error" });
@@ -1981,6 +2039,7 @@ export function createController(userOptions = {}) {
             }
 
             async function handleQuickInputImport(e) {
+                const actionBtn = e?.currentTarget || null;
                 try {
                     e?.preventDefault?.();
                     e?.stopPropagation?.();
@@ -2031,6 +2090,7 @@ export function createController(userOptions = {}) {
                     setImageFiles(restored.files, { draftEntries: restored.entries, skipDraftPersist: true });
                     await persistDraftSnapshot({ text: payload.draft.text, images: restored.entries });
                     appendGlobalLog(labels.messages?.importSuccess || DEFAULT_LABELS.messages.importSuccess, { level: "ok" });
+                    showIoActionSuccess(actionBtn, "import");
                     schedulePanelLayout({ followupPasses: 2 });
                     try { textEl?.focus?.(); } catch {}
                 } finally {
@@ -4330,6 +4390,7 @@ export function createController(userOptions = {}) {
                 loopDelayEl = null;
                 loopDelayUnitEl = null;
                 clearBeforeRunEl = null;
+                clearAllIoActionFeedback();
                 ioButtons.length = 0;
                 stopButtons.length = 0;
                 playPauseButtons.length = 0;

@@ -263,6 +263,11 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     background: var(--qi-icon-btn-hover);
                     color: var(--qi-text-strong);
                 }
+                ${hostSelector} .qi-actions .qi-io-btn.qi-io-btn-success {
+                    color: var(--qi-success);
+                    background: color-mix(in srgb, var(--qi-success) 10%, var(--qi-icon-btn-bg));
+                    border-color: color-mix(in srgb, var(--qi-success) 38%, var(--qi-icon-btn-border));
+                }
                 ${hostSelector} .qi-actions .qi-io-btn svg {
                     width: 19px;
                     height: 19px;
