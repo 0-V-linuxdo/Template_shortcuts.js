@@ -423,16 +423,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260518] v1.0.3",
+            name: "[Notion] 快捷键跳转 [20260518] v1.0.4",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260518] v1.0.3",
-            updateLog: "1.0.3: 修复 Notion AI Quick Input 输入框写入假成功问题；现在只对真实原生输入或真实可编辑区域做写入与验证，避免 role=textbox 容器被误判为已输入。",
+            version: "[20260518] v1.0.4",
+            updateLog: "1.0.4: 纠正 Notion AI Quick Input 输入框适配：撤销 v1.0.3 的过度收紧，避免非原生 role=textbox 假 value 验证，同时保留 execCommand/paste 对真实编辑区的写入路径。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260518] v1.0.3",
+                    name: "[Notion] Shortcut Jump [20260518] v1.0.4",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.3: Fixed false-success text insertion in Notion AI Quick Input; writes and verification now require a real native input or editable composer instead of treating a role=textbox container as filled."
+                    updateLog: "1.0.4: Corrected Notion AI Quick Input composer handling: reverted the over-tight v1.0.3 path, avoids fake value verification on non-native role=textbox nodes, and keeps execCommand/paste insertion for the real editor."
                 }
             },
             match: [
