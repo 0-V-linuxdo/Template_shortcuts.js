@@ -293,16 +293,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260508] v1.0.0",
+            name: "[Grok] 快捷键跳转 [20260518] v1.0.0",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 保留原键帽样式，将 Grok 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。",
+            version: "[20260518] v1.0.0",
+            updateLog: "1.0.0: 删除 Switch user 快捷键，新增 Admin 后台跳转至 https://grok.dairoot.cn/admin，并为 Grok 默认快捷键图标启用普通/黑暗模式自适应。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260508] v1.0.0",
+                    name: "[Grok] Shortcut Jump [20260518] v1.0.0",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.0.0: Kept the original keycap style, inlined the Grok script icon in the userscript header, and used black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Removed the Switch user shortcut, added the Admin URL jump to https://grok.dairoot.cn/admin, and enabled light/dark adaptive icons for Grok default shortcuts."
                 }
             },
             match: [
