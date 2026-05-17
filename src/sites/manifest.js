@@ -293,16 +293,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260518] v1.1.0",
+            name: "[Grok] 快捷键跳转 [20260518] v1.1.1",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260518] v1.1.0",
-            updateLog: "1.1.0: 新增 Grok 模型选择器适配，支持 Auto、Fast、Expert、Grok 4.3 (beta)、Heavy 的默认快捷键与可配置 modelPicker 动作。",
+            version: "[20260518] v1.1.1",
+            updateLog: "1.1.1: 新增 Grok 顶部菜单删除快捷键，支持 CTRL+DELETE 通过 More 菜单选中 Delete Chat，并在按 Enter 后完成点击。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260518] v1.1.0",
+                    name: "[Grok] Shortcut Jump [20260518] v1.1.1",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.1.0: Added Grok model selector support with default shortcuts for Auto, Fast, Expert, Grok 4.3 (beta), and Heavy plus the configurable modelPicker action."
+                    updateLog: "1.1.1: Added a Grok top-bar delete shortcut that opens the More menu, selects Delete Chat with CTRL+DELETE, and completes the click after Enter."
                 }
             },
             match: [
@@ -423,16 +423,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260518] v1.0.7",
+            name: "[Notion] 快捷键跳转 [20260518] v1.0.9",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260518] v1.0.7",
-            updateLog: "1.0.7: 回滚并修正 Notion Quick Input 的关闭链路与真实 composer 读写定位，避免切换联网时误伤 Quick Input，同时恢复面板配色可读性。",
+            version: "[20260518] v1.0.9",
+            updateLog: "1.0.9: 将 Notion Quick Input 的发送前检查改为只读确认，不再在发前回填 prompt；若内容已变化则直接停止，避免重复发送到同一话题。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260518] v1.0.7",
+                    name: "[Notion] Shortcut Jump [20260518] v1.0.9",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.7: Rolled back and fixed Notion Quick Input close handling and real composer read/write targeting, preventing web-toggle runs from hiding Quick Input and restoring panel legibility."
+                    updateLog: "1.0.9: Made Notion Quick Input's pre-send check read-only instead of rewriting the prompt, so any text mismatch now stops the run instead of duplicating the submission in the same thread."
                 }
             },
             match: [

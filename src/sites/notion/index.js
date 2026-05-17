@@ -3107,7 +3107,9 @@
             const composer = resolveNotionComposerElement(composerEl, { requireVisible: true }) || await focusNotionComposer();
             if (!composer) return false;
             const target = getNotionComposerPrimaryTextTarget(composer, { requireVisible: true }) || composer;
-            const button = findNotionSendButtonNearComposer(composer);
+            const readyState = getNotionReadyToSendState(composer);
+            const hasPayload = Number(readyState?.textLength || 0) > 0 || Number(readyState?.attachmentCount || 0) > 0;
+            const button = readyState?.sendButton || findNotionSendButtonNearComposer(composer);
             if (button) {
                 if (!isNotionSendButtonDisabled(button)) {
                     try {
@@ -3116,6 +3118,7 @@
                     try { button.click?.(); return true; } catch { }
                 }
             }
+            if (!hasPayload) return false;
             try {
                 return !!simulateKeystroke("ENTER", { target });
             } catch {
