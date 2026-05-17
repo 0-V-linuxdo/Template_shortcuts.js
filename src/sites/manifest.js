@@ -427,12 +427,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
             version: "[20260517] v1.1.0",
-            updateLog: "1.1.0: 新增 Ctrl+N -> Cmd+O 新建聊天映射，新增 Ctrl+W 联网开关快捷键；保留全模型直接选择预设，包含 Gemini 3.1 Pro、Claude Opus 4.6 与 Claude Opus 4.7。",
+            updateLog: "1.1.0: 修复 Ctrl+N 与 Ctrl+W，改为按 Notion AI 页面结构直接点击新建聊天与 Web access 开关，并在切换后自动关闭弹窗；保留全模型直接选择预设，包含 Gemini 3.1 Pro、Claude Opus 4.6 与 Claude Opus 4.7。",
             localized: {
                 "en-US": {
                     name: "[Notion] Shortcut Jump [20260517] v1.1.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.1.0: Added Ctrl+N -> Cmd+O for new chat and Ctrl+W for the Web access toggle; kept full direct model shortcuts including Gemini 3.1 Pro, Claude Opus 4.6, and Claude Opus 4.7."
+                    updateLog: "1.1.0: Fixed Ctrl+N and Ctrl+W to click the Notion AI page structure directly for New Chat and Web access, then close the popup after toggling; kept full direct model shortcuts including Gemini 3.1 Pro, Claude Opus 4.6, and Claude Opus 4.7."
                 }
             },
             match: [
