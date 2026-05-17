@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260518] v1.1.3
-// @name:en        [Grok] Shortcut Jump [20260518] v1.1.3
+// @name           [Grok] 快捷键跳转 [20260518] v1.1.4
+// @name:en        [Grok] Shortcut Jump [20260518] v1.1.4
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260518] v1.1.3
-// @update-log     1.1.3: 修复 Grok 删除聊天二段 Enter 激活无反应的问题，按 Enter 后会重新定位并点击 Delete Chat。
-// @update-log:en  1.1.3: Fixed the Grok delete-chat Enter handoff so pressing Enter re-finds and clicks Delete Chat.
+// @version        [20260518] v1.1.4
+// @update-log     1.1.4: Grok 删除聊天项改为按菜单最左侧图标识别，并继续支持 Enter 触发确认点击。
+// @update-log:en  1.1.4: The Grok delete shortcut now identifies the delete item by its leftmost menu icon and still supports Enter to confirm the click.
 
 // @match          https://grok.dairoot.cn/*
 // @match          https://grok.com/*
@@ -502,6 +502,105 @@
           if (token === aliasToken || token.startsWith(aliasToken) || aliasToken.startsWith(token)) return targetId;
         }
       }
+      return "";
+    }
+    function getGrokElementAttrText(element, names) {
+      if (!element || !Array.isArray(names)) return "";
+      const parts = [];
+      for (const name of names) {
+        try {
+          const value = element.getAttribute?.(name);
+          if (value !== void 0 && value !== null) parts.push(String(value));
+        } catch {
+        }
+      }
+      return parts.join(" ");
+    }
+    function getGrokLeftmostIconElement(container) {
+      if (!container || typeof container.querySelectorAll !== "function") return null;
+      const iconSelector = [
+        "svg",
+        "img",
+        "[data-icon]",
+        "[data-lucide]",
+        "[data-slot='icon']",
+        "[class*='icon']"
+      ].join(", ");
+      const icons = [];
+      try {
+        for (const icon of Array.from(container.querySelectorAll(iconSelector))) {
+          if (!icon || !isElementVisible(icon)) continue;
+          const rect = icon.getBoundingClientRect?.();
+          if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+          icons.push({ icon, rect });
+        }
+      } catch {
+      }
+      icons.sort((a, b) => {
+        if (a.rect.left !== b.rect.left) return a.rect.left - b.rect.left;
+        return a.rect.top - b.rect.top;
+      });
+      return icons[0]?.icon || null;
+    }
+    function getGrokIconVectorText(icon) {
+      if (!icon) return "";
+      const parts = [
+        getGrokElementAttrText(icon, ["aria-label", "title", "alt", "data-icon", "data-lucide", "data-testid", "class", "name"])
+      ];
+      try {
+        for (const title of Array.from(icon.querySelectorAll?.("title") || [])) {
+          const text = String(title.textContent || "").trim();
+          if (text) parts.push(text);
+        }
+      } catch {
+      }
+      try {
+        for (const node of Array.from(icon.querySelectorAll?.("path, line, polyline, polygon, rect, circle") || [])) {
+          parts.push(getGrokElementAttrText(node, [
+            "d",
+            "points",
+            "x",
+            "y",
+            "x1",
+            "y1",
+            "x2",
+            "y2",
+            "width",
+            "height",
+            "rx",
+            "class",
+            "data-icon",
+            "data-lucide"
+          ]));
+        }
+      } catch {
+      }
+      return parts.join(" ");
+    }
+    function grokLeftIconLooksLikeTrash(icon) {
+      if (!icon) return false;
+      const attrToken = normalizeGrokMenuToken(getGrokElementAttrText(icon, [
+        "aria-label",
+        "title",
+        "alt",
+        "data-icon",
+        "data-lucide",
+        "data-testid",
+        "class",
+        "name"
+      ]));
+      if (/(trash|delete|remove|bin|垃圾|删除)/.test(attrToken)) return true;
+      const vectorText = getGrokIconVectorText(icon).toLowerCase().replace(/\s+/g, "");
+      if (!vectorText) return false;
+      const hasLid = /m?3[,]?6h18|m?4[,]?7h16|m?5[,]?6h14|x1.?=.?3.*x2.?=.?21|x1.?=.?4.*x2.?=.?20/.test(vectorText);
+      const hasHandle = /m?8[,]?6v-?2h8v2|m?9[,]?6v-?1h6v1|v4h8v2|v5h6v1/.test(vectorText);
+      const hasCan = /l1[,]?14|l-?1[,]?14|h10l1-?14|h12l-?1-?14|v14|y.?=.?6.*height.?=.?14/.test(vectorText);
+      const hasTines = /m?10[,]?11v6|m?14[,]?11v6|x1.?=.?10.*y1.?=.?11.*y2.?=.?17|x1.?=.?14.*y1.?=.?11.*y2.?=.?17/.test(vectorText);
+      return hasLid && (hasHandle || hasCan || hasTines) || hasCan && hasTines;
+    }
+    function getGrokConversationTargetIdFromLeftIcon(menuItem) {
+      const leftIcon = getGrokLeftmostIconElement(menuItem);
+      if (grokLeftIconLooksLikeTrash(leftIcon)) return "delete";
       return "";
     }
     function getGrokConversationTargetById(value) {
@@ -1257,6 +1356,10 @@
         return candidate.startsWith(query) || query.startsWith(candidate);
       };
     }
+    function createGrokConversationTargetIconMatcher(target) {
+      if (!target) return null;
+      return (menuItem) => getGrokConversationTargetIdFromLeftIcon(menuItem) === target.id;
+    }
     function getGrokConversationMenuItemCandidates(menuRoot) {
       if (!menuRoot || typeof menuRoot.querySelectorAll !== "function") return [];
       const candidates = [];
@@ -1290,7 +1393,7 @@
       const items = getGrokConversationMenuItemCandidates(menuRoot);
       let count = 0;
       for (const item of items) {
-        if (getGrokConversationTargetIdFromText(getGrokElementText(item))) count += 1;
+        if (getGrokConversationTargetIdFromLeftIcon(item) || getGrokConversationTargetIdFromText(getGrokElementText(item))) count += 1;
       }
       return count;
     }
@@ -1298,7 +1401,7 @@
       if (!menuRoot || !isElementVisible(menuRoot)) return false;
       const itemCount = countGrokConversationMenuTargetItems(menuRoot);
       if (itemCount >= 1) return true;
-      return !!getGrokConversationTargetIdFromText(getGrokElementText(menuRoot));
+      return !!getGrokConversationTargetIdFromLeftIcon(menuRoot) || !!getGrokConversationTargetIdFromText(getGrokElementText(menuRoot));
     }
     function getGrokVisibleConversationMenuRoots() {
       const roots = [];
@@ -1376,7 +1479,7 @@
       const roots = getGrokVisibleConversationMenuRoots();
       return roots[0] || null;
     }
-    function getGrokConversationMenuItem(menuRoot, { selector = GROK_CONVERSATION_MENU_ITEM_SELECTORS, textMatch = null, fallbackToFirst = false } = {}) {
+    function getGrokConversationMenuItem(menuRoot, { selector = GROK_CONVERSATION_MENU_ITEM_SELECTORS, textMatch = null, iconMatch = null, fallbackToFirst = false } = {}) {
       if (!menuRoot) return null;
       const selectorList = resolveGrokSelectorList(selector);
       const candidates = [];
@@ -1397,6 +1500,12 @@
       }
       if (candidates.length === 0) {
         for (const element of getGrokConversationMenuItemCandidates(menuRoot)) pushCandidate(element);
+      }
+      const iconMatcher = typeof iconMatch === "function" ? iconMatch : null;
+      if (iconMatcher) {
+        for (const candidate of candidates) {
+          if (iconMatcher(candidate, getGrokLeftmostIconElement(candidate))) return candidate;
+        }
       }
       const matcher = typeof textMatch === "function" ? textMatch : typeof textMatch === "string" ? createGrokConversationTextMatcher(textMatch) : null;
       if (matcher) {
@@ -1435,6 +1544,10 @@
       } catch {
       }
       try {
+        if (typeof item.tabIndex !== "number" || item.tabIndex < 0) item.tabIndex = -1;
+      } catch {
+      }
+      try {
         item.focus?.({ preventScroll: true });
       } catch {
       }
@@ -1448,7 +1561,7 @@
       const cleanup = grokConversationMenuEnterBridgeCleanup;
       if (typeof cleanup === "function") cleanup();
     }
-    function armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch = null }, { engine: engine2 = null, timeoutMs = 3e4, closeCheckIntervalMs = 250 } = {}) {
+    function armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch = null, iconMatch = null }, { engine: engine2 = null, timeoutMs = 3e4, closeCheckIntervalMs = 250 } = {}) {
       if (!menuRoot || !targetItem) return false;
       clearGrokConversationMenuEnterBridge();
       const doc = menuRoot.ownerDocument || document;
@@ -1456,25 +1569,37 @@
       let cleaned = false;
       let timeoutId = 0;
       let closeCheckId = 0;
+      let missingSince = 0;
       let handlingEnter = false;
+      const listenerTargets = [];
       const cleanup = () => {
         if (cleaned) return;
         cleaned = true;
-        try {
-          win?.removeEventListener?.("keydown", onEnter, true);
-        } catch {
-        }
-        try {
-          win?.removeEventListener?.("keyup", onEnter, true);
-        } catch {
-        }
-        try {
-          doc.removeEventListener("keydown", onEnter, true);
-        } catch {
-        }
-        try {
-          doc.removeEventListener("keyup", onEnter, true);
-        } catch {
+        for (const target of listenerTargets) {
+          try {
+            target.removeEventListener?.("keydown", onEnter, true);
+          } catch {
+          }
+          try {
+            target.removeEventListener?.("keydown", onEnter, false);
+          } catch {
+          }
+          try {
+            target.removeEventListener?.("keyup", onEnter, true);
+          } catch {
+          }
+          try {
+            target.removeEventListener?.("keyup", onEnter, false);
+          } catch {
+          }
+          try {
+            target.removeEventListener?.("keypress", onEnter, true);
+          } catch {
+          }
+          try {
+            target.removeEventListener?.("keypress", onEnter, false);
+          } catch {
+          }
         }
         try {
           clearTimeout(timeoutId);
@@ -1486,47 +1611,71 @@
         }
         if (grokConversationMenuEnterBridgeCleanup === cleanup) grokConversationMenuEnterBridgeCleanup = null;
       };
+      const addListenerTarget = (target) => {
+        if (!target || typeof target.addEventListener !== "function" || listenerTargets.includes(target)) return;
+        listenerTargets.push(target);
+      };
+      const resolveTargetItem = () => {
+        const latestRoot = findGrokConversationMenuRoot() || (isElementVisible(menuRoot) ? menuRoot : null);
+        const latestItem = latestRoot && (textMatch || iconMatch) ? getGrokConversationMenuItem(latestRoot, { textMatch, iconMatch, fallbackToFirst: false }) : null;
+        return latestItem || (isElementVisible(targetItem) ? targetItem : null);
+      };
       const onEnter = (event) => {
         if (!isPlainEnterKeyEvent(event)) return;
         if (handlingEnter) return;
-        const latestRoot = findGrokConversationMenuRoot();
-        const candidate = (latestRoot ? getGrokConversationMenuItem(latestRoot, { textMatch, fallbackToFirst: false }) : null) || (isElementVisible(targetItem) ? targetItem : null);
+        const latestRoot = findGrokConversationMenuRoot() || (isElementVisible(menuRoot) ? menuRoot : null);
+        const candidate = resolveTargetItem();
         if (!candidate || !isElementVisible(candidate)) {
           cleanup();
           return;
         }
-        try {
-          event.preventDefault();
-        } catch {
-        }
-        try {
-          event.stopPropagation();
-        } catch {
-        }
-        try {
-          event.stopImmediatePropagation?.();
-        } catch {
-        }
         handlingEnter = true;
+        const eventTarget = event.target || null;
+        const isInsideMenu = !!(eventTarget && (candidate.contains?.(eventTarget) || latestRoot?.contains?.(eventTarget)));
+        if (!isInsideMenu) {
+          try {
+            event.preventDefault();
+          } catch {
+          }
+          try {
+            event.stopPropagation();
+          } catch {
+          }
+          try {
+            event.stopImmediatePropagation?.();
+          } catch {
+          }
+        }
         cleanup();
         void (async () => {
-          await sleep(0);
-          const latestMenuRoot = findGrokConversationMenuRoot() || latestRoot || menuRoot;
-          const settledCandidate = getGrokConversationMenuItem(latestMenuRoot, {
-            textMatch,
-            fallbackToFirst: false
-          }) || candidate;
+          if (isInsideMenu) await sleep(120);
+          else await sleep(0);
+          const settledCandidate = resolveTargetItem() || candidate;
           if (!settledCandidate || !isElementVisible(settledCandidate)) return;
+          if (isInsideMenu) {
+            const stillOpen = findGrokConversationMenuRoot() || (isElementVisible(menuRoot) ? menuRoot : null);
+            if (!stillOpen) return;
+          }
           focusGrokConversationMenuItem(settledCandidate);
           simulateGrokClick(settledCandidate);
         })();
       };
       grokConversationMenuEnterBridgeCleanup = cleanup;
       try {
-        win?.addEventListener?.("keydown", onEnter, true);
-        win?.addEventListener?.("keyup", onEnter, true);
-        doc.addEventListener("keydown", onEnter, true);
-        doc.addEventListener("keyup", onEnter, true);
+        addListenerTarget(win);
+        addListenerTarget(doc);
+        addListenerTarget(doc.documentElement);
+        addListenerTarget(doc.body);
+        addListenerTarget(menuRoot);
+        addListenerTarget(targetItem);
+        for (const target of listenerTargets) {
+          target.addEventListener?.("keydown", onEnter, true);
+          target.addEventListener?.("keydown", onEnter, false);
+          target.addEventListener?.("keyup", onEnter, true);
+          target.addEventListener?.("keyup", onEnter, false);
+          target.addEventListener?.("keypress", onEnter, true);
+          target.addEventListener?.("keypress", onEnter, false);
+        }
       } catch {
         cleanup();
         return false;
@@ -1535,8 +1684,13 @@
       const closeCheckInterval = Math.max(100, Number(closeCheckIntervalMs) || 250);
       timeoutId = setTimeout(cleanup, timeout);
       closeCheckId = setInterval(() => {
-        const latest = findGrokConversationMenuRoot();
-        if (!latest) cleanup();
+        const latest = resolveTargetItem();
+        if (latest && isElementVisible(latest)) {
+          missingSince = 0;
+          return;
+        }
+        if (!missingSince) missingSince = Date.now();
+        if (Date.now() - missingSince > 1500) cleanup();
       }, closeCheckInterval);
       return true;
     }
@@ -1553,6 +1707,7 @@
       const targetId = getGrokConversationTargetIdFromShortcut(shortcut) || (typeof menu.id !== "undefined" && menu.id !== null ? getGrokConversationTargetIdFromText(menu.id) : "") || getGrokConversationTargetIdFromText(textQuery);
       const target = targetId ? GROK_CONVERSATION_TARGETS[targetId] || null : null;
       const textMatch = target ? createGrokConversationTargetMatcher(target) : createGrokConversationTextMatcher(textQuery);
+      const iconMatch = target ? createGrokConversationTargetIconMatcher(target) : null;
       return {
         action,
         fallbackToFirst,
@@ -1561,7 +1716,8 @@
         selectorProvided,
         targetId,
         target,
-        textMatch
+        textMatch,
+        iconMatch
       };
     }
     function createGrokConversationMenuDataAdapter() {
@@ -1625,6 +1781,7 @@
       let targetItem = getGrokConversationMenuItem(menuRoot, {
         selector,
         textMatch: spec.textMatch,
+        iconMatch: spec.iconMatch,
         fallbackToFirst: spec.fallbackToFirst
       });
       if (!targetItem && spec.waitForItem) {
@@ -1635,6 +1792,7 @@
           targetItem = getGrokConversationMenuItem(currentMenuRoot, {
             selector,
             textMatch: spec.textMatch,
+            iconMatch: spec.iconMatch,
             fallbackToFirst: spec.fallbackToFirst
           });
           if (targetItem) break;
@@ -1652,7 +1810,7 @@
       if (spec.action === "click") {
         return simulateGrokClick(targetItem);
       }
-      return armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch: spec.textMatch }, { engine: engine2 });
+      return armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch: spec.textMatch, iconMatch: spec.iconMatch }, { engine: engine2 });
     }
     function inferSidebarStateFromClassName(value) {
       const token = String(value ?? "").toLowerCase();
