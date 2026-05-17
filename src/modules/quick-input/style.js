@@ -44,6 +44,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     --qi-player-stop-hover-bg: color-mix(in srgb, ${primaryColor} 24%, var(--qi-surface-alt));
                     --qi-player-stop-hover-border: color-mix(in srgb, ${primaryColor} 34%, var(--qi-border));
                     --qi-player-stop-hover-color: color-mix(in srgb, ${primaryColor} 88%, white 12%);
+                    --qi-accent-text: color-mix(in srgb, ${primaryColor} 78%, white 22%);
                     --qi-player-btn-shadow: 0 10px 22px rgba(0,0,0,0.28);
                     --qi-player-btn-hover-shadow: 0 14px 30px rgba(0,0,0,0.34);
                     box-sizing: border-box;
@@ -84,6 +85,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     --qi-player-stop-hover-bg: color-mix(in srgb, ${primaryColor} 18%, white);
                     --qi-player-stop-hover-border: color-mix(in srgb, ${primaryColor} 30%, var(--qi-border));
                     --qi-player-stop-hover-color: color-mix(in srgb, ${primaryColor} 92%, black 8%);
+                    --qi-accent-text: color-mix(in srgb, ${primaryColor} 86%, black 14%);
                     --qi-player-btn-shadow: 0 10px 22px rgba(15,23,42,0.12);
                     --qi-player-btn-hover-shadow: 0 14px 28px rgba(15,23,42,0.18);
                     color-scheme: light;
@@ -685,7 +687,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     box-shadow: none;
                     transform: none;
                     border-color: transparent;
-                    color: ${primaryColor};
+                    color: var(--qi-accent-text);
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-list {
                     cursor: default;
@@ -710,7 +712,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     border: none;
                     border-radius: inherit;
                     background: color-mix(in srgb, ${primaryColor} 12%, var(--qi-surface-alt));
-                    color: ${primaryColor};
+                    color: var(--qi-accent-text);
                     font-size: 12px;
                     font-weight: 700;
                     line-height: 1.35;
@@ -1002,10 +1004,10 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     transition: background 120ms ease;
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-summary {
-                    color: ${primaryColor};
+                    color: var(--qi-accent-text);
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-summary {
-                    color: ${primaryColor};
+                    color: var(--qi-accent-text);
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-summary {
                     color: var(--qi-success);

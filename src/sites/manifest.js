@@ -423,16 +423,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260518] v1.0.6",
+            name: "[Notion] 快捷键跳转 [20260518] v1.0.7",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260518] v1.0.6",
-            updateLog: "1.0.6: 修复 Quick Input 执行切换联网时误点自身弹窗导致隐藏与暂停的问题，并提高 Notion Quick Input 暗色面板强调色对比度。",
+            version: "[20260518] v1.0.7",
+            updateLog: "1.0.7: 回滚并修正 Notion Quick Input 的关闭链路与真实 composer 读写定位，避免切换联网时误伤 Quick Input，同时恢复面板配色可读性。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260518] v1.0.6",
+                    name: "[Notion] Shortcut Jump [20260518] v1.0.7",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.6: Fixed Quick Input hiding and pausing when toggling web access by avoiding self-overlay outside clicks, and improved dark-panel accent contrast for Notion Quick Input."
+                    updateLog: "1.0.7: Rolled back and fixed Notion Quick Input close handling and real composer read/write targeting, preventing web-toggle runs from hiding Quick Input and restoring panel legibility."
                 }
             },
             match: [
