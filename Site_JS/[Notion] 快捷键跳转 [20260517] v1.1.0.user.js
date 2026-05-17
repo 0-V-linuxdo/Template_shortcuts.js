@@ -6,8 +6,8 @@
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
 // @version        [20260517] v1.1.0
-// @update-log     1.1.0: 新增 Ctrl+N -> Cmd+O 新建聊天映射，新增 Ctrl+W 联网开关快捷键；保留全模型直接选择预设，包含 Gemini 3.1 Pro、Claude Opus 4.6 与 Claude Opus 4.7。
-// @update-log:en  1.1.0: Added Ctrl+N -> Cmd+O for new chat and Ctrl+W for the Web access toggle; kept full direct model shortcuts including Gemini 3.1 Pro, Claude Opus 4.6, and Claude Opus 4.7.
+// @update-log     1.1.0: 修复 Ctrl+N 与 Ctrl+W，改为按 Notion AI 页面结构直接点击新建聊天与 Web access 开关，并在切换后自动关闭弹窗；保留全模型直接选择预设，包含 Gemini 3.1 Pro、Claude Opus 4.6 与 Claude Opus 4.7。
+// @update-log:en  1.1.0: Fixed Ctrl+N and Ctrl+W to click the Notion AI page structure directly for New Chat and Web access, then close the popup after toggling; kept full direct model shortcuts including Gemini 3.1 Pro, Claude Opus 4.6, and Claude Opus 4.7.
 
 // @match          https://*.notion.so/*
 // @match          https://notion.so/*
@@ -54,7 +54,7 @@
     const defaultIconURL = "https://www.notion.so/images/favicon.ico";
     const LOG_TAG = "[Notion Shortcut Script]";
     const NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY = "notion_shortcuts_v1";
-    const NOTION_NATIVE_NEW_CHAT_HOTKEY = "CMD+O";
+    const LEGACY_NEW_CHAT_SIMULATE_KEYS = "CMD+O";
     const LEGACY_SELECT_AI_MODEL_KEY = "selectAiModel";
     const LEGACY_SELECT_AI_MODEL_SELECTOR = '[data-testid="unified-chat-model-button"][role="button"]';
     const NOTION_AI_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 2l3.09 6.26L22 9l-5.91 4.47L17 22l-5-3.4L7 22l.91-8.53L2 9l6.91-.74z'/%3E%3C/svg%3E";
@@ -202,6 +202,16 @@
       ...NOTION_MODEL_SHORTCUT_KEYS,
       "toggleWebAccess"
     ]);
+    const NOTION_NEW_CHAT_TRIGGER_SELECTORS = [
+      '[data-testid*="new-chat" i]',
+      '[data-testid*="new_chat" i]',
+      'button[aria-label*="new chat" i]',
+      '[role="button"][aria-label*="new chat" i]',
+      'a[aria-label*="new chat" i]',
+      "button",
+      '[role="button"]',
+      "a[href]"
+    ].join(", ");
     const NOTION_MODEL_TRIGGER_SELECTORS = [
       LEGACY_SELECT_AI_MODEL_SELECTOR,
       '[data-testid="unified-chat-model-button"]',
@@ -231,10 +241,16 @@
     const NOTION_SETTINGS_TRIGGER_SELECTORS = [
       '[data-testid="unified-chat-search-scope-button"][role="button"]',
       '[data-testid="unified-chat-search-scope-button"]',
+      '[data-testid*="search-scope" i]',
+      '[data-testid*="settings" i]',
+      '[data-testid*="source" i]',
       'button[aria-label*="settings" i]',
       'button[aria-label*="设置" i]',
       'button[aria-label*="web access" i]',
+      'button[aria-label*="sources" i]',
+      'button[aria-label*="options" i]',
       'button[aria-haspopup="menu"]',
+      '[role="button"][aria-haspopup="menu"]',
       "button"
     ].join(", ");
     const NOTION_SETTINGS_MENU_ROOT_SELECTOR = [
@@ -279,6 +295,95 @@
         return false;
       }
     };
+    function getEventConstructor(name) {
+      try {
+        const view = document?.defaultView || window;
+        return view?.[name] || window?.[name] || null;
+      } catch {
+        return null;
+      }
+    }
+    function simulatePointerSequenceAt(target, x, y) {
+      if (!target || typeof target.dispatchEvent !== "function") return false;
+      const view = document?.defaultView || window;
+      const clientX = Number.isFinite(Number(x)) ? Number(x) : 1;
+      const clientY = Number.isFinite(Number(y)) ? Number(y) : 1;
+      const common = {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: view || null,
+        clientX,
+        clientY,
+        screenX: clientX,
+        screenY: clientY,
+        button: 0
+      };
+      const PointerEventCtor = getEventConstructor("PointerEvent");
+      const MouseEventCtor = getEventConstructor("MouseEvent");
+      const plans = [
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointerdown", opts: { ...common, buttons: 1, pointerId: 1, pointerType: "mouse", isPrimary: true } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mousedown", opts: { ...common, buttons: 1 } },
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointerup", opts: { ...common, buttons: 0, pointerId: 1, pointerType: "mouse", isPrimary: true } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mouseup", opts: { ...common, buttons: 0 } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "click", opts: { ...common, buttons: 0, detail: 1 } }
+      ].filter(Boolean);
+      let dispatched = false;
+      for (const plan of plans) {
+        try {
+          target.dispatchEvent(new plan.ctor(plan.type, plan.opts));
+          dispatched = true;
+        } catch {
+        }
+      }
+      return dispatched;
+    }
+    function getElementFromPointSafe(x, y) {
+      try {
+        return document?.elementFromPoint?.(x, y) || null;
+      } catch {
+        return null;
+      }
+    }
+    function forceNativeClickElement(element) {
+      if (!element || typeof element.click !== "function") return false;
+      try {
+        element.click();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    function clickElementAtPointForClose(element, menuRoot) {
+      if (!element) return false;
+      const rect = getElementRect(element);
+      const x = rect ? rect.left + rect.width / 2 : 1;
+      const y = rect ? rect.top + rect.height / 2 : 1;
+      const pointElement = getElementFromPointSafe(x, y);
+      const targets = Array.from(new Set([
+        getClickableActionElement(pointElement),
+        pointElement,
+        element
+      ].filter(Boolean)));
+      let clicked = false;
+      for (const target of targets) {
+        if (!target || !isVisibleElement(target) || isElementDisabled(target)) continue;
+        if (menuRoot?.contains?.(target)) continue;
+        try {
+          target.focus?.({ preventScroll: true });
+        } catch {
+          try {
+            target.focus?.();
+          } catch {
+          }
+        }
+        clicked = forceNativeClickElement(target) || clicked;
+        if (!clicked) clicked = simulatePointerSequenceAt(target, x, y) || clicked;
+        if (!clicked) clicked = simulateClickElement(target, { nativeFallback: true }) || clicked;
+        if (clicked) return true;
+      }
+      return clicked;
+    }
     function normalizeNotionText(value) {
       return String(value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
     }
@@ -299,6 +404,96 @@
     }
     function normalizeHotkeyToken(value) {
       return String(value || "").replace(/\s+/g, "").toUpperCase();
+    }
+    function getElementRect(element) {
+      try {
+        const rect = element?.getBoundingClientRect?.();
+        if (!rect) return null;
+        return {
+          top: Number(rect.top || 0),
+          right: Number(rect.right || 0),
+          bottom: Number(rect.bottom || 0),
+          left: Number(rect.left || 0),
+          width: Math.max(0, Number(rect.width || 0)),
+          height: Math.max(0, Number(rect.height || 0))
+        };
+      } catch {
+        return null;
+      }
+    }
+    function getViewportSize() {
+      return {
+        width: Number(window?.innerWidth || document?.documentElement?.clientWidth || 0),
+        height: Number(window?.innerHeight || document?.documentElement?.clientHeight || 0)
+      };
+    }
+    function isLikelyMainComposerRect(rect) {
+      if (!rect || rect.width < 280 || rect.height < 40 || rect.height > 280) return false;
+      const viewport = getViewportSize();
+      if (viewport.width > 0 && rect.right < viewport.width * 0.35) return false;
+      if (viewport.height > 0 && rect.bottom < viewport.height * 0.28) return false;
+      return true;
+    }
+    function isLikelyComposerToolbarControl(element, rootRect = null) {
+      const rect = getElementRect(element);
+      if (!rect || rect.width < 10 || rect.height < 10 || rect.width > 140 || rect.height > 76) return false;
+      if (rootRect) {
+        if (!isLikelyMainComposerRect(rootRect)) return false;
+        const inToolbarY = rect.top >= rootRect.top - 10 && rect.bottom <= rootRect.bottom + 10;
+        const nearLeftControls = rect.left >= rootRect.left - 4 && rect.left <= rootRect.left + Math.min(220, Math.max(112, rootRect.width * 0.4));
+        return inToolbarY && nearLeftControls;
+      }
+      const viewport = getViewportSize();
+      const minLeft = viewport.width > 0 ? Math.max(240, viewport.width * 0.24) : 240;
+      const maxRight = viewport.width > 0 ? viewport.width - Math.max(24, viewport.width * 0.03) : Number.POSITIVE_INFINITY;
+      const minTop = viewport.height > 0 ? Math.max(120, viewport.height * 0.28) : 120;
+      const maxBottom = viewport.height > 0 ? viewport.height - 16 : Number.POSITIVE_INFINITY;
+      return rect.left >= minLeft && rect.right <= maxRight && rect.top >= minTop && rect.bottom <= maxBottom;
+    }
+    function getElementSearchText(element) {
+      if (!element) return "";
+      return [
+        getElementText(element),
+        element.getAttribute?.("aria-label"),
+        element.getAttribute?.("title"),
+        element.getAttribute?.("data-testid")
+      ].filter(Boolean).join(" ");
+    }
+    function isInsideShortcutUi(element) {
+      return !!element?.closest?.([
+        "#notion-settings-overlay",
+        "#notion-settings-panel",
+        "#notion-edit-overlay",
+        "#notion-edit-form",
+        "#notion-quick-input-overlay"
+      ].join(", "));
+    }
+    function isElementDisabled(element) {
+      if (!element) return true;
+      if (element.disabled === true) return true;
+      const ariaDisabled = String(element.getAttribute?.("aria-disabled") || "").toLowerCase();
+      if (ariaDisabled === "true") return true;
+      try {
+        if (typeof element.matches === "function" && element.matches(":disabled")) return true;
+      } catch {
+      }
+      return false;
+    }
+    function getClickableActionElement(element, root = null) {
+      let node = element;
+      while (node && node.nodeType === 1) {
+        if (root && node === root) break;
+        if (!isElementDisabled(node)) {
+          const tag = String(node.tagName || "").toLowerCase();
+          const role = String(node.getAttribute?.("role") || "").toLowerCase();
+          const tabIndex = String(node.getAttribute?.("tabindex") || "").trim();
+          if (tag === "button" || tag === "a" || role === "button" || role === "menuitem" || role === "menuitemradio" || role === "option" || role === "switch" || role === "checkbox" || role === "menuitemcheckbox" || tabIndex && tabIndex !== "-1" || typeof node.onclick === "function") {
+            return node;
+          }
+        }
+        node = node.parentElement || null;
+      }
+      return element && !isElementDisabled(element) ? element : null;
     }
     function getTargetComparableLabels(target) {
       if (!target) return [];
@@ -341,6 +536,60 @@
       if (text.includes("deepseek") && text.includes("v4") && text.includes("pro")) return NOTION_MODEL_TARGETS.deepseekV4Pro;
       return null;
     }
+    function textLooksLikeNewChat(value) {
+      const text = normalizeNotionText(value);
+      return !!text && (text.includes("new chat") || text.includes("new conversation") || text.includes("new thread") || text.includes("新建聊天") || text.includes("新对话") || text.includes("开启新话题"));
+    }
+    function scoreNewChatTriggerCandidate(element) {
+      if (!element || !isVisibleElement(element) || isInsideShortcutUi(element) || isElementDisabled(element)) return -1;
+      const text = getElementText(element);
+      const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+      const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+      const title = String(element.getAttribute?.("title") || "");
+      const role = String(element.getAttribute?.("role") || "").toLowerCase();
+      const tag = String(element.tagName || "").toLowerCase();
+      const combinedText = [text, ariaLabel, title].join(" ");
+      let score = 0;
+      if (dataTestId.includes("new-chat") || dataTestId.includes("new_chat")) score += 900;
+      if (textLooksLikeNewChat(ariaLabel)) score += 620;
+      if (textLooksLikeNewChat(title)) score += 520;
+      if (textLooksLikeNewChat(text)) score += 480;
+      if (/^\s*new chat\b/i.test(combinedText)) score += 120;
+      if (combinedText.includes("⌘") || normalizeNotionText(combinedText).includes("cmd")) score += 70;
+      if (tag === "button" || role === "button") score += 80;
+      const rect = getElementRect(element);
+      const viewportHeight = Number(window?.innerHeight || document?.documentElement?.clientHeight || 0);
+      if (rect && viewportHeight > 0 && rect.bottom > viewportHeight * 0.55) score += 40;
+      return score > 0 ? score : -1;
+    }
+    function findNewChatTriggerElement() {
+      const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const element of safeQueryAll(document, NOTION_NEW_CHAT_TRIGGER_SELECTORS)) {
+        if (!element || seen.has(element)) continue;
+        seen.add(element);
+        const score = scoreNewChatTriggerCandidate(element);
+        if (score < 0) continue;
+        const rect = getElementRect(element);
+        candidates.push({
+          element,
+          score,
+          bottom: rect ? rect.bottom : 0,
+          area: rect ? rect.width * rect.height : Number.MAX_SAFE_INTEGER
+        });
+      }
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.bottom !== a.bottom) return b.bottom - a.bottom;
+        return a.area - b.area;
+      });
+      return getClickableActionElement(candidates[0]?.element || null);
+    }
+    async function triggerNewChatAction() {
+      const trigger = findNewChatTriggerElement();
+      if (!trigger) return false;
+      return simulateClickElement(trigger, { nativeFallback: true });
+    }
     function scoreModelTriggerCandidate(element) {
       if (!element || !isVisibleElement(element)) return -1;
       if (element.closest?.(NOTION_MODEL_MENU_ROOT_SELECTOR)) return -1;
@@ -362,25 +611,142 @@
       const text = normalizeNotionText(value);
       return !!text && (text.includes("web access") || text.includes("internet access") || text.includes("联网") || text.includes("网络访问"));
     }
+    function textLooksLikeComposerPrompt(value) {
+      const text = normalizeNotionText(value);
+      return !!text && (text.includes("do anything with ai") || text.includes("ask anything") || text.includes("message") || text.includes("提问") || text.includes("输入"));
+    }
+    function getComposerCandidateText(element) {
+      if (!element) return "";
+      return [
+        element.getAttribute?.("placeholder"),
+        element.getAttribute?.("aria-placeholder"),
+        element.getAttribute?.("data-placeholder"),
+        getElementText(element)
+      ].filter(Boolean).join(" ");
+    }
+    function findComposerRootElement() {
+      const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
+      const selector = [
+        "textarea",
+        '[contenteditable="true"]',
+        '[role="textbox"]',
+        "[data-placeholder]",
+        "[aria-placeholder]",
+        "form",
+        "div"
+      ].join(", ");
+      for (const element of safeQueryAll(document, selector)) {
+        if (!element || seen.has(element) || !isVisibleElement(element)) continue;
+        seen.add(element);
+        if (!textLooksLikeComposerPrompt(getComposerCandidateText(element))) continue;
+        let node = element;
+        let best = element;
+        while (node && node.nodeType === 1 && node !== document.body) {
+          const rect2 = getElementRect(node);
+          if (rect2 && rect2.width >= 320 && rect2.height >= 44 && rect2.height <= 260) {
+            best = node;
+          }
+          node = node.parentElement || null;
+        }
+        const rect = getElementRect(best);
+        const viewportHeight = Number(window?.innerHeight || document?.documentElement?.clientHeight || 0);
+        candidates.push({
+          element: best,
+          bottom: rect ? rect.bottom : 0,
+          score: rect && viewportHeight > 0 && rect.bottom > viewportHeight * 0.55 ? 80 : 0
+        });
+      }
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.bottom - a.bottom;
+      });
+      return candidates[0]?.element || null;
+    }
+    function findComposerSettingsTriggerElement() {
+      const labelledTrigger = findComposerSettingsTriggerByLabel();
+      if (labelledTrigger) return labelledTrigger;
+      const root = findComposerRootElement();
+      const rootRect = getElementRect(root);
+      if (!root || !rootRect || !isLikelyMainComposerRect(rootRect)) return null;
+      const buttons = safeQueryAll(root, 'button, [role="button"]').filter((element) => element && isVisibleElement(element) && !isElementDisabled(element)).map((element) => ({ element, rect: getElementRect(element) })).filter(({ rect }) => {
+        if (!rect) return false;
+        const smallEnough = rect.width <= 96 && rect.height <= 64;
+        const inToolbarY = rect.top >= rootRect.top - 8 && rect.bottom <= rootRect.bottom + 8;
+        const nearLeftControls = rect.left <= rootRect.left + Math.min(180, Math.max(96, rootRect.width * 0.22));
+        return smallEnough && inToolbarY && nearLeftControls && isLikelyComposerToolbarControl({ getBoundingClientRect: () => rect }, rootRect);
+      }).sort((a, b) => {
+        if (a.rect.left !== b.rect.left) return a.rect.left - b.rect.left;
+        return a.rect.top - b.rect.top;
+      });
+      if (buttons.length >= 2) return getClickableActionElement(buttons[1].element, root);
+      return null;
+    }
+    function findComposerSettingsTriggerByLabel() {
+      const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const element of safeQueryAll(document, 'button, [role="button"]')) {
+        if (!element || seen.has(element)) continue;
+        seen.add(element);
+        if (!isVisibleElement(element) || isInsideShortcutUi(element) || isElementDisabled(element)) continue;
+        if (element.closest?.(NOTION_SETTINGS_MENU_ROOT_SELECTOR)) continue;
+        if (!isLikelyComposerToolbarControl(element)) continue;
+        const normalized = normalizeNotionText(getElementSearchText(element));
+        if (!normalized || normalized.includes("personalization") || normalized.includes("personalize")) continue;
+        if (!/\bsettings?\b|\boptions?\b|设置/i.test(normalized)) continue;
+        const rect = getElementRect(element);
+        const exactSettings = normalized === "settings" || normalized === "setting" || normalized === "设置";
+        const score = (exactSettings ? 700 : 420) + (rect ? rect.bottom : 0);
+        candidates.push({ element: getClickableActionElement(element), score, rect });
+      }
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (a.rect?.left || 0) - (b.rect?.left || 0);
+      });
+      return candidates[0]?.element || null;
+    }
     function scoreSettingsTriggerCandidate(element) {
       if (!element || !isVisibleElement(element)) return -1;
       if (element.closest?.(NOTION_SETTINGS_MENU_ROOT_SELECTOR)) return -1;
+      if (isInsideShortcutUi(element) || isElementDisabled(element)) return -1;
+      if (!isLikelyComposerToolbarControl(element)) return -1;
       const text = getElementText(element);
       const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
       const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+      const title = String(element.getAttribute?.("title") || "");
       const hasMenu = String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "menu";
       let score = 0;
+      let explicit = false;
       if (dataTestId === "unified-chat-search-scope-button") score += 1e3;
-      if (dataTestId.includes("search") || dataTestId.includes("scope") || dataTestId.includes("setting")) score += 420;
-      if (/\bsettings?\b|设置/i.test(ariaLabel)) score += 520;
-      if (/\bsettings?\b|设置/i.test(text)) score += 260;
-      if (textLooksLikeWebAccess(text) || textLooksLikeWebAccess(ariaLabel)) score += 300;
-      if (hasMenu) score += 80;
-      return score > 0 ? score : -1;
+      if (dataTestId === "unified-chat-search-scope-button") explicit = true;
+      if (dataTestId.includes("search") || dataTestId.includes("scope") || dataTestId.includes("setting") || dataTestId.includes("source")) {
+        score += 420;
+        explicit = true;
+      }
+      if (/\bsettings?\b|\boptions?\b|\bsources?\b|设置/i.test(ariaLabel)) {
+        score += 520;
+        explicit = true;
+      }
+      if (/\bsettings?\b|\boptions?\b|\bsources?\b|设置/i.test(title)) {
+        score += 420;
+        explicit = true;
+      }
+      if (/\bsettings?\b|\boptions?\b|\bsources?\b|设置/i.test(text)) {
+        score += 260;
+        explicit = true;
+      }
+      if (textLooksLikeWebAccess(text) || textLooksLikeWebAccess(ariaLabel) || textLooksLikeWebAccess(title)) {
+        score += 300;
+        explicit = true;
+      }
+      if (explicit && hasMenu) score += 80;
+      return explicit && score > 0 ? score : -1;
     }
     function findSettingsTriggerElement() {
       const candidates = [];
       const seen = /* @__PURE__ */ new Set();
+      const composerSettingsTrigger = findComposerSettingsTriggerElement();
+      if (composerSettingsTrigger) return composerSettingsTrigger;
       for (const element of safeQueryAll(document, NOTION_SETTINGS_TRIGGER_SELECTORS)) {
         if (!element || seen.has(element)) continue;
         seen.add(element);
@@ -397,7 +763,7 @@
         if (b.score !== a.score) return b.score - a.score;
         return b.bottom - a.bottom;
       });
-      return candidates[0]?.element || null;
+      return candidates[0]?.element || findComposerSettingsTriggerElement();
     }
     function scoreSettingsMenuRoot(root) {
       if (!root || !isVisibleElement(root)) return -1;
@@ -455,12 +821,17 @@
       const unique = Array.from(new Set(candidates.filter(Boolean)));
       if (unique.length === 0) return null;
       unique.sort((a, b) => {
+        const aHasToggle = !!findExplicitWebAccessToggleTarget(a);
+        const bHasToggle = !!findExplicitWebAccessToggleTarget(b);
+        if (aHasToggle !== bHasToggle) return bHasToggle - aHasToggle;
         const aText = normalizeNotionText(getElementText(a));
         const bText = normalizeNotionText(getElementText(b));
-        if (aText.length !== bText.length) return aText.length - bText.length;
+        if (aText === "web access" && bText !== "web access") return 1;
+        if (bText === "web access" && aText !== "web access") return -1;
         const aArea = getElementArea(a);
         const bArea = getElementArea(b);
-        return aArea - bArea;
+        if (aArea !== bArea) return aArea - bArea;
+        return aText.length - bText.length;
       });
       return unique[0] || null;
     }
@@ -474,24 +845,38 @@
     }
     function getSettingsMenuRow(element, root) {
       if (!element) return null;
-      const direct = element.closest?.(NOTION_SETTINGS_MENU_ITEM_SELECTOR);
-      if (direct && (!root || direct === root || root.contains?.(direct))) return direct;
       const rootArea = getElementArea(root);
+      const rootRect = getElementRect(root);
+      let bestWithToggle = null;
+      let bestRowLike = null;
       let row = element;
-      let node = element.parentElement || null;
-      while (node && node !== root && node.nodeType === 1) {
-        if (!textLooksLikeWebAccess(getElementText(node))) break;
+      let node = element;
+      while (node && node.nodeType === 1) {
+        if (root && node !== root && !root.contains?.(node)) break;
+        if (!textLooksLikeWebAccess(getElementText(node))) {
+          node = node.parentElement || null;
+          continue;
+        }
         const area = getElementArea(node);
         if (rootArea > 0 && area >= rootArea * 0.85) break;
+        if (findExplicitWebAccessToggleTarget(node)) {
+          bestWithToggle = node;
+          break;
+        }
+        const rect = getElementRect(node);
+        if (rect && rootRect) {
+          const rowLike = rect.height >= 28 && rect.height <= 88 && rect.width >= Math.min(180, rootRect.width * 0.45);
+          if (rowLike) bestRowLike = node;
+        }
         row = node;
         node = node.parentElement || null;
       }
-      return row;
+      return bestWithToggle || bestRowLike || row;
     }
-    function findWebAccessToggleTarget(row) {
-      if (!row) return null;
-      const rowRole = String(row.getAttribute?.("role") || "").toLowerCase();
-      if (rowRole === "switch" || rowRole === "checkbox" || rowRole === "menuitemcheckbox") return row;
+    function findExplicitWebAccessToggleTarget(container) {
+      if (!container) return null;
+      const rowRole = String(container.getAttribute?.("role") || "").toLowerCase();
+      if (rowRole === "switch" || rowRole === "checkbox" || rowRole === "menuitemcheckbox") return container;
       const selectors = [
         '[role="switch"]',
         '[role="checkbox"]',
@@ -504,8 +889,213 @@
         '[data-state="checked"]',
         '[data-state="unchecked"]'
       ].join(", ");
-      const targets = safeQueryAll(row, selectors).filter(isVisibleElement);
+      const targets = safeQueryAll(container, selectors).filter((element) => element && isVisibleElement(element) && !isElementDisabled(element)).sort((a, b) => {
+        const aRect = getElementRect(a);
+        const bRect = getElementRect(b);
+        return (bRect?.right || 0) - (aRect?.right || 0);
+      });
       return targets[0] || null;
+    }
+    function findWebAccessToggleTarget(row) {
+      const explicit = findExplicitWebAccessToggleTarget(row);
+      if (explicit) return explicit;
+      const rowRect = getElementRect(row);
+      if (!row || !rowRect) return null;
+      const targets = safeQueryAll(row, 'button, [role="button"], [tabindex]:not([tabindex="-1"]), div, span').filter((element) => element && element !== row && isVisibleElement(element) && !isElementDisabled(element)).map((element) => ({ element, rect: getElementRect(element) })).filter(({ rect }) => {
+        if (!rect) return false;
+        const rightSide = rect.left >= rowRect.left + rowRect.width * 0.55;
+        const sizeLooksLikeSwitch = rect.width >= 24 && rect.width <= 96 && rect.height >= 14 && rect.height <= 48;
+        return rightSide && sizeLooksLikeSwitch;
+      }).sort((a, b) => {
+        if (b.rect.right !== a.rect.right) return b.rect.right - a.rect.right;
+        return b.rect.width * b.rect.height - a.rect.width * a.rect.height;
+      });
+      return targets[0]?.element || null;
+    }
+    function getWebAccessToggleState(target) {
+      if (!target) return null;
+      const explicitTargets = [target, ...safeQueryAll(target, 'input[type="checkbox"], [aria-checked], [data-state]')];
+      for (const element of explicitTargets) {
+        if (!element) continue;
+        if (element.tagName && String(element.tagName).toLowerCase() === "input" && element.type === "checkbox") {
+          return !!element.checked;
+        }
+        const ariaChecked = String(element.getAttribute?.("aria-checked") || "").toLowerCase();
+        if (ariaChecked === "true") return true;
+        if (ariaChecked === "false") return false;
+        const dataState = String(element.getAttribute?.("data-state") || "").toLowerCase();
+        if (dataState === "checked" || dataState === "on" || dataState === "open") return true;
+        if (dataState === "unchecked" || dataState === "off" || dataState === "closed") return false;
+      }
+      return null;
+    }
+    async function waitForWebAccessToggleChange(trigger, previousState) {
+      if (previousState === null) {
+        await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+        return true;
+      }
+      const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+      while (Date.now() <= deadline) {
+        const currentRoot = findSettingsMenuRoot(trigger);
+        if (!currentRoot) return true;
+        const row = findWebAccessMenuItem(currentRoot);
+        const target = findWebAccessToggleTarget(row);
+        const currentState = getWebAccessToggleState(target);
+        if (currentState !== null && currentState !== previousState) return true;
+        await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+      }
+      return false;
+    }
+    function dispatchEscapeKey(target) {
+      const eventInit = {
+        key: "Escape",
+        code: "Escape",
+        keyCode: 27,
+        which: 27,
+        bubbles: true,
+        cancelable: true,
+        composed: true
+      };
+      try {
+        target?.dispatchEvent?.(new KeyboardEvent("keydown", eventInit));
+        target?.dispatchEvent?.(new KeyboardEvent("keyup", eventInit));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    function dispatchSettingsMenuEscape(root) {
+      const targets = [
+        document.activeElement || null,
+        root || null,
+        document.body || null,
+        document.documentElement || null,
+        document,
+        window
+      ].filter(Boolean);
+      let dispatched = false;
+      for (const target of targets) {
+        dispatched = dispatchEscapeKey(target) || dispatched;
+      }
+      return dispatched;
+    }
+    async function waitForSettingsMenuClose(trigger, { timeoutMs = 900, intervalMs = SETTINGS_MENU_TIMING.pollIntervalMs } = {}) {
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+      while (Date.now() <= deadline) {
+        if (!findSettingsMenuRoot(trigger)) return true;
+        await sleep(intervalMs);
+      }
+      return !findSettingsMenuRoot(trigger);
+    }
+    function findOutsideSettingsMenuClickTarget(menuRoot) {
+      const rootRect = getElementRect(menuRoot);
+      const points = [];
+      const width = Number(window?.innerWidth || document?.documentElement?.clientWidth || 0);
+      const height = Number(window?.innerHeight || document?.documentElement?.clientHeight || 0);
+      if (width <= 0 || height <= 0) return null;
+      const pushPoint = (x, y) => points.push([Math.max(1, Math.min(width - 1, x)), Math.max(1, Math.min(height - 1, y))]);
+      pushPoint(8, 8);
+      pushPoint(width - 8, 8);
+      pushPoint(8, height - 8);
+      pushPoint(width - 8, height - 8);
+      pushPoint(width * 0.12, height * 0.1);
+      pushPoint(width * 0.88, height * 0.1);
+      pushPoint(width * 0.12, height * 0.88);
+      pushPoint(width * 0.88, height * 0.88);
+      for (const [x, y] of points) {
+        const element = document.elementFromPoint?.(x, y);
+        if (!element || element === menuRoot || menuRoot?.contains?.(element)) continue;
+        if (isInsideShortcutUi(element)) continue;
+        const rect = getElementRect(element);
+        if (rootRect && rect) {
+          const overlapsMenu = rect.left < rootRect.right && rect.right > rootRect.left && rect.top < rootRect.bottom && rect.bottom > rootRect.top;
+          if (overlapsMenu) continue;
+        }
+        return {
+          element: getClickableActionElement(element) || element,
+          x,
+          y
+        };
+      }
+      return null;
+    }
+    function findOutsideSettingsMenuFocusTarget(menuRoot) {
+      const selectors = [
+        "textarea",
+        '[contenteditable="true"]',
+        '[role="textbox"]',
+        "input",
+        "button"
+      ].join(", ");
+      const candidates = safeQueryAll(document, selectors).filter((element) => {
+        if (!element || !isVisibleElement(element) || isElementDisabled(element)) return false;
+        if (menuRoot?.contains?.(element) || isInsideShortcutUi(element)) return false;
+        return true;
+      }).map((element) => ({ element, rect: getElementRect(element), text: normalizeNotionText(getElementText(element)) })).filter(({ rect }) => !!rect).sort((a, b) => {
+        const aComposer = textLooksLikeComposerPrompt(getComposerCandidateText(a.element)) ? 1 : 0;
+        const bComposer = textLooksLikeComposerPrompt(getComposerCandidateText(b.element)) ? 1 : 0;
+        if (aComposer !== bComposer) return bComposer - aComposer;
+        const aNewChat = textLooksLikeNewChat(a.text) ? 1 : 0;
+        const bNewChat = textLooksLikeNewChat(b.text) ? 1 : 0;
+        if (aNewChat !== bNewChat) return bNewChat - aNewChat;
+        return b.rect.bottom - a.rect.bottom;
+      });
+      return candidates[0]?.element || null;
+    }
+    async function closeSettingsMenu(trigger, { initialDelayMs = 40 } = {}) {
+      await sleep(Math.max(0, Number(initialDelayMs) || 0));
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const root = findSettingsMenuRoot(trigger);
+        if (!root) return true;
+        const latestTrigger = findSettingsTriggerElement();
+        const triggerCandidates = Array.from(new Set([latestTrigger, trigger].filter(Boolean)));
+        for (const candidate of triggerCandidates) {
+          if (!isVisibleElement(candidate) || root.contains?.(candidate)) continue;
+          if (clickElementAtPointForClose(candidate, root)) {
+            if (await waitForSettingsMenuClose(trigger, { timeoutMs: 260 })) return true;
+          }
+        }
+        dispatchSettingsMenuEscape(root);
+        try {
+          document.activeElement?.blur?.();
+        } catch {
+        }
+        const focusTarget = findOutsideSettingsMenuFocusTarget(root);
+        try {
+          focusTarget?.focus?.({ preventScroll: true });
+        } catch {
+          try {
+            focusTarget?.focus?.();
+          } catch {
+          }
+        }
+        if (await waitForSettingsMenuClose(trigger, { timeoutMs: 450 })) return true;
+        const outsideTarget = findOutsideSettingsMenuClickTarget(root);
+        if (outsideTarget) {
+          let outsideClicked = false;
+          outsideClicked = simulatePointerSequenceAt(outsideTarget.element, outsideTarget.x, outsideTarget.y) || outsideClicked;
+          outsideClicked = simulatePointerSequenceAt(document, outsideTarget.x, outsideTarget.y) || outsideClicked;
+          outsideClicked = simulateClickElement(outsideTarget.element, { nativeFallback: true }) || outsideClicked;
+          if (outsideClicked) {
+            if (await waitForSettingsMenuClose(trigger, { timeoutMs: 320 })) return true;
+          }
+        }
+        const fallbackTarget = findComposerRootElement() || document.body;
+        const fallbackRect = getElementRect(fallbackTarget);
+        const fallbackX = fallbackRect ? fallbackRect.left + fallbackRect.width * 0.5 : 1;
+        const fallbackY = fallbackRect ? fallbackRect.top + fallbackRect.height * 0.35 : 1;
+        if (fallbackTarget) {
+          let fallbackClicked = false;
+          fallbackClicked = simulatePointerSequenceAt(fallbackTarget, fallbackX, fallbackY) || fallbackClicked;
+          fallbackClicked = simulatePointerSequenceAt(document, fallbackX, fallbackY) || fallbackClicked;
+          fallbackClicked = simulateClickElement(fallbackTarget, { nativeFallback: true }) || fallbackClicked;
+          if (fallbackClicked) {
+            if (await waitForSettingsMenuClose(trigger, { timeoutMs: 320 })) return true;
+          }
+        }
+        await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+      }
+      return false;
     }
     async function toggleWebAccessAction() {
       const trigger = findSettingsTriggerElement();
@@ -515,8 +1105,16 @@
       do {
         const currentRoot = findSettingsMenuRoot(trigger) || root;
         const row = findWebAccessMenuItem(currentRoot);
-        const target = findWebAccessToggleTarget(row) || row;
-        if (target && simulateClickElement(target, { nativeFallback: true })) return true;
+        const target = findWebAccessToggleTarget(row);
+        if (target) {
+          const previousState = getWebAccessToggleState(target);
+          if (!simulateClickElement(target, { nativeFallback: true })) return false;
+          const closePromise = closeSettingsMenu(trigger, { initialDelayMs: 30 });
+          const changed = await waitForWebAccessToggleChange(trigger, previousState);
+          const closed = await closePromise;
+          if (!closed) await closeSettingsMenu(findSettingsTriggerElement(), { initialDelayMs: 0 });
+          return changed;
+        }
         if (Date.now() >= deadline) break;
         await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
       } while (true);
@@ -788,8 +1386,8 @@
         key: "newChat",
         name: "New Chat",
         labelKey: "shortcuts.newChat",
-        actionType: "simulate",
-        simulateKeys: NOTION_NATIVE_NEW_CHAT_HOTKEY,
+        actionType: "custom",
+        customAction: "newChat",
         hotkey: "CTRL+N",
         icon: NEW_CHAT_ICON
       }),
@@ -838,6 +1436,18 @@
       const shortcut = defaultShortcuts.find((item) => String(item?.key || "").trim() === shortcutKey);
       return cloneShortcutItem(shortcut);
     }
+    function isLegacyNewChatShortcut(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
+      const key = String(shortcut.key || "").trim();
+      const name = String(shortcut.name || "").trim();
+      const actionType = String(shortcut.actionType || "").trim().toLowerCase();
+      const simulateKeys = normalizeHotkeyToken(shortcut.simulateKeys);
+      const selector = String(shortcut.selector || "").trim();
+      const customAction = String(shortcut.customAction || "").trim();
+      const hotkey = normalizeHotkeyToken(shortcut.hotkey);
+      const data = isPlainObject(shortcut.data) ? shortcut.data : {};
+      return (key === "newChat" || name === "New Chat") && actionType === "simulate" && simulateKeys === LEGACY_NEW_CHAT_SIMULATE_KEYS && !selector && !customAction && hotkey === "CTRL+N" && Object.keys(data).length === 0;
+    }
     function isLegacySelectAiModelShortcut(shortcut) {
       if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
       const key = String(shortcut.key || "").trim();
@@ -853,11 +1463,26 @@
       const stored = gmGetValueLocal(NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
       if (!Array.isArray(stored)) return;
       let changed = false;
-      const next = stored.filter((shortcut) => {
-        const shouldRemove = isLegacySelectAiModelShortcut(shortcut);
-        if (shouldRemove) changed = true;
-        return !shouldRemove;
-      });
+      const next = [];
+      for (const shortcut of stored) {
+        if (isLegacySelectAiModelShortcut(shortcut)) {
+          changed = true;
+          continue;
+        }
+        if (isLegacyNewChatShortcut(shortcut)) {
+          const replacement = createDefaultShortcutByKey("newChat");
+          if (replacement) {
+            next.push({
+              ...replacement,
+              id: String(shortcut.id || replacement.id || "").trim() || replacement.id,
+              hotkey: String(shortcut.hotkey || replacement.hotkey || "").trim() || replacement.hotkey
+            });
+            changed = true;
+            continue;
+          }
+        }
+        next.push(shortcut);
+      }
       const existingKeys = new Set(next.map((shortcut) => String(shortcut?.key || "").trim()).filter(Boolean));
       const existingHotkeys = /* @__PURE__ */ new Map();
       for (const shortcut of next) {
@@ -904,6 +1529,7 @@
       protectedIconUrls,
       defaultShortcuts,
       customActions: {
+        newChat: triggerNewChatAction,
         modelPicker: clickModelPickerItem,
         toggleWebAccess: toggleWebAccessAction
       },
