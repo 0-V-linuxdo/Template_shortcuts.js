@@ -13,6 +13,11 @@
     }
 
     const defaultIconURL = 'https://www.notion.so/images/favicon.ico';
+    const LOG_TAG = "[Notion Shortcut Script]";
+    const NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY = "notion_shortcuts_v1";
+    const NOTION_NATIVE_NEW_CHAT_HOTKEY = "CMD+O";
+    const LEGACY_SELECT_AI_MODEL_KEY = "selectAiModel";
+    const LEGACY_SELECT_AI_MODEL_SELECTOR = '[data-testid="unified-chat-model-button"][role="button"]';
 
     const NOTION_AI_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 2l3.09 6.26L22 9l-5.91 4.47L17 22l-5-3.4L7 22l.91-8.53L2 9l6.91-.74z'/%3E%3C/svg%3E";
     const SEARCH_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E";
@@ -20,6 +25,8 @@
     const RESEARCH_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2zm0 15l-5-2.18L7 18V5h10v13z'/%3E%3C/svg%3E";
     const ADD_CONTEXT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='currentColor'%3E%3Cpath d='M11.904 3.28a6.125 6.125 0 1 0-1.648 10.415.625.625 0 1 0-.46-1.163 4.875 4.875 0 1 1 2.808-2.93c-.102.294-.43.523-.878.523a.87.87 0 0 1-.872-.872V5.705a.625.625 0 0 0-1.242-.098 3.04 3.04 0 0 0-1.746-.527c-.792 0-1.542.277-2.095.825-.557.55-.871 1.332-.871 2.256s.313 1.714.864 2.276 1.3.858 2.102.858c.8 0 1.55-.294 2.104-.85a2.12 2.12 0 0 0 1.756.93c.835 0 1.738-.441 2.058-1.361a6.125 6.125 0 0 0-1.88-6.734M6.65 6.793c.294-.29.715-.463 1.216-.463.5 0 .929.173 1.228.466.296.289.508.735.508 1.365 0 .631-.213 1.095-.515 1.4-.303.306-.73.484-1.221.484-.49 0-.91-.178-1.209-.482-.296-.303-.507-.767-.507-1.402 0-.633.21-1.08.5-1.368'/%3E%3C/svg%3E";
     const ATTACH_FILE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath d='M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z'/%3E%3C/svg%3E";
+    const NEW_CHAT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14'/%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E";
+    const WEB_ACCESS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 0 20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E";
 
     const defaultIcons = [
         { name: 'Notion', url: defaultIconURL },
@@ -27,6 +34,8 @@
         { name: 'Search', url: SEARCH_ICON },
         { name: 'Settings', url: SETTINGS_ICON },
         { name: 'Research', url: RESEARCH_ICON },
+        { name: 'New Chat', url: NEW_CHAT_ICON },
+        { name: 'Web Access', url: WEB_ACCESS_ICON },
         { name: 'Google', url: 'https://www.google.com/favicon.ico' },
         { name: 'ChatGPT', url: 'https://chat.openai.com/favicon-32x32.png' },
         { name: 'Claude', url: 'https://claude.ai/favicon.ico' },
@@ -37,21 +46,761 @@
         defaultIconURL
     ];
 
+    const TemplateUtils = ShortcutTemplate.utils || {};
+    const domUtils = TemplateUtils.dom || {};
+    const eventUtils = TemplateUtils.events || {};
+    const sleep = typeof TemplateUtils.sleep === "function"
+        ? TemplateUtils.sleep
+        : (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    function gmGetValueLocal(key, fallback) {
+        if (typeof GM_getValue !== "function") return fallback;
+        try {
+            const value = GM_getValue(key, fallback);
+            if (value && typeof value.then === "function") return fallback;
+            return value;
+        } catch {
+            return fallback;
+        }
+    }
+
+    function gmSetValueLocal(key, value) {
+        if (typeof GM_setValue !== "function") return false;
+        try {
+            GM_setValue(key, value);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function cloneShortcutItem(value) {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+        try {
+            if (typeof structuredClone === "function") return structuredClone(value);
+        } catch { }
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch {
+            return { ...value };
+        }
+    }
+
+    function isPlainObject(value) {
+        return !!value && typeof value === "object" && !Array.isArray(value);
+    }
+
+    const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
+
+    const NOTION_MODEL_TARGETS = Object.freeze({
+        auto: Object.freeze({
+            id: "auto",
+            label: "Auto",
+            hotkey: "CTRL+SHIFT+1",
+            labelKey: "shortcuts.modelAuto",
+            aliases: Object.freeze(["Auto", "Automatic"])
+        }),
+        sonnet46: Object.freeze({
+            id: "sonnet46",
+            label: "Claude Sonnet 4.6",
+            menuLabel: "Sonnet 4.6",
+            hotkey: "CTRL+SHIFT+2",
+            labelKey: "shortcuts.modelSonnet46",
+            aliases: Object.freeze(["Sonnet 4.6", "Claude Sonnet 4.6"])
+        }),
+        opus46: Object.freeze({
+            id: "opus46",
+            label: "Claude Opus 4.6",
+            menuLabel: "Opus 4.6",
+            hotkey: "CTRL+SHIFT+3",
+            labelKey: "shortcuts.modelOpus46",
+            aliases: Object.freeze(["Opus 4.6", "Claude Opus 4.6"])
+        }),
+        opus47: Object.freeze({
+            id: "opus47",
+            label: "Claude Opus 4.7",
+            menuLabel: "Opus 4.7",
+            hotkey: "CTRL+SHIFT+4",
+            labelKey: "shortcuts.modelOpus47",
+            aliases: Object.freeze(["Opus 4.7", "Claude Opus 4.7"])
+        }),
+        gemini31pro: Object.freeze({
+            id: "gemini31pro",
+            label: "Gemini 3.1 Pro",
+            hotkey: "CTRL+SHIFT+5",
+            labelKey: "shortcuts.modelGemini31Pro",
+            aliases: Object.freeze(["Gemini 3.1 Pro", "Gemini Pro", "gemini pro"])
+        }),
+        gpt52: Object.freeze({
+            id: "gpt52",
+            label: "GPT-5.2",
+            hotkey: "CTRL+SHIFT+6",
+            labelKey: "shortcuts.modelGpt52",
+            aliases: Object.freeze(["GPT-5.2", "GPT 5.2"])
+        }),
+        gpt54: Object.freeze({
+            id: "gpt54",
+            label: "GPT-5.4",
+            hotkey: "CTRL+SHIFT+7",
+            labelKey: "shortcuts.modelGpt54",
+            aliases: Object.freeze(["GPT-5.4", "GPT 5.4"])
+        }),
+        gpt55: Object.freeze({
+            id: "gpt55",
+            label: "GPT-5.5",
+            hotkey: "CTRL+SHIFT+8",
+            labelKey: "shortcuts.modelGpt55",
+            aliases: Object.freeze(["GPT-5.5", "GPT 5.5"])
+        }),
+        kimi26: Object.freeze({
+            id: "kimi26",
+            label: "Kimi K2.6",
+            hotkey: "CTRL+SHIFT+9",
+            labelKey: "shortcuts.modelKimi26",
+            aliases: Object.freeze(["Kimi K2.6"])
+        }),
+        deepseekV4Pro: Object.freeze({
+            id: "deepseekV4Pro",
+            label: "DeepSeek V4 Pro",
+            hotkey: "CTRL+SHIFT+0",
+            labelKey: "shortcuts.modelDeepSeekV4Pro",
+            aliases: Object.freeze(["DeepSeek V4 Pro", "DeepSeek V4", "deepseek v4 pro"])
+        })
+    });
+
+    const NOTION_MODEL_TARGET_LIST = Object.freeze(Object.values(NOTION_MODEL_TARGETS));
+    const NOTION_MODEL_SHORTCUT_KEYS = Object.freeze(NOTION_MODEL_TARGET_LIST.map(target => `model-${target.id}`));
+    const NOTION_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
+        "newChat",
+        ...NOTION_MODEL_SHORTCUT_KEYS,
+        "toggleWebAccess"
+    ]);
+    const NOTION_MODEL_TRIGGER_SELECTORS = [
+        LEGACY_SELECT_AI_MODEL_SELECTOR,
+        '[data-testid="unified-chat-model-button"]',
+        'button[aria-label*="model" i]',
+        'button[aria-label*="模型" i]',
+        'button[aria-haspopup="menu"]',
+        "button"
+    ].join(", ");
+    const NOTION_MODEL_MENU_ROOT_SELECTOR = [
+        '[role="menu"]',
+        '[role="listbox"]',
+        '[data-radix-menu-content]',
+        '[data-floating-ui-portal] [role="menu"]'
+    ].join(", ");
+    const NOTION_MODEL_MENU_ITEM_SELECTOR = [
+        '[role="menuitem"]',
+        '[role="menuitemradio"]',
+        '[role="option"]',
+        "button",
+        '[tabindex]:not([tabindex="-1"])'
+    ].join(", ");
+    const MODEL_MENU_TIMING = Object.freeze({
+        pollIntervalMs: 120,
+        waitTimeoutMs: 3000,
+        openDelayMs: 120
+    });
+    const NOTION_SETTINGS_TRIGGER_SELECTORS = [
+        '[data-testid="unified-chat-search-scope-button"][role="button"]',
+        '[data-testid="unified-chat-search-scope-button"]',
+        'button[aria-label*="settings" i]',
+        'button[aria-label*="设置" i]',
+        'button[aria-label*="web access" i]',
+        'button[aria-haspopup="menu"]',
+        "button"
+    ].join(", ");
+    const NOTION_SETTINGS_MENU_ROOT_SELECTOR = [
+        '[role="menu"]',
+        '[role="dialog"]',
+        '[data-radix-menu-content]',
+        '[data-floating-ui-portal] [role="menu"]'
+    ].join(", ");
+    const NOTION_SETTINGS_MENU_ITEM_SELECTOR = [
+        '[role="menuitem"]',
+        '[role="menuitemcheckbox"]',
+        '[role="switch"]',
+        "button",
+        '[tabindex]:not([tabindex="-1"])'
+    ].join(", ");
+    const SETTINGS_MENU_TIMING = Object.freeze({
+        pollIntervalMs: 120,
+        waitTimeoutMs: 3000,
+        openDelayMs: 120
+    });
+
+    const safeQueryAll = typeof domUtils.safeQuerySelectorAll === "function"
+        ? domUtils.safeQuerySelectorAll
+        : (root, selector) => {
+            const base = root && typeof root.querySelectorAll === "function" ? root : document;
+            try { return Array.from(base.querySelectorAll(selector)); } catch { return []; }
+        };
+    const isVisibleElement = typeof domUtils.isVisible === "function"
+        ? domUtils.isVisible
+        : (element) => {
+            if (!element) return false;
+            try {
+                return !!(element.offsetWidth || element.offsetHeight || element.getClientRects?.().length);
+            } catch {
+                return false;
+            }
+        };
+    const simulateClickElement = typeof eventUtils.simulateClick === "function"
+        ? eventUtils.simulateClick
+        : (element) => {
+            try {
+                element?.click?.();
+                return true;
+            } catch {
+                return false;
+            }
+        };
+
+    function normalizeNotionText(value) {
+        return String(value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+    }
+
+    function normalizeNotionTargetKey(value) {
+        return normalizeNotionText(value).replace(/[^a-z0-9]+/g, "");
+    }
+
+    function getElementText(element) {
+        if (!element) return "";
+        const aria = element.getAttribute?.("aria-label");
+        if (aria && String(aria).trim()) return String(aria);
+        const title = element.getAttribute?.("title");
+        if (title && String(title).trim()) return String(title);
+        try {
+            return String(element.textContent || "");
+        } catch {
+            return "";
+        }
+    }
+
+    function normalizeHotkeyToken(value) {
+        return String(value || "").replace(/\s+/g, "").toUpperCase();
+    }
+
+    function getTargetComparableLabels(target) {
+        if (!target) return [];
+        const labels = [target.menuLabel, target.label, ...(target.aliases || [])]
+            .map(normalizeNotionText)
+            .filter(Boolean);
+        return Array.from(new Set(labels));
+    }
+
+    function textLooksLikeTarget(text, target) {
+        const normalized = normalizeNotionText(text);
+        if (!normalized || !target) return false;
+        const labels = getTargetComparableLabels(target);
+        if (labels.some(label => normalized === label || normalized.includes(label))) return true;
+
+        if (target.id === "gemini31pro") return normalized.includes("gemini") && normalized.includes("pro");
+        if (target.id === "opus46") return normalized.includes("opus") && normalized.includes("4.6");
+        if (target.id === "opus47") return normalized.includes("opus") && normalized.includes("4.7");
+        if (target.id === "sonnet46") return normalized.includes("sonnet") && normalized.includes("4.6");
+        if (target.id === "deepseekV4Pro") return normalized.includes("deepseek") && normalized.includes("v4") && normalized.includes("pro");
+        if (target.id === "kimi26") return normalized.includes("kimi") && normalized.includes("k2.6");
+        return false;
+    }
+
+    function inferModelTargetFromText(value) {
+        const text = normalizeNotionText(value);
+        const key = normalizeNotionTargetKey(value);
+        if (!text && !key) return null;
+
+        for (const target of NOTION_MODEL_TARGET_LIST) {
+            if (key === normalizeNotionTargetKey(target.id)) return target;
+            if (key === normalizeNotionTargetKey(target.label)) return target;
+            if (target.menuLabel && key === normalizeNotionTargetKey(target.menuLabel)) return target;
+            if ((target.aliases || []).some(alias => key === normalizeNotionTargetKey(alias))) return target;
+        }
+
+        if (text.includes("gemini") && text.includes("pro")) return NOTION_MODEL_TARGETS.gemini31pro;
+        if (text.includes("opus") && text.includes("4.6")) return NOTION_MODEL_TARGETS.opus46;
+        if (text.includes("opus") && text.includes("4.7")) return NOTION_MODEL_TARGETS.opus47;
+        if (text.includes("claude") && text.includes("opus")) return NOTION_MODEL_TARGETS.opus47;
+        if (text === "opus") return NOTION_MODEL_TARGETS.opus47;
+        if (text.includes("sonnet") && text.includes("4.6")) return NOTION_MODEL_TARGETS.sonnet46;
+        if (text.includes("gpt") && text.includes("5.2")) return NOTION_MODEL_TARGETS.gpt52;
+        if (text.includes("gpt") && text.includes("5.4")) return NOTION_MODEL_TARGETS.gpt54;
+        if (text.includes("gpt") && text.includes("5.5")) return NOTION_MODEL_TARGETS.gpt55;
+        if (text.includes("kimi") && text.includes("k2.6")) return NOTION_MODEL_TARGETS.kimi26;
+        if (text.includes("deepseek") && text.includes("v4") && text.includes("pro")) return NOTION_MODEL_TARGETS.deepseekV4Pro;
+        return null;
+    }
+
+    function scoreModelTriggerCandidate(element) {
+        if (!element || !isVisibleElement(element)) return -1;
+        if (element.closest?.(NOTION_MODEL_MENU_ROOT_SELECTOR)) return -1;
+
+        const text = getElementText(element);
+        const normalizedText = normalizeNotionText(text);
+        const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+        const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+        const hasMenu = String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "menu";
+
+        let score = 0;
+        if (dataTestId === "unified-chat-model-button") score += 1000;
+        if (dataTestId.includes("model")) score += 500;
+        if (/\bmodel\b|模型/i.test(ariaLabel)) score += 420;
+        if (inferModelTargetFromText(text)) score += 360;
+        if (hasMenu) score += 80;
+        if (normalizedText === "auto") score += 80;
+        return score > 0 ? score : -1;
+    }
+
+    function textLooksLikeWebAccess(value) {
+        const text = normalizeNotionText(value);
+        return !!text && (
+            text.includes("web access") ||
+            text.includes("internet access") ||
+            text.includes("联网") ||
+            text.includes("网络访问")
+        );
+    }
+
+    function scoreSettingsTriggerCandidate(element) {
+        if (!element || !isVisibleElement(element)) return -1;
+        if (element.closest?.(NOTION_SETTINGS_MENU_ROOT_SELECTOR)) return -1;
+
+        const text = getElementText(element);
+        const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+        const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+        const hasMenu = String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "menu";
+
+        let score = 0;
+        if (dataTestId === "unified-chat-search-scope-button") score += 1000;
+        if (dataTestId.includes("search") || dataTestId.includes("scope") || dataTestId.includes("setting")) score += 420;
+        if (/\bsettings?\b|设置/i.test(ariaLabel)) score += 520;
+        if (/\bsettings?\b|设置/i.test(text)) score += 260;
+        if (textLooksLikeWebAccess(text) || textLooksLikeWebAccess(ariaLabel)) score += 300;
+        if (hasMenu) score += 80;
+        return score > 0 ? score : -1;
+    }
+
+    function findSettingsTriggerElement() {
+        const candidates = [];
+        const seen = new Set();
+        for (const element of safeQueryAll(document, NOTION_SETTINGS_TRIGGER_SELECTORS)) {
+            if (!element || seen.has(element)) continue;
+            seen.add(element);
+            const score = scoreSettingsTriggerCandidate(element);
+            if (score < 0) continue;
+            let bottom = 0;
+            try { bottom = Number(element.getBoundingClientRect?.().bottom || 0); } catch { }
+            candidates.push({ element, score, bottom });
+        }
+        candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.bottom - a.bottom;
+        });
+        return candidates[0]?.element || null;
+    }
+
+    function scoreSettingsMenuRoot(root) {
+        if (!root || !isVisibleElement(root)) return -1;
+        const text = getElementText(root);
+        const normalized = normalizeNotionText(text);
+        let score = 0;
+        if (textLooksLikeWebAccess(text)) score += 240;
+        if (normalized.includes("my sources")) score += 80;
+        if (normalized.includes("add sources")) score += 80;
+        if (normalized.includes("personalize")) score += 60;
+        if (normalized.includes("mode")) score += 40;
+        return score >= 160 ? score : -1;
+    }
+
+    function findSettingsMenuRoot(triggerEl = null) {
+        if (triggerEl) {
+            const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+            if (controlsId) {
+                const controlled = document.getElementById(controlsId);
+                if (scoreSettingsMenuRoot(controlled) > 0) return controlled;
+            }
+        }
+
+        const candidates = safeQueryAll(document, NOTION_SETTINGS_MENU_ROOT_SELECTOR)
+            .map(element => ({ element, score: scoreSettingsMenuRoot(element) }))
+            .filter(item => item.score > 0);
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => b.score - a.score);
+        return candidates[0]?.element || null;
+    }
+
+    async function ensureSettingsMenuOpen(triggerEl, { timeoutMs = SETTINGS_MENU_TIMING.waitTimeoutMs, intervalMs = SETTINGS_MENU_TIMING.pollIntervalMs } = {}) {
+        const existing = findSettingsMenuRoot(triggerEl);
+        if (existing) return existing;
+        if (!triggerEl) return null;
+        if (!simulateClickElement(triggerEl, { nativeFallback: true })) return null;
+        if (SETTINGS_MENU_TIMING.openDelayMs > 0) await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() <= deadline) {
+            const root = findSettingsMenuRoot(triggerEl);
+            if (root) return root;
+            await sleep(intervalMs);
+        }
+        return findSettingsMenuRoot(triggerEl);
+    }
+
+    function findWebAccessMenuItem(root) {
+        if (!root) return null;
+        const candidates = [];
+        const seen = new Set();
+        for (const element of safeQueryAll(root, NOTION_SETTINGS_MENU_ITEM_SELECTOR)) {
+            if (!element || seen.has(element) || !isVisibleElement(element)) continue;
+            seen.add(element);
+            if (textLooksLikeWebAccess(getElementText(element))) candidates.push(getSettingsMenuRow(element, root));
+        }
+        for (const element of safeQueryAll(root, "div, span, button")) {
+            if (!element || seen.has(element) || !isVisibleElement(element)) continue;
+            seen.add(element);
+            if (textLooksLikeWebAccess(getElementText(element))) candidates.push(getSettingsMenuRow(element, root));
+        }
+        const unique = Array.from(new Set(candidates.filter(Boolean)));
+        if (unique.length === 0) return null;
+        unique.sort((a, b) => {
+            const aText = normalizeNotionText(getElementText(a));
+            const bText = normalizeNotionText(getElementText(b));
+            if (aText.length !== bText.length) return aText.length - bText.length;
+            const aArea = getElementArea(a);
+            const bArea = getElementArea(b);
+            return aArea - bArea;
+        });
+        return unique[0] || null;
+    }
+
+    function getElementArea(element) {
+        try {
+            const rect = element.getBoundingClientRect?.();
+            return Math.max(0, Number(rect?.width || 0)) * Math.max(0, Number(rect?.height || 0));
+        } catch {
+            return Number.MAX_SAFE_INTEGER;
+        }
+    }
+
+    function getSettingsMenuRow(element, root) {
+        if (!element) return null;
+        const direct = element.closest?.(NOTION_SETTINGS_MENU_ITEM_SELECTOR);
+        if (direct && (!root || direct === root || root.contains?.(direct))) return direct;
+
+        const rootArea = getElementArea(root);
+        let row = element;
+        let node = element.parentElement || null;
+        while (node && node !== root && node.nodeType === 1) {
+            if (!textLooksLikeWebAccess(getElementText(node))) break;
+            const area = getElementArea(node);
+            if (rootArea > 0 && area >= rootArea * 0.85) break;
+            row = node;
+            node = node.parentElement || null;
+        }
+        return row;
+    }
+
+    function findWebAccessToggleTarget(row) {
+        if (!row) return null;
+        const rowRole = String(row.getAttribute?.("role") || "").toLowerCase();
+        if (rowRole === "switch" || rowRole === "checkbox" || rowRole === "menuitemcheckbox") return row;
+
+        const selectors = [
+            '[role="switch"]',
+            '[role="checkbox"]',
+            '[role="menuitemcheckbox"]',
+            'input[type="checkbox"]',
+            'button[aria-checked]',
+            '[aria-checked]',
+            'button[data-state="checked"]',
+            'button[data-state="unchecked"]',
+            '[data-state="checked"]',
+            '[data-state="unchecked"]'
+        ].join(", ");
+        const targets = safeQueryAll(row, selectors).filter(isVisibleElement);
+        return targets[0] || null;
+    }
+
+    async function toggleWebAccessAction() {
+        const trigger = findSettingsTriggerElement();
+        const root = await ensureSettingsMenuOpen(trigger);
+        if (!root) return false;
+
+        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+        do {
+            const currentRoot = findSettingsMenuRoot(trigger) || root;
+            const row = findWebAccessMenuItem(currentRoot);
+            const target = findWebAccessToggleTarget(row) || row;
+            if (target && simulateClickElement(target, { nativeFallback: true })) return true;
+            if (Date.now() >= deadline) break;
+            await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+        } while (true);
+        return false;
+    }
+
+    function findModelTriggerElement() {
+        const candidates = [];
+        const seen = new Set();
+        for (const element of safeQueryAll(document, NOTION_MODEL_TRIGGER_SELECTORS)) {
+            if (!element || seen.has(element)) continue;
+            seen.add(element);
+            const score = scoreModelTriggerCandidate(element);
+            if (score < 0) continue;
+            let bottom = 0;
+            try { bottom = Number(element.getBoundingClientRect?.().bottom || 0); } catch { }
+            candidates.push({ element, score, bottom });
+        }
+        candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.bottom - a.bottom;
+        });
+        return candidates[0]?.element || null;
+    }
+
+    function scoreModelMenuRoot(root) {
+        if (!root || !isVisibleElement(root)) return -1;
+        const text = getElementText(root);
+        const normalized = normalizeNotionText(text);
+        let score = 0;
+        if (normalized.includes("select a model")) score += 160;
+        if (normalized.includes("open models")) score += 80;
+        for (const target of NOTION_MODEL_TARGET_LIST) {
+            if (textLooksLikeTarget(text, target)) score += 80;
+        }
+        return score >= 160 ? score : -1;
+    }
+
+    function findModelMenuRoot(triggerEl = null) {
+        if (triggerEl) {
+            const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+            if (controlsId) {
+                const controlled = document.getElementById(controlsId);
+                if (scoreModelMenuRoot(controlled) > 0) return controlled;
+            }
+        }
+
+        const candidates = safeQueryAll(document, NOTION_MODEL_MENU_ROOT_SELECTOR)
+            .map(element => ({ element, score: scoreModelMenuRoot(element) }))
+            .filter(item => item.score > 0);
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => b.score - a.score);
+        return candidates[0]?.element || null;
+    }
+
+    async function ensureModelMenuOpen(triggerEl, { timeoutMs = MODEL_MENU_TIMING.waitTimeoutMs, intervalMs = MODEL_MENU_TIMING.pollIntervalMs } = {}) {
+        const existing = findModelMenuRoot(triggerEl);
+        if (existing) return existing;
+        if (!triggerEl) return null;
+        if (!simulateClickElement(triggerEl, { nativeFallback: true })) return null;
+        if (MODEL_MENU_TIMING.openDelayMs > 0) await sleep(MODEL_MENU_TIMING.openDelayMs);
+
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() <= deadline) {
+            const root = findModelMenuRoot(triggerEl);
+            if (root) return root;
+            await sleep(intervalMs);
+        }
+        return findModelMenuRoot(triggerEl);
+    }
+
+    function getClickableMenuItem(element, root) {
+        let node = element;
+        while (node && node !== root && node.nodeType === 1) {
+            const tag = String(node.tagName || "").toLowerCase();
+            const role = String(node.getAttribute?.("role") || "").toLowerCase();
+            const tabIndex = String(node.getAttribute?.("tabindex") || "").trim();
+            if (
+                tag === "button" ||
+                role === "menuitem" ||
+                role === "menuitemradio" ||
+                role === "option" ||
+                (tabIndex && tabIndex !== "-1")
+            ) {
+                return node;
+            }
+            node = node.parentElement || null;
+        }
+        return element;
+    }
+
+    function findModelMenuItem(root, { target = null, textMatch = null, selector = NOTION_MODEL_MENU_ITEM_SELECTOR, fallbackToFirst = false } = {}) {
+        if (!root) return null;
+        const matchesTarget = (element) => {
+            const text = getElementText(element);
+            if (target) return textLooksLikeTarget(text, target);
+            if (typeof textMatch === "function") {
+                try { return !!textMatch(text, element); } catch { return false; }
+            }
+            if (textMatch instanceof RegExp) {
+                try { return textMatch.test(text); } catch { return false; }
+            }
+            if (Array.isArray(textMatch)) return textMatch.some(item => matchesTarget({ textContent: item }));
+            const needle = normalizeNotionText(textMatch);
+            return needle ? normalizeNotionText(text).includes(needle) : true;
+        };
+
+        const candidates = [];
+        const seen = new Set();
+        for (const element of safeQueryAll(root, selector || NOTION_MODEL_MENU_ITEM_SELECTOR)) {
+            if (!element || seen.has(element) || !isVisibleElement(element)) continue;
+            seen.add(element);
+            candidates.push(element);
+        }
+
+        for (const element of candidates) {
+            if (matchesTarget(element)) return getClickableMenuItem(element, root);
+        }
+
+        const fallbackCandidates = safeQueryAll(root, "div, span, button")
+            .filter(element => element && !seen.has(element) && isVisibleElement(element));
+        for (const element of fallbackCandidates) {
+            if (matchesTarget(element)) return getClickableMenuItem(element, root);
+        }
+
+        return fallbackToFirst ? (candidates[0] || null) : null;
+    }
+
+    function getShortcutDataObject(shortcut) {
+        return isPlainObject(shortcut?.data) ? shortcut.data : {};
+    }
+
+    function getModelPickerSpec(shortcut) {
+        const data = getShortcutDataObject(shortcut);
+        const rawMenu = data.menu;
+        const menu = isPlainObject(rawMenu)
+            ? rawMenu
+            : (rawMenu !== undefined ? { textMatch: rawMenu } : data);
+
+        const selector = typeof menu.selector === "string" && menu.selector.trim()
+            ? menu.selector.trim()
+            : NOTION_MODEL_MENU_ITEM_SELECTOR;
+        const fallbackToFirst = !!menu.fallbackToFirst;
+        const waitForItem = menu.waitForItem !== undefined ? !!menu.waitForItem : true;
+        const rawTextMatch = menu.keyword !== undefined ? menu.keyword : menu.textMatch;
+        const path = Array.isArray(menu.path) ? menu.path.map(item => String(item ?? "").trim()).filter(Boolean) : [];
+        const pathLast = path.length ? path[path.length - 1] : "";
+        const target = inferModelTargetFromText(menu.id ?? rawTextMatch ?? pathLast ?? rawMenu ?? shortcut?.name);
+        const textMatch = target ? null : (rawTextMatch ?? pathLast);
+
+        if (!target && !textMatch && !fallbackToFirst) {
+            console.warn(`${LOG_TAG} modelPicker: missing target; set data.menu = { id: "gemini31pro" } or plain text like "gemini pro".`);
+            return null;
+        }
+
+        return {
+            selector,
+            target,
+            textMatch,
+            fallbackToFirst,
+            waitForItem
+        };
+    }
+
+    async function clickModelPickerItem({ shortcut, engine }) {
+        const spec = getModelPickerSpec(shortcut);
+        if (!spec) return false;
+
+        const trigger = findModelTriggerElement();
+        const currentTarget = inferModelTargetFromText(getElementText(trigger));
+        if (spec.target && currentTarget && spec.target.id === currentTarget.id) return true;
+
+        const menuRoot = await ensureModelMenuOpen(trigger);
+        if (!menuRoot) return false;
+
+        const deadline = Date.now() + MODEL_MENU_TIMING.waitTimeoutMs;
+        do {
+            const currentRoot = findModelMenuRoot(trigger) || menuRoot;
+            const target = findModelMenuItem(currentRoot, spec);
+            if (target && simulateClickElement(target, { nativeFallback: true })) return true;
+            if (!spec.waitForItem || Date.now() >= deadline) break;
+            await sleep(MODEL_MENU_TIMING.pollIntervalMs);
+        } while (true);
+
+        return false;
+    }
+
+    function formatMenuDataAdapter(data) {
+        const raw = isPlainObject(data) ? data : {};
+        const keys = Object.keys(raw);
+        if (keys.length === 0) return "";
+
+        const menu = raw.menu;
+        if (typeof menu === "string" && menu.trim()) return menu.trim();
+        if (isPlainObject(menu)) {
+            const value = ["id", "keyword", "textMatch"]
+                .map(key => typeof menu[key] === "string" && menu[key].trim() ? menu[key].trim() : "")
+                .find(Boolean);
+            if (value && Object.keys(menu).every(key => ["id", "keyword", "textMatch"].includes(key))) return value;
+        }
+
+        try {
+            return JSON.stringify(raw, null, 2);
+        } catch {
+            return "";
+        }
+    }
+
+    function parseMenuDataAdapter(text) {
+        const trimmed = String(text ?? "").trim();
+        if (!trimmed) return {};
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            const parsed = JSON.parse(trimmed);
+            if (!isPlainObject(parsed)) throw new Error("data must be an object");
+            return parsed;
+        }
+        return { menu: trimmed };
+    }
+
+    function createMenuDataAdapter({ label, placeholder } = {}) {
+        return {
+            label,
+            placeholder,
+            format: formatMenuDataAdapter,
+            parse: parseMenuDataAdapter
+        };
+    }
+
     const SITE_MESSAGES = Object.freeze({
         "zh-CN": {
             menuCommandLabel: "Notion - 设置快捷键",
             panelTitle: "Notion - 自定义快捷键",
             shortcuts: {
+                newChat: "新建聊天",
                 selectAiModel: "选择 AI 模型",
+                modelAuto: "模型：Auto",
+                modelSonnet46: "模型：Claude Sonnet 4.6",
+                modelOpus46: "模型：Claude Opus 4.6",
+                modelOpus47: "模型：Claude Opus 4.7",
+                modelGemini31Pro: "模型：Gemini 3.1 Pro",
+                modelGpt52: "模型：GPT-5.2",
+                modelGpt54: "模型：GPT-5.4",
+                modelGpt55: "模型：GPT-5.5",
+                modelKimi26: "模型：Kimi K2.6",
+                modelDeepSeekV4Pro: "模型：DeepSeek V4 Pro",
                 toggleResearchMode: "切换研究模式",
                 selectSearchScope: "选择搜索范围",
+                toggleWebAccess: "切换联网",
                 addContext: "添加上下文",
                 attachFile: "附加文件"
+            },
+            dataAdapters: {
+                modelPicker: {
+                    label: "模型 ID / 关键词（或粘贴 JSON，高级用法）:",
+                    placeholder: "例如: gemini pro / opus 4.7 / {\"menu\":{\"id\":\"opus47\"}}"
+                }
             }
         },
         "en-US": {
             menuCommandLabel: "Notion - Shortcut settings",
-            panelTitle: "Notion - Custom shortcuts"
+            panelTitle: "Notion - Custom shortcuts",
+            shortcuts: {
+                newChat: "New Chat",
+                toggleWebAccess: "Toggle Web Access"
+            },
+            dataAdapters: {
+                modelPicker: {
+                    label: "Model ID / keyword (or paste JSON, advanced):",
+                    placeholder: "Example: gemini pro / opus 4.7 / {\"menu\":{\"id\":\"opus47\"}}"
+                }
+            }
         }
     });
 
@@ -69,13 +818,32 @@
 
     const createShortcut = (overrides) => ({ ...baseShortcut, ...overrides });
 
+    function createModelShortcut(target) {
+        return createShortcut({
+            key: `model-${target.id}`,
+            name: target.label,
+            labelKey: target.labelKey,
+            actionType: "custom",
+            customAction: "modelPicker",
+            hotkey: target.hotkey,
+            icon: NOTION_AI_ICON,
+            data: { menu: { id: target.id } }
+        });
+    }
+
+    const defaultModelShortcuts = NOTION_MODEL_TARGET_LIST.map(createModelShortcut);
+
     const defaultShortcuts = [
         createShortcut({
-            key: 'selectAiModel',
-            name: 'Select AI Model',
-            selector: '[data-testid="unified-chat-model-button"][role="button"]',
-            hotkey: 'CTRL+M'
+            key: 'newChat',
+            name: 'New Chat',
+            labelKey: 'shortcuts.newChat',
+            actionType: 'simulate',
+            simulateKeys: NOTION_NATIVE_NEW_CHAT_HOTKEY,
+            hotkey: 'CTRL+N',
+            icon: NEW_CHAT_ICON
         }),
+        ...defaultModelShortcuts,
         createShortcut({
             key: 'toggleResearchMode',
             name: 'Toggle Research Mode',
@@ -89,6 +857,15 @@
             selector: '[data-testid="unified-chat-search-scope-button"][role="button"]',
             hotkey: 'CTRL+S',
             icon: SEARCH_ICON
+        }),
+        createShortcut({
+            key: 'toggleWebAccess',
+            name: 'Toggle Web Access',
+            labelKey: 'shortcuts.toggleWebAccess',
+            actionType: 'custom',
+            customAction: 'toggleWebAccess',
+            hotkey: 'CTRL+W',
+            icon: WEB_ACCESS_ICON
         }),
         createShortcut({
             key: 'addContext',
@@ -106,11 +883,77 @@
         })
     ];
 
+    function createDefaultShortcutByKey(key) {
+        const shortcutKey = String(key || "").trim();
+        if (!shortcutKey) return null;
+        const shortcut = defaultShortcuts.find(item => String(item?.key || "").trim() === shortcutKey);
+        return cloneShortcutItem(shortcut);
+    }
+
+    function isLegacySelectAiModelShortcut(shortcut) {
+        if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
+        const key = String(shortcut.key || "").trim();
+        const name = String(shortcut.name || "").trim();
+        const actionType = String(shortcut.actionType || "").trim().toLowerCase();
+        const selector = String(shortcut.selector || "").trim();
+        const customAction = String(shortcut.customAction || "").trim();
+        const hotkey = normalizeHotkeyToken(shortcut.hotkey);
+        const data = isPlainObject(shortcut.data) ? shortcut.data : {};
+        return (
+            (key === LEGACY_SELECT_AI_MODEL_KEY || name === "Select AI Model") &&
+            (!actionType || actionType === "selector") &&
+            selector === LEGACY_SELECT_AI_MODEL_SELECTOR &&
+            !customAction &&
+            hotkey === "CTRL+M" &&
+            Object.keys(data).length === 0
+        );
+    }
+
+    function migrateNotionManagedModelShortcuts() {
+        const stored = gmGetValueLocal(NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
+        if (!Array.isArray(stored)) return;
+
+        let changed = false;
+        const next = stored.filter((shortcut) => {
+            const shouldRemove = isLegacySelectAiModelShortcut(shortcut);
+            if (shouldRemove) changed = true;
+            return !shouldRemove;
+        });
+
+        const existingKeys = new Set(next.map(shortcut => String(shortcut?.key || "").trim()).filter(Boolean));
+        const existingHotkeys = new Map();
+        for (const shortcut of next) {
+            const hotkey = normalizeHotkeyToken(shortcut?.hotkey);
+            if (hotkey) existingHotkeys.set(hotkey, shortcut);
+        }
+
+        for (const key of NOTION_MANAGED_DEFAULT_SHORTCUT_KEYS) {
+            if (existingKeys.has(key)) continue;
+            const shortcut = createDefaultShortcutByKey(key);
+            if (!shortcut) continue;
+            const hotkey = normalizeHotkeyToken(shortcut.hotkey);
+            const conflict = hotkey ? existingHotkeys.get(hotkey) : null;
+            if (conflict) {
+                shortcut.hotkey = "";
+                console.warn(`${LOG_TAG} migration: hotkey ${hotkey} is already used; added ${shortcut.name || key} without a default hotkey.`);
+            } else if (hotkey) {
+                existingHotkeys.set(hotkey, shortcut);
+            }
+            next.push(shortcut);
+            existingKeys.add(key);
+            changed = true;
+        }
+
+        if (changed) gmSetValueLocal(NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
+    }
+
+    migrateNotionManagedModelShortcuts();
+
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: "Notion - 设置快捷键",
         panelTitle: "Notion - 自定义快捷键",
         storageKeys: {
-            shortcuts: "notion_shortcuts_v1",
+            shortcuts: NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY,
             iconCachePrefix: "notion_icon_cache_v1::",
             userIcons: "notion_user_icons_v1"
         },
@@ -126,7 +969,17 @@
         iconLibrary: defaultIcons,
         protectedIconUrls,
         defaultShortcuts,
-        consoleTag: "[Notion Shortcut Script]",
+        customActions: {
+            modelPicker: clickModelPickerItem,
+            toggleWebAccess: toggleWebAccessAction
+        },
+        customActionDataAdapters: {
+            modelPicker: createMenuDataAdapter({
+                label: siteText("dataAdapters.modelPicker.label", "Model ID / keyword (or paste JSON, advanced):"),
+                placeholder: siteText("dataAdapters.modelPicker.placeholder", 'Example: gemini pro / opus 4.7 / {"menu":{"id":"opus47"}}')
+            })
+        },
+        consoleTag: LOG_TAG,
         colors: {
             primary: "#2f3437"
         },

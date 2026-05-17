@@ -423,16 +423,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260517] v1.0.0",
+            name: "[Notion] 快捷键跳转 [20260517] v1.1.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
-            description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：迁移模型选择、研究模式、搜索范围、添加上下文与附件快捷动作，并支持设置面板、图标库、筛选、暗黑模式与自适应布局。",
-            version: "[20260517] v1.0.0",
-            updateLog: "1.0.0: 将 legacy Notion 脚本迁移到当前 Template 架构，保留原有 5 个 Notion AI 默认快捷动作与旧存储键。",
+            description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
+            version: "[20260517] v1.1.0",
+            updateLog: "1.1.0: 新增 Ctrl+N -> Cmd+O 新建聊天映射，新增 Ctrl+W 联网开关快捷键；保留全模型直接选择预设，包含 Gemini 3.1 Pro、Claude Opus 4.6 与 Claude Opus 4.7。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260517] v1.0.0",
-                    description: "Template-based visual custom shortcuts for Notion AI, migrating model selection, research mode, search scope, add context, and attach file actions with settings, icon library, filters, dark mode, and responsive layout.",
-                    updateLog: "1.0.0: Migrated the legacy Notion script to the current Template architecture while preserving the five default Notion AI shortcut actions and legacy storage keys."
+                    name: "[Notion] Shortcut Jump [20260517] v1.1.0",
+                    description: "Template-based visual custom shortcuts for Notion AI, with new chat, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
+                    updateLog: "1.1.0: Added Ctrl+N -> Cmd+O for new chat and Ctrl+W for the Web access toggle; kept full direct model shortcuts including Gemini 3.1 Pro, Claude Opus 4.6, and Claude Opus 4.7."
                 }
             },
             match: [
