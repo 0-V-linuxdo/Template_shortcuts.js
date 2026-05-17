@@ -108,10 +108,26 @@
             off: "关",
             shortcuts: {
                 "Admin": "Admin",
+                "modelAuto": "模型：Auto",
+                "modelFast": "模型：Fast",
+                "modelExpert": "模型：Expert",
+                "modelGrok43": "模型：Grok 4.3 (beta)",
+                "modelHeavy": "模型：Heavy",
+                "deleteChat": "删除聊天",
                 "Private": "私密模式",
                 "New Chat": "新建聊天",
                 "Sidebar": "侧边栏",
                 "Project": "项目"
+            },
+            dataAdapters: {
+                modelPicker: {
+                    label: "模型关键词（或粘贴 JSON，高级用法）:",
+                    placeholder: "例如: Auto / Fast / Expert / Grok 4.3 (beta) / Heavy"
+                },
+                conversationMenu: {
+                    label: "菜单关键词（或粘贴 JSON，高级用法）:",
+                    placeholder: "例如: Delete Chat / Delete / {\"menu\":{\"id\":\"delete\"}}"
+                }
             }
         },
         "en-US": {
@@ -121,10 +137,28 @@
             on: "On",
             off: "Off",
             shortcuts: {
-                "Admin": "Admin"
+                "Admin": "Admin",
+                "modelAuto": "Model: Auto",
+                "modelFast": "Model: Fast",
+                "modelExpert": "Model: Expert",
+                "modelGrok43": "Model: Grok 4.3 (beta)",
+                "modelHeavy": "Model: Heavy",
+                "deleteChat": "Delete Chat"
+            },
+            dataAdapters: {
+                modelPicker: {
+                    label: "Model keyword (or paste JSON, advanced):",
+                    placeholder: "Example: Auto / Fast / Expert / Grok 4.3 (beta) / Heavy"
+                },
+                conversationMenu: {
+                    label: "Menu keyword (or paste JSON, advanced):",
+                    placeholder: "Example: Delete Chat / Delete / {\"menu\":{\"id\":\"delete\"}}"
+                }
             }
         }
     });
+
+    const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
 
     const SELECTORS = Object.freeze({
         sidebarToggle: 'button[data-sidebar="trigger"][type="button"]',
@@ -132,7 +166,117 @@
         sidebarRoot: '[data-sidebar="sidebar"]'
     });
 
+    function isPlainObjectLocal(value) {
+        return !!value && typeof value === "object" && !Array.isArray(value);
+    }
+
+    function normalizeGrokModelToken(value) {
+        return String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    }
+
+    function normalizeGrokMenuToken(value) {
+        return String(value ?? "")
+            .toLowerCase()
+            .replace(/\s+/g, "")
+            .replace(/[^\w\u4e00-\u9fff]+/g, "");
+    }
+
+    function createGrokAdaptiveIcon(svgBody, { width = 24, height = 24, viewBox = "0 0 24 24" } = {}) {
+        return svgDataUrlLocal(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${viewBox}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" role="img">
+                ${svgBody}
+            </svg>
+        `);
+    }
+
+    const GROK_MODEL_TARGET_IDS = Object.freeze(["auto", "fast", "expert", "grok43", "heavy"]);
+    const GROK_MODEL_TARGETS = Object.freeze({
+        auto: Object.freeze({
+            id: "auto",
+            key: "model-auto",
+            labelKey: "shortcuts.modelAuto",
+            name: "Model: Auto",
+            hotkey: "CTRL+SHIFT+1",
+            aliases: Object.freeze(["auto", "modelauto"]),
+            icon: createGrokAdaptiveIcon(`
+                <path d="M12 3l2.2 6.6L21 12l-6.8 2.4L12 21l-2.2-6.6L3 12l6.8-2.4L12 3z"></path>
+                <path d="M12 8v4l3 1"></path>
+            `)
+        }),
+        fast: Object.freeze({
+            id: "fast",
+            key: "model-fast",
+            labelKey: "shortcuts.modelFast",
+            name: "Model: Fast",
+            hotkey: "CTRL+SHIFT+2",
+            aliases: Object.freeze(["fast", "modelfast"]),
+            icon: createGrokAdaptiveIcon(`
+                <path d="M13 2L4 14h6l-1 8 11-14h-6l1-6z"></path>
+            `)
+        }),
+        expert: Object.freeze({
+            id: "expert",
+            key: "model-expert",
+            labelKey: "shortcuts.modelExpert",
+            name: "Model: Expert",
+            hotkey: "CTRL+SHIFT+3",
+            aliases: Object.freeze(["expert", "modelexpert"]),
+            icon: createGrokAdaptiveIcon(`
+                <circle cx="12" cy="12" r="8"></circle>
+                <path d="m9 12 2 2 4-4"></path>
+            `)
+        }),
+        grok43: Object.freeze({
+            id: "grok43",
+            key: "model-grok43",
+            labelKey: "shortcuts.modelGrok43",
+            name: "Model: Grok 4.3 (beta)",
+            hotkey: "CTRL+SHIFT+4",
+            aliases: Object.freeze(["grok43", "grok43beta", "grok4.3", "grok4.3beta", "modelgrok43", "modelgrok43beta"]),
+            icon: createGrokAdaptiveIcon(`
+                <path d="M16 3a9 9 0 1 0 5 8"></path>
+                <path d="M18.5 5.5 12 12"></path>
+                <path d="M19 2v4h4"></path>
+            `)
+        }),
+        heavy: Object.freeze({
+            id: "heavy",
+            key: "model-heavy",
+            labelKey: "shortcuts.modelHeavy",
+            name: "Model: Heavy",
+            hotkey: "CTRL+SHIFT+5",
+            aliases: Object.freeze(["heavy", "modelheavy"]),
+            icon: createGrokAdaptiveIcon(`
+                <rect x="4" y="4" width="6" height="6" rx="1"></rect>
+                <rect x="14" y="4" width="6" height="6" rx="1"></rect>
+                <rect x="4" y="14" width="6" height="6" rx="1"></rect>
+                <rect x="14" y="14" width="6" height="6" rx="1"></rect>
+            `)
+        })
+    });
+
+    const GROK_CONVERSATION_TARGET_IDS = Object.freeze(["delete"]);
+    const GROK_CONVERSATION_TARGETS = Object.freeze({
+        delete: Object.freeze({
+            id: "delete",
+            key: "conversation-delete",
+            labelKey: "shortcuts.deleteChat",
+            name: "Delete Chat",
+            hotkey: "CTRL+DELETE",
+            aliases: Object.freeze(["deletechat", "delete", "删除聊天", "删除"]),
+            icon: createGrokAdaptiveIcon(`
+                <path d="M3 6h18"></path>
+                <path d="M8 6V4h8v2"></path>
+                <path d="M6 6l1 14h10l1-14"></path>
+                <path d="M10 11v6"></path>
+                <path d="M14 11v6"></path>
+            `)
+        })
+    });
+
     const GROK_SHORTCUTS_STORAGE_KEY = "grok_shortcuts";
+    const GROK_MODEL_SHORTCUTS_MIGRATION_KEY = "grok_model_shortcuts_added_v1";
+    const GROK_CONVERSATION_SHORTCUTS_MIGRATION_KEY = "grok_conversation_shortcuts_added_v1";
     const SIDEBAR_VISIBILITY_STORAGE_KEY = "grok_keep_sidebar_visible_v1";
     const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
     const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
@@ -154,6 +298,60 @@
     let sidebarVisibilityMenuCommandId = null;
     let sidebarWarmupTimer = null;
 
+    function createGrokModelShortcutTemplate(targetId) {
+        const target = GROK_MODEL_TARGETS[targetId] || null;
+        if (!target) return null;
+        return {
+            key: target.key,
+            labelKey: target.labelKey,
+            name: target.name,
+            actionType: "custom",
+            customAction: "modelPicker",
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: target.hotkey,
+            icon: target.icon,
+            iconAdaptive: true,
+            data: {
+                menu: {
+                    id: target.id
+                }
+            }
+        };
+    }
+
+    const GROK_MODEL_SHORTCUT_TEMPLATES = Object.freeze(GROK_MODEL_TARGET_IDS.map((targetId) => createGrokModelShortcutTemplate(targetId)).filter(Boolean));
+
+    function createGrokConversationShortcutTemplate(targetId) {
+        const target = GROK_CONVERSATION_TARGETS[targetId] || null;
+        if (!target) return null;
+        return {
+            key: target.key,
+            labelKey: target.labelKey,
+            name: target.name,
+            actionType: "custom",
+            customAction: "conversationMenu",
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: target.hotkey,
+            icon: target.icon,
+            iconAdaptive: true,
+            data: {
+                menu: {
+                    id: target.id
+                }
+            }
+        };
+    }
+
+    const GROK_CONVERSATION_SHORTCUT_TEMPLATES = Object.freeze(GROK_CONVERSATION_TARGET_IDS.map((targetId) => createGrokConversationShortcutTemplate(targetId)).filter(Boolean));
+
     // 默认快捷键配置
     const defaultShortcuts = [
         {
@@ -170,6 +368,7 @@
             icon: GROK_ADMIN_ICON,
             iconAdaptive: true
         },
+        ...GROK_MODEL_SHORTCUT_TEMPLATES.map((shortcut) => ({ ...shortcut, data: isPlainObjectLocal(shortcut.data) ? { ...shortcut.data, menu: isPlainObjectLocal(shortcut.data.menu) ? { ...shortcut.data.menu } : shortcut.data.menu } : shortcut.data })),
         {
             name: "Private",
             actionType: "selector",
@@ -179,7 +378,7 @@
             urlAdvanced: "href",
             simulateKeys: "",
             hotkey: "CTRL+I",
-            icon: 'data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%20stroke-width%3D%222%22%20data-testid%3D%22pi-ghost%22%3E%3Cellipse%20cx%3D%2210%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cellipse%20cx%3D%2214%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cpath%20d%3D%22M12%204C4%204%208.07627%2010.7212%203%2013C3%2014.6491%204.40343%2014.5%204.93%2015.77C5.37046%2016.8323%204.27588%2018.9597%204%2020H8L12%2021L16%2020H20C19.6222%2018.7198%2018.8092%2017.1437%2019.075%2015.7742C19.3479%2014.3681%2021%2014.742%2021%2013C15.9237%2010.7212%2020%204%2012%204Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E',
+            icon: 'data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%20stroke-width%3D%222%22%20data-testid%3D%22pi-ghost%22%3E%3Cellipse%20cx%3D%2210%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cellipse%20cx%3D%2214%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cpath%20d%3D%22M12%204C4%204%208.07627%2010.7212%203%2013C3%2014.6491%204.40343%2014.5%204.93%2015.77C5.37046%2016.8323%204.27588%2018.9597%204%2020H8L12%2021L16%2020H20C19.6222%2018.7198%2018.8092%2017.1437%2019.075%2015.7742C19.3479%2014.3681%2021%2014.742%2021%2013C15.9237%2010.7212%2020%204%2012%204Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C/svg%3E',
             iconAdaptive: true
         },
         {
@@ -191,7 +390,7 @@
             urlAdvanced: "href",
             simulateKeys: "",
             hotkey: "CTRL+N",
-            icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M10%204V4C8.13623%204%207.20435%204%206.46927%204.30448C5.48915%204.71046%204.71046%205.48915%204.30448%206.46927C4%207.20435%204%208.13623%204%2010V13.6C4%2015.8402%204%2016.9603%204.43597%2017.816C4.81947%2018.5686%205.43139%2019.1805%206.18404%2019.564C7.03968%2020%208.15979%2020%2010.4%2020H14C15.8638%2020%2016.7956%2020%2017.5307%2019.6955C18.5108%2019.2895%2019.2895%2018.5108%2019.6955%2017.5307C20%2016.7956%2020%2015.8638%2020%2014V14%22%20stroke%3D%22currentColor%22%20stroke-linecap%3D%22square%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M12.4393%2014.5607L19.5%207.5C20.3284%206.67157%2020.3284%205.32843%2019.5%204.5C18.6716%203.67157%2017.3284%203.67157%2016.5%204.5L9.43934%2011.5607C9.15804%2011.842%209%2012.2235%209%2012.6213V15H11.3787C11.7765%2015%2012.158%2014.842%2012.4393%2014.5607Z%22%20stroke%3D%22currentColor%22%20stroke-linecap%3D%22square%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E",
+            icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M10%204V4C8.13623%204%207.20435%204%206.46927%204.30448C5.48915%204.71046%204.71046%205.48915%204.30448%206.46927C4%207.20435%204%208.13623%204%2010V13.6C4%2015.8402%204%2016.9603%204.43597%2017.816C4.81947%2018.5686%205.43139%2019.1805%206.18404%2019.564C7.03968%2020%208.15979%2020%2010.4%2020H14C15.8638%2020%2016.7956%2020%2017.5307%2019.6955C18.5108%2019.2895%2019.2895%2018.5108%2019.6955%2017.5307C20%2016.7956%2020%2015.8638%2020%2014V14%22%20stroke%3D%22currentColor%22%20stroke-linecap%3D%22square%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M12.4393%2014.5607L19.5%207.5C20.3284%206.67157%2020.3284%205.32843%2019.5%204.5C18.6716%203.67157%2017.3284%203.67157%2016.5%204.5L9.43934%2011.5607C9.15804%2011.842%209%2012.2235%209%2012.6213V15H11.3787C11.7765%2015%2012.158%2014.842%2012.4393%2014.5607Z%22%20stroke%3D%22currentColor%22%20stroke-linecap%3D%22square%22%3E%3C%2Fpath%3E%3C/svg%3E",
             iconAdaptive: true
         },
         {
@@ -215,18 +414,157 @@
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+P",
-            icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%22-1%20-1%2025%2025%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M3.33965%2017L11.9999%2022L20.6602%2017V7L11.9999%202L3.33965%207V17Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M11.9999%2012L3.4999%207M11.9999%2012L12%2021.5M11.9999%2012L20.5%207%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E",
+            icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%22-1%20-1%2025%2025%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M3.33965%2017L11.9999%2022L20.6602%2017V7L11.9999%202L3.33965%207V17Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M11.9999%2012L3.4999%207M11.9999%2012L12%2021.5M11.9999%2012L20.5%207%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C/svg%3E",
             iconAdaptive: true
-        }
+        },
+        ...GROK_CONVERSATION_SHORTCUT_TEMPLATES.map((shortcut) => ({ ...shortcut, data: isPlainObjectLocal(shortcut.data) ? { ...shortcut.data, menu: isPlainObjectLocal(shortcut.data.menu) ? { ...shortcut.data.menu } : shortcut.data.menu } : shortcut.data }))
     ];
 
     const GROK_ADMIN_SHORTCUT_TEMPLATE = defaultShortcuts[0] || null;
+    const GROK_MODEL_SHORTCUT_TEMPLATE_BY_ID = Object.freeze(GROK_MODEL_SHORTCUT_TEMPLATES.reduce((acc, shortcut) => {
+        const targetId = String(shortcut?.data?.menu?.id || "").trim();
+        if (targetId) acc[targetId] = shortcut;
+        return acc;
+    }, {}));
+    const GROK_CONVERSATION_SHORTCUT_TEMPLATE_BY_ID = Object.freeze(GROK_CONVERSATION_SHORTCUT_TEMPLATES.reduce((acc, shortcut) => {
+        const targetId = String(shortcut?.data?.menu?.id || "").trim();
+        if (targetId) acc[targetId] = shortcut;
+        return acc;
+    }, {}));
+
+    function getGrokModelTargetIdFromText(value) {
+        const token = normalizeGrokModelToken(value);
+        if (!token) return "";
+
+        for (const targetId of GROK_MODEL_TARGET_IDS) {
+            const target = GROK_MODEL_TARGETS[targetId];
+            const aliases = Array.isArray(target?.aliases) ? target.aliases : [];
+            for (const alias of aliases) {
+                const aliasToken = normalizeGrokModelToken(alias);
+                if (!aliasToken) continue;
+                if (token === aliasToken || token.startsWith(aliasToken) || aliasToken.startsWith(token)) return targetId;
+            }
+        }
+
+        return "";
+    }
+
+    function getGrokModelTargetById(value) {
+        const targetId = getGrokModelTargetIdFromText(value);
+        return targetId ? (GROK_MODEL_TARGETS[targetId] || null) : null;
+    }
+
+    function getGrokModelTargetIdFromShortcut(shortcut) {
+        const data = isPlainObjectLocal(shortcut?.data) ? shortcut.data : {};
+        const rawMenu = data.menu;
+        const menu = isPlainObjectLocal(rawMenu) ? rawMenu : null;
+        const candidates = [];
+        const push = (value) => {
+            const text = String(value ?? "").trim();
+            if (text) candidates.push(text);
+        };
+
+        if (menu) {
+            push(menu.id);
+            push(menu.keyword);
+            push(menu.textMatch);
+            if (Array.isArray(menu.path) && menu.path.length) push(menu.path[menu.path.length - 1]);
+        } else if (typeof rawMenu === "string") {
+            push(rawMenu);
+        }
+
+        push(data.id);
+        push(data.keyword);
+        push(data.textMatch);
+        if (Array.isArray(data.path) && data.path.length) push(data.path[data.path.length - 1]);
+        push(shortcut?.key);
+        push(shortcut?.name);
+
+        const labelKey = String(shortcut?.labelKey || "").trim();
+        if (labelKey) {
+            push(labelKey);
+            push(labelKey.split(".").pop());
+        }
+
+        for (const candidate of candidates) {
+            const targetId = getGrokModelTargetIdFromText(candidate);
+            if (targetId) return targetId;
+        }
+        return "";
+    }
+
+    function getGrokConversationTargetIdFromText(value) {
+        const token = normalizeGrokMenuToken(value);
+        if (!token) return "";
+
+        for (const targetId of GROK_CONVERSATION_TARGET_IDS) {
+            const target = GROK_CONVERSATION_TARGETS[targetId];
+            const aliases = Array.isArray(target?.aliases) ? target.aliases : [];
+            for (const alias of aliases) {
+                const aliasToken = normalizeGrokMenuToken(alias);
+                if (!aliasToken) continue;
+                if (token === aliasToken || token.startsWith(aliasToken) || aliasToken.startsWith(token)) return targetId;
+            }
+        }
+
+        return "";
+    }
+
+    function getGrokConversationTargetById(value) {
+        const targetId = getGrokConversationTargetIdFromText(value);
+        return targetId ? (GROK_CONVERSATION_TARGETS[targetId] || null) : null;
+    }
+
+    function getGrokConversationTargetIdFromShortcut(shortcut) {
+        const data = isPlainObjectLocal(shortcut?.data) ? shortcut.data : {};
+        const rawMenu = data.menu;
+        const menu = isPlainObjectLocal(rawMenu) ? rawMenu : null;
+        const candidates = [];
+        const push = (value) => {
+            const text = String(value ?? "").trim();
+            if (text) candidates.push(text);
+        };
+
+        if (menu) {
+            push(menu.id);
+            push(menu.keyword);
+            push(menu.textMatch);
+            if (Array.isArray(menu.path) && menu.path.length) push(menu.path[menu.path.length - 1]);
+        } else if (typeof rawMenu === "string") {
+            push(rawMenu);
+        }
+
+        push(data.id);
+        push(data.keyword);
+        push(data.textMatch);
+        if (Array.isArray(data.path) && data.path.length) push(data.path[data.path.length - 1]);
+        push(shortcut?.key);
+        push(shortcut?.name);
+
+        const labelKey = String(shortcut?.labelKey || "").trim();
+        if (labelKey) {
+            push(labelKey);
+            push(labelKey.split(".").pop());
+        }
+
+        for (const candidate of candidates) {
+            const targetId = getGrokConversationTargetIdFromText(candidate);
+            if (targetId) return targetId;
+        }
+        return "";
+    }
 
     function cloneGrokShortcutRecord(shortcut) {
         if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return null;
         const next = { ...shortcut };
-        if (shortcut.data && typeof shortcut.data === "object" && !Array.isArray(shortcut.data)) {
+        if (isPlainObjectLocal(shortcut.data)) {
             next.data = { ...shortcut.data };
+            if (isPlainObjectLocal(shortcut.data.menu)) {
+                next.data.menu = { ...shortcut.data.menu };
+                if (Array.isArray(shortcut.data.menu.path)) next.data.menu.path = shortcut.data.menu.path.slice();
+            }
+            if (Array.isArray(shortcut.data.path)) next.data.path = shortcut.data.path.slice();
+            if (Array.isArray(shortcut.data.openSubmenus)) next.data.openSubmenus = shortcut.data.openSubmenus.slice();
         }
         return next;
     }
@@ -250,6 +588,8 @@
         if (name === "New Chat") return true;
         if (name === "Sidebar") return true;
         if (name === "Project") return true;
+        if (getGrokModelTargetIdFromShortcut(shortcut)) return true;
+        if (getGrokConversationTargetIdFromShortcut(shortcut)) return true;
 
         const labelKey = String(shortcut?.labelKey || "").trim();
         if (labelKey === "shortcuts.Admin") return true;
@@ -257,6 +597,12 @@
         if (labelKey === "shortcuts.New Chat") return true;
         if (labelKey === "shortcuts.Sidebar") return true;
         if (labelKey === "shortcuts.Project") return true;
+        if (labelKey === "shortcuts.modelAuto") return true;
+        if (labelKey === "shortcuts.modelFast") return true;
+        if (labelKey === "shortcuts.modelExpert") return true;
+        if (labelKey === "shortcuts.modelGrok43") return true;
+        if (labelKey === "shortcuts.modelHeavy") return true;
+        if (labelKey === "shortcuts.deleteChat") return true;
 
         const actionType = String(shortcut?.actionType || "").trim();
         const selector = String(shortcut?.selector || "").trim();
@@ -274,9 +620,19 @@
         if (!Array.isArray(stored)) return;
 
         let changed = false;
+        const existingModelTargetIds = new Set();
+        const modelDefaultsAddedRaw = gmGetValueLocal(GROK_MODEL_SHORTCUTS_MIGRATION_KEY, false);
+        const modelDefaultsAdded = modelDefaultsAddedRaw === true || modelDefaultsAddedRaw === "true";
+        const existingConversationTargetIds = new Set();
+        const conversationDefaultsAddedRaw = gmGetValueLocal(GROK_CONVERSATION_SHORTCUTS_MIGRATION_KEY, false);
+        const conversationDefaultsAdded = conversationDefaultsAddedRaw === true || conversationDefaultsAddedRaw === "true";
         const next = stored.map((shortcut) => {
             const cloned = cloneGrokShortcutRecord(shortcut);
             if (!cloned) return shortcut;
+            const modelTargetId = getGrokModelTargetIdFromShortcut(cloned);
+            if (modelTargetId) existingModelTargetIds.add(modelTargetId);
+            const conversationTargetId = getGrokConversationTargetIdFromShortcut(cloned);
+            if (conversationTargetId) existingConversationTargetIds.add(conversationTargetId);
 
             if (isLegacySwitchUserShortcut(cloned)) {
                 const replacement = cloneGrokShortcutRecord(GROK_ADMIN_SHORTCUT_TEMPLATE) || {};
@@ -296,8 +652,29 @@
             return cloned;
         });
 
-        if (!changed) return;
-        gmSetValueLocal(GROK_SHORTCUTS_STORAGE_KEY, next);
+        if (!modelDefaultsAdded) {
+            for (const targetId of GROK_MODEL_TARGET_IDS) {
+                if (existingModelTargetIds.has(targetId)) continue;
+                const template = cloneGrokShortcutRecord(GROK_MODEL_SHORTCUT_TEMPLATE_BY_ID[targetId]);
+                if (!template) continue;
+                next.push(template);
+                changed = true;
+            }
+        }
+
+        if (!conversationDefaultsAdded) {
+            for (const targetId of GROK_CONVERSATION_TARGET_IDS) {
+                if (existingConversationTargetIds.has(targetId)) continue;
+                const template = cloneGrokShortcutRecord(GROK_CONVERSATION_SHORTCUT_TEMPLATE_BY_ID[targetId]);
+                if (!template) continue;
+                next.push(template);
+                changed = true;
+            }
+        }
+
+        if (changed) gmSetValueLocal(GROK_SHORTCUTS_STORAGE_KEY, next);
+        if (!modelDefaultsAdded) gmSetValueLocal(GROK_MODEL_SHORTCUTS_MIGRATION_KEY, true);
+        if (!conversationDefaultsAdded) gmSetValueLocal(GROK_CONVERSATION_SHORTCUTS_MIGRATION_KEY, true);
     }
 
     function getLocalBooleanFallback(key, fallback) {
@@ -404,6 +781,954 @@
         if (token === "true") return true;
         if (token === "false") return false;
         return null;
+    }
+
+    const GROK_MODEL_MENU_ROOT_SELECTORS = Object.freeze([
+        "[role='menu']",
+        "[role='listbox']"
+    ]);
+    const GROK_MODEL_MENU_ITEM_SELECTORS = Object.freeze([
+        "[role='menuitemradio']",
+        "[role='menuitem']",
+        "[role='option']",
+        "button",
+        "[data-radix-collection-item]",
+        "[cmdk-item]"
+    ]);
+    const GROK_MODEL_TRIGGER_CANDIDATE_SELECTORS = Object.freeze([
+        "button",
+        "[role='button']",
+        "[aria-haspopup='menu']",
+        "[aria-haspopup='listbox']"
+    ]);
+    const GROK_MODEL_MENU_TIMING = Object.freeze({
+        waitTimeoutMs: 2500,
+        pollIntervalMs: 120,
+        openDelayMs: 120
+    });
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+
+    function resolveGrokSelectorList(spec) {
+        if (!spec) return [];
+        if (Array.isArray(spec)) return spec.flatMap((item) => resolveGrokSelectorList(item));
+        if (typeof spec === "string") {
+            const trimmed = spec.trim();
+            return trimmed ? [trimmed] : [];
+        }
+        if (isPlainObjectLocal(spec)) {
+            if (Array.isArray(spec.selectors)) return resolveGrokSelectorList(spec.selectors);
+            if (typeof spec.selector === "string") {
+                const trimmed = spec.selector.trim();
+                return trimmed ? [trimmed] : [];
+            }
+        }
+        return [];
+    }
+
+    function getGrokElementText(element) {
+        if (!element) return "";
+        const parts = [];
+        const push = (value) => {
+            const text = String(value ?? "").replace(/\s+/g, " ").trim();
+            if (text) parts.push(text);
+        };
+
+        try { push(element.getAttribute?.("aria-label")); } catch { }
+        try { push(element.getAttribute?.("aria-valuetext")); } catch { }
+        try { push(element.getAttribute?.("title")); } catch { }
+        try { push(element.getAttribute?.("data-value")); } catch { }
+        try { push(element.getAttribute?.("value")); } catch { }
+        try { push(element.innerText); } catch { }
+        try { push(element.textContent); } catch { }
+        try { push(element.value); } catch { }
+        return parts[0] || "";
+    }
+
+    function matchesGrokModelText(value, matcher) {
+        const candidate = normalizeGrokModelToken(value);
+        if (!candidate) return false;
+        const token = normalizeGrokModelToken(matcher);
+        if (!token) return false;
+        return candidate.startsWith(token) || token.startsWith(candidate);
+    }
+
+    function createGrokModelTargetMatcher(target) {
+        const aliases = Array.isArray(target?.aliases) ? target.aliases : [];
+        return (value) => {
+            const candidate = normalizeGrokModelToken(value);
+            if (!candidate) return false;
+            for (const alias of aliases) {
+                const aliasToken = normalizeGrokModelToken(alias);
+                if (!aliasToken) continue;
+                if (candidate.startsWith(aliasToken) || aliasToken.startsWith(candidate)) return true;
+            }
+            return false;
+        };
+    }
+
+    function createGrokModelTextMatcher(value) {
+        const targetId = getGrokModelTargetIdFromText(value);
+        if (targetId) return createGrokModelTargetMatcher(GROK_MODEL_TARGETS[targetId]);
+        const query = normalizeGrokModelToken(value);
+        if (!query) return null;
+        return (candidateText) => {
+            const candidate = normalizeGrokModelToken(candidateText);
+            if (!candidate) return false;
+            return candidate.startsWith(query) || query.startsWith(candidate);
+        };
+    }
+
+    function isGrokModelMenuItemDisabled(element) {
+        if (!element) return true;
+        if (element.disabled) return true;
+        if (element.hasAttribute?.("disabled")) return true;
+        if (element.hasAttribute?.("data-disabled")) return true;
+        const ariaDisabled = parseBooleanAttr(element.getAttribute?.("aria-disabled"));
+        if (ariaDisabled === true) return true;
+        const state = String(element.getAttribute?.("data-state") || "").trim().toLowerCase();
+        if (state === "disabled") return true;
+        const className = String(element.className || "").toLowerCase();
+        return /\bdisabled\b/.test(className);
+    }
+
+    function simulateGrokClick(element) {
+        if (!element) return false;
+        try {
+            const clicked = TemplateUtils?.events?.simulateClick?.(element, { nativeFallback: true });
+            if (clicked) return true;
+        } catch { }
+        try {
+            element.click();
+            return true;
+        } catch { }
+        return false;
+    }
+
+    function getGrokModelMenuItemCandidates(menuRoot) {
+        if (!menuRoot || typeof menuRoot.querySelectorAll !== "function") return [];
+        const candidates = [];
+        const seen = new Set();
+        const selectors = resolveGrokSelectorList(GROK_MODEL_MENU_ITEM_SELECTORS);
+
+        const pushCandidate = (element) => {
+            const candidate = getGrokClickableMenuItemElement(element, menuRoot);
+            if (!candidate || seen.has(candidate)) return;
+            if (!isElementVisible(candidate)) return;
+            seen.add(candidate);
+            candidates.push(candidate);
+        };
+
+        for (const selector of selectors) {
+            try {
+                for (const element of Array.from(menuRoot.querySelectorAll(selector))) {
+                    pushCandidate(element);
+                }
+            } catch { }
+        }
+
+        if (candidates.length > 0) return candidates;
+
+        try {
+            for (const element of Array.from(menuRoot.querySelectorAll("*"))) {
+                pushCandidate(element);
+            }
+        } catch { }
+
+        return candidates;
+    }
+
+    function countGrokModelMenuTargetItems(menuRoot) {
+        const items = getGrokModelMenuItemCandidates(menuRoot);
+        let count = 0;
+        for (const item of items) {
+            if (getGrokModelTargetIdFromText(getGrokElementText(item))) count += 1;
+        }
+        return count;
+    }
+
+    function getGrokClickableMenuItemElement(element, menuRoot = null) {
+        if (!element) return null;
+        const selector = GROK_MODEL_MENU_ITEM_SELECTORS.join(", ");
+        try {
+            if (element.matches?.(selector)) return element;
+            const closest = element.closest?.(selector) || null;
+            if (!closest) return null;
+            if (menuRoot && !menuRoot.contains(closest)) return null;
+            return closest;
+        } catch {
+            return null;
+        }
+    }
+
+    function isGrokModelMenuCandidate(menuRoot) {
+        if (!menuRoot || !isElementVisible(menuRoot)) return false;
+        const itemCount = countGrokModelMenuTargetItems(menuRoot);
+        if (itemCount >= 2) return true;
+        return !!getGrokModelTargetIdFromText(getGrokElementText(menuRoot));
+    }
+
+    function getGrokVisibleModelMenuRoots() {
+        const roots = [];
+        const seen = new Set();
+        const selector = GROK_MODEL_MENU_ROOT_SELECTORS.join(", ");
+        try {
+            for (const menuRoot of Array.from(document.querySelectorAll(selector))) {
+                if (!menuRoot || seen.has(menuRoot)) continue;
+                seen.add(menuRoot);
+                if (!isGrokModelMenuCandidate(menuRoot)) continue;
+                roots.push(menuRoot);
+            }
+        } catch { }
+        roots.sort((a, b) => {
+            const aBottom = Number(a.getBoundingClientRect?.().bottom || 0);
+            const bBottom = Number(b.getBoundingClientRect?.().bottom || 0);
+            return aBottom - bBottom;
+        });
+        return roots;
+    }
+
+    function findGrokModelTriggerElement() {
+        const seen = new Set();
+        const candidates = [];
+        for (const element of Array.from(document.querySelectorAll(GROK_MODEL_TRIGGER_CANDIDATE_SELECTORS.join(", ")))) {
+            if (!element || seen.has(element) || !isElementVisible(element)) continue;
+            seen.add(element);
+            if (element.closest?.(GROK_MODEL_MENU_ROOT_SELECTORS.join(", "))) continue;
+
+            const text = getGrokElementText(element);
+            const ariaLabel = String(element.getAttribute?.("aria-label") || "").trim();
+            const targetId = getGrokModelTargetIdFromText(text) || getGrokModelTargetIdFromText(ariaLabel);
+            if (!targetId) continue;
+
+            let score = 0;
+            score += 400;
+            if (String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "menu") score += 80;
+            if (String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "listbox") score += 60;
+            if (parseBooleanAttr(element.getAttribute?.("aria-expanded")) !== null) score += 20;
+            if (parseBooleanAttr(element.getAttribute?.("aria-pressed")) !== null) score += 10;
+            if (/model/i.test(text) || /model/i.test(ariaLabel)) score += 20;
+            let bottom = 0;
+            try { bottom = Number(element.getBoundingClientRect?.().bottom || 0); } catch { }
+            candidates.push({ element, score, bottom });
+        }
+        candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return b.bottom - a.bottom;
+        });
+        return candidates[0]?.element || null;
+    }
+
+    function findGrokModelMenuRoot(triggerEl = null) {
+        if (triggerEl) {
+            const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+            if (controlsId) {
+                const controlled = document.getElementById(controlsId);
+                if (isGrokModelMenuCandidate(controlled)) return controlled;
+            }
+
+            const triggerId = String(triggerEl.getAttribute?.("id") || "").trim();
+            if (triggerId) {
+                const escapedTriggerId = TemplateUtils?.dom?.escapeForAttributeSelector?.(triggerId) || triggerId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+                for (const selector of GROK_MODEL_MENU_ROOT_SELECTORS) {
+                    const labelledSelector = `${selector}[aria-labelledby="${escapedTriggerId}"]`;
+                    try {
+                        const labelled = document.querySelector(labelledSelector);
+                        if (isGrokModelMenuCandidate(labelled)) return labelled;
+                    } catch { }
+                }
+            }
+        }
+
+        const roots = getGrokVisibleModelMenuRoots();
+        return roots[roots.length - 1] || null;
+    }
+
+    function findGrokSelectedModelMenuItem(menuRoot) {
+        const items = getGrokModelMenuItemCandidates(menuRoot);
+        for (const item of items) {
+            const ariaChecked = parseBooleanAttr(item.getAttribute?.("aria-checked"));
+            const ariaSelected = parseBooleanAttr(item.getAttribute?.("aria-selected"));
+            const state = String(item.getAttribute?.("data-state") || "").trim().toLowerCase();
+            if (ariaChecked === true || ariaSelected === true || state === "checked" || state === "selected" || state === "active") {
+                return item;
+            }
+            const className = String(item.className || "").toLowerCase();
+            if (/\b(selected|checked|active)\b/.test(className)) return item;
+        }
+        return null;
+    }
+
+    function findGrokModelMenuItem(menuRoot, { selector = GROK_MODEL_MENU_ITEM_SELECTORS, textMatch = null, fallbackToFirst = false } = {}) {
+        if (!menuRoot) return null;
+        const selectorList = resolveGrokSelectorList(selector);
+        const candidates = [];
+        const seen = new Set();
+        const pushCandidate = (element) => {
+            const candidate = getGrokClickableMenuItemElement(element, menuRoot);
+            if (!candidate || seen.has(candidate) || !isElementVisible(candidate)) return;
+            seen.add(candidate);
+            candidates.push(candidate);
+        };
+
+        if (selectorList.length > 0) {
+            for (const sel of selectorList) {
+                try {
+                    for (const element of Array.from(menuRoot.querySelectorAll(sel))) pushCandidate(element);
+                } catch { }
+            }
+        }
+
+        if (candidates.length === 0) {
+            for (const element of getGrokModelMenuItemCandidates(menuRoot)) pushCandidate(element);
+        }
+
+        const matcher = typeof textMatch === "function"
+            ? textMatch
+            : (typeof textMatch === "string" ? createGrokModelTextMatcher(textMatch) : null);
+        if (matcher) {
+            for (const candidate of candidates) {
+                if (matcher(getGrokElementText(candidate), candidate)) return candidate;
+            }
+        } else if (candidates.length > 0) {
+            return candidates[0];
+        }
+
+        if (!fallbackToFirst) return null;
+        return candidates[0] || null;
+    }
+
+    async function ensureGrokModelMenuOpen({ timeoutMs = GROK_MODEL_MENU_TIMING.waitTimeoutMs, intervalMs = GROK_MODEL_MENU_TIMING.pollIntervalMs, openDelayMs = GROK_MODEL_MENU_TIMING.openDelayMs } = {}) {
+        const existing = findGrokModelMenuRoot();
+        if (existing) return existing;
+
+        const triggerEl = findGrokModelTriggerElement();
+        if (!triggerEl) return null;
+        if (!simulateGrokClick(triggerEl)) return null;
+        if (openDelayMs > 0) await sleep(openDelayMs);
+
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() < deadline) {
+            const menuRoot = findGrokModelMenuRoot(triggerEl);
+            if (menuRoot) return menuRoot;
+            await sleep(intervalMs);
+        }
+        return findGrokModelMenuRoot(triggerEl);
+    }
+
+    function getCurrentGrokModelTargetId() {
+        const triggerEl = findGrokModelTriggerElement();
+        if (triggerEl) {
+            const targetId = getGrokModelTargetIdFromText(getGrokElementText(triggerEl));
+            if (targetId) return targetId;
+        }
+
+        const menuRoot = findGrokModelMenuRoot(triggerEl);
+        if (menuRoot) {
+            const selected = findGrokSelectedModelMenuItem(menuRoot) || findGrokModelMenuItem(menuRoot, { fallbackToFirst: false });
+            if (selected) return getGrokModelTargetIdFromText(getGrokElementText(selected));
+        }
+
+        return "";
+    }
+
+    function getGrokModelPickerSpec(shortcut) {
+        const data = isPlainObjectLocal(shortcut?.data) ? shortcut.data : {};
+        const rawMenu = data.menu;
+        const menu = isPlainObjectLocal(rawMenu)
+            ? rawMenu
+            : (rawMenu !== undefined ? { textMatch: rawMenu } : data);
+
+        const action = String(menu.action || "").trim().toLowerCase() === "open"
+            ? "open"
+            : (String(menu.action || "").trim().toLowerCase() === "click" ? "click" : "oneStep");
+        const fallbackToFirst = !!menu.fallbackToFirst;
+        const waitForItem = menu.waitForItem !== undefined ? !!menu.waitForItem : true;
+        const selectorProvided = menu.selector !== undefined && menu.selector !== null;
+        const selector = selectorProvided ? resolveGrokSelectorList(menu.selector) : [];
+        const textQuery = typeof menu.keyword === "string" && menu.keyword.trim()
+            ? menu.keyword.trim()
+            : (typeof menu.textMatch === "string" && menu.textMatch.trim()
+                ? menu.textMatch.trim()
+                : (typeof rawMenu === "string" && rawMenu.trim() ? rawMenu.trim() : ""));
+        const targetId = getGrokModelTargetIdFromShortcut(shortcut)
+            || (typeof menu.id !== "undefined" && menu.id !== null ? getGrokModelTargetIdFromText(menu.id) : "")
+            || getGrokModelTargetIdFromText(textQuery);
+        const target = targetId ? GROK_MODEL_TARGETS[targetId] || null : null;
+        const textMatch = target ? createGrokModelTargetMatcher(target) : createGrokModelTextMatcher(textQuery);
+
+        return {
+            action,
+            fallbackToFirst,
+            waitForItem,
+            selector,
+            selectorProvided,
+            targetId,
+            target,
+            textMatch
+        };
+    }
+
+    function createGrokModelPickerDataAdapter() {
+        return {
+            label: siteText("dataAdapters.modelPicker.label", "Model keyword (or paste JSON, advanced):"),
+            placeholder: siteText("dataAdapters.modelPicker.placeholder", "Example: Auto / Fast / Expert / Grok 4.3 (beta) / Heavy"),
+            format: (data) => {
+                const raw = isPlainObjectLocal(data) ? data : {};
+                const keys = Object.keys(raw);
+                if (keys.length === 0) return "";
+
+                const menu = raw.menu;
+                if (typeof menu === "string" && menu.trim()) return menu.trim();
+
+                if (isPlainObjectLocal(menu)) {
+                    const menuKeys = Object.keys(menu);
+                    const keyword = (typeof menu.keyword === "string" && menu.keyword.trim())
+                        ? menu.keyword.trim()
+                        : ((typeof menu.textMatch === "string" && menu.textMatch.trim()) ? menu.textMatch.trim() : "");
+                    const target = typeof menu.id === "string" && menu.id.trim() ? getGrokModelTargetById(menu.id) : null;
+                    if (target && menuKeys.every(k => ["id"].includes(k))) return target.name;
+                    if (keyword && menuKeys.every(k => ["id", "keyword", "textMatch"].includes(k))) return keyword;
+                }
+
+                if (keys.length === 1 && keys[0] === "keyword" && typeof raw.keyword === "string" && raw.keyword.trim()) {
+                    return raw.keyword.trim();
+                }
+                if (keys.length === 1 && keys[0] === "textMatch" && typeof raw.textMatch === "string" && raw.textMatch.trim()) {
+                    return raw.textMatch.trim();
+                }
+                if (keys.length === 1 && keys[0] === "path" && Array.isArray(raw.path)) {
+                    const parts = raw.path.map(value => String(value ?? "").trim()).filter(Boolean);
+                    if (parts.length === 1) return parts[0];
+                }
+
+                try {
+                    return JSON.stringify(raw, null, 2);
+                } catch {
+                    return "";
+                }
+            },
+            parse: (text) => {
+                const trimmed = String(text ?? "").trim();
+                if (!trimmed) return {};
+                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                    const parsed = JSON.parse(trimmed);
+                    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("data must be an object");
+                    return parsed;
+                }
+                const targetId = getGrokModelTargetIdFromText(trimmed);
+                if (targetId) return { menu: { id: targetId } };
+                return { menu: trimmed };
+            }
+        };
+    }
+
+    async function modelPickerAction({ shortcut, engine }) {
+        const spec = getGrokModelPickerSpec(shortcut);
+        if (spec.targetId) {
+            const currentTargetId = getCurrentGrokModelTargetId();
+            if (currentTargetId && currentTargetId === spec.targetId) return true;
+        }
+
+        if (spec.action === "open") {
+            return !!(await ensureGrokModelMenuOpen());
+        }
+
+        const menuRoot = findGrokModelMenuRoot() || await ensureGrokModelMenuOpen();
+        if (!menuRoot) {
+            console.warn(`${LOG_TAG} modelPicker: model menu not found.`);
+            return false;
+        }
+
+        const selector = spec.selector.length > 0 ? spec.selector : GROK_MODEL_MENU_ITEM_SELECTORS;
+        let targetItem = findGrokModelMenuItem(menuRoot, {
+            selector,
+            textMatch: spec.textMatch,
+            fallbackToFirst: spec.fallbackToFirst
+        });
+        if (!targetItem && spec.waitForItem) {
+            const deadline = Date.now() + GROK_MODEL_MENU_TIMING.waitTimeoutMs;
+            while (Date.now() < deadline) {
+                await sleep(GROK_MODEL_MENU_TIMING.pollIntervalMs);
+                const currentMenuRoot = findGrokModelMenuRoot() || menuRoot;
+                targetItem = findGrokModelMenuItem(currentMenuRoot, {
+                    selector,
+                    textMatch: spec.textMatch,
+                    fallbackToFirst: spec.fallbackToFirst
+                });
+                if (targetItem) break;
+            }
+        }
+        if (!targetItem) {
+            console.warn(`${LOG_TAG} modelPicker: target model item not found.`);
+            return false;
+        }
+
+        if (isGrokModelMenuItemDisabled(targetItem)) {
+            console.warn(`${LOG_TAG} modelPicker: target model item is disabled.`);
+            return false;
+        }
+
+        return simulateGrokClick(targetItem);
+    }
+
+    const GROK_CONVERSATION_MENU_ROOT_SELECTORS = Object.freeze([
+        "[role='menu']",
+        "[role='listbox']"
+    ]);
+    const GROK_CONVERSATION_MENU_ITEM_SELECTORS = Object.freeze([
+        "[role='menuitemradio']",
+        "[role='menuitem']",
+        "[role='option']",
+        "button",
+        "[data-radix-collection-item]",
+        "[cmdk-item]"
+    ]);
+    const GROK_CONVERSATION_TRIGGER_CANDIDATE_SELECTORS = Object.freeze([
+        "button",
+        "[role='button']",
+        "[aria-haspopup='menu']",
+        "[aria-haspopup='listbox']"
+    ]);
+    const GROK_CONVERSATION_MENU_TIMING = Object.freeze({
+        waitTimeoutMs: 2500,
+        pollIntervalMs: 120,
+        openDelayMs: 120
+    });
+    let grokConversationMenuEnterBridgeCleanup = null;
+
+    function isPlainEnterKeyEvent(event) {
+        if (!event) return false;
+        const key = String(event.key || "");
+        const code = String(event.code || "");
+        if (key !== "Enter" && key !== "NumpadEnter" && code !== "Enter" && code !== "NumpadEnter") return false;
+        if (event.isComposing || event.keyCode === 229) return false;
+        return !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+    }
+
+    function createGrokConversationTargetMatcher(target) {
+        const aliases = Array.isArray(target?.aliases) ? target.aliases : [];
+        return (value) => {
+            const candidate = normalizeGrokMenuToken(value);
+            if (!candidate) return false;
+            for (const alias of aliases) {
+                const aliasToken = normalizeGrokMenuToken(alias);
+                if (!aliasToken) continue;
+                if (candidate.startsWith(aliasToken) || aliasToken.startsWith(candidate)) return true;
+            }
+            return false;
+        };
+    }
+
+    function createGrokConversationTextMatcher(value) {
+        const targetId = getGrokConversationTargetIdFromText(value);
+        if (targetId) return createGrokConversationTargetMatcher(GROK_CONVERSATION_TARGETS[targetId]);
+        const query = normalizeGrokMenuToken(value);
+        if (!query) return null;
+        return (candidateText) => {
+            const candidate = normalizeGrokMenuToken(candidateText);
+            if (!candidate) return false;
+            return candidate.startsWith(query) || query.startsWith(candidate);
+        };
+    }
+
+    function getGrokConversationMenuItemCandidates(menuRoot) {
+        if (!menuRoot || typeof menuRoot.querySelectorAll !== "function") return [];
+        const candidates = [];
+        const seen = new Set();
+        const selectors = resolveGrokSelectorList(GROK_CONVERSATION_MENU_ITEM_SELECTORS);
+
+        const pushCandidate = (element) => {
+            const candidate = getGrokClickableMenuItemElement(element, menuRoot);
+            if (!candidate || seen.has(candidate)) return;
+            if (!isElementVisible(candidate)) return;
+            seen.add(candidate);
+            candidates.push(candidate);
+        };
+
+        for (const selector of selectors) {
+            try {
+                for (const element of Array.from(menuRoot.querySelectorAll(selector))) {
+                    pushCandidate(element);
+                }
+            } catch { }
+        }
+
+        if (candidates.length > 0) return candidates;
+
+        try {
+            for (const element of Array.from(menuRoot.querySelectorAll("*"))) {
+                pushCandidate(element);
+            }
+        } catch { }
+
+        return candidates;
+    }
+
+    function countGrokConversationMenuTargetItems(menuRoot) {
+        const items = getGrokConversationMenuItemCandidates(menuRoot);
+        let count = 0;
+        for (const item of items) {
+            if (getGrokConversationTargetIdFromText(getGrokElementText(item))) count += 1;
+        }
+        return count;
+    }
+
+    function isGrokConversationMenuCandidate(menuRoot) {
+        if (!menuRoot || !isElementVisible(menuRoot)) return false;
+        const itemCount = countGrokConversationMenuTargetItems(menuRoot);
+        if (itemCount >= 1) return true;
+        return !!getGrokConversationTargetIdFromText(getGrokElementText(menuRoot));
+    }
+
+    function getGrokVisibleConversationMenuRoots() {
+        const roots = [];
+        const seen = new Set();
+        const selector = GROK_CONVERSATION_MENU_ROOT_SELECTORS.join(", ");
+        try {
+            for (const menuRoot of Array.from(document.querySelectorAll(selector))) {
+                if (!menuRoot || seen.has(menuRoot)) continue;
+                seen.add(menuRoot);
+                if (!isGrokConversationMenuCandidate(menuRoot)) continue;
+                roots.push(menuRoot);
+            }
+        } catch { }
+        roots.sort((a, b) => {
+            const aTop = Number(a.getBoundingClientRect?.().top || 0);
+            const bTop = Number(b.getBoundingClientRect?.().top || 0);
+            return aTop - bTop;
+        });
+        return roots;
+    }
+
+    function findGrokConversationMenuTriggerElement() {
+        const seen = new Set();
+        const candidates = [];
+        for (const element of Array.from(document.querySelectorAll(GROK_CONVERSATION_TRIGGER_CANDIDATE_SELECTORS.join(", ")))) {
+            if (!element || seen.has(element) || !isElementVisible(element)) continue;
+            seen.add(element);
+            if (element.closest?.(GROK_CONVERSATION_MENU_ROOT_SELECTORS.join(", "))) continue;
+
+            const text = getGrokElementText(element);
+            const ariaLabel = String(element.getAttribute?.("aria-label") || "").trim();
+            const token = normalizeGrokMenuToken(text || ariaLabel);
+            if (!token) continue;
+            if (token !== "more" && token !== "moreactions" && !token.includes("more")) continue;
+
+            let score = 0;
+            if (token === "more") score += 1000;
+            else if (token === "moreactions") score += 200;
+            else score += 400;
+            if (String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "menu") score += 80;
+            if (String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "listbox") score += 60;
+            if (parseBooleanAttr(element.getAttribute?.("aria-expanded")) !== null) score += 20;
+            if (parseBooleanAttr(element.getAttribute?.("aria-pressed")) !== null) score += 10;
+            let top = 0;
+            try { top = Number(element.getBoundingClientRect?.().top || 0); } catch { }
+            candidates.push({ element, score, top });
+        }
+        candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return a.top - b.top;
+        });
+        return candidates[0]?.element || null;
+    }
+
+    function findGrokConversationMenuRoot(triggerEl = null) {
+        if (triggerEl) {
+            const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+            if (controlsId) {
+                const controlled = document.getElementById(controlsId);
+                if (isGrokConversationMenuCandidate(controlled)) return controlled;
+            }
+
+            const triggerId = String(triggerEl.getAttribute?.("id") || "").trim();
+            if (triggerId) {
+                const escapedTriggerId = TemplateUtils?.dom?.escapeForAttributeSelector?.(triggerId) || triggerId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+                for (const selector of GROK_CONVERSATION_MENU_ROOT_SELECTORS) {
+                    const labelledSelector = `${selector}[aria-labelledby="${escapedTriggerId}"]`;
+                    try {
+                        const labelled = document.querySelector(labelledSelector);
+                        if (isGrokConversationMenuCandidate(labelled)) return labelled;
+                    } catch { }
+                }
+            }
+        }
+
+        const roots = getGrokVisibleConversationMenuRoots();
+        return roots[0] || null;
+    }
+
+    function getGrokConversationMenuItem(menuRoot, { selector = GROK_CONVERSATION_MENU_ITEM_SELECTORS, textMatch = null, fallbackToFirst = false } = {}) {
+        if (!menuRoot) return null;
+        const selectorList = resolveGrokSelectorList(selector);
+        const candidates = [];
+        const seen = new Set();
+        const pushCandidate = (element) => {
+            const candidate = getGrokClickableMenuItemElement(element, menuRoot);
+            if (!candidate || seen.has(candidate) || !isElementVisible(candidate)) return;
+            seen.add(candidate);
+            candidates.push(candidate);
+        };
+
+        if (selectorList.length > 0) {
+            for (const sel of selectorList) {
+                try {
+                    for (const element of Array.from(menuRoot.querySelectorAll(sel))) pushCandidate(element);
+                } catch { }
+            }
+        }
+
+        if (candidates.length === 0) {
+            for (const element of getGrokConversationMenuItemCandidates(menuRoot)) pushCandidate(element);
+        }
+
+        const matcher = typeof textMatch === "function"
+            ? textMatch
+            : (typeof textMatch === "string" ? createGrokConversationTextMatcher(textMatch) : null);
+        if (matcher) {
+            for (const candidate of candidates) {
+                if (matcher(getGrokElementText(candidate), candidate)) return candidate;
+            }
+        } else if (candidates.length > 0) {
+            return candidates[0];
+        }
+
+        if (!fallbackToFirst) return null;
+        return candidates[0] || null;
+    }
+
+    async function ensureGrokConversationMenuOpen({ timeoutMs = GROK_CONVERSATION_MENU_TIMING.waitTimeoutMs, intervalMs = GROK_CONVERSATION_MENU_TIMING.pollIntervalMs, openDelayMs = GROK_CONVERSATION_MENU_TIMING.openDelayMs } = {}) {
+        const existing = findGrokConversationMenuRoot();
+        if (existing) return existing;
+
+        const triggerEl = findGrokConversationMenuTriggerElement();
+        if (!triggerEl) return null;
+        if (!simulateGrokClick(triggerEl)) return null;
+        if (openDelayMs > 0) await sleep(openDelayMs);
+
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() < deadline) {
+            const menuRoot = findGrokConversationMenuRoot(triggerEl);
+            if (menuRoot) return menuRoot;
+            await sleep(intervalMs);
+        }
+        return findGrokConversationMenuRoot(triggerEl);
+    }
+
+    function focusGrokConversationMenuItem(item) {
+        if (!item) return false;
+        try { item.scrollIntoView?.({ block: "nearest", inline: "nearest" }); } catch { }
+        try { TemplateUtils?.events?.simulateHover?.(item); } catch { }
+        try { item.focus?.({ preventScroll: true }); } catch { }
+        try { item.focus?.(); } catch { }
+        return true;
+    }
+
+    function clearGrokConversationMenuEnterBridge() {
+        const cleanup = grokConversationMenuEnterBridgeCleanup;
+        if (typeof cleanup === "function") cleanup();
+    }
+
+    function armGrokConversationMenuEnterBridge({ menuRoot, targetItem }, { engine = null, timeoutMs = 30000, closeCheckIntervalMs = 250 } = {}) {
+        if (!menuRoot || !targetItem) return false;
+        clearGrokConversationMenuEnterBridge();
+
+        const doc = menuRoot.ownerDocument || document;
+        const win = doc.defaultView || window;
+        let cleaned = false;
+        let timeoutId = 0;
+        let closeCheckId = 0;
+        let handlingEnter = false;
+
+        const cleanup = () => {
+            if (cleaned) return;
+            cleaned = true;
+            try { win?.removeEventListener?.("keydown", onKeydown, true); } catch { }
+            try { doc.removeEventListener("keydown", onKeydown, true); } catch { }
+            try { clearTimeout(timeoutId); } catch { }
+            try { clearInterval(closeCheckId); } catch { }
+            if (grokConversationMenuEnterBridgeCleanup === cleanup) grokConversationMenuEnterBridgeCleanup = null;
+        };
+
+        const onKeydown = (event) => {
+            if (!isPlainEnterKeyEvent(event)) return;
+            if (handlingEnter) return;
+
+            const latestRoot = findGrokConversationMenuRoot();
+            const candidate = isElementVisible(targetItem) ? targetItem : (latestRoot ? findGrokConversationMenuItem(latestRoot, { textMatch: getGrokElementText(targetItem), fallbackToFirst: false }) : null);
+            if (!candidate || !isElementVisible(candidate)) {
+                cleanup();
+                return;
+            }
+
+            try { event.preventDefault(); } catch { }
+            try { event.stopPropagation(); } catch { }
+            try { event.stopImmediatePropagation?.(); } catch { }
+
+            handlingEnter = true;
+            cleanup();
+            simulateGrokClick(candidate);
+        };
+
+        grokConversationMenuEnterBridgeCleanup = cleanup;
+        try {
+            win?.addEventListener?.("keydown", onKeydown, true);
+            doc.addEventListener("keydown", onKeydown, true);
+        } catch {
+            cleanup();
+            return false;
+        }
+
+        const timeout = Math.max(1000, Number(timeoutMs) || 30000);
+        const closeCheckInterval = Math.max(100, Number(closeCheckIntervalMs) || 250);
+        timeoutId = setTimeout(cleanup, timeout);
+        closeCheckId = setInterval(() => {
+            const latest = findGrokConversationMenuRoot();
+            if (!latest) cleanup();
+        }, closeCheckInterval);
+        return true;
+    }
+
+    function getGrokConversationMenuSpec(shortcut) {
+        const data = isPlainObjectLocal(shortcut?.data) ? shortcut.data : {};
+        const rawMenu = data.menu;
+        const menu = isPlainObjectLocal(rawMenu)
+            ? rawMenu
+            : (rawMenu !== undefined ? { textMatch: rawMenu } : data);
+
+        const action = String(menu.action || "").trim().toLowerCase() === "open"
+            ? "open"
+            : (String(menu.action || "").trim().toLowerCase() === "click" ? "click" : "oneStep");
+        const fallbackToFirst = !!menu.fallbackToFirst;
+        const waitForItem = menu.waitForItem !== undefined ? !!menu.waitForItem : true;
+        const selectorProvided = menu.selector !== undefined && menu.selector !== null;
+        const selector = selectorProvided ? resolveGrokSelectorList(menu.selector) : [];
+        const textQuery = typeof menu.keyword === "string" && menu.keyword.trim()
+            ? menu.keyword.trim()
+            : (typeof menu.textMatch === "string" && menu.textMatch.trim()
+                ? menu.textMatch.trim()
+                : (typeof rawMenu === "string" && rawMenu.trim() ? rawMenu.trim() : ""));
+        const targetId = getGrokConversationTargetIdFromShortcut(shortcut)
+            || (typeof menu.id !== "undefined" && menu.id !== null ? getGrokConversationTargetIdFromText(menu.id) : "")
+            || getGrokConversationTargetIdFromText(textQuery);
+        const target = targetId ? GROK_CONVERSATION_TARGETS[targetId] || null : null;
+        const textMatch = target ? createGrokConversationTargetMatcher(target) : createGrokConversationTextMatcher(textQuery);
+
+        return {
+            action,
+            fallbackToFirst,
+            waitForItem,
+            selector,
+            selectorProvided,
+            targetId,
+            target,
+            textMatch
+        };
+    }
+
+    function createGrokConversationMenuDataAdapter() {
+        return {
+            label: siteText("dataAdapters.conversationMenu.label", "Menu keyword (or paste JSON, advanced):"),
+            placeholder: siteText("dataAdapters.conversationMenu.placeholder", "Example: Delete Chat / Delete / {\"menu\":{\"id\":\"delete\"}}"),
+            format: (data) => {
+                const raw = isPlainObjectLocal(data) ? data : {};
+                const keys = Object.keys(raw);
+                if (keys.length === 0) return "";
+
+                const menu = raw.menu;
+                if (typeof menu === "string" && menu.trim()) return menu.trim();
+
+                if (isPlainObjectLocal(menu)) {
+                    const menuKeys = Object.keys(menu);
+                    const keyword = (typeof menu.keyword === "string" && menu.keyword.trim())
+                        ? menu.keyword.trim()
+                        : ((typeof menu.textMatch === "string" && menu.textMatch.trim()) ? menu.textMatch.trim() : "");
+                    const target = typeof menu.id === "string" && menu.id.trim() ? getGrokConversationTargetById(menu.id) : null;
+                    if (target && menuKeys.every(k => ["id"].includes(k))) return target.name;
+                    if (keyword && menuKeys.every(k => ["id", "keyword", "textMatch"].includes(k))) return keyword;
+                }
+
+                if (keys.length === 1 && keys[0] === "keyword" && typeof raw.keyword === "string" && raw.keyword.trim()) {
+                    return raw.keyword.trim();
+                }
+                if (keys.length === 1 && keys[0] === "textMatch" && typeof raw.textMatch === "string" && raw.textMatch.trim()) {
+                    return raw.textMatch.trim();
+                }
+                if (keys.length === 1 && keys[0] === "path" && Array.isArray(raw.path)) {
+                    const parts = raw.path.map(value => String(value ?? "").trim()).filter(Boolean);
+                    if (parts.length === 1) return parts[0];
+                }
+
+                try {
+                    return JSON.stringify(raw, null, 2);
+                } catch {
+                    return "";
+                }
+            },
+            parse: (text) => {
+                const trimmed = String(text ?? "").trim();
+                if (!trimmed) return {};
+                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                    const parsed = JSON.parse(trimmed);
+                    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("data must be an object");
+                    return parsed;
+                }
+                const targetId = getGrokConversationTargetIdFromText(trimmed);
+                if (targetId) return { menu: { id: targetId } };
+                return { menu: trimmed };
+            }
+        };
+    }
+
+    async function conversationMenuAction({ shortcut, engine }) {
+        const spec = getGrokConversationMenuSpec(shortcut);
+
+        if (spec.action === "open") {
+            return !!(await ensureGrokConversationMenuOpen());
+        }
+
+        const menuRoot = findGrokConversationMenuRoot() || await ensureGrokConversationMenuOpen();
+        if (!menuRoot) {
+            console.warn(`${LOG_TAG} conversationMenu: menu not found.`);
+            return false;
+        }
+
+        const selector = spec.selector.length > 0 ? spec.selector : GROK_CONVERSATION_MENU_ITEM_SELECTORS;
+        let targetItem = getGrokConversationMenuItem(menuRoot, {
+            selector,
+            textMatch: spec.textMatch,
+            fallbackToFirst: spec.fallbackToFirst
+        });
+        if (!targetItem && spec.waitForItem) {
+            const deadline = Date.now() + GROK_CONVERSATION_MENU_TIMING.waitTimeoutMs;
+            while (Date.now() < deadline) {
+                await sleep(GROK_CONVERSATION_MENU_TIMING.pollIntervalMs);
+                const currentMenuRoot = findGrokConversationMenuRoot() || menuRoot;
+                targetItem = getGrokConversationMenuItem(currentMenuRoot, {
+                    selector,
+                    textMatch: spec.textMatch,
+                    fallbackToFirst: spec.fallbackToFirst
+                });
+                if (targetItem) break;
+            }
+        }
+        if (!targetItem) {
+            console.warn(`${LOG_TAG} conversationMenu: target menu item not found.`);
+            return false;
+        }
+
+        if (isGrokModelMenuItemDisabled(targetItem)) {
+            console.warn(`${LOG_TAG} conversationMenu: target menu item is disabled.`);
+            return false;
+        }
+
+        focusGrokConversationMenuItem(targetItem);
+
+        if (spec.action === "click") {
+            return simulateGrokClick(targetItem);
+        }
+
+        return armGrokConversationMenuEnterBridge({ menuRoot, targetItem }, { engine });
     }
 
     function inferSidebarStateFromClassName(value) {
@@ -640,6 +1965,16 @@
         },
         i18n: {
             messages: SITE_MESSAGES
+        },
+
+        // 自定义动作
+        customActions: {
+            conversationMenu: conversationMenuAction,
+            modelPicker: modelPickerAction
+        },
+        customActionDataAdapters: {
+            conversationMenu: createGrokConversationMenuDataAdapter(),
+            modelPicker: createGrokModelPickerDataAdapter()
         },
 
         // 图标配置
