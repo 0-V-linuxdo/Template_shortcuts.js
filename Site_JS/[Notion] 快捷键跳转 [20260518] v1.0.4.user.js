@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260518] v1.0.3
-// @name:en        [Notion] Shortcut Jump [20260518] v1.0.3
+// @name           [Notion] 快捷键跳转 [20260518] v1.0.4
+// @name:en        [Notion] Shortcut Jump [20260518] v1.0.4
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260518] v1.0.3
-// @update-log     1.0.3: 修复 Notion AI Quick Input 输入框写入假成功问题；现在只对真实原生输入或真实可编辑区域做写入与验证，避免 role=textbox 容器被误判为已输入。
-// @update-log:en  1.0.3: Fixed false-success text insertion in Notion AI Quick Input; writes and verification now require a real native input or editable composer instead of treating a role=textbox container as filled.
+// @version        [20260518] v1.0.4
+// @update-log     1.0.4: 纠正 Notion AI Quick Input 输入框适配：撤销 v1.0.3 的过度收紧，避免非原生 role=textbox 假 value 验证，同时保留 execCommand/paste 对真实编辑区的写入路径。
+// @update-log:en  1.0.4: Corrected Notion AI Quick Input composer handling: reverted the over-tight v1.0.3 path, avoids fake value verification on non-native role=textbox nodes, and keeps execCommand/paste insertion for the real editor.
 
 // @match          https://*.notion.so/*
 // @match          https://notion.so/*
@@ -1746,9 +1746,11 @@
         if (text.includes("submit ai message")) score += 120;
         if (text.includes("ask") || text.includes("message") || text.includes("prompt")) score += 80;
         if (text.includes("输入") || text.includes("提问")) score += 80;
-        if (isNotionRoleTextboxElement(element)) score += 160;
-        if (isNotionContentEditableElement(element)) score += 120;
-        if (hasNotionValueProperty(element)) score += 80;
+        const hasNativeValue = hasNotionValueProperty(element);
+        const isContentEditable = isNotionContentEditableElement(element);
+        if (hasNativeValue) score += 240;
+        if (isContentEditable) score += 220;
+        if (isNotionRoleTextboxElement(element)) score += hasNativeValue || isContentEditable ? 160 : 60;
         if (text.includes("search") && !textLooksLikeComposerPrompt(text)) score -= 180;
         try {
           if (element.closest?.("form")) score += 60;
@@ -1777,15 +1779,46 @@
         }
         return best;
       }
+      function findPreferredNotionEditableDescendant(root, { requireVisible = true } = {}) {
+        if (!root || typeof root.querySelectorAll !== "function") return null;
+        const candidates = collectNotionElementsAcrossOpenShadows(root, [
+          "textarea",
+          "input[role='textbox']",
+          "[contenteditable='plaintext-only']",
+          "[contenteditable='true']",
+          "[role='textbox'][contenteditable='plaintext-only']",
+          "[role='textbox'][contenteditable='true']"
+        ], {
+          shouldIgnore: (element) => isInsideQuickInputOverlay(element) || isInsideShortcutUi(element),
+          maxHosts: 300
+        });
+        const usable = Array.from(candidates || []).filter((element) => {
+          if (!element || element === root) return false;
+          if (requireVisible && !isVisibleElement(element)) return false;
+          if (isElementDisabled(element)) return false;
+          return isNotionNativeTextInputElement(element) || isNotionContentEditableElement(element);
+        });
+        return pickBestNotionComposerCandidate(usable, { requireVisible });
+      }
+      function resolvePreferredNotionComposerElement(element, { requireVisible = true } = {}) {
+        if (!element) return null;
+        if (isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)) return null;
+        const preferred = findPreferredNotionEditableDescendant(element, { requireVisible });
+        if (preferred) return preferred;
+        if (isNotionEditableComposerElement(element, { requireVisible })) return element;
+        return null;
+      }
       function findNotionComposerInside(root, { requireVisible = true } = {}) {
         if (!root || typeof root.querySelectorAll !== "function") return null;
         const candidates = collectNotionElementsAcrossOpenShadows(root, NOTION_COMPOSER_SELECTORS, {
           shouldIgnore: (element) => isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)
         });
-        return pickBestNotionComposerCandidate(candidates, { requireVisible });
+        const best = pickBestNotionComposerCandidate(candidates, { requireVisible });
+        return resolvePreferredNotionComposerElement(best, { requireVisible }) || best;
       }
       function resolveNotionComposerElement(element, { requireVisible = true } = {}) {
-        if (isNotionEditableComposerElement(element, { requireVisible })) return element;
+        const direct = resolvePreferredNotionComposerElement(element, { requireVisible });
+        if (direct) return direct;
         const scopes = [];
         const seen = /* @__PURE__ */ new Set();
         const pushScope = (scope) => {
@@ -1995,6 +2028,14 @@
           } catch {
           }
         }
+        if (isNotionRoleTextboxElement(composer)) {
+          try {
+            const active = document.activeElement || null;
+            const activeInComposer = active && (active === composer || composer.contains?.(active));
+            if (activeInComposer && document.execCommand?.("selectAll", false, null)) return true;
+          } catch {
+          }
+        }
         return false;
       }
       function dispatchNotionComposerInput(composer, { inputType = "insertText", data = null } = {}) {
@@ -2068,7 +2109,7 @@
           active = null;
         }
         if (!active || active === fallback || isInsideQuickInputOverlay(active) || isInsideShortcutUi(active)) return fallback;
-        const activeComposer = isNotionEditableComposerElement(active, { requireVisible: false }) ? active : resolveNotionComposerElement(active, { requireVisible: false });
+        const activeComposer = resolvePreferredNotionComposerElement(active, { requireVisible: false }) || (isNotionEditableComposerElement(active, { requireVisible: false }) ? active : null);
         if (!activeComposer) return fallback;
         if (!fallback) return activeComposer;
         try {
@@ -2101,6 +2142,7 @@
         } catch {
         }
         composer = getFocusedNotionComposerTarget(foundComposer) || foundComposer;
+        const isRoleTextbox = isNotionRoleTextboxElement(composer);
         const isContentEditable = isNotionContentEditableElement(composer);
         const hasNativeValue = hasNotionValueProperty(composer);
         try {
@@ -2124,7 +2166,7 @@
             if (await waitForNotionTextMutationSettle(composer, text)) return true;
           }
         }
-        if (isContentEditable) {
+        if (isContentEditable || isRoleTextbox) {
           selectNotionComposerContent(composer);
           try {
             const command = text ? "insertText" : "delete";
@@ -2135,11 +2177,20 @@
           } catch {
           }
         }
-        if (text && isContentEditable) {
+        if (text && (isContentEditable || isRoleTextbox)) {
           selectNotionComposerContent(composer);
           if (tryPasteNotionText(composer, text)) {
             dispatchNotionComposerInput(composer, { inputType: "insertFromPaste", data: text });
             if (await waitForNotionTextMutationSettle(composer, text)) return true;
+          }
+        }
+        if (isContentEditable) {
+          try {
+            selectNotionComposerContent(composer);
+            composer.textContent = text;
+            dispatchNotionComposerInput(composer, { inputType, data: text || null });
+            if (await waitForNotionTextMutationSettle(composer, text)) return true;
+          } catch {
           }
         }
         return false;
