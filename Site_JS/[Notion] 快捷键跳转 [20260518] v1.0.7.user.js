@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260518] v1.0.6
-// @name:en        [Notion] Shortcut Jump [20260518] v1.0.6
+// @name           [Notion] 快捷键跳转 [20260518] v1.0.7
+// @name:en        [Notion] Shortcut Jump [20260518] v1.0.7
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260518] v1.0.6
-// @update-log     1.0.6: 修复 Quick Input 执行切换联网时误点自身弹窗导致隐藏与暂停的问题，并提高 Notion Quick Input 暗色面板强调色对比度。
-// @update-log:en  1.0.6: Fixed Quick Input hiding and pausing when toggling web access by avoiding self-overlay outside clicks, and improved dark-panel accent contrast for Notion Quick Input.
+// @version        [20260518] v1.0.7
+// @update-log     1.0.7: 回滚并修正 Notion Quick Input 的关闭链路与真实 composer 读写定位，避免切换联网时误伤 Quick Input，同时恢复面板配色可读性。
+// @update-log:en  1.0.7: Rolled back and fixed Notion Quick Input close handling and real composer read/write targeting, preventing web-toggle runs from hiding Quick Input and restoring panel legibility.
 
 // @match          https://*.notion.so/*
 // @match          https://notion.so/*
@@ -995,39 +995,6 @@
       }
       return false;
     }
-    function dispatchEscapeKey(target) {
-      const eventInit = {
-        key: "Escape",
-        code: "Escape",
-        keyCode: 27,
-        which: 27,
-        bubbles: true,
-        cancelable: true,
-        composed: true
-      };
-      try {
-        target?.dispatchEvent?.(new KeyboardEvent("keydown", eventInit));
-        target?.dispatchEvent?.(new KeyboardEvent("keyup", eventInit));
-        return true;
-      } catch {
-        return false;
-      }
-    }
-    function dispatchSettingsMenuEscape(root) {
-      const targets = [
-        document.activeElement || null,
-        root || null,
-        document.body || null,
-        document.documentElement || null,
-        document,
-        window
-      ].filter(Boolean);
-      let dispatched = false;
-      for (const target of targets) {
-        dispatched = dispatchEscapeKey(target) || dispatched;
-      }
-      return dispatched;
-    }
     async function waitForSettingsMenuClose(trigger, { timeoutMs = 900, intervalMs = SETTINGS_MENU_TIMING.pollIntervalMs } = {}) {
       const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
       while (Date.now() <= deadline) {
@@ -1104,7 +1071,6 @@
             if (await waitForSettingsMenuClose(trigger, { timeoutMs: 260 })) return true;
           }
         }
-        dispatchSettingsMenuEscape(root);
         try {
           document.activeElement?.blur?.();
         } catch {
@@ -1863,25 +1829,26 @@
         }
         if (cancelFn && cancelFn()) return null;
         if (!composer) return null;
+        const target = getNotionComposerPrimaryTextTarget(composer, { requireVisible: true }) || composer;
         try {
-          composer.scrollIntoView?.({ block: "center" });
+          target.scrollIntoView?.({ block: "center" });
         } catch {
         }
         try {
-          composer.focus?.({ preventScroll: true });
+          target.focus?.({ preventScroll: true });
         } catch {
           try {
-            composer.focus?.();
+            target.focus?.();
           } catch {
           }
         }
         try {
-          simulateClickElement(composer, { nativeFallback: true });
+          simulateClickElement(target, { nativeFallback: true });
         } catch {
         }
         const settleOk = await runtimeSleep(runtime, 20, { shouldCancel: cancelFn });
         if (!settleOk) return null;
-        return composer;
+        return target;
       }
       function serializeContentEditableText(element) {
         if (!element) return "";
@@ -2081,25 +2048,31 @@
           return (bRect?.bottom || 0) - (aRect?.bottom || 0);
         });
       }
+      function getNotionComposerPrimaryTextTarget(element, { requireVisible = false } = {}) {
+        const composer = resolveNotionComposerElement(element, { requireVisible }) || findNotionComposerElement({ requireVisible });
+        if (!composer) return null;
+        const focused = getFocusedNotionComposerTarget(composer);
+        if (focused && focused !== composer && isNotionEditableComposerElement(focused, { requireVisible })) {
+          return focused;
+        }
+        if (isNotionEditableComposerElement(composer, { requireVisible })) {
+          return composer;
+        }
+        const targets = getNotionComposerTextTargets(composer, { requireVisible });
+        return targets[0] || null;
+      }
       function getNotionComposerPlainText(element, { trimTrailingEditorNewlines = false } = {}) {
         const composer = resolveNotionComposerElement(element, { requireVisible: false }) || findNotionComposerElement({ requireVisible: false });
         if (!composer) return "";
-        const targets = getNotionComposerTextTargets(composer, { requireVisible: false });
-        for (const target of targets) {
-          const text = getNotionComposerTextValue(target, { trimTrailingEditorNewlines });
-          if (text) return text;
-        }
-        for (const target of targets) {
-          const selectedText = getNotionComposerSelectionTextValue(target, { trimTrailingEditorNewlines });
-          if (selectedText) return selectedText;
-        }
+        const target = getNotionComposerPrimaryTextTarget(composer, { requireVisible: false }) || composer;
+        const text = getNotionComposerTextValue(target, { trimTrailingEditorNewlines });
+        if (text) return text;
+        const selectedText = getNotionComposerSelectionTextValue(target, { trimTrailingEditorNewlines });
+        if (selectedText) return selectedText;
         if (!genericGetComposerText) return "";
-        for (const target of targets) {
-          const fallback = genericNormalizeComposerText(genericGetComposerText(target), { trimTrailingEditorNewlines });
-          const placeholder = genericNormalizeComposerText(getNotionComposerPlaceholderText(target), { trimTrailingEditorNewlines });
-          if (!fallback || placeholder && fallback === placeholder) continue;
-          return fallback;
-        }
+        const fallback = genericNormalizeComposerText(genericGetComposerText(target), { trimTrailingEditorNewlines });
+        const placeholder = genericNormalizeComposerText(getNotionComposerPlaceholderText(target), { trimTrailingEditorNewlines });
+        if (fallback && (!placeholder || fallback !== placeholder)) return fallback;
         return "";
       }
       function getNotionTextObservationRoots(composerEl) {
@@ -2113,6 +2086,7 @@
           roots.push(node);
         };
         const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || findNotionComposerElement({ requireVisible: false });
+        pushRoot(getNotionComposerPrimaryTextTarget(composer, { requireVisible: false }) || null);
         pushRoot(composer);
         for (const target of getNotionComposerTextTargets(composer, { requireVisible: false })) {
           pushRoot(target);
@@ -2228,7 +2202,7 @@
         }
       }
       function getNotionComposerSelectionTextValue(element, { trimTrailingEditorNewlines = false } = {}) {
-        const composer = element || null;
+        const composer = getNotionComposerPrimaryTextTarget(element, { requireVisible: false }) || element || null;
         if (!composer) return "";
         if (!(isNotionContentEditableElement(composer) || isNotionRoleTextboxElement(composer))) return "";
         try {
@@ -2396,6 +2370,7 @@
         const foundComposer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || findNotionComposerElement({ requireVisible: true });
         if (!foundComposer) return false;
         const text = String(value ?? "");
+        const target = getNotionComposerPrimaryTextTarget(foundComposer, { requireVisible: false }) || foundComposer;
         try {
           foundComposer.focus?.({ preventScroll: true });
         } catch {
@@ -2408,8 +2383,19 @@
           simulateClickElement(foundComposer, { nativeFallback: true });
         } catch {
         }
-        const focusedComposer = getFocusedNotionComposerTarget(foundComposer) || foundComposer;
-        for (const target of getNotionComposerTextTargets(focusedComposer, { requireVisible: false })) {
+        try {
+          target.focus?.({ preventScroll: true });
+        } catch {
+          try {
+            target.focus?.();
+          } catch {
+          }
+        }
+        try {
+          simulateClickElement(target, { nativeFallback: true });
+        } catch {
+        }
+        for (let attempt = 0; attempt < 2; attempt += 1) {
           if (await trySetNotionInputTarget(target, text)) return true;
         }
         return false;
@@ -2417,13 +2403,11 @@
       async function clearNotionInputValue(composerEl) {
         const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || findNotionComposerElement({ requireVisible: true });
         if (!composer) return false;
+        const target = getNotionComposerPrimaryTextTarget(composer, { requireVisible: false }) || composer;
         if (genericClearInputValue) {
-          for (const target of getNotionComposerTextTargets(composer, { requireVisible: false })) {
-            if (!hasNotionValueProperty(target)) continue;
-            if (genericClearInputValue(target) && await waitForNotionTextMutationSettle(target, "")) return true;
-          }
+          if (hasNotionValueProperty(target) && genericClearInputValue(target) && await waitForNotionTextMutationSettle(target, "")) return true;
         }
-        return setNotionInputValue(composer, "");
+        return setNotionInputValue(target, "");
       }
       function createNotionDataTransfer({ text = "", files = [] } = {}) {
         if (typeof DataTransfer !== "function") return null;
@@ -3025,6 +3009,7 @@
       async function sendNotionMessage(composerEl) {
         const composer = resolveNotionComposerElement(composerEl, { requireVisible: true }) || await focusNotionComposer();
         if (!composer) return false;
+        const target = getNotionComposerPrimaryTextTarget(composer, { requireVisible: true }) || composer;
         const button = findNotionSendButtonNearComposer(composer);
         if (button) {
           if (!isNotionSendButtonDisabled(button)) {
@@ -3040,7 +3025,7 @@
           }
         }
         try {
-          return !!simulateKeystroke("ENTER", { target: composer });
+          return !!simulateKeystroke("ENTER", { target });
         } catch {
           return false;
         }
@@ -3335,7 +3320,7 @@
         storageKey: NOTION_QUICK_INPUT_STORAGE_KEY,
         title: "Notion - Quick Input",
         titleKey: "quickInputTitle",
-        primaryColor: "#78889f",
+        primaryColor: "#2f3437",
         themeMode: "system",
         adapter
       });
