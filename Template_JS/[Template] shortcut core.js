@@ -9495,6 +9495,7 @@ ${displayTargetText}`;
       textInserted: (ok) => ok ? "已输入文字。" : "输入文字失败。",
       textRetrying: (stage, attempt = 1, maxAttempts = 1) => `文字校验失败${stage ? `（${stage}）` : ""}：准备自动重试 ${attempt}/${maxAttempts} 次。`,
       textNotReady: (stage) => `文字未真正写入输入框${stage ? `（${stage}）` : ""}：自动补救后仍失败，已停止当前运行，避免发送空内容。`,
+      textBeforeSendFailed: (stage) => `文字校验失败${stage ? `（${stage}）` : ""}：已停止并且不会回填，避免重复发送。`,
       hotkeyTriggered: (hotkey, ok) => ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}`,
       waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
       resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `图片就绪等待超时：当前识别到 ${currentCount} / ${expectedCount} 张，准备清空当前附件并整组重传（第 ${attempt}/${maxAttempts} 次）。`,
@@ -9635,6 +9636,7 @@ ${displayTargetText}`;
         textInserted: (ok) => ok ? "Text inserted." : "Failed to insert text.",
         textRetrying: (stage, attempt = 1, maxAttempts = 1) => `Text verification failed${stage ? ` (${stage})` : ""}; retrying automatically ${attempt}/${maxAttempts}.`,
         textNotReady: (stage) => `Text was not actually written to the input${stage ? ` (${stage})` : ""}; stopped to avoid sending empty content.`,
+        textBeforeSendFailed: (stage) => `Text verification failed${stage ? ` (${stage})` : ""}; stopped without rewriting to avoid duplicate submission.`,
         hotkeyTriggered: (hotkey, ok) => ok ? `Triggered shortcut: ${hotkey}` : `Failed to trigger shortcut: ${hotkey}`,
         waitingUploads: (count) => `Waiting for image uploads... (${count})`,
         resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `Image readiness timed out: detected ${currentCount}/${expectedCount}; clearing attachments and re-uploading the group (${attempt}/${maxAttempts}).`,
@@ -15258,17 +15260,21 @@ ${displayTargetText}`;
           break;
         }
         if (promptText.trim()) {
-          const textCommitResult = await ensurePromptCommitted(composer, promptText, {
+          const beforeSendVerification = await waitForPromptCommit(composer, promptText, {
             stageLabel: getStageLabel("beforeSend")
           });
-          if (textCommitResult?.composer) composer = textCommitResult.composer;
-          if (textCommitResult?.cancelled) {
+          if (beforeSendVerification?.composer) composer = beforeSendVerification.composer;
+          if (beforeSendVerification?.cancelled) {
             markRunCancelled();
             break;
           }
-          if (!textCommitResult?.ok) {
+          if (!beforeSendVerification?.ok) {
             markRunFailed();
             cancelRun = true;
+            const failedMsg = labels.messages?.textBeforeSendFailed ? labels.messages.textBeforeSendFailed(getStageLabel("beforeSend")) : typeof DEFAULT_LABELS.messages.textBeforeSendFailed === "function" ? DEFAULT_LABELS.messages.textBeforeSendFailed(getStageLabel("beforeSend")) : labels.messages?.textVerifyFailed ? labels.messages.textVerifyFailed(getStageLabel("beforeSend"), String(beforeSendVerification?.state?.actualText || "").length, String(promptText || "").length) : DEFAULT_LABELS.messages.textVerifyFailed(getStageLabel("beforeSend"), String(beforeSendVerification?.state?.actualText || "").length, String(promptText || "").length);
+            appendLoopLog(failedMsg, { level: "error" });
+            const detail = String(beforeSendVerification?.message || "").trim();
+            if (detail) appendLoopLog(detail, { level: "error" });
             break;
           }
         }

@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260518] v1.0.7
-// @name:en        [Notion] Shortcut Jump [20260518] v1.0.7
+// @name           [Notion] 快捷键跳转 [20260518] v1.0.9
+// @name:en        [Notion] Shortcut Jump [20260518] v1.0.9
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260518] v1.0.7
-// @update-log     1.0.7: 回滚并修正 Notion Quick Input 的关闭链路与真实 composer 读写定位，避免切换联网时误伤 Quick Input，同时恢复面板配色可读性。
-// @update-log:en  1.0.7: Rolled back and fixed Notion Quick Input close handling and real composer read/write targeting, preventing web-toggle runs from hiding Quick Input and restoring panel legibility.
+// @version        [20260518] v1.0.9
+// @update-log     1.0.9: 将 Notion Quick Input 的发送前检查改为只读确认，不再在发前回填 prompt；若内容已变化则直接停止，避免重复发送到同一话题。
+// @update-log:en  1.0.9: Made Notion Quick Input's pre-send check read-only instead of rewriting the prompt, so any text mismatch now stops the run instead of duplicating the submission in the same thread.
 
 // @match          https://*.notion.so/*
 // @match          https://notion.so/*
@@ -3010,7 +3010,9 @@
         const composer = resolveNotionComposerElement(composerEl, { requireVisible: true }) || await focusNotionComposer();
         if (!composer) return false;
         const target = getNotionComposerPrimaryTextTarget(composer, { requireVisible: true }) || composer;
-        const button = findNotionSendButtonNearComposer(composer);
+        const readyState = getNotionReadyToSendState(composer);
+        const hasPayload = Number(readyState?.textLength || 0) > 0 || Number(readyState?.attachmentCount || 0) > 0;
+        const button = readyState?.sendButton || findNotionSendButtonNearComposer(composer);
         if (button) {
           if (!isNotionSendButtonDisabled(button)) {
             try {
@@ -3024,6 +3026,7 @@
             }
           }
         }
+        if (!hasPayload) return false;
         try {
           return !!simulateKeystroke("ENTER", { target });
         } catch {
