@@ -1529,7 +1529,7 @@
         if (typeof cleanup === "function") cleanup();
     }
 
-    function armGrokConversationMenuEnterBridge({ menuRoot, targetItem }, { engine = null, timeoutMs = 30000, closeCheckIntervalMs = 250 } = {}) {
+    function armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch = null }, { engine = null, timeoutMs = 30000, closeCheckIntervalMs = 250 } = {}) {
         if (!menuRoot || !targetItem) return false;
         clearGrokConversationMenuEnterBridge();
 
@@ -1557,7 +1557,8 @@
             if (handlingEnter) return;
 
             const latestRoot = findGrokConversationMenuRoot();
-            const candidate = isElementVisible(targetItem) ? targetItem : (latestRoot ? findGrokConversationMenuItem(latestRoot, { textMatch: getGrokElementText(targetItem), fallbackToFirst: false }) : null);
+            const candidate = (latestRoot ? getGrokConversationMenuItem(latestRoot, { textMatch, fallbackToFirst: false }) : null)
+                || (isElementVisible(targetItem) ? targetItem : null);
             if (!candidate || !isElementVisible(candidate)) {
                 cleanup();
                 return;
@@ -1569,7 +1570,17 @@
 
             handlingEnter = true;
             cleanup();
-            simulateGrokClick(candidate);
+            void (async () => {
+                await sleep(0);
+                const latestMenuRoot = findGrokConversationMenuRoot() || latestRoot || menuRoot;
+                const settledCandidate = getGrokConversationMenuItem(latestMenuRoot, {
+                    textMatch,
+                    fallbackToFirst: false
+                }) || candidate;
+                if (!settledCandidate || !isElementVisible(settledCandidate)) return;
+                focusGrokConversationMenuItem(settledCandidate);
+                simulateGrokClick(settledCandidate);
+            })();
         };
 
         grokConversationMenuEnterBridgeCleanup = cleanup;
@@ -1732,7 +1743,7 @@
             return simulateGrokClick(targetItem);
         }
 
-        return armGrokConversationMenuEnterBridge({ menuRoot, targetItem }, { engine });
+        return armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch: spec.textMatch }, { engine });
     }
 
     function inferSidebarStateFromClassName(value) {
