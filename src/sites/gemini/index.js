@@ -3646,6 +3646,34 @@
             return genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines: true });
         }
 
+        function hasMarkdownFenceText(value) {
+            return String(value ?? "").includes("```");
+        }
+
+        function stripMarkdownFenceMarkerLines(value) {
+            const lines = String(value ?? "").replace(/\r\n?/g, "\n").split("\n");
+            return lines
+                .filter(line => !/^\s*```/.test(String(line ?? "")))
+                .join("\n");
+        }
+
+        function hasGeminiRenderedCodeBlock(composerEl) {
+            const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+            if (!composer || typeof composer.querySelector !== "function") return false;
+            try {
+                return !!composer.querySelector("pre");
+            } catch {
+                return false;
+            }
+        }
+
+        function isGeminiFencedTextMatch(composerEl, expectedText, actualText) {
+            if (!hasMarkdownFenceText(expectedText)) return false;
+            if (!hasGeminiRenderedCodeBlock(composerEl)) return false;
+            const normalizedRenderedExpected = normalizeGeminiCommittedText(stripMarkdownFenceMarkerLines(expectedText));
+            return String(actualText ?? "") === normalizedRenderedExpected;
+        }
+
         function getGeminiSelection(composerEl) {
             const doc = composerEl?.ownerDocument || document;
             try { return doc.defaultView?.getSelection?.() || window.getSelection?.() || null; } catch { return null; }
@@ -3791,12 +3819,14 @@
                 const resolvedComposer = resolveGeminiComposerElement(composerRef, { requireVisible: false }) || composerRef || null;
                 if (resolvedComposer) composerRef = resolvedComposer;
                 const actualText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composerRef, { trimTrailingEditorNewlines: true }));
+                const exactMatch = actualText === normalizedExpected;
+                const fenceMatch = isGeminiFencedTextMatch(composerRef, normalizedExpected, actualText);
                 return {
                     composer: composerRef,
                     actualText,
                     expectedText: normalizedExpected,
-                    ok: actualText === normalizedExpected,
-                    stateKey: `${actualText.length}:${actualText === normalizedExpected ? 1 : 0}`
+                    ok: exactMatch || fenceMatch,
+                    stateKey: `${actualText.length}:${exactMatch || fenceMatch ? 1 : 0}`
                 };
             };
 
@@ -3823,11 +3853,13 @@
             const normalizedExpected = normalizeGeminiCommittedText(expectedText);
             const composer = resolveGeminiComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
             const actualText = normalizeGeminiCommittedText(getGeminiComposerPlainText(composer, { trimTrailingEditorNewlines: true }));
+            const exactMatch = actualText === normalizedExpected;
+            const fenceMatch = isGeminiFencedTextMatch(composer, normalizedExpected, actualText);
             return {
                 composer,
                 actualText,
                 expectedText: normalizedExpected,
-                ok: actualText === normalizedExpected
+                ok: exactMatch || fenceMatch
             };
         }
 
@@ -3847,11 +3879,17 @@
             await clearGeminiInputValue(composer);
             if (!text) return true;
 
-            const attempts = [
-                () => tryInsertTextIntoGeminiComposerAtomically(composer, text),
-                () => Promise.resolve(tryPasteTextIntoGeminiComposer(composer, text)),
-                () => Promise.resolve(setGeminiComposerTextContentFallback(composer, text))
-            ];
+            const hasFence = hasMarkdownFenceText(text);
+            const attempts = hasFence
+                ? [
+                    () => Promise.resolve(tryPasteTextIntoGeminiComposer(composer, text)),
+                    () => Promise.resolve(setGeminiComposerTextContentFallback(composer, text))
+                ]
+                : [
+                    () => tryInsertTextIntoGeminiComposerAtomically(composer, text),
+                    () => Promise.resolve(tryPasteTextIntoGeminiComposer(composer, text)),
+                    () => Promise.resolve(setGeminiComposerTextContentFallback(composer, text))
+                ];
 
             for (let index = 0; index < attempts.length; index++) {
                 composer = resolveGeminiComposerElement(composer, { requireVisible: false }) || composer;

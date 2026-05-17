@@ -823,7 +823,9 @@ export function createController(userOptions = {}) {
                 if (loopDelayUnitEl) loopDelayUnitEl.disabled = isBusy;
                 if (clearBeforeRunEl) clearBeforeRunEl.disabled = isBusy;
                 for (const btn of ioButtons) {
-                    if (btn) btn.disabled = isBusy || ioBusy;
+                    if (!btn) continue;
+                    const action = String(btn.getAttribute?.("data-action") || "").trim().toLowerCase();
+                    btn.disabled = ioBusy || (isBusy && action !== "export");
                 }
                 if (newChatHotkeyEl) newChatHotkeyEl.disabled = isBusy;
                 if (textEl) textEl.disabled = isBusy;
@@ -2016,7 +2018,7 @@ export function createController(userOptions = {}) {
                     e?.preventDefault?.();
                     e?.stopPropagation?.();
                 } catch {}
-                if (running || ioBusy) return;
+                if (ioBusy) return;
 
                 setIoBusy(true);
                 try {

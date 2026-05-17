@@ -1208,6 +1208,34 @@
             return genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines: true });
         }
 
+        function hasMarkdownFenceText(value) {
+            return String(value ?? "").includes("```");
+        }
+
+        function stripMarkdownFenceMarkerLines(value) {
+            const lines = String(value ?? "").replace(/\r\n?/g, "\n").split("\n");
+            return lines
+                .filter(line => !/^\s*```/.test(String(line ?? "")))
+                .join("\n");
+        }
+
+        function hasChatGPTRenderedCodeBlock(composerEl) {
+            const composer = resolveLiveChatGPTComposerElement(composerEl) || composerEl || null;
+            if (!composer || typeof composer.querySelector !== "function") return false;
+            try {
+                return !!composer.querySelector("pre");
+            } catch {
+                return false;
+            }
+        }
+
+        function isChatGPTFencedTextMatch(composerEl, expectedText, actualText) {
+            if (!hasMarkdownFenceText(expectedText)) return false;
+            if (!hasChatGPTRenderedCodeBlock(composerEl)) return false;
+            const normalizedRenderedExpected = normalizeChatGPTCommittedText(stripMarkdownFenceMarkerLines(expectedText));
+            return String(actualText ?? "") === normalizedRenderedExpected;
+        }
+
         function ensureChatGPTComposerScaffold(composerEl) {
             if (!composerEl) return false;
 
@@ -1493,11 +1521,13 @@
                 const resolvedComposer = resolveLiveChatGPTComposerElement(composerRef) || composerRef || null;
                 if (resolvedComposer) composerRef = resolvedComposer;
                 const actualText = normalizeChatGPTCommittedText(getChatGPTComposerPlainText(composerRef, { trimTrailingEditorNewlines: true }));
+                const exactMatch = actualText === normalizedExpected;
+                const fenceMatch = isChatGPTFencedTextMatch(composerRef, normalizedExpected, actualText);
                 return {
                     composer: composerRef,
                     actualText,
                     expectedText: normalizedExpected,
-                    ok: actualText === normalizedExpected
+                    ok: exactMatch || fenceMatch
                 };
             };
 
@@ -1597,11 +1627,17 @@
                 await clearChatGPTInputValue(composer);
                 if (!text) return true;
 
-                const attempts = [
-                    () => Promise.resolve(tryPasteTextIntoChatGPTComposer(composer, text)),
-                    () => tryInsertTextIntoChatGPTComposerViaExecCommand(composer, text),
-                    () => tryBridgeTextViaChatGPTFallbackTextarea(composer, text)
-                ];
+                const hasFence = hasMarkdownFenceText(text);
+                const attempts = hasFence
+                    ? [
+                        () => Promise.resolve(tryPasteTextIntoChatGPTComposer(composer, text)),
+                        () => tryBridgeTextViaChatGPTFallbackTextarea(composer, text)
+                    ]
+                    : [
+                        () => Promise.resolve(tryPasteTextIntoChatGPTComposer(composer, text)),
+                        () => tryInsertTextIntoChatGPTComposerViaExecCommand(composer, text),
+                        () => tryBridgeTextViaChatGPTFallbackTextarea(composer, text)
+                    ];
 
                 for (let index = 0; index < attempts.length; index++) {
                     composer = resolveLiveChatGPTComposerElement(composer) || composer;
