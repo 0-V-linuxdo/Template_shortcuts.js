@@ -423,16 +423,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260518] v1.0.0",
+            name: "[Notion] 快捷键跳转 [20260518] v1.0.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260518] v1.0.0",
-            updateLog: "1.0.0: 新增 Notion Quick Input，支持文本、图片、循环发送与自动新建聊天，并补齐菜单命令与默认快捷键；保留此前按页面结构直点新建聊天与 Web access 的逻辑。",
+            version: "[20260518] v1.0.1",
+            updateLog: "1.0.1: 修复 Notion AI Quick Input 输入框适配，支持 role=textbox / shadow DOM 输入区、真实写入读回校验与 Submit AI message 发送按钮识别。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260518] v1.0.0",
+                    name: "[Notion] Shortcut Jump [20260518] v1.0.1",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.0: Added Notion Quick Input for text, images, loops, and automatic new chat, plus the menu command and default shortcut; kept the direct page-structure clicks for New Chat and Web access."
+                    updateLog: "1.0.1: Fixed the Notion AI Quick Input composer adapter with role=textbox / shadow DOM support, readback verification, and Submit AI message button detection."
                 }
             },
             match: [
