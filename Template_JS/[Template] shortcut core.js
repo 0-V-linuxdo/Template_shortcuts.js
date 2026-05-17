@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260508] v1.0.0
-// @name:en        [Template] Shortcut Core [20260508] v1.0.0
+// @name           [Template] 快捷键跳转 [20260517] v1.0.0
+// @name:en        [Template] Shortcut Core [20260517] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260508] v1.0.0
-// @update-log     1.0.0: 修复 Quick Input 输入时焦点被网页输入框抢走的问题，并隔离弹窗内键盘/粘贴事件。
-// @update-log:en  1.0.0: Fixed Quick Input focus being stolen by page inputs while typing, and isolated keyboard/paste events inside the overlay.
+// @version        [20260517] v1.0.0
+// @update-log     1.0.0: 修复 Quick Input 运行中导出按钮被禁用的问题，并增强含 Markdown 代码块输入的发送完整性。
+// @update-log:en  1.0.0: Fixed Quick Input export being disabled during runs, and improved complete sending for Markdown code-block input.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260508";
+  var TEMPLATE_VERSION = "20260517";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -12583,7 +12583,9 @@ ${displayTargetText}`;
       if (loopDelayUnitEl) loopDelayUnitEl.disabled = isBusy;
       if (clearBeforeRunEl) clearBeforeRunEl.disabled = isBusy;
       for (const btn of ioButtons) {
-        if (btn) btn.disabled = isBusy || ioBusy;
+        if (!btn) continue;
+        const action = String(btn.getAttribute?.("data-action") || "").trim().toLowerCase();
+        btn.disabled = ioBusy || isBusy && action !== "export";
       }
       if (newChatHotkeyEl) newChatHotkeyEl.disabled = isBusy;
       if (textEl) textEl.disabled = isBusy;
@@ -13649,7 +13651,7 @@ ${displayTargetText}`;
         e?.stopPropagation?.();
       } catch {
       }
-      if (running || ioBusy) return;
+      if (ioBusy) return;
       setIoBusy(true);
       try {
         const draft = await serializeCurrentDraftForExport();
