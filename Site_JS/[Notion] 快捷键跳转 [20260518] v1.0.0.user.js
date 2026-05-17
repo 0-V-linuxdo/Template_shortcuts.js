@@ -1,22 +1,22 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260517] v1.1.0
-// @name:en        [Notion] Shortcut Jump [20260517] v1.1.0
+// @name           [Notion] 快捷键跳转 [20260518] v1.0.0
+// @name:en        [Notion] Shortcut Jump [20260518] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
-// @description:en Template-based visual custom shortcuts for Notion AI, with new chat, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
+// @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
+// @description:en Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260517] v1.1.0
-// @update-log     1.1.0: 修复 Ctrl+N 与 Ctrl+W，改为按 Notion AI 页面结构直接点击新建聊天与 Web access 开关，并在切换后自动关闭弹窗；保留全模型直接选择预设，包含 Gemini 3.1 Pro、Claude Opus 4.6 与 Claude Opus 4.7。
-// @update-log:en  1.1.0: Fixed Ctrl+N and Ctrl+W to click the Notion AI page structure directly for New Chat and Web access, then close the popup after toggling; kept full direct model shortcuts including Gemini 3.1 Pro, Claude Opus 4.6, and Claude Opus 4.7.
+// @version        [20260518] v1.0.0
+// @update-log     1.0.0: 新增 Notion Quick Input，支持文本、图片、循环发送与自动新建聊天，并补齐菜单命令与默认快捷键；保留此前按页面结构直点新建聊天与 Web access 的逻辑。
+// @update-log:en  1.0.0: Added Notion Quick Input for text, images, loops, and automatic new chat, plus the menu command and default shortcut; kept the direct page-structure clicks for New Chat and Web access.
 
 // @match          https://*.notion.so/*
 // @match          https://notion.so/*
 
 // @grant          GM_registerMenuCommand
+// @grant          GM_unregisterMenuCommand
 // @grant          GM_getValue
 // @grant          GM_setValue
 // @grant          GM_xmlhttpRequest
-// @grant          GM_unregisterMenuCommand
 
 // @connect        *
 
@@ -54,6 +54,7 @@
     const defaultIconURL = "https://www.notion.so/images/favicon.ico";
     const LOG_TAG = "[Notion Shortcut Script]";
     const NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY = "notion_shortcuts_v1";
+    const NOTION_QUICK_INPUT_STORAGE_KEY = "notion_quick_input_v1";
     const LEGACY_NEW_CHAT_SIMULATE_KEYS = "CMD+O";
     const LEGACY_SELECT_AI_MODEL_KEY = "selectAiModel";
     const LEGACY_SELECT_AI_MODEL_SELECTOR = '[data-testid="unified-chat-model-button"][role="button"]';
@@ -65,6 +66,7 @@
     const ATTACH_FILE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath d='M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z'/%3E%3C/svg%3E";
     const NEW_CHAT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14'/%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E";
     const WEB_ACCESS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 0 20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E";
+    const QUICK_INPUT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M7 9h.01'/%3E%3Cpath d='M11 9h.01'/%3E%3Cpath d='M15 9h.01'/%3E%3Cpath d='M17 15H7'/%3E%3C/svg%3E";
     const defaultIcons = [
       { name: "Notion", url: defaultIconURL },
       { name: "AI Assistant", url: NOTION_AI_ICON },
@@ -73,6 +75,7 @@
       { name: "Research", url: RESEARCH_ICON },
       { name: "New Chat", url: NEW_CHAT_ICON },
       { name: "Web Access", url: WEB_ACCESS_ICON },
+      { name: "Quick Input", url: QUICK_INPUT_ICON },
       { name: "Google", url: "https://www.google.com/favicon.ico" },
       { name: "ChatGPT", url: "https://chat.openai.com/favicon-32x32.png" },
       { name: "Claude", url: "https://claude.ai/favicon.ico" },
@@ -102,6 +105,21 @@
         return true;
       } catch {
         return false;
+      }
+    }
+    function gmRegisterMenuCommandLocal(label, handler) {
+      if (typeof GM_registerMenuCommand !== "function") return null;
+      try {
+        return GM_registerMenuCommand(label, handler);
+      } catch {
+        return null;
+      }
+    }
+    function gmUnregisterMenuCommandLocal(commandId) {
+      if (typeof GM_unregisterMenuCommand !== "function") return;
+      try {
+        GM_unregisterMenuCommand(commandId);
+      } catch {
       }
     }
     function cloneShortcutItem(value) {
@@ -200,7 +218,8 @@
     const NOTION_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
       "newChat",
       ...NOTION_MODEL_SHORTCUT_KEYS,
-      "toggleWebAccess"
+      "toggleWebAccess",
+      "quickInput"
     ]);
     const NOTION_NEW_CHAT_TRIGGER_SELECTORS = [
       '[data-testid*="new-chat" i]',
@@ -613,7 +632,7 @@
     }
     function textLooksLikeComposerPrompt(value) {
       const text = normalizeNotionText(value);
-      return !!text && (text.includes("do anything with ai") || text.includes("ask anything") || text.includes("message") || text.includes("提问") || text.includes("输入"));
+      return !!text && (text.includes("do anything with ai") || text.includes("ask anything") || text.includes("what can i help") || text.includes("what should i help") || text.includes("prompt") || text.includes("message") || text.includes("send a message") || text.includes("提问") || text.includes("输入") || text.includes("问我"));
     }
     function getComposerCandidateText(element) {
       if (!element) return "";
@@ -1277,6 +1296,1044 @@
       } while (true);
       return false;
     }
+    function createNotionQuickInputAdapter({ idPrefix = "notion", engine: engine2 = null } = {}) {
+      const QuickInput = ShortcutTemplate?.quickInput;
+      const dom = QuickInput?.dom;
+      const simulateKeystroke = dom?.simulateKeystroke;
+      const dispatchPasteEvent = dom?.dispatchPasteEvent;
+      const dispatchBeforeInputFromPaste = dom?.dispatchBeforeInputFromPaste;
+      const dispatchInputFromPaste = dom?.dispatchInputFromPaste;
+      const dispatchDragEvent = dom?.dispatchDragEvent;
+      const collectFileInputs = dom?.collectFileInputs;
+      const collectFileInputsFromOpenShadows = dom?.collectFileInputsFromOpenShadows;
+      const trySetFileInputFiles = dom?.trySetFileInputFiles;
+      const waitForObservedState = dom?.waitForObservedState;
+      const genericSetInputValue = typeof dom?.setInputValue === "function" ? dom.setInputValue : null;
+      const genericClearInputValue = typeof dom?.clearInputValue === "function" ? dom.clearInputValue : null;
+      const genericGetComposerText = typeof dom?.getComposerText === "function" ? dom.getComposerText : null;
+      const genericNormalizeComposerText = typeof dom?.normalizeComposerText === "function" ? dom.normalizeComposerText : (value, { trimTrailingEditorNewlines = false } = {}) => {
+        let text = String(value ?? "").replace(/\r\n?/g, "\n").replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "");
+        if (trimTrailingEditorNewlines) text = text.replace(/\n+$/g, "");
+        return text;
+      };
+      if (typeof simulateKeystroke !== "function" || typeof dispatchPasteEvent !== "function" || typeof dispatchBeforeInputFromPaste !== "function" || typeof dispatchInputFromPaste !== "function" || typeof dispatchDragEvent !== "function" || typeof collectFileInputs !== "function" || typeof collectFileInputsFromOpenShadows !== "function" || typeof trySetFileInputFiles !== "function" || typeof waitForObservedState !== "function") {
+        return null;
+      }
+      const overlayId = `${String(idPrefix || "").trim() || "notion"}-quick-input-overlay`;
+      const NOTION_COMPOSER_SELECTORS = Object.freeze([
+        "textarea[placeholder]",
+        "textarea[aria-label]",
+        "textarea",
+        "[contenteditable='true'][role='textbox']",
+        "[contenteditable='true'][data-placeholder]",
+        "[contenteditable='true'][aria-placeholder]",
+        "[contenteditable='true']"
+      ]);
+      const NOTION_ATTACHMENT_OBSERVED_ATTRIBUTES = Object.freeze([
+        "class",
+        "src",
+        "alt",
+        "title",
+        "aria-label",
+        "aria-busy",
+        "aria-disabled",
+        "disabled",
+        "data-testid",
+        "data-state"
+      ]);
+      const NOTION_READY_OBSERVED_ATTRIBUTES = NOTION_ATTACHMENT_OBSERVED_ATTRIBUTES;
+      const NOTION_TEXT_OBSERVED_ATTRIBUTES = Object.freeze([
+        "class",
+        "style",
+        "value",
+        "placeholder",
+        "data-placeholder",
+        "aria-placeholder",
+        "aria-hidden",
+        "hidden"
+      ]);
+      function qiText(key, vars = {}, fallback = "") {
+        return engine2?.i18n?.t?.(`quickInput.${key}`, vars, fallback) || fallback;
+      }
+      function getNotionNewChatLabel() {
+        return engine2?.i18n?.t?.("shortcuts.newChat", {}, "New Chat") || "New Chat";
+      }
+      const isInsideOverlayTree = typeof dom?.isInsideOverlayTree === "function" ? dom.isInsideOverlayTree : (target, targetOverlayId) => {
+        if (!target || !targetOverlayId) return false;
+        let node = target;
+        while (node) {
+          if (node.nodeType === 1) {
+            if (node.id === targetOverlayId) return true;
+            try {
+              if (typeof node.closest === "function" && node.closest(`#${targetOverlayId}`)) return true;
+            } catch {
+            }
+          }
+          let next = null;
+          try {
+            next = node.parentNode || null;
+          } catch {
+          }
+          if (!next && typeof node.getRootNode === "function") {
+            try {
+              const root = node.getRootNode();
+              next = root?.host || null;
+            } catch {
+            }
+          }
+          if (!next || next === node) break;
+          node = next;
+        }
+        return false;
+      };
+      function isInsideQuickInputOverlay(element) {
+        return isInsideOverlayTree(element, overlayId);
+      }
+      function getRuntimeNow(runtime = null) {
+        if (runtime && typeof runtime.now === "function") {
+          try {
+            return Number(runtime.now()) || Date.now();
+          } catch {
+          }
+        }
+        return Date.now();
+      }
+      async function runtimeSleep(runtime = null, ms = 0, { shouldCancel = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        if (cancelFn && cancelFn()) return false;
+        if (runtime && typeof runtime.waitIfPaused === "function") {
+          try {
+            const pauseOk = await runtime.waitIfPaused();
+            if (pauseOk === false) return false;
+          } catch {
+            return false;
+          }
+        }
+        if (runtime && typeof runtime.sleep === "function") {
+          try {
+            const result = await runtime.sleep(ms);
+            return result !== false && !(cancelFn && cancelFn());
+          } catch {
+            return false;
+          }
+        }
+        await sleep(Math.max(0, Number(ms) || 0));
+        return !(cancelFn && cancelFn());
+      }
+      function isNotionComposerConnected(element) {
+        if (!element) return false;
+        try {
+          if (typeof element.isConnected === "boolean") return element.isConnected;
+        } catch {
+        }
+        try {
+          return !!document.contains(element);
+        } catch {
+          return false;
+        }
+      }
+      function getNotionComposerSearchText(element) {
+        if (!element) return "";
+        return [
+          element.getAttribute?.("placeholder"),
+          element.getAttribute?.("aria-placeholder"),
+          element.getAttribute?.("data-placeholder"),
+          element.getAttribute?.("aria-label"),
+          element.getAttribute?.("title"),
+          element.getAttribute?.("data-testid"),
+          getElementText(element)
+        ].filter(Boolean).join(" ");
+      }
+      function isNotionEditableComposerElement(element, { requireVisible = true } = {}) {
+        if (!element) return false;
+        if (isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)) return false;
+        if (!isNotionComposerConnected(element)) return false;
+        if (requireVisible && !isVisibleElement(element)) return false;
+        if (isElementDisabled(element)) return false;
+        const tag = String(element.tagName || "").toUpperCase();
+        const editable = tag === "TEXTAREA" || tag === "INPUT" || element.isContentEditable || element.contentEditable === "true";
+        if (!editable) return false;
+        try {
+          if (element.getAttribute?.("aria-hidden") === "true") return false;
+          if (element.closest?.('[role="menu"], [role="dialog"]:not([data-open])')) return false;
+        } catch {
+        }
+        return true;
+      }
+      function scoreNotionComposerCandidate(element) {
+        if (!element) return -Infinity;
+        const text = normalizeNotionText(getNotionComposerSearchText(element));
+        const rect = getElementRect(element);
+        let score = 0;
+        if (textLooksLikeComposerPrompt(text)) score += 420;
+        if (text.includes("notion ai")) score += 180;
+        if (text.includes("ask") || text.includes("message") || text.includes("prompt")) score += 80;
+        if (text.includes("输入") || text.includes("提问")) score += 80;
+        try {
+          if (element.closest?.("form")) score += 60;
+          if (element.closest?.("[data-testid*='chat' i], [data-testid*='composer' i], [data-testid*='prompt' i]")) score += 80;
+        } catch {
+        }
+        if (rect) {
+          const viewport = getViewportSize();
+          if (rect.width >= 260) score += 60;
+          if (rect.height >= 28 && rect.height <= 280) score += 40;
+          if (viewport.height > 0) score += Math.max(0, Math.min(120, rect.bottom / viewport.height * 120));
+          if (viewport.width > 0) score += Math.max(0, Math.min(70, rect.width / viewport.width * 70));
+        }
+        return score;
+      }
+      function pickBestNotionComposerCandidate(candidates, { requireVisible = true } = {}) {
+        let best = null;
+        let bestScore = -Infinity;
+        for (const candidate of Array.from(candidates || [])) {
+          if (!isNotionEditableComposerElement(candidate, { requireVisible })) continue;
+          const score = scoreNotionComposerCandidate(candidate);
+          if (score > bestScore) {
+            best = candidate;
+            bestScore = score;
+          }
+        }
+        return best;
+      }
+      function findNotionComposerInside(root, { requireVisible = true } = {}) {
+        if (!root || typeof root.querySelectorAll !== "function") return null;
+        const candidates = [];
+        for (const selector of NOTION_COMPOSER_SELECTORS) {
+          try {
+            if (root.matches?.(selector)) candidates.push(root);
+          } catch {
+          }
+          try {
+            candidates.push(...Array.from(root.querySelectorAll(selector)));
+          } catch {
+          }
+        }
+        return pickBestNotionComposerCandidate(candidates, { requireVisible });
+      }
+      function resolveNotionComposerElement(element, { requireVisible = true } = {}) {
+        if (isNotionEditableComposerElement(element, { requireVisible })) return element;
+        const scopes = [];
+        const seen = /* @__PURE__ */ new Set();
+        const pushScope = (scope) => {
+          if (!scope || seen.has(scope)) return;
+          seen.add(scope);
+          scopes.push(scope);
+        };
+        try {
+          pushScope(element?.closest?.("form") || null);
+        } catch {
+        }
+        try {
+          pushScope(element?.closest?.('[data-testid*="chat" i], [data-testid*="composer" i], [data-testid*="prompt" i]') || null);
+        } catch {
+        }
+        try {
+          pushScope(element?.parentElement || null);
+        } catch {
+        }
+        pushScope(element);
+        pushScope(findComposerRootElement());
+        for (const scope of scopes) {
+          const found = findNotionComposerInside(scope, { requireVisible });
+          if (found) return found;
+        }
+        return null;
+      }
+      function findNotionComposerElement({ requireVisible = true } = {}) {
+        const activeComposer = resolveNotionComposerElement(document.activeElement || null, { requireVisible });
+        if (activeComposer) return activeComposer;
+        const root = findComposerRootElement();
+        const rootComposer = findNotionComposerInside(root, { requireVisible });
+        if (rootComposer) return rootComposer;
+        const candidates = [];
+        for (const selector of NOTION_COMPOSER_SELECTORS) {
+          try {
+            candidates.push(...Array.from(document.querySelectorAll(selector)));
+          } catch {
+          }
+        }
+        return pickBestNotionComposerCandidate(candidates, { requireVisible });
+      }
+      async function focusNotionComposer({ timeoutMs = 2500, intervalMs = 120, shouldCancel = null, runtime = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        const deadline = getRuntimeNow(runtime) + Math.max(0, Number(timeoutMs) || 0);
+        let composer = findNotionComposerElement({ requireVisible: true });
+        while (!composer && getRuntimeNow(runtime) < deadline) {
+          if (cancelFn && cancelFn()) return null;
+          const waitOk = await runtimeSleep(runtime, intervalMs, { shouldCancel: cancelFn });
+          if (!waitOk) return null;
+          composer = findNotionComposerElement({ requireVisible: true });
+        }
+        if (cancelFn && cancelFn()) return null;
+        if (!composer) return null;
+        try {
+          composer.scrollIntoView?.({ block: "center" });
+        } catch {
+        }
+        try {
+          composer.focus?.({ preventScroll: true });
+        } catch {
+          try {
+            composer.focus?.();
+          } catch {
+          }
+        }
+        try {
+          simulateClickElement(composer, { nativeFallback: true });
+        } catch {
+        }
+        const settleOk = await runtimeSleep(runtime, 20, { shouldCancel: cancelFn });
+        if (!settleOk) return null;
+        return composer;
+      }
+      function serializeContentEditableText(element) {
+        if (!element) return "";
+        try {
+          const cloneText = String(element.innerText || "");
+          if (cloneText) return cloneText;
+        } catch {
+        }
+        try {
+          return String(element.textContent || "");
+        } catch {
+          return "";
+        }
+      }
+      function getNotionComposerPlaceholderText(element) {
+        if (!element || typeof element.getAttribute !== "function") return "";
+        for (const attr of ["placeholder", "aria-placeholder", "data-placeholder"]) {
+          try {
+            const value = String(element.getAttribute(attr) || "").trim();
+            if (value) return value;
+          } catch {
+          }
+        }
+        return "";
+      }
+      function getNotionComposerPlainText(element, { trimTrailingEditorNewlines = false } = {}) {
+        const composer = resolveNotionComposerElement(element, { requireVisible: false }) || findNotionComposerElement({ requireVisible: false });
+        if (!composer) return "";
+        const tag = String(composer.tagName || "").toUpperCase();
+        let text = "";
+        if (tag === "TEXTAREA" || tag === "INPUT") {
+          if (genericGetComposerText) text = genericGetComposerText(composer);
+          else {
+            try {
+              text = String(composer.value ?? "");
+            } catch {
+              text = "";
+            }
+          }
+        } else if (composer.isContentEditable || composer.contentEditable === "true") {
+          text = serializeContentEditableText(composer);
+        } else if (genericGetComposerText) {
+          text = genericGetComposerText(composer);
+        }
+        const normalized = genericNormalizeComposerText(text, { trimTrailingEditorNewlines });
+        const placeholder = genericNormalizeComposerText(getNotionComposerPlaceholderText(composer), { trimTrailingEditorNewlines });
+        if (placeholder && normalized === placeholder) return "";
+        return normalized;
+      }
+      function getNotionTextObservationRoots(composerEl) {
+        const roots = [];
+        const seen = /* @__PURE__ */ new Set();
+        const pushRoot = (node) => {
+          if (!node || seen.has(node)) return;
+          const nodeType = Number(node?.nodeType) || 0;
+          if (!(nodeType === 1 || nodeType === 9 || nodeType === 11)) return;
+          seen.add(node);
+          roots.push(node);
+        };
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || findNotionComposerElement({ requireVisible: false });
+        pushRoot(composer);
+        try {
+          pushRoot(composer?.parentElement || null);
+        } catch {
+        }
+        try {
+          pushRoot(composer?.closest?.("form") || null);
+        } catch {
+        }
+        pushRoot(findComposerRootElement());
+        pushRoot(document.body || document);
+        return roots;
+      }
+      function selectNotionComposerContent(composer) {
+        if (!composer) return false;
+        const tag = String(composer.tagName || "").toUpperCase();
+        try {
+          composer.focus?.();
+        } catch {
+        }
+        if (tag === "TEXTAREA" || tag === "INPUT") {
+          try {
+            composer.setSelectionRange?.(0, String(composer.value || "").length);
+            return true;
+          } catch {
+          }
+        }
+        if (composer.isContentEditable || composer.contentEditable === "true") {
+          try {
+            const selection = document.defaultView?.getSelection?.() || window.getSelection?.();
+            const range = document.createRange();
+            range.selectNodeContents(composer);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            return true;
+          } catch {
+          }
+        }
+        return false;
+      }
+      function dispatchNotionComposerInput(composer, { inputType = "insertText", data = null } = {}) {
+        if (!composer) return false;
+        let dispatched = false;
+        try {
+          composer.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, composed: true, inputType, data }));
+          dispatched = true;
+        } catch {
+        }
+        try {
+          composer.dispatchEvent(new InputEvent("input", { bubbles: true, cancelable: false, composed: true, inputType, data }));
+          dispatched = true;
+        } catch {
+          try {
+            composer.dispatchEvent(new Event("input", { bubbles: true, cancelable: false, composed: true }));
+            dispatched = true;
+          } catch {
+          }
+        }
+        try {
+          composer.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+        } catch {
+        }
+        return dispatched;
+      }
+      async function setNotionInputValue(composerEl, value) {
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || findNotionComposerElement({ requireVisible: true });
+        if (!composer) return false;
+        const text = String(value ?? "");
+        if (genericSetInputValue && genericSetInputValue(composer, text)) {
+          return true;
+        }
+        const tag = String(composer.tagName || "").toUpperCase();
+        if (tag === "TEXTAREA" || tag === "INPUT") {
+          try {
+            const proto = tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+            const desc = Object.getOwnPropertyDescriptor(proto, "value");
+            if (desc?.set) desc.set.call(composer, text);
+            else composer.value = text;
+          } catch {
+            try {
+              composer.value = text;
+            } catch {
+              return false;
+            }
+          }
+          dispatchNotionComposerInput(composer, { inputType: "insertReplacementText", data: text });
+          return true;
+        }
+        if (composer.isContentEditable || composer.contentEditable === "true") {
+          try {
+            composer.focus?.();
+          } catch {
+          }
+          selectNotionComposerContent(composer);
+          try {
+            if (document.execCommand?.("insertText", false, text)) {
+              dispatchNotionComposerInput(composer, { inputType: "insertReplacementText", data: text });
+              return true;
+            }
+          } catch {
+          }
+          try {
+            composer.textContent = text;
+            dispatchNotionComposerInput(composer, { inputType: "insertReplacementText", data: text });
+            return true;
+          } catch {
+          }
+        }
+        return false;
+      }
+      async function clearNotionInputValue(composerEl) {
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || findNotionComposerElement({ requireVisible: true });
+        if (!composer) return false;
+        if (genericClearInputValue && genericClearInputValue(composer)) return true;
+        return setNotionInputValue(composer, "");
+      }
+      function createNotionDataTransfer({ text = "", files = [] } = {}) {
+        if (typeof DataTransfer !== "function") return null;
+        try {
+          const dt = new DataTransfer();
+          const plainText = String(text ?? "");
+          if (plainText) {
+            try {
+              dt.setData("text/plain", plainText);
+            } catch {
+            }
+          }
+          for (const file of Array.from(files || [])) {
+            if (!(file instanceof File)) continue;
+            try {
+              dt.items.add(file);
+            } catch {
+            }
+          }
+          try {
+            dt.effectAllowed = "copy";
+          } catch {
+          }
+          try {
+            dt.dropEffect = "copy";
+          } catch {
+          }
+          return dt;
+        } catch {
+          return null;
+        }
+      }
+      function findNotionComposerContainer(composerEl) {
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+        const scopes = [];
+        const push = (node) => {
+          if (node && !scopes.includes(node)) scopes.push(node);
+        };
+        try {
+          push(composer?.closest?.("form") || null);
+        } catch {
+        }
+        try {
+          push(composer?.closest?.('[data-testid*="chat" i], [data-testid*="composer" i], [data-testid*="prompt" i], [data-testid*="unified-chat" i]') || null);
+        } catch {
+        }
+        push(findComposerRootElement());
+        push(composer);
+        return scopes.find(Boolean) || document.body || document;
+      }
+      function getNotionAttachmentScope(containerEl) {
+        const container = containerEl || findNotionComposerContainer();
+        if (!container) return document.body || document;
+        return container;
+      }
+      function isNotionAttachmentMarker(element) {
+        if (!element || isInsideQuickInputOverlay(element) || isInsideShortcutUi(element) || !isVisibleElement(element)) return false;
+        const tag = String(element.tagName || "").toLowerCase();
+        const text = normalizeNotionText(getElementSearchText(element));
+        const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+        const className = String(element.getAttribute?.("class") || "").toLowerCase();
+        if (tag === "img") {
+          const src = String(element.getAttribute?.("src") || "").trim();
+          return /^blob:|^data:image\//i.test(src);
+        }
+        if (text.includes("remove attachment") || text.includes("remove file") || text.includes("remove image") || text.includes("移除") || text.includes("删除") || text.includes("取消")) return true;
+        if (dataTestId.includes("attachment") || dataTestId.includes("file-preview") || dataTestId.includes("upload-preview")) return true;
+        if (className.includes("attachment") || className.includes("file-preview") || className.includes("upload-preview")) return true;
+        return false;
+      }
+      function getNotionAttachmentSnapshot(containerEl = null) {
+        const scope = getNotionAttachmentScope(containerEl);
+        const selectors = [
+          "img[src^='blob:']",
+          "img[src^='data:image/']",
+          "[data-testid*='attachment' i]",
+          "[data-testid*='file-preview' i]",
+          "[data-testid*='upload-preview' i]",
+          "[class*='attachment' i]",
+          "[class*='file-preview' i]",
+          "[class*='upload-preview' i]",
+          "button[aria-label*='remove attachment' i]",
+          "button[aria-label*='remove file' i]",
+          "button[aria-label*='remove image' i]",
+          "button[aria-label*='移除' i]",
+          "button[aria-label*='删除' i]",
+          "button[aria-label*='取消' i]"
+        ].join(", ");
+        const markers = safeQueryAll(scope, selectors).filter(isNotionAttachmentMarker);
+        const seen = /* @__PURE__ */ new Set();
+        const unique = [];
+        for (const marker of markers) {
+          if (!marker || seen.has(marker)) continue;
+          seen.add(marker);
+          unique.push(marker);
+        }
+        const imageCount = unique.filter((element) => String(element.tagName || "").toLowerCase() === "img").length;
+        const removeCount = unique.filter((element) => normalizeNotionText(getElementSearchText(element)).includes("remove")).length;
+        const previewCount = unique.length;
+        const attachmentCount = Math.max(imageCount, removeCount, previewCount);
+        const fingerprint = unique.slice(0, 12).map((element) => [
+          String(element.tagName || "").toLowerCase(),
+          String(element.getAttribute?.("data-testid") || ""),
+          String(element.getAttribute?.("aria-label") || ""),
+          String(element.getAttribute?.("src") || "").slice(0, 80),
+          normalizeNotionText(getElementText(element)).slice(0, 80)
+        ].join(":")).join("|");
+        return {
+          attachmentCount,
+          imageCount,
+          removeCount,
+          previewCount,
+          hasAttachment: attachmentCount > 0,
+          fingerprint
+        };
+      }
+      function getNotionAttachmentFingerprint(snapshot) {
+        if (!snapshot) return "";
+        return `${snapshot.attachmentCount || 0};${snapshot.imageCount || 0};${snapshot.removeCount || 0};${snapshot.previewCount || 0};${snapshot.fingerprint || ""}`;
+      }
+      async function waitForNotionAttachmentChange(containerEl, previousSnapshot, { timeoutMs = 9e3, intervalMs = 120, shouldCancel = null, runtime = null } = {}) {
+        const previousCount = Number(previousSnapshot?.attachmentCount || 0);
+        const previousFingerprint = getNotionAttachmentFingerprint(previousSnapshot);
+        const observed = await waitForObservedState({
+          resolveRoots: () => [containerEl || findNotionComposerContainer(), document.body || document],
+          computeState: () => getNotionAttachmentSnapshot(containerEl),
+          isSatisfied: (state) => {
+            const count = Number(state?.attachmentCount || 0);
+            return count > previousCount || count > 0 && getNotionAttachmentFingerprint(state) !== previousFingerprint;
+          },
+          timeoutMs,
+          settleMs: 280,
+          pollFallbackMs: Math.max(250, Number(intervalMs) || 120),
+          attributeFilter: NOTION_ATTACHMENT_OBSERVED_ATTRIBUTES,
+          shouldCancel,
+          runtime
+        });
+        return {
+          ok: !!observed?.ok,
+          cancelled: !!observed?.cancelled,
+          snapshot: observed?.state || getNotionAttachmentSnapshot(containerEl)
+        };
+      }
+      function tryAttachNotionImageViaPaste(file, composerEl) {
+        const dt = createNotionDataTransfer({ files: [file] });
+        if (!dt || !composerEl) return false;
+        let fired = false;
+        fired = dispatchPasteEvent(composerEl, dt) || fired;
+        fired = dispatchBeforeInputFromPaste(composerEl, dt) || fired;
+        fired = dispatchInputFromPaste(composerEl, dt) || fired;
+        return fired;
+      }
+      function tryAttachNotionImageViaDrop(file, composerEl) {
+        const dt = createNotionDataTransfer({ files: [file] });
+        if (!dt || !composerEl) return false;
+        const container = findNotionComposerContainer(composerEl);
+        const targets = [];
+        if (container) targets.push(container);
+        targets.push(composerEl, document, window);
+        let fired = false;
+        for (const target of Array.from(new Set(targets.filter(Boolean)))) {
+          if (isInsideQuickInputOverlay(target)) continue;
+          fired = dispatchDragEvent(target, "dragenter", dt) || fired;
+          fired = dispatchDragEvent(target, "dragover", dt) || fired;
+          fired = dispatchDragEvent(target, "drop", dt) || fired;
+        }
+        return fired;
+      }
+      function tryAttachNotionImageViaFileInput(file, composerEl, diagnostics) {
+        const container = findNotionComposerContainer(composerEl);
+        const candidates = [];
+        if (container) candidates.push(...collectFileInputs(container, { shouldIgnore: isInsideQuickInputOverlay }));
+        candidates.push(...collectFileInputs(document, { shouldIgnore: isInsideQuickInputOverlay }));
+        if (candidates.length === 0) {
+          if (container) candidates.push(...collectFileInputsFromOpenShadows(container, { maxHosts: 1200, shouldIgnore: isInsideQuickInputOverlay }));
+          candidates.push(...collectFileInputsFromOpenShadows(document, { maxHosts: 3500, shouldIgnore: isInsideQuickInputOverlay }));
+        }
+        const uniq = Array.from(new Set(candidates.filter((input) => input && !isInsideQuickInputOverlay(input))));
+        if (diagnostics && typeof diagnostics === "object") diagnostics.fileInputCandidates = uniq.length;
+        const sorted = uniq.sort((a, b) => {
+          const aAccept = String(a.getAttribute?.("accept") || a.accept || "").toLowerCase();
+          const bAccept = String(b.getAttribute?.("accept") || b.accept || "").toLowerCase();
+          const aImage = !aAccept || aAccept.includes("image") || aAccept.includes(".png") || aAccept.includes(".jpg") || aAccept.includes(".jpeg") || aAccept.includes(".webp");
+          const bImage = !bAccept || bAccept.includes("image") || bAccept.includes(".png") || bAccept.includes(".jpg") || bAccept.includes(".jpeg") || bAccept.includes(".webp");
+          return Number(bImage) - Number(aImage);
+        });
+        for (const input of sorted) {
+          if (trySetFileInputFiles(input, file)) return true;
+        }
+        return false;
+      }
+      async function attachNotionImage(file, composerEl, { onDiagnostics = null, shouldCancel = null, runtime = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        if (!file || !(file instanceof File) || !String(file.type || "").startsWith("image/")) return { ok: false, cancelled: false };
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: true }) || await focusNotionComposer({ timeoutMs: 4e3, shouldCancel: cancelFn, runtime });
+        if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
+        const container = findNotionComposerContainer(composer);
+        let previousSnapshot = getNotionAttachmentSnapshot(container);
+        const diagnostics = { attempts: { paste: 0, drop: 0, fileInput: 0 }, fired: { paste: 0, drop: 0, fileInput: 0 }, fileInputCandidates: 0 };
+        const tryPlan = [
+          {
+            name: "paste",
+            attempts: 3,
+            run: () => {
+              diagnostics.attempts.paste += 1;
+              const fired = tryAttachNotionImageViaPaste(file, composer);
+              if (fired) diagnostics.fired.paste += 1;
+              return fired;
+            }
+          },
+          {
+            name: "drop",
+            attempts: 2,
+            run: () => {
+              diagnostics.attempts.drop += 1;
+              const fired = tryAttachNotionImageViaDrop(file, composer);
+              if (fired) diagnostics.fired.drop += 1;
+              return fired;
+            }
+          },
+          {
+            name: "fileInput",
+            attempts: 2,
+            run: () => {
+              diagnostics.attempts.fileInput += 1;
+              const fired = tryAttachNotionImageViaFileInput(file, composer, diagnostics);
+              if (fired) diagnostics.fired.fileInput += 1;
+              return fired;
+            }
+          }
+        ];
+        for (const plan of tryPlan) {
+          for (let attempt = 0; attempt < plan.attempts; attempt += 1) {
+            if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
+            try {
+              composer.focus?.({ preventScroll: true });
+            } catch {
+              try {
+                composer.focus?.();
+              } catch {
+              }
+            }
+            try {
+              simulateClickElement(composer, { nativeFallback: true });
+            } catch {
+            }
+            if (!await runtimeSleep(runtime, attempt > 0 ? 180 : 30, { shouldCancel: cancelFn })) return { ok: false, cancelled: true };
+            const fired = plan.run();
+            if (!fired) continue;
+            const changed = await waitForNotionAttachmentChange(container, previousSnapshot, {
+              timeoutMs: 9e3,
+              intervalMs: 120,
+              shouldCancel: cancelFn,
+              runtime
+            });
+            if (changed.cancelled) return { ok: false, cancelled: true };
+            if (changed.ok) return { ok: true, cancelled: false };
+            previousSnapshot = changed.snapshot;
+          }
+        }
+        if (typeof onDiagnostics === "function") {
+          try {
+            onDiagnostics(diagnostics);
+          } catch {
+          }
+        }
+        return { ok: false, cancelled: false };
+      }
+      async function attachNotionImages(files, composerEl, { onDiagnostics = null, shouldCancel = null, runtime = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        const list = Array.from(files || []).filter((file) => file && file instanceof File && String(file.type || "").startsWith("image/"));
+        if (list.length === 0) return { ok: false, cancelled: false, message: qiText("noImageFiles", {}, "No image files detected.") };
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: true }) || await focusNotionComposer({ timeoutMs: 4e3, shouldCancel: cancelFn, runtime });
+        if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
+        for (let i = 0; i < list.length; i += 1) {
+          const file = list[i];
+          const result = await attachNotionImage(file, composer, {
+            shouldCancel: cancelFn,
+            runtime,
+            onDiagnostics: (diag) => {
+              if (typeof onDiagnostics !== "function") return;
+              try {
+                onDiagnostics({ fileIndex: i, fileName: file?.name || "", ...diag });
+              } catch {
+              }
+            }
+          });
+          if (result.cancelled) return { ok: false, cancelled: true };
+          if (!result.ok) {
+            return {
+              ok: false,
+              cancelled: false,
+              message: qiText("attachFailed", {}, "Image paste failed: no image preview was detected in the input box.")
+            };
+          }
+          if (!await runtimeSleep(runtime, 120, { shouldCancel: cancelFn })) return { ok: false, cancelled: true };
+        }
+        return { ok: true, cancelled: false };
+      }
+      function findNotionAttachmentRemoveButtons(containerEl = null) {
+        const scope = getNotionAttachmentScope(containerEl);
+        const selectors = [
+          "button[aria-label*='remove attachment' i]",
+          "button[aria-label*='remove file' i]",
+          "button[aria-label*='remove image' i]",
+          "button[title*='remove attachment' i]",
+          "button[title*='remove file' i]",
+          "button[title*='remove image' i]",
+          "button[title*='移除' i]",
+          "button[title*='删除' i]",
+          "button[title*='取消' i]",
+          "[role='button'][aria-label*='remove attachment' i]",
+          "[role='button'][aria-label*='remove file' i]",
+          "[role='button'][aria-label*='remove image' i]",
+          "[role='button'][aria-label*='移除' i]",
+          "[role='button'][aria-label*='删除' i]",
+          "[role='button'][aria-label*='取消' i]",
+          "[data-testid*='remove' i]",
+          "[data-testid*='delete' i]",
+          "[data-testid*='dismiss' i]",
+          "[data-testid*='cancel' i]"
+        ].join(", ");
+        return safeQueryAll(scope, selectors).map((element) => getClickableActionElement(element, scope)).filter((element) => element && isVisibleElement(element) && !isElementDisabled(element) && !isInsideQuickInputOverlay(element));
+      }
+      async function clearNotionAttachments(composerEl, { shouldCancel = null, runtime = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || findNotionComposerElement({ requireVisible: true });
+        const container = findNotionComposerContainer(composer);
+        let snapshot = getNotionAttachmentSnapshot(container);
+        if (!snapshot.hasAttachment) return { ok: true, cancelled: false };
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
+          const buttons = findNotionAttachmentRemoveButtons(container);
+          if (!buttons.length) {
+            return { ok: false, cancelled: false, message: "Failed to clear current image attachments: no usable remove button was found." };
+          }
+          for (const button of buttons) {
+            if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
+            simulateClickElement(button, { nativeFallback: true });
+            await runtimeSleep(runtime, 100, { shouldCancel: cancelFn });
+          }
+          const observed = await waitForObservedState({
+            resolveRoots: () => [container, document.body || document],
+            computeState: () => getNotionAttachmentSnapshot(container),
+            isSatisfied: (state) => !state?.hasAttachment,
+            timeoutMs: 1800,
+            settleMs: 200,
+            pollFallbackMs: 160,
+            attributeFilter: NOTION_ATTACHMENT_OBSERVED_ATTRIBUTES,
+            shouldCancel: cancelFn,
+            runtime
+          });
+          snapshot = observed?.state || getNotionAttachmentSnapshot(container);
+          if (observed?.cancelled) return { ok: false, cancelled: true };
+          if (!snapshot.hasAttachment) return { ok: true, cancelled: false };
+        }
+        return { ok: false, cancelled: false, message: "Failed to clear current image attachments: could not confirm that all attachments were removed." };
+      }
+      function findNotionSendButtonNearComposer(composerEl) {
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+        const scopes = [];
+        const push = (scope) => {
+          if (scope && !scopes.includes(scope)) scopes.push(scope);
+        };
+        try {
+          push(composer?.closest?.("form") || null);
+        } catch {
+        }
+        push(findNotionComposerContainer(composer));
+        push(document);
+        const selectors = [
+          "button[type='submit']",
+          "button[aria-label*='send' i]",
+          "button[title*='send' i]",
+          "button[data-testid*='send' i]",
+          "button[aria-label*='发送' i]",
+          "[role='button'][aria-label*='send' i]",
+          "[role='button'][data-testid*='send' i]"
+        ].join(", ");
+        const candidates = [];
+        const seen = /* @__PURE__ */ new Set();
+        for (const scope of scopes) {
+          for (const element of safeQueryAll(scope, selectors)) {
+            if (!element || seen.has(element)) continue;
+            seen.add(element);
+            if (isInsideQuickInputOverlay(element) || !isVisibleElement(element)) continue;
+            candidates.push(element);
+          }
+        }
+        candidates.sort((a, b) => {
+          const aText = normalizeNotionText(getElementSearchText(a));
+          const bText = normalizeNotionText(getElementSearchText(b));
+          const aExact = aText === "send" || aText === "发送" ? 1 : 0;
+          const bExact = bText === "send" || bText === "发送" ? 1 : 0;
+          if (aExact !== bExact) return bExact - aExact;
+          const aRect = getElementRect(a);
+          const bRect = getElementRect(b);
+          return (bRect?.right || 0) - (aRect?.right || 0);
+        });
+        return candidates[0] || null;
+      }
+      function isNotionSendButtonDisabled(button) {
+        if (!button) return true;
+        if (isElementDisabled(button)) return true;
+        const dataState = String(button.getAttribute?.("data-state") || "").toLowerCase();
+        if (dataState === "disabled") return true;
+        return false;
+      }
+      function hasNotionUploadInProgress(containerEl) {
+        const scope = getNotionAttachmentScope(containerEl);
+        const selectors = [
+          "[aria-busy='true']",
+          "[role='progressbar']",
+          "progress",
+          "[data-testid*='uploading' i]",
+          "[class*='uploading' i]",
+          "[class*='spinner' i]",
+          "[class*='progress' i]"
+        ].join(", ");
+        return safeQueryAll(scope, selectors).some((element) => element && isVisibleElement(element));
+      }
+      function getNotionReadyToSendState(composerEl, { requireImage = false, minAttachments = 0 } = {}) {
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || findNotionComposerElement({ requireVisible: true });
+        const container = findNotionComposerContainer(composer);
+        const snapshot = getNotionAttachmentSnapshot(container);
+        const textLength = getNotionComposerPlainText(composer, { trimTrailingEditorNewlines: true }).trim().length;
+        const sendButton = findNotionSendButtonNearComposer(composer);
+        const sendReady = sendButton ? !isNotionSendButtonDisabled(sendButton) : textLength > 0;
+        const requiredAttachments = Math.max(0, Number(minAttachments) || 0);
+        const attachmentCount = Number(snapshot?.attachmentCount || 0);
+        const hasEnoughAttachments = !requireImage || requiredAttachments <= 0 || attachmentCount >= requiredAttachments;
+        const uploadBusy = requireImage && hasNotionUploadInProgress(container);
+        const ok = !!(composer && sendReady && (!requireImage || attachmentCount > 0 && hasEnoughAttachments && !uploadBusy));
+        return {
+          composer,
+          container,
+          snapshot,
+          sendButton,
+          sendReady,
+          attachmentCount,
+          requiredAttachments,
+          hasEnoughAttachments,
+          uploadBusy,
+          textLength,
+          ok,
+          stateKey: `${getNotionAttachmentFingerprint(snapshot)};send=${sendReady ? 1 : 0};busy=${uploadBusy ? 1 : 0};text=${textLength};min=${requiredAttachments}`
+        };
+      }
+      async function waitForNotionReadyToSend(composerEl, { requireImage = false, minAttachments = 0, timeoutMs = 45e3, intervalMs = 160, settleMs = 600, shouldCancel = null, runtime = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        let composerRef = resolveNotionComposerElement(composerEl, { requireVisible: true }) || await focusNotionComposer({ timeoutMs: 4e3, shouldCancel: cancelFn, runtime });
+        if (!composerRef) return { ok: false, reason: "no-composer", cancelled: !!(cancelFn && cancelFn()) };
+        let lastState = null;
+        const computeState = () => {
+          const resolved = resolveNotionComposerElement(composerRef, { requireVisible: false }) || composerRef;
+          if (resolved) composerRef = resolved;
+          lastState = getNotionReadyToSendState(composerRef, { requireImage, minAttachments });
+          return lastState;
+        };
+        const observed = await waitForObservedState({
+          resolveRoots: () => [lastState?.container || findNotionComposerContainer(composerRef), composerRef, document.body || document],
+          computeState,
+          isSatisfied: (state2) => !!state2?.ok,
+          timeoutMs,
+          settleMs,
+          pollFallbackMs: Math.max(1e3, Number(intervalMs) || 0),
+          attributeFilter: NOTION_READY_OBSERVED_ATTRIBUTES,
+          shouldCancel: cancelFn,
+          runtime
+        });
+        const state = observed?.state || computeState();
+        if (observed?.cancelled) return { ok: false, reason: "cancelled", cancelled: true, snapshot: state?.snapshot || null };
+        return {
+          ok: !!observed?.ok,
+          button: state?.sendButton || null,
+          snapshot: state?.snapshot || null,
+          reason: observed?.ok ? "ok" : "timeout",
+          cancelled: false,
+          message: observed?.ok ? "" : `Notion composer not ready: attachment=${state?.attachmentCount || 0}, text=${state?.textLength || 0}, busy=${state?.uploadBusy ? 1 : 0}, sendReady=${state?.sendReady ? 1 : 0}`
+        };
+      }
+      function getNotionNewChatReadyState() {
+        const composer = findNotionComposerElement({ requireVisible: true });
+        const text = getNotionComposerPlainText(composer, { trimTrailingEditorNewlines: true }).trim();
+        const container = findNotionComposerContainer(composer);
+        const snapshot = getNotionAttachmentSnapshot(container);
+        return {
+          composer,
+          container,
+          textLength: text.length,
+          attachmentCount: Number(snapshot?.attachmentCount || 0),
+          ok: !!(composer && text.length === 0 && Number(snapshot?.attachmentCount || 0) === 0)
+        };
+      }
+      async function waitForNotionNewChatReady({ timeoutMs = 12e3, intervalMs = 160, settleMs = 300, shouldCancel = null, runtime = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        const observed = await waitForObservedState({
+          resolveRoots: () => [document.body || document],
+          computeState: getNotionNewChatReadyState,
+          isSatisfied: (state2) => !!state2?.ok,
+          timeoutMs,
+          settleMs,
+          pollFallbackMs: Math.max(200, Number(intervalMs) || 160),
+          attributeFilter: NOTION_TEXT_OBSERVED_ATTRIBUTES,
+          shouldCancel: cancelFn,
+          runtime
+        });
+        const state = observed?.state || getNotionNewChatReadyState();
+        if (observed?.cancelled) return { ok: false, cancelled: true };
+        return {
+          ok: !!observed?.ok,
+          cancelled: false,
+          message: observed?.ok ? "" : `Notion new chat not ready: composer=${state?.composer ? 1 : 0}, text=${state?.textLength || 0}, attachment=${state?.attachmentCount || 0}`
+        };
+      }
+      async function triggerNotionNewChat({ shouldCancel = null, fallbackTrigger = null } = {}) {
+        const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+        if (cancelFn && cancelFn()) return { ok: false, label: getNotionNewChatLabel() };
+        let ok = false;
+        try {
+          ok = !!await triggerNewChatAction();
+        } catch {
+          ok = false;
+        }
+        if (!ok && typeof fallbackTrigger === "function") {
+          try {
+            ok = !!await fallbackTrigger();
+          } catch {
+            ok = false;
+          }
+        }
+        return { ok, label: getNotionNewChatLabel() };
+      }
+      async function sendNotionMessage(composerEl) {
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: true }) || await focusNotionComposer();
+        if (!composer) return false;
+        const button = findNotionSendButtonNearComposer(composer);
+        if (button) {
+          if (isNotionSendButtonDisabled(button)) return false;
+          try {
+            if (simulateClickElement(button, { nativeFallback: true })) return true;
+          } catch {
+          }
+          try {
+            button.click?.();
+            return true;
+          } catch {
+          }
+          return false;
+        }
+        try {
+          return !!simulateKeystroke("ENTER", { target: composer });
+        } catch {
+          return false;
+        }
+      }
+      return Object.freeze({
+        focusComposer: focusNotionComposer,
+        setInputValue: setNotionInputValue,
+        clearComposerValue: clearNotionInputValue,
+        getComposerText: getNotionComposerPlainText,
+        getTextObservationRoots: getNotionTextObservationRoots,
+        attachImages: attachNotionImages,
+        clearAttachments: clearNotionAttachments,
+        waitForReadyToSend: waitForNotionReadyToSend,
+        waitForNewChatReady: waitForNotionNewChatReady,
+        triggerNewChat: triggerNotionNewChat,
+        newChatLabel: getNotionNewChatLabel,
+        lockNewChatHotkey: true,
+        lockedNewChatHotkeyDisplay: getNotionNewChatLabel,
+        sendMessage: sendNotionMessage
+      });
+    }
     function formatMenuDataAdapter(data) {
       const raw = isPlainObject(data) ? data : {};
       const keys = Object.keys(raw);
@@ -1315,6 +2372,7 @@
       "zh-CN": {
         menuCommandLabel: "Notion - 设置快捷键",
         panelTitle: "Notion - 自定义快捷键",
+        quickInputTitle: "Notion - 快捷输入",
         shortcuts: {
           newChat: "新建聊天",
           selectAiModel: "选择 AI 模型",
@@ -1332,27 +2390,36 @@
           selectSearchScope: "选择搜索范围",
           toggleWebAccess: "切换联网",
           addContext: "添加上下文",
-          attachFile: "附加文件"
+          attachFile: "附加文件",
+          quickInput: "快捷输入"
         },
         dataAdapters: {
           modelPicker: {
             label: "模型 ID / 关键词（或粘贴 JSON，高级用法）:",
             placeholder: '例如: gemini pro / opus 4.7 / {"menu":{"id":"opus47"}}'
           }
+        },
+        quickInput: {
+          title: "Notion - 快捷输入"
         }
       },
       "en-US": {
         menuCommandLabel: "Notion - Shortcut settings",
         panelTitle: "Notion - Custom shortcuts",
+        quickInputTitle: "Notion - Quick Input",
         shortcuts: {
           newChat: "New Chat",
-          toggleWebAccess: "Toggle Web Access"
+          toggleWebAccess: "Toggle Web Access",
+          quickInput: "Quick Input"
         },
         dataAdapters: {
           modelPicker: {
             label: "Model ID / keyword (or paste JSON, advanced):",
             placeholder: 'Example: gemini pro / opus 4.7 / {"menu":{"id":"opus47"}}'
           }
+        },
+        quickInput: {
+          title: "Notion - Quick Input"
         }
       }
     });
@@ -1414,6 +2481,15 @@
         customAction: "toggleWebAccess",
         hotkey: "CTRL+W",
         icon: WEB_ACCESS_ICON
+      }),
+      createShortcut({
+        key: "quickInput",
+        name: "Quick Input",
+        labelKey: "shortcuts.quickInput",
+        actionType: "custom",
+        customAction: "quickInput",
+        hotkey: "CTRL+SHIFT+K",
+        icon: QUICK_INPUT_ICON
       }),
       createShortcut({
         key: "addContext",
@@ -1508,6 +2584,31 @@
       if (changed) gmSetValueLocal(NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
     }
     migrateNotionManagedModelShortcuts();
+    let quickInputController = null;
+    function ensureQuickInputController(engineApi) {
+      if (quickInputController) return quickInputController;
+      const QuickInput = ShortcutTemplate?.quickInput;
+      if (!QuickInput || typeof QuickInput.createController !== "function") {
+        console.error("[Notion Shortcut] Template quickInput module not found (update Template core).");
+        return null;
+      }
+      const adapter = createNotionQuickInputAdapter({ idPrefix: "notion", engine: engineApi });
+      if (!adapter) {
+        console.error("[Notion Shortcut] Notion quickInput adapter init failed (update Template core).");
+        return null;
+      }
+      quickInputController = QuickInput.createController({
+        engine: engineApi,
+        idPrefix: "notion",
+        storageKey: NOTION_QUICK_INPUT_STORAGE_KEY,
+        title: "Notion - Quick Input",
+        titleKey: "quickInputTitle",
+        primaryColor: "#2f3437",
+        themeMode: "system",
+        adapter
+      });
+      return quickInputController;
+    }
     const engine = ShortcutTemplate.createShortcutEngine({
       menuCommandLabel: "Notion - 设置快捷键",
       panelTitle: "Notion - 自定义快捷键",
@@ -1531,7 +2632,10 @@
       customActions: {
         newChat: triggerNewChatAction,
         modelPicker: clickModelPickerItem,
-        toggleWebAccess: toggleWebAccessAction
+        toggleWebAccess: toggleWebAccessAction,
+        quickInput: ({ engine: engine2 }) => {
+          ensureQuickInputController(engine2)?.toggle?.();
+        }
       },
       customActionDataAdapters: {
         modelPicker: createMenuDataAdapter({
@@ -1551,5 +2655,20 @@
       }
     });
     engine.init();
+    let quickInputMenuCommandId = null;
+    function registerNotionQuickInputMenuCommand(engineApi) {
+      if (quickInputMenuCommandId !== null) {
+        gmUnregisterMenuCommandLocal(quickInputMenuCommandId);
+        quickInputMenuCommandId = null;
+      }
+      quickInputMenuCommandId = gmRegisterMenuCommandLocal(
+        engineApi.i18n?.t?.("quickInputTitle", {}, "Notion - Quick Input") || "Notion - Quick Input",
+        () => {
+          ensureQuickInputController(engineApi)?.open?.();
+        }
+      );
+    }
+    registerNotionQuickInputMenuCommand(engine);
+    engine.i18n?.addLocaleChangeListener?.(() => registerNotionQuickInputMenuCommand(engine));
   })();
 })();
