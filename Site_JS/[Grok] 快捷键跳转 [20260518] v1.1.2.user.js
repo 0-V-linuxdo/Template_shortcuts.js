@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260518] v1.1.1
-// @name:en        [Grok] Shortcut Jump [20260518] v1.1.1
+// @name           [Grok] 快捷键跳转 [20260518] v1.1.2
+// @name:en        [Grok] Shortcut Jump [20260518] v1.1.2
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260518] v1.1.1
-// @update-log     1.1.1: 新增 Grok 顶部菜单删除快捷键，支持 CTRL+DELETE 通过 More 菜单选中 Delete Chat，并在按 Enter 后完成点击。
-// @update-log:en  1.1.1: Added a Grok top-bar delete shortcut that opens the More menu, selects Delete Chat with CTRL+DELETE, and completes the click after Enter.
+// @version        [20260518] v1.1.2
+// @update-log     1.1.2: 将 Grok 删除聊天快捷键改为 CTRL+BACKSPACE，并增强 Delete Chat 的 Enter 激活兼容性。
+// @update-log:en  1.1.2: Changed the Grok delete shortcut to CTRL+BACKSPACE and improved Enter activation compatibility for Delete Chat.
 
 // @match          https://grok.dairoot.cn/*
 // @match          https://grok.com/*
@@ -277,7 +277,7 @@
         key: "conversation-delete",
         labelKey: "shortcuts.deleteChat",
         name: "Delete Chat",
-        hotkey: "CTRL+DELETE",
+        hotkey: "CTRL+BACKSPACE",
         aliases: Object.freeze(["deletechat", "delete", "删除聊天", "删除"]),
         icon: createGrokAdaptiveIcon(`
                 <path d="M3 6h18"></path>
@@ -1461,11 +1461,19 @@
         if (cleaned) return;
         cleaned = true;
         try {
-          win?.removeEventListener?.("keydown", onKeydown, true);
+          win?.removeEventListener?.("keydown", onEnter, true);
         } catch {
         }
         try {
-          doc.removeEventListener("keydown", onKeydown, true);
+          win?.removeEventListener?.("keyup", onEnter, true);
+        } catch {
+        }
+        try {
+          doc.removeEventListener("keydown", onEnter, true);
+        } catch {
+        }
+        try {
+          doc.removeEventListener("keyup", onEnter, true);
         } catch {
         }
         try {
@@ -1478,7 +1486,7 @@
         }
         if (grokConversationMenuEnterBridgeCleanup === cleanup) grokConversationMenuEnterBridgeCleanup = null;
       };
-      const onKeydown = (event) => {
+      const onEnter = (event) => {
         if (!isPlainEnterKeyEvent(event)) return;
         if (handlingEnter) return;
         const latestRoot = findGrokConversationMenuRoot();
@@ -1505,8 +1513,10 @@
       };
       grokConversationMenuEnterBridgeCleanup = cleanup;
       try {
-        win?.addEventListener?.("keydown", onKeydown, true);
-        doc.addEventListener("keydown", onKeydown, true);
+        win?.addEventListener?.("keydown", onEnter, true);
+        win?.addEventListener?.("keyup", onEnter, true);
+        doc.addEventListener("keydown", onEnter, true);
+        doc.addEventListener("keyup", onEnter, true);
       } catch {
         cleanup();
         return false;
