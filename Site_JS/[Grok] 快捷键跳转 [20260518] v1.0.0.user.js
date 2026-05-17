@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260508] v1.0.0
-// @name:en        [Grok] Shortcut Jump [20260508] v1.0.0
+// @name           [Grok] 快捷键跳转 [20260518] v1.0.0
+// @name:en        [Grok] Shortcut Jump [20260518] v1.0.0
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260508] v1.0.0
-// @update-log     1.0.0: 保留原键帽样式，将 Grok 脚本图标内联到脚本头，普通模式使用黑色配色，黑暗模式使用白色配色。
-// @update-log:en  1.0.0: Kept the original keycap style, inlined the Grok script icon in the userscript header, and used black in light mode and white in dark mode.
+// @version        [20260518] v1.0.0
+// @update-log     1.0.0: 删除 Switch user 快捷键，新增 Admin 后台跳转至 https://grok.dairoot.cn/admin，并为 Grok 默认快捷键图标启用普通/黑暗模式自适应。
+// @update-log:en  1.0.0: Removed the Switch user shortcut, added the Admin URL jump to https://grok.dairoot.cn/admin, and enabled light/dark adaptive icons for Grok default shortcuts.
 
 // @match          https://grok.dairoot.cn/*
 // @match          https://grok.com/*
@@ -91,6 +91,20 @@
     }
     const LOG_TAG = "[Grok Shortcut Script]";
     const TemplateUtils = ShortcutTemplate?.utils || {};
+    function svgDataUrlLocal(svgText) {
+      const source = String(svgText || "").trim().replace(/\s+/g, " ");
+      return source ? `data:image/svg+xml,${encodeURIComponent(source)}` : "";
+    }
+    const GROK_ADMIN_URL = "https://grok.dairoot.cn/admin";
+    const GROK_LEGACY_SWITCH_USER_NAME_ZH = "用户切换";
+    const GROK_LEGACY_SWITCH_USER_NAME_EN = ["Switch", "user"].join(" ");
+    const GROK_LEGACY_SWITCH_USER_SELECTOR = ["#", "floatingBall"].join("");
+    const GROK_ADMIN_ICON = svgDataUrlLocal(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" role="img">
+            <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"></path>
+            <path d="M9 12l2 2 4-4"></path>
+        </svg>
+    `);
     const defaultIconURL = "https://grok.com/images/favicon-light.png";
     const defaultIcons = [
       { name: "Grok", url: "https://grok.com/images/favicon-light.png" },
@@ -119,6 +133,7 @@
         on: "开",
         off: "关",
         shortcuts: {
+          "Admin": "Admin",
           "Private": "私密模式",
           "New Chat": "新建聊天",
           "Sidebar": "侧边栏",
@@ -132,7 +147,7 @@
         on: "On",
         off: "Off",
         shortcuts: {
-          "用户切换": "Switch user"
+          "Admin": "Admin"
         }
       }
     });
@@ -141,6 +156,7 @@
       sidebarProvider: '[data-variant="sidebar"][data-side]',
       sidebarRoot: '[data-sidebar="sidebar"]'
     });
+    const GROK_SHORTCUTS_STORAGE_KEY = "grok_shortcuts";
     const SIDEBAR_VISIBILITY_STORAGE_KEY = "grok_keep_sidebar_visible_v1";
     const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
     const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
@@ -163,15 +179,18 @@
     let sidebarWarmupTimer = null;
     const defaultShortcuts = [
       {
-        name: "用户切换",
-        actionType: "selector",
-        selector: "#floatingBall",
-        url: "",
+        key: "admin",
+        labelKey: "shortcuts.Admin",
+        name: "Admin",
+        actionType: "url",
+        selector: "",
+        url: GROK_ADMIN_URL,
         urlMethod: "current",
         urlAdvanced: "href",
         simulateKeys: "",
         hotkey: "CTRL+U",
-        icon: "data:image/svg+xml,%3Csvg%20t%3D%221731915779816%22%20class%3D%22icon%22%20viewBox%3D%220%200%201024%201024%22%20version%3D%221.1%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20p-id%3D%222446%22%20width%3D%2225%22%20height%3D%2225%22%3E%3Cpath%20d%3D%22M759.04%20334.976a247.936%20247.936%200%201%200-393.024%20201.216l-0.896%200.384a372.608%20372.608%200%200%200-119.296%2080.64c-34.56%2034.496-61.504%2074.688-80.448%20119.488A373.632%20373.632%200%200%200%20136%20874.816a8%208%200%200%200%208%208.192h59.904a8.064%208.064%200%200%200%208-7.808%20298.368%20298.368%200%200%201%2087.616-204.288%20296.384%20296.384%200%200%201%20211.456-87.936%20247.936%20247.936%200%200%200%20248-248zM510.912%20507.008a171.968%20171.968%200%201%201%200-344%20171.968%20171.968%200%200%201%200%20344zM615.936%20728h264a8%208%200%200%200%208-8v-56a8%208%200%200%200-8-8H703.424l47.232-60.16a8%208%200%200%200-6.272-12.928l-72.64%200.064a16.32%2016.32%200%200%200-12.608%206.144l-68.48%2087.04a32.064%2032.064%200%200%200%2025.28%2051.84z%20m240%2064H592a8%208%200%200%200-8%208v56c0%204.416%203.584%208%208%208h176.512l-47.232%2060.16a8%208%200%200%200%206.272%2012.928l72.64-0.064a16.32%2016.32%200%200%200%2012.608-6.144l68.48-87.04A32.064%2032.064%200%200%200%20856%20792z%22%20p-id%3D%222447%22%20stroke%3D%22currentColor%22%20fill%3D%22currentColor%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E"
+        icon: GROK_ADMIN_ICON,
+        iconAdaptive: true
       },
       {
         name: "Private",
@@ -182,7 +201,8 @@
         urlAdvanced: "href",
         simulateKeys: "",
         hotkey: "CTRL+I",
-        icon: "data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%20stroke-width%3D%222%22%20data-testid%3D%22pi-ghost%22%3E%3Cellipse%20cx%3D%2210%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cellipse%20cx%3D%2214%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cpath%20d%3D%22M12%204C4%204%208.07627%2010.7212%203%2013C3%2014.6491%204.40343%2014.5%204.93%2015.77C5.37046%2016.8323%204.27588%2018.9597%204%2020H8L12%2021L16%2020H20C19.6222%2018.7198%2018.8092%2017.1437%2019.075%2015.7742C19.3479%2014.3681%2021%2014.742%2021%2013C15.9237%2010.7212%2020%204%2012%204Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E"
+        icon: "data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%20stroke-width%3D%222%22%20data-testid%3D%22pi-ghost%22%3E%3Cellipse%20cx%3D%2210%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cellipse%20cx%3D%2214%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cpath%20d%3D%22M12%204C4%204%208.07627%2010.7212%203%2013C3%2014.6491%204.40343%2014.5%204.93%2015.77C5.37046%2016.8323%204.27588%2018.9597%204%2020H8L12%2021L16%2020H20C19.6222%2018.7198%2018.8092%2017.1437%2019.075%2015.7742C19.3479%2014.3681%2021%2014.742%2021%2013C15.9237%2010.7212%2020%204%2012%204Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E",
+        iconAdaptive: true
       },
       {
         name: "New Chat",
@@ -193,7 +213,8 @@
         urlAdvanced: "href",
         simulateKeys: "",
         hotkey: "CTRL+N",
-        icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M10%204V4C8.13623%204%207.20435%204%206.46927%204.30448C5.48915%204.71046%204.71046%205.48915%204.30448%206.46927C4%207.20435%204%208.13623%204%2010V13.6C4%2015.8402%204%2016.9603%204.43597%2017.816C4.81947%2018.5686%205.43139%2019.1805%206.18404%2019.564C7.03968%2020%208.15979%2020%2010.4%2020H14C15.8638%2020%2016.7956%2020%2017.5307%2019.6955C18.5108%2019.2895%2019.2895%2018.5108%2019.6955%2017.5307C20%2016.7956%2020%2015.8638%2020%2014V14%22%20stroke%3D%22currentColor%22%20stroke-linecap%3D%22square%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M12.4393%2014.5607L19.5%207.5C20.3284%206.67157%2020.3284%205.32843%2019.5%204.5C18.6716%203.67157%2017.3284%203.67157%2016.5%204.5L9.43934%2011.5607C9.15804%2011.842%209%2012.2235%209%2012.6213V15H11.3787C11.7765%2015%2012.158%2014.842%2012.4393%2014.5607Z%22%20stroke%3D%22currentColor%22%20stroke-linecap%3D%22square%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E"
+        icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M10%204V4C8.13623%204%207.20435%204%206.46927%204.30448C5.48915%204.71046%204.71046%205.48915%204.30448%206.46927C4%207.20435%204%208.13623%204%2010V13.6C4%2015.8402%204%2016.9603%204.43597%2017.816C4.81947%2018.5686%205.43139%2019.1805%206.18404%2019.564C7.03968%2020%208.15979%2020%2010.4%2020H14C15.8638%2020%2016.7956%2020%2017.5307%2019.6955C18.5108%2019.2895%2019.2895%2018.5108%2019.6955%2017.5307C20%2016.7956%2020%2015.8638%2020%2014V14%22%20stroke%3D%22currentColor%22%20stroke-linecap%3D%22square%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M12.4393%2014.5607L19.5%207.5C20.3284%206.67157%2020.3284%205.32843%2019.5%204.5C18.6716%203.67157%2017.3284%203.67157%2016.5%204.5L9.43934%2011.5607C9.15804%2011.842%209%2012.2235%209%2012.6213V15H11.3787C11.7765%2015%2012.158%2014.842%2012.4393%2014.5607Z%22%20stroke%3D%22currentColor%22%20stroke-linecap%3D%22square%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E",
+        iconAdaptive: true
       },
       {
         name: "Sidebar",
@@ -204,7 +225,8 @@
         urlAdvanced: "href",
         simulateKeys: "",
         hotkey: "CTRL+B",
-        icon: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22lucide%20lucide-chevrons-right%20rotate-180%20transition-transform%20duration-200%22%3E%3Cpath%20d%3D%22m6%2017%205-5-5-5%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22m13%2017%205-5-5-5%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E"
+        icon: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22lucide%20lucide-chevrons-right%20rotate-180%20transition-transform%20duration-200%22%3E%3Cpath%20d%3D%22m6%2017%205-5-5-5%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22m13%2017%205-5-5-5%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E",
+        iconAdaptive: true
       },
       {
         name: "Project",
@@ -215,9 +237,74 @@
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+P",
-        icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%22-1%20-1%2025%2025%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M3.33965%2017L11.9999%2022L20.6602%2017V7L11.9999%202L3.33965%207V17Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M11.9999%2012L3.4999%207M11.9999%2012L12%2021.5M11.9999%2012L20.5%207%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E"
+        icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%22-1%20-1%2025%2025%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M3.33965%2017L11.9999%2022L20.6602%2017V7L11.9999%202L3.33965%207V17Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M11.9999%2012L3.4999%207M11.9999%2012L12%2021.5M11.9999%2012L20.5%207%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E",
+        iconAdaptive: true
       }
     ];
+    const GROK_ADMIN_SHORTCUT_TEMPLATE = defaultShortcuts[0] || null;
+    function cloneGrokShortcutRecord(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return null;
+      const next = { ...shortcut };
+      if (shortcut.data && typeof shortcut.data === "object" && !Array.isArray(shortcut.data)) {
+        next.data = { ...shortcut.data };
+      }
+      return next;
+    }
+    function isLegacySwitchUserShortcut(shortcut) {
+      const name = String(shortcut?.name || "").trim();
+      const selector = String(shortcut?.selector || "").trim();
+      const actionType = String(shortcut?.actionType || "").trim();
+      return name === GROK_LEGACY_SWITCH_USER_NAME_ZH || name === GROK_LEGACY_SWITCH_USER_NAME_EN || actionType === "selector" && selector === GROK_LEGACY_SWITCH_USER_SELECTOR;
+    }
+    function isGrokDefaultShortcutRecord(shortcut) {
+      const name = String(shortcut?.name || "").trim();
+      if (!name) return false;
+      if (name === "Admin") return true;
+      if (name === "Private") return true;
+      if (name === "New Chat") return true;
+      if (name === "Sidebar") return true;
+      if (name === "Project") return true;
+      const labelKey = String(shortcut?.labelKey || "").trim();
+      if (labelKey === "shortcuts.Admin") return true;
+      if (labelKey === "shortcuts.Private") return true;
+      if (labelKey === "shortcuts.New Chat") return true;
+      if (labelKey === "shortcuts.Sidebar") return true;
+      if (labelKey === "shortcuts.Project") return true;
+      const actionType = String(shortcut?.actionType || "").trim();
+      const selector = String(shortcut?.selector || "").trim();
+      const url = String(shortcut?.url || "").trim();
+      if (name === "Private" && actionType === "selector" && selector === 'a[aria-label*="Switch to "]') return true;
+      if (name === "New Chat" && actionType === "selector" && selector === '[aria-label="Home page"]') return true;
+      if (name === "Sidebar" && actionType === "selector" && selector === SELECTORS.sidebarToggle) return true;
+      if (name === "Project" && actionType === "url" && url === "https://grok.com/project") return true;
+      if (name === "Admin" && actionType === "url" && url === GROK_ADMIN_URL) return true;
+      return false;
+    }
+    function migrateGrokShortcuts() {
+      const stored = gmGetValueLocal(GROK_SHORTCUTS_STORAGE_KEY, null);
+      if (!Array.isArray(stored)) return;
+      let changed = false;
+      const next = stored.map((shortcut) => {
+        const cloned = cloneGrokShortcutRecord(shortcut);
+        if (!cloned) return shortcut;
+        if (isLegacySwitchUserShortcut(cloned)) {
+          const replacement = cloneGrokShortcutRecord(GROK_ADMIN_SHORTCUT_TEMPLATE) || {};
+          changed = true;
+          return {
+            ...replacement,
+            id: cloned.id || replacement.id || "",
+            iconAdaptive: true
+          };
+        }
+        if (isGrokDefaultShortcutRecord(cloned) && cloned.iconAdaptive !== true) {
+          cloned.iconAdaptive = true;
+          changed = true;
+        }
+        return cloned;
+      });
+      if (!changed) return;
+      gmSetValueLocal(GROK_SHORTCUTS_STORAGE_KEY, next);
+    }
     function getLocalBooleanFallback(key, fallback) {
       const storage = getLocalStorageLocal();
       const normalizedKey = String(key ?? "").trim();
@@ -488,13 +575,14 @@
         if (keepSidebarVisible) startSidebarWarmup();
       });
     }
+    migrateGrokShortcuts();
     const engine = ShortcutTemplate.createShortcutEngine({
       // 基本配置
       menuCommandLabel: "Grok - 设置快捷键",
       panelTitle: "Grok - 自定义快捷键",
       // 存储配置（保持与原脚本一致）
       storageKeys: {
-        shortcuts: "grok_shortcuts",
+        shortcuts: GROK_SHORTCUTS_STORAGE_KEY,
         iconCachePrefix: "grok_icon_cache_v1::",
         userIcons: "grok_user_icons_v1"
       },

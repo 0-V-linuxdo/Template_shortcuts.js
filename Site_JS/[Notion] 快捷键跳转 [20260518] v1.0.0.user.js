@@ -1323,8 +1323,16 @@
       const NOTION_COMPOSER_SELECTORS = Object.freeze([
         "textarea[placeholder]",
         "textarea[aria-label]",
+        "textarea[aria-multiline='true']",
         "textarea",
-        "[contenteditable='true'][role='textbox']",
+        "input[role='textbox']",
+        "[role='textbox'][aria-multiline='true']",
+        "[role='textbox'][contenteditable='true']",
+        "[role='textbox'][contenteditable='plaintext-only']",
+        "[role='textbox']",
+        "[contenteditable='plaintext-only'][data-placeholder]",
+        "[contenteditable='plaintext-only'][aria-placeholder]",
+        "[contenteditable='plaintext-only']",
         "[contenteditable='true'][data-placeholder]",
         "[contenteditable='true'][aria-placeholder]",
         "[contenteditable='true']"
@@ -1388,6 +1396,101 @@
       };
       function isInsideQuickInputOverlay(element) {
         return isInsideOverlayTree(element, overlayId);
+      }
+      function isNotionRoleTextboxElement(element) {
+        return String(element?.getAttribute?.("role") || "").toLowerCase() === "textbox";
+      }
+      function isNotionContentEditableElement(element) {
+        if (!element) return false;
+        try {
+          const editable = String(element.contentEditable || "").toLowerCase();
+          return !!(element.isContentEditable || editable === "true" || editable === "plaintext-only");
+        } catch {
+          return !!element?.isContentEditable;
+        }
+      }
+      function hasNotionValueProperty(element) {
+        if (!element) return false;
+        try {
+          return typeof element.value !== "undefined";
+        } catch {
+          return false;
+        }
+      }
+      function getNotionElementOwnText(element, { trimTrailingEditorNewlines = false } = {}) {
+        if (!element) return "";
+        const candidates = [];
+        const push = (value) => {
+          const text = genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines });
+          if (text) candidates.push(text);
+        };
+        push(element.value);
+        push(element.getAttribute?.("aria-valuetext"));
+        push(element.getAttribute?.("value"));
+        push(element.getAttribute?.("data-value"));
+        push(element.getAttribute?.("placeholder"));
+        push(element.getAttribute?.("aria-placeholder"));
+        push(element.getAttribute?.("data-placeholder"));
+        push(element.getAttribute?.("aria-label"));
+        push(element.getAttribute?.("title"));
+        if (isNotionContentEditableElement(element)) {
+          push(serializeContentEditableText(element));
+        } else {
+          push(getElementText(element));
+          push(element.textContent);
+        }
+        const placeholder = genericNormalizeComposerText(getNotionComposerPlaceholderText(element), { trimTrailingEditorNewlines });
+        for (const candidate of candidates) {
+          if (!candidate) continue;
+          if (placeholder && candidate === placeholder) continue;
+          return candidate;
+        }
+        return "";
+      }
+      function collectNotionElementsAcrossOpenShadows(rootEl, selectors, { shouldIgnore = null, maxHosts = 2500 } = {}) {
+        const ignore = typeof shouldIgnore === "function" ? shouldIgnore : null;
+        const selectorList = Array.isArray(selectors) ? selectors : [selectors];
+        const trimmedSelectors = selectorList.map((selector) => String(selector || "").trim()).filter(Boolean);
+        const results = [];
+        const seen = /* @__PURE__ */ new Set();
+        const stack = [];
+        const push = (node) => {
+          if (node && !seen.has(node)) stack.push(node);
+        };
+        push(rootEl || document);
+        let remainingHosts = Math.max(0, Number(maxHosts) || 0);
+        while (stack.length && remainingHosts > 0) {
+          const node = stack.pop();
+          if (!node || seen.has(node)) continue;
+          seen.add(node);
+          if (ignore && ignore(node)) continue;
+          if (typeof node.querySelectorAll !== "function") continue;
+          for (const selector of trimmedSelectors) {
+            try {
+              if (typeof node.matches === "function" && node.matches(selector)) results.push(node);
+            } catch {
+            }
+            try {
+              results.push(...Array.from(node.querySelectorAll(selector)));
+            } catch {
+            }
+          }
+          let descendants = null;
+          try {
+            descendants = node.querySelectorAll("*");
+          } catch {
+            descendants = null;
+          }
+          if (!descendants) continue;
+          for (const el of descendants) {
+            if (remainingHosts-- <= 0) break;
+            if (!el) continue;
+            if (ignore && ignore(el)) continue;
+            const shadowRoot = el.shadowRoot;
+            if (shadowRoot && !seen.has(shadowRoot)) stack.push(shadowRoot);
+          }
+        }
+        return Array.from(new Set(results.filter((element) => element && (!ignore || !ignore(element)))));
       }
       function getRuntimeNow(runtime = null) {
         if (runtime && typeof runtime.now === "function") {
