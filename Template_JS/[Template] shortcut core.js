@@ -9495,7 +9495,6 @@ ${displayTargetText}`;
       textInserted: (ok) => ok ? "已输入文字。" : "输入文字失败。",
       textRetrying: (stage, attempt = 1, maxAttempts = 1) => `文字校验失败${stage ? `（${stage}）` : ""}：准备自动重试 ${attempt}/${maxAttempts} 次。`,
       textNotReady: (stage) => `文字未真正写入输入框${stage ? `（${stage}）` : ""}：自动补救后仍失败，已停止当前运行，避免发送空内容。`,
-      textBeforeSendFailed: (stage) => `文字校验失败${stage ? `（${stage}）` : ""}：已停止并且不会回填，避免重复发送。`,
       hotkeyTriggered: (hotkey, ok) => ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}`,
       waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
       resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `图片就绪等待超时：当前识别到 ${currentCount} / ${expectedCount} 张，准备清空当前附件并整组重传（第 ${attempt}/${maxAttempts} 次）。`,
@@ -9636,7 +9635,6 @@ ${displayTargetText}`;
         textInserted: (ok) => ok ? "Text inserted." : "Failed to insert text.",
         textRetrying: (stage, attempt = 1, maxAttempts = 1) => `Text verification failed${stage ? ` (${stage})` : ""}; retrying automatically ${attempt}/${maxAttempts}.`,
         textNotReady: (stage) => `Text was not actually written to the input${stage ? ` (${stage})` : ""}; stopped to avoid sending empty content.`,
-        textBeforeSendFailed: (stage) => `Text verification failed${stage ? ` (${stage})` : ""}; stopped without rewriting to avoid duplicate submission.`,
         hotkeyTriggered: (hotkey, ok) => ok ? `Triggered shortcut: ${hotkey}` : `Failed to trigger shortcut: ${hotkey}`,
         waitingUploads: (count) => `Waiting for image uploads... (${count})`,
         resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `Image readiness timed out: detected ${currentCount}/${expectedCount}; clearing attachments and re-uploading the group (${attempt}/${maxAttempts}).`,
@@ -10620,7 +10618,6 @@ ${displayTargetText}`;
                     --qi-player-stop-hover-bg: color-mix(in srgb, ${primaryColor} 24%, var(--qi-surface-alt));
                     --qi-player-stop-hover-border: color-mix(in srgb, ${primaryColor} 34%, var(--qi-border));
                     --qi-player-stop-hover-color: color-mix(in srgb, ${primaryColor} 88%, white 12%);
-                    --qi-accent-text: color-mix(in srgb, ${primaryColor} 78%, white 22%);
                     --qi-player-btn-shadow: 0 10px 22px rgba(0,0,0,0.28);
                     --qi-player-btn-hover-shadow: 0 14px 30px rgba(0,0,0,0.34);
                     box-sizing: border-box;
@@ -10661,7 +10658,6 @@ ${displayTargetText}`;
                     --qi-player-stop-hover-bg: color-mix(in srgb, ${primaryColor} 18%, white);
                     --qi-player-stop-hover-border: color-mix(in srgb, ${primaryColor} 30%, var(--qi-border));
                     --qi-player-stop-hover-color: color-mix(in srgb, ${primaryColor} 92%, black 8%);
-                    --qi-accent-text: color-mix(in srgb, ${primaryColor} 86%, black 14%);
                     --qi-player-btn-shadow: 0 10px 22px rgba(15,23,42,0.12);
                     --qi-player-btn-hover-shadow: 0 14px 28px rgba(15,23,42,0.18);
                     color-scheme: light;
@@ -11263,7 +11259,7 @@ ${displayTargetText}`;
                     box-shadow: none;
                     transform: none;
                     border-color: transparent;
-                    color: var(--qi-accent-text);
+                    color: ${primaryColor};
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-list {
                     cursor: default;
@@ -11288,7 +11284,7 @@ ${displayTargetText}`;
                     border: none;
                     border-radius: inherit;
                     background: color-mix(in srgb, ${primaryColor} 12%, var(--qi-surface-alt));
-                    color: var(--qi-accent-text);
+                    color: ${primaryColor};
                     font-size: 12px;
                     font-weight: 700;
                     line-height: 1.35;
@@ -11580,10 +11576,10 @@ ${displayTargetText}`;
                     transition: background 120ms ease;
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-summary {
-                    color: var(--qi-accent-text);
+                    color: ${primaryColor};
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-summary {
-                    color: var(--qi-accent-text);
+                    color: ${primaryColor};
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-summary {
                     color: var(--qi-success);
@@ -15260,21 +15256,17 @@ ${displayTargetText}`;
           break;
         }
         if (promptText.trim()) {
-          const beforeSendVerification = await waitForPromptCommit(composer, promptText, {
+          const textCommitResult = await ensurePromptCommitted(composer, promptText, {
             stageLabel: getStageLabel("beforeSend")
           });
-          if (beforeSendVerification?.composer) composer = beforeSendVerification.composer;
-          if (beforeSendVerification?.cancelled) {
+          if (textCommitResult?.composer) composer = textCommitResult.composer;
+          if (textCommitResult?.cancelled) {
             markRunCancelled();
             break;
           }
-          if (!beforeSendVerification?.ok) {
+          if (!textCommitResult?.ok) {
             markRunFailed();
             cancelRun = true;
-            const failedMsg = labels.messages?.textBeforeSendFailed ? labels.messages.textBeforeSendFailed(getStageLabel("beforeSend")) : typeof DEFAULT_LABELS.messages.textBeforeSendFailed === "function" ? DEFAULT_LABELS.messages.textBeforeSendFailed(getStageLabel("beforeSend")) : labels.messages?.textVerifyFailed ? labels.messages.textVerifyFailed(getStageLabel("beforeSend"), String(beforeSendVerification?.state?.actualText || "").length, String(promptText || "").length) : DEFAULT_LABELS.messages.textVerifyFailed(getStageLabel("beforeSend"), String(beforeSendVerification?.state?.actualText || "").length, String(promptText || "").length);
-            appendLoopLog(failedMsg, { level: "error" });
-            const detail = String(beforeSendVerification?.message || "").trim();
-            if (detail) appendLoopLog(detail, { level: "error" });
             break;
           }
         }

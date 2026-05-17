@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260518] v1.1.2
-// @name:en        [Grok] Shortcut Jump [20260518] v1.1.2
+// @name           [Grok] 快捷键跳转 [20260518] v1.1.3
+// @name:en        [Grok] Shortcut Jump [20260518] v1.1.3
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260518] v1.1.2
-// @update-log     1.1.2: 将 Grok 删除聊天快捷键改为 CTRL+BACKSPACE，并增强 Delete Chat 的 Enter 激活兼容性。
-// @update-log:en  1.1.2: Changed the Grok delete shortcut to CTRL+BACKSPACE and improved Enter activation compatibility for Delete Chat.
+// @version        [20260518] v1.1.3
+// @update-log     1.1.3: 修复 Grok 删除聊天二段 Enter 激活无反应的问题，按 Enter 后会重新定位并点击 Delete Chat。
+// @update-log:en  1.1.3: Fixed the Grok delete-chat Enter handoff so pressing Enter re-finds and clicks Delete Chat.
 
 // @match          https://grok.dairoot.cn/*
 // @match          https://grok.com/*
@@ -1448,7 +1448,7 @@
       const cleanup = grokConversationMenuEnterBridgeCleanup;
       if (typeof cleanup === "function") cleanup();
     }
-    function armGrokConversationMenuEnterBridge({ menuRoot, targetItem }, { engine: engine2 = null, timeoutMs = 3e4, closeCheckIntervalMs = 250 } = {}) {
+    function armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch = null }, { engine: engine2 = null, timeoutMs = 3e4, closeCheckIntervalMs = 250 } = {}) {
       if (!menuRoot || !targetItem) return false;
       clearGrokConversationMenuEnterBridge();
       const doc = menuRoot.ownerDocument || document;
@@ -1490,7 +1490,7 @@
         if (!isPlainEnterKeyEvent(event)) return;
         if (handlingEnter) return;
         const latestRoot = findGrokConversationMenuRoot();
-        const candidate = isElementVisible(targetItem) ? targetItem : latestRoot ? findGrokConversationMenuItem(latestRoot, { textMatch: getGrokElementText(targetItem), fallbackToFirst: false }) : null;
+        const candidate = (latestRoot ? getGrokConversationMenuItem(latestRoot, { textMatch, fallbackToFirst: false }) : null) || (isElementVisible(targetItem) ? targetItem : null);
         if (!candidate || !isElementVisible(candidate)) {
           cleanup();
           return;
@@ -1509,7 +1509,17 @@
         }
         handlingEnter = true;
         cleanup();
-        simulateGrokClick(candidate);
+        void (async () => {
+          await sleep(0);
+          const latestMenuRoot = findGrokConversationMenuRoot() || latestRoot || menuRoot;
+          const settledCandidate = getGrokConversationMenuItem(latestMenuRoot, {
+            textMatch,
+            fallbackToFirst: false
+          }) || candidate;
+          if (!settledCandidate || !isElementVisible(settledCandidate)) return;
+          focusGrokConversationMenuItem(settledCandidate);
+          simulateGrokClick(settledCandidate);
+        })();
       };
       grokConversationMenuEnterBridgeCleanup = cleanup;
       try {
@@ -1642,7 +1652,7 @@
       if (spec.action === "click") {
         return simulateGrokClick(targetItem);
       }
-      return armGrokConversationMenuEnterBridge({ menuRoot, targetItem }, { engine: engine2 });
+      return armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch: spec.textMatch }, { engine: engine2 });
     }
     function inferSidebarStateFromClassName(value) {
       const token = String(value ?? "").toLowerCase();
