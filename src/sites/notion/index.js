@@ -317,6 +317,51 @@
         return dispatched;
     }
 
+    function getElementFromPointSafe(x, y) {
+        try {
+            return document?.elementFromPoint?.(x, y) || null;
+        } catch {
+            return null;
+        }
+    }
+
+    function forceNativeClickElement(element) {
+        if (!element || typeof element.click !== "function") return false;
+        try {
+            element.click();
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function clickElementAtPointForClose(element, menuRoot) {
+        if (!element) return false;
+        const rect = getElementRect(element);
+        const x = rect ? rect.left + rect.width / 2 : 1;
+        const y = rect ? rect.top + rect.height / 2 : 1;
+        const pointElement = getElementFromPointSafe(x, y);
+        const targets = Array.from(new Set([
+            getClickableActionElement(pointElement),
+            pointElement,
+            element
+        ].filter(Boolean)));
+
+        let clicked = false;
+        for (const target of targets) {
+            if (!target || !isVisibleElement(target) || isElementDisabled(target)) continue;
+            if (menuRoot?.contains?.(target)) continue;
+            try { target.focus?.({ preventScroll: true }); } catch {
+                try { target.focus?.(); } catch { }
+            }
+            clicked = forceNativeClickElement(target) || clicked;
+            if (!clicked) clicked = simulatePointerSequenceAt(target, x, y) || clicked;
+            if (!clicked) clicked = simulateClickElement(target, { nativeFallback: true }) || clicked;
+            if (clicked) return true;
+        }
+        return clicked;
+    }
+
     function normalizeNotionText(value) {
         return String(value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
     }
@@ -1095,8 +1140,8 @@
         return candidates[0]?.element || null;
     }
 
-    async function closeSettingsMenu(trigger) {
-        await sleep(Math.max(80, SETTINGS_MENU_TIMING.openDelayMs));
+    async function closeSettingsMenu(trigger, { initialDelayMs = 40 } = {}) {
+        await sleep(Math.max(0, Number(initialDelayMs) || 0));
 
         for (let attempt = 0; attempt < 3; attempt += 1) {
             const root = findSettingsMenuRoot(trigger);
@@ -1106,17 +1151,8 @@
             const triggerCandidates = Array.from(new Set([latestTrigger, trigger].filter(Boolean)));
             for (const candidate of triggerCandidates) {
                 if (!isVisibleElement(candidate) || root.contains?.(candidate)) continue;
-                const rect = getElementRect(candidate);
-                const x = rect ? rect.left + rect.width / 2 : 1;
-                const y = rect ? rect.top + rect.height / 2 : 1;
-                if (simulatePointerSequenceAt(candidate, x, y)) {
-                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 650 })) return true;
-                }
-                if (simulatePointerSequenceAt(document, x, y)) {
-                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 650 })) return true;
-                }
-                if (simulateClickElement(candidate, { nativeFallback: true })) {
-                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 650 })) return true;
+                if (clickElementAtPointForClose(candidate, root)) {
+                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 260 })) return true;
                 }
             }
 
@@ -1135,7 +1171,7 @@
                 outsideClicked = simulatePointerSequenceAt(document, outsideTarget.x, outsideTarget.y) || outsideClicked;
                 outsideClicked = simulateClickElement(outsideTarget.element, { nativeFallback: true }) || outsideClicked;
                 if (outsideClicked) {
-                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 450 })) return true;
+                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 320 })) return true;
                 }
             }
 
@@ -1149,7 +1185,7 @@
                 fallbackClicked = simulatePointerSequenceAt(document, fallbackX, fallbackY) || fallbackClicked;
                 fallbackClicked = simulateClickElement(fallbackTarget, { nativeFallback: true }) || fallbackClicked;
                 if (fallbackClicked) {
-                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 450 })) return true;
+                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 320 })) return true;
                 }
             }
 
@@ -1171,9 +1207,11 @@
             if (target) {
                 const previousState = getWebAccessToggleState(target);
                 if (!simulateClickElement(target, { nativeFallback: true })) return false;
+                const closePromise = closeSettingsMenu(trigger, { initialDelayMs: 30 });
                 const changed = await waitForWebAccessToggleChange(trigger, previousState);
-                const closed = await closeSettingsMenu(trigger);
-                return changed && closed;
+                const closed = await closePromise;
+                if (!closed) await closeSettingsMenu(findSettingsTriggerElement(), { initialDelayMs: 0 });
+                return changed;
             }
             if (Date.now() >= deadline) break;
             await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
