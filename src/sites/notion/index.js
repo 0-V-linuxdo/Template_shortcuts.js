@@ -473,14 +473,37 @@
         ].filter(Boolean).join(" ");
     }
 
+    const NOTION_SHORTCUT_UI_SELECTOR = [
+        "#notion-settings-overlay",
+        "#notion-settings-panel",
+        "#notion-edit-overlay",
+        "#notion-edit-form",
+        "#notion-quick-input-overlay"
+    ].join(", ");
+
     function isInsideShortcutUi(element) {
-        return !!element?.closest?.([
-            "#notion-settings-overlay",
-            "#notion-settings-panel",
-            "#notion-edit-overlay",
-            "#notion-edit-form",
-            "#notion-quick-input-overlay"
-        ].join(", "));
+        let node = element || null;
+        while (node) {
+            if (node.nodeType === 1) {
+                try {
+                    if (node.matches?.(NOTION_SHORTCUT_UI_SELECTOR) || node.closest?.(NOTION_SHORTCUT_UI_SELECTOR)) return true;
+                } catch { }
+            }
+
+            let next = null;
+            try { next = node.parentNode || null; } catch { next = null; }
+            if (!next) {
+                try {
+                    const root = node.getRootNode?.();
+                    next = root?.host || null;
+                } catch {
+                    next = null;
+                }
+            }
+            if (!next || next === node) break;
+            node = next;
+        }
+        return false;
     }
 
     function isElementDisabled(element) {
@@ -3450,7 +3473,7 @@
             storageKey: NOTION_QUICK_INPUT_STORAGE_KEY,
             title: "Notion - Quick Input",
             titleKey: "quickInputTitle",
-            primaryColor: "#2f3437",
+            primaryColor: "#78889f",
             themeMode: "system",
             adapter
         });
