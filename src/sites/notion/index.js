@@ -359,6 +359,51 @@
         }
     }
 
+    function getViewportSize() {
+        return {
+            width: Number(window?.innerWidth || document?.documentElement?.clientWidth || 0),
+            height: Number(window?.innerHeight || document?.documentElement?.clientHeight || 0)
+        };
+    }
+
+    function isLikelyMainComposerRect(rect) {
+        if (!rect || rect.width < 280 || rect.height < 40 || rect.height > 280) return false;
+        const viewport = getViewportSize();
+        if (viewport.width > 0 && rect.right < viewport.width * 0.35) return false;
+        if (viewport.height > 0 && rect.bottom < viewport.height * 0.28) return false;
+        return true;
+    }
+
+    function isLikelyComposerToolbarControl(element, rootRect = null) {
+        const rect = getElementRect(element);
+        if (!rect || rect.width < 10 || rect.height < 10 || rect.width > 140 || rect.height > 76) return false;
+
+        if (rootRect) {
+            if (!isLikelyMainComposerRect(rootRect)) return false;
+            const inToolbarY = rect.top >= rootRect.top - 10 && rect.bottom <= rootRect.bottom + 10;
+            const nearLeftControls = rect.left >= rootRect.left - 4 &&
+                rect.left <= rootRect.left + Math.min(220, Math.max(112, rootRect.width * 0.4));
+            return inToolbarY && nearLeftControls;
+        }
+
+        const viewport = getViewportSize();
+        const minLeft = viewport.width > 0 ? Math.max(240, viewport.width * 0.24) : 240;
+        const maxRight = viewport.width > 0 ? viewport.width - Math.max(24, viewport.width * 0.03) : Number.POSITIVE_INFINITY;
+        const minTop = viewport.height > 0 ? Math.max(120, viewport.height * 0.28) : 120;
+        const maxBottom = viewport.height > 0 ? viewport.height - 16 : Number.POSITIVE_INFINITY;
+        return rect.left >= minLeft && rect.right <= maxRight && rect.top >= minTop && rect.bottom <= maxBottom;
+    }
+
+    function getElementSearchText(element) {
+        if (!element) return "";
+        return [
+            getElementText(element),
+            element.getAttribute?.("aria-label"),
+            element.getAttribute?.("title"),
+            element.getAttribute?.("data-testid")
+        ].filter(Boolean).join(" ");
+    }
+
     function isInsideShortcutUi(element) {
         return !!element?.closest?.([
             "#notion-settings-overlay",
@@ -621,9 +666,12 @@
     }
 
     function findComposerSettingsTriggerElement() {
+        const labelledTrigger = findComposerSettingsTriggerByLabel();
+        if (labelledTrigger) return labelledTrigger;
+
         const root = findComposerRootElement();
         const rootRect = getElementRect(root);
-        if (!root || !rootRect) return null;
+        if (!root || !rootRect || !isLikelyMainComposerRect(rootRect)) return null;
 
         const buttons = safeQueryAll(root, 'button, [role="button"]')
             .filter(element => element && isVisibleElement(element) && !isElementDisabled(element))
@@ -633,7 +681,7 @@
                 const smallEnough = rect.width <= 96 && rect.height <= 64;
                 const inToolbarY = rect.top >= rootRect.top - 8 && rect.bottom <= rootRect.bottom + 8;
                 const nearLeftControls = rect.left <= rootRect.left + Math.min(180, Math.max(96, rootRect.width * 0.22));
-                return smallEnough && inToolbarY && nearLeftControls;
+                return smallEnough && inToolbarY && nearLeftControls && isLikelyComposerToolbarControl({ getBoundingClientRect: () => rect }, rootRect);
             })
             .sort((a, b) => {
                 if (a.rect.left !== b.rect.left) return a.rect.left - b.rect.left;
@@ -644,10 +692,37 @@
         return null;
     }
 
+    function findComposerSettingsTriggerByLabel() {
+        const candidates = [];
+        const seen = new Set();
+        for (const element of safeQueryAll(document, 'button, [role="button"]')) {
+            if (!element || seen.has(element)) continue;
+            seen.add(element);
+            if (!isVisibleElement(element) || isInsideShortcutUi(element) || isElementDisabled(element)) continue;
+            if (element.closest?.(NOTION_SETTINGS_MENU_ROOT_SELECTOR)) continue;
+            if (!isLikelyComposerToolbarControl(element)) continue;
+
+            const normalized = normalizeNotionText(getElementSearchText(element));
+            if (!normalized || normalized.includes("personalization") || normalized.includes("personalize")) continue;
+            if (!(/\bsettings?\b|\boptions?\b|设置/i.test(normalized))) continue;
+
+            const rect = getElementRect(element);
+            const exactSettings = normalized === "settings" || normalized === "setting" || normalized === "设置";
+            const score = (exactSettings ? 700 : 420) + (rect ? rect.bottom : 0);
+            candidates.push({ element: getClickableActionElement(element), score, rect });
+        }
+        candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return (a.rect?.left || 0) - (b.rect?.left || 0);
+        });
+        return candidates[0]?.element || null;
+    }
+
     function scoreSettingsTriggerCandidate(element) {
         if (!element || !isVisibleElement(element)) return -1;
         if (element.closest?.(NOTION_SETTINGS_MENU_ROOT_SELECTOR)) return -1;
         if (isInsideShortcutUi(element) || isElementDisabled(element)) return -1;
+        if (!isLikelyComposerToolbarControl(element)) return -1;
 
         const text = getElementText(element);
         const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
@@ -686,6 +761,9 @@
     function findSettingsTriggerElement() {
         const candidates = [];
         const seen = new Set();
+        const composerSettingsTrigger = findComposerSettingsTriggerElement();
+        if (composerSettingsTrigger) return composerSettingsTrigger;
+
         for (const element of safeQueryAll(document, NOTION_SETTINGS_TRIGGER_SELECTORS)) {
             if (!element || seen.has(element)) continue;
             seen.add(element);
@@ -1031,10 +1109,13 @@
                 const rect = getElementRect(candidate);
                 const x = rect ? rect.left + rect.width / 2 : 1;
                 const y = rect ? rect.top + rect.height / 2 : 1;
-                if (
-                    simulatePointerSequenceAt(candidate, x, y) ||
-                    simulateClickElement(candidate, { nativeFallback: true })
-                ) {
+                if (simulatePointerSequenceAt(candidate, x, y)) {
+                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 650 })) return true;
+                }
+                if (simulatePointerSequenceAt(document, x, y)) {
+                    if (await waitForSettingsMenuClose(trigger, { timeoutMs: 650 })) return true;
+                }
+                if (simulateClickElement(candidate, { nativeFallback: true })) {
                     if (await waitForSettingsMenuClose(trigger, { timeoutMs: 650 })) return true;
                 }
             }
