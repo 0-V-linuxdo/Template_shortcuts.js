@@ -423,16 +423,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260518] v1.0.9",
+            name: "[Notion] 快捷键跳转 [20260518] v1.0.5",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260518] v1.0.9",
-            updateLog: "1.0.9: 将 Notion Quick Input 的发送前检查改为只读确认，不再在发前回填 prompt；若内容已变化则直接停止，避免重复发送到同一话题。",
+            version: "[20260518] v1.0.5",
+            updateLog: "1.0.5: 修复 Notion AI Quick Input 真实输入框读取链路；当 DOM value/text 为空时改用聚焦选择后的 Selection 文本校验，并让 role=textbox 继续走真实编辑命令写入。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260518] v1.0.9",
+                    name: "[Notion] Shortcut Jump [20260518] v1.0.5",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.9: Made Notion Quick Input's pre-send check read-only instead of rewriting the prompt, so any text mismatch now stops the run instead of duplicating the submission in the same thread."
+                    updateLog: "1.0.5: Fixed Notion AI Quick Input's real composer read path; when DOM value/text is empty it now verifies focused selection text, and role=textbox continues through real editing commands for insertion."
                 }
             },
             match: [

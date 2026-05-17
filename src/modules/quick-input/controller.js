@@ -3841,27 +3841,17 @@ export function createController(userOptions = {}) {
                         break;
                     }
                     if (promptText.trim()) {
-                        const beforeSendVerification = await waitForPromptCommit(composer, promptText, {
+                        const textCommitResult = await ensurePromptCommitted(composer, promptText, {
                             stageLabel: getStageLabel("beforeSend")
                         });
-                        if (beforeSendVerification?.composer) composer = beforeSendVerification.composer;
-                        if (beforeSendVerification?.cancelled) {
+                        if (textCommitResult?.composer) composer = textCommitResult.composer;
+                        if (textCommitResult?.cancelled) {
                             markRunCancelled();
                             break;
                         }
-                        if (!beforeSendVerification?.ok) {
+                        if (!textCommitResult?.ok) {
                             markRunFailed();
                             cancelRun = true;
-                            const failedMsg = labels.messages?.textBeforeSendFailed
-                                ? labels.messages.textBeforeSendFailed(getStageLabel("beforeSend"))
-                                : (typeof DEFAULT_LABELS.messages.textBeforeSendFailed === "function"
-                                    ? DEFAULT_LABELS.messages.textBeforeSendFailed(getStageLabel("beforeSend"))
-                                    : (labels.messages?.textVerifyFailed
-                                        ? labels.messages.textVerifyFailed(getStageLabel("beforeSend"), String(beforeSendVerification?.state?.actualText || "").length, String(promptText || "").length)
-                                        : DEFAULT_LABELS.messages.textVerifyFailed(getStageLabel("beforeSend"), String(beforeSendVerification?.state?.actualText || "").length, String(promptText || "").length)));
-                            appendLoopLog(failedMsg, { level: "error" });
-                            const detail = String(beforeSendVerification?.message || "").trim();
-                            if (detail) appendLoopLog(detail, { level: "error" });
                             break;
                         }
                     }
