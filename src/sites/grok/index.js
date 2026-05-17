@@ -262,7 +262,7 @@
             key: "conversation-delete",
             labelKey: "shortcuts.deleteChat",
             name: "Delete Chat",
-            hotkey: "CTRL+DELETE",
+            hotkey: "CTRL+BACKSPACE",
             aliases: Object.freeze(["deletechat", "delete", "删除聊天", "删除"]),
             icon: createGrokAdaptiveIcon(`
                 <path d="M3 6h18"></path>
@@ -1543,14 +1543,16 @@
         const cleanup = () => {
             if (cleaned) return;
             cleaned = true;
-            try { win?.removeEventListener?.("keydown", onKeydown, true); } catch { }
-            try { doc.removeEventListener("keydown", onKeydown, true); } catch { }
+            try { win?.removeEventListener?.("keydown", onEnter, true); } catch { }
+            try { win?.removeEventListener?.("keyup", onEnter, true); } catch { }
+            try { doc.removeEventListener("keydown", onEnter, true); } catch { }
+            try { doc.removeEventListener("keyup", onEnter, true); } catch { }
             try { clearTimeout(timeoutId); } catch { }
             try { clearInterval(closeCheckId); } catch { }
             if (grokConversationMenuEnterBridgeCleanup === cleanup) grokConversationMenuEnterBridgeCleanup = null;
         };
 
-        const onKeydown = (event) => {
+        const onEnter = (event) => {
             if (!isPlainEnterKeyEvent(event)) return;
             if (handlingEnter) return;
 
@@ -1572,8 +1574,10 @@
 
         grokConversationMenuEnterBridgeCleanup = cleanup;
         try {
-            win?.addEventListener?.("keydown", onKeydown, true);
-            doc.addEventListener("keydown", onKeydown, true);
+            win?.addEventListener?.("keydown", onEnter, true);
+            win?.addEventListener?.("keyup", onEnter, true);
+            doc.addEventListener("keydown", onEnter, true);
+            doc.addEventListener("keyup", onEnter, true);
         } catch {
             cleanup();
             return false;

@@ -293,16 +293,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260518] v1.1.1",
+            name: "[Grok] 快捷键跳转 [20260518] v1.1.2",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260518] v1.1.1",
-            updateLog: "1.1.1: 新增 Grok 顶部菜单删除快捷键，支持 CTRL+DELETE 通过 More 菜单选中 Delete Chat，并在按 Enter 后完成点击。",
+            version: "[20260518] v1.1.2",
+            updateLog: "1.1.2: 将 Grok 删除聊天快捷键改为 CTRL+BACKSPACE，并增强 Delete Chat 的 Enter 激活兼容性。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260518] v1.1.1",
+                    name: "[Grok] Shortcut Jump [20260518] v1.1.2",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.1.1: Added a Grok top-bar delete shortcut that opens the More menu, selects Delete Chat with CTRL+DELETE, and completes the click after Enter."
+                    updateLog: "1.1.2: Changed the Grok delete shortcut to CTRL+BACKSPACE and improved Enter activation compatibility for Delete Chat."
                 }
             },
             match: [
