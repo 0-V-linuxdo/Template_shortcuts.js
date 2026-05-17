@@ -1683,13 +1683,37 @@
             }
         }
 
+        function isNotionNativeTextInputElement(element) {
+            const tag = String(element?.tagName || "").toUpperCase();
+            return tag === "TEXTAREA" || tag === "INPUT";
+        }
+
+        function getNotionNativeValueSetter(element) {
+            if (!element) return null;
+
+            try {
+                const ownDesc = Object.getOwnPropertyDescriptor(element, "value");
+                if (typeof ownDesc?.set === "function") return ownDesc.set;
+            } catch { }
+
+            const seen = new Set();
+            let proto = null;
+            try { proto = Object.getPrototypeOf(element); } catch { proto = null; }
+            while (proto && !seen.has(proto)) {
+                seen.add(proto);
+                try {
+                    const desc = Object.getOwnPropertyDescriptor(proto, "value");
+                    if (typeof desc?.set === "function") return desc.set;
+                } catch { }
+                try { proto = Object.getPrototypeOf(proto); } catch { proto = null; }
+            }
+            return null;
+        }
+
         function hasNotionValueProperty(element) {
             if (!element) return false;
-            try {
-                return typeof element.value !== "undefined";
-            } catch {
-                return false;
-            }
+            if (isNotionNativeTextInputElement(element)) return true;
+            return !!getNotionNativeValueSetter(element);
         }
 
         function getNotionElementOwnText(element, { trimTrailingEditorNewlines = false } = {}) {
@@ -1700,7 +1724,9 @@
                 if (text) candidates.push(text);
             };
 
-            push(element.value);
+            if (hasNotionValueProperty(element)) {
+                try { push(element.value); } catch { }
+            }
             push(element.getAttribute?.("aria-valuetext"));
             push(element.getAttribute?.("value"));
             push(element.getAttribute?.("data-value"));
@@ -2006,8 +2032,7 @@
                 if (normalized) candidates.push(normalized);
             };
 
-            const tag = String(element.tagName || "").toUpperCase();
-            if (tag === "TEXTAREA" || tag === "INPUT" || hasNotionValueProperty(element)) {
+            if (hasNotionValueProperty(element)) {
                 try { push(element.value); } catch { }
             }
             push(element.getAttribute?.("aria-valuetext"));
@@ -2123,26 +2148,14 @@
         function setNotionComposerNativeValue(composer, text) {
             if (!composer) return false;
             const value = String(text ?? "");
-            const prototypes = [];
-            const seen = new Set();
-            let proto = null;
-            try { proto = Object.getPrototypeOf(composer); } catch { proto = null; }
-            while (proto && !seen.has(proto)) {
-                seen.add(proto);
-                prototypes.push(proto);
-                try { proto = Object.getPrototypeOf(proto); } catch { proto = null; }
-            }
-
-            for (const item of prototypes) {
+            const setter = getNotionNativeValueSetter(composer);
+            if (setter) {
                 try {
-                    const desc = Object.getOwnPropertyDescriptor(item, "value");
-                    if (desc?.set) {
-                        desc.set.call(composer, value);
-                        return true;
-                    }
+                    setter.call(composer, value);
+                    return true;
                 } catch { }
             }
-
+            if (!isNotionNativeTextInputElement(composer)) return false;
             try {
                 composer.value = value;
                 return true;
@@ -2173,32 +2186,62 @@
             return isNotionComposerTextMatch(composer, text);
         }
 
+        function getFocusedNotionComposerTarget(fallbackComposer) {
+            const fallback = fallbackComposer || null;
+            let active = null;
+            try { active = document.activeElement || null; } catch { active = null; }
+            if (!active || active === fallback || isInsideQuickInputOverlay(active) || isInsideShortcutUi(active)) return fallback;
+
+            const activeComposer = isNotionEditableComposerElement(active, { requireVisible: false })
+                ? active
+                : resolveNotionComposerElement(active, { requireVisible: false });
+            if (!activeComposer) return fallback;
+            if (!fallback) return activeComposer;
+
+            try {
+                if (fallback.contains?.(activeComposer) || activeComposer.contains?.(fallback)) return activeComposer;
+            } catch { }
+
+            const container = findNotionComposerContainer(fallback);
+            try {
+                if (container?.contains?.(activeComposer)) return activeComposer;
+            } catch { }
+            return fallback;
+        }
+
         async function setNotionInputValue(composerEl, value) {
-            const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || findNotionComposerElement({ requireVisible: true });
-            if (!composer) return false;
+            const foundComposer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || findNotionComposerElement({ requireVisible: true });
+            if (!foundComposer) return false;
             const text = String(value ?? "");
             const inputType = text ? "insertReplacementText" : "deleteContentBackward";
-            const isRoleTextbox = isNotionRoleTextboxElement(composer);
+            let composer = foundComposer;
+
+            try { foundComposer.focus?.({ preventScroll: true }); } catch {
+                try { foundComposer.focus?.(); } catch { }
+            }
+            try { simulateClickElement(foundComposer, { nativeFallback: true }); } catch { }
+
+            composer = getFocusedNotionComposerTarget(foundComposer) || foundComposer;
             const isContentEditable = isNotionContentEditableElement(composer);
+            const hasNativeValue = hasNotionValueProperty(composer);
 
             try { composer.focus?.({ preventScroll: true }); } catch {
                 try { composer.focus?.(); } catch { }
             }
             try { simulateClickElement(composer, { nativeFallback: true }); } catch { }
 
-            if (genericSetInputValue && genericSetInputValue(composer, text) && (await waitForNotionTextMutationSettle(composer, text))) {
+            if ((hasNativeValue || isContentEditable) && genericSetInputValue && genericSetInputValue(composer, text) && (await waitForNotionTextMutationSettle(composer, text))) {
                 return true;
             }
 
-            const tag = String(composer.tagName || "").toUpperCase();
-            if (tag === "TEXTAREA" || tag === "INPUT" || isRoleTextbox || hasNotionValueProperty(composer)) {
+            if (hasNativeValue) {
                 if (setNotionComposerNativeValue(composer, text)) {
                     dispatchNotionComposerInput(composer, { inputType, data: text || null });
                     if (await waitForNotionTextMutationSettle(composer, text)) return true;
                 }
             }
 
-            if (isContentEditable || isRoleTextbox) {
+            if (isContentEditable) {
                 selectNotionComposerContent(composer);
                 try {
                     const command = text ? "insertText" : "delete";
@@ -2209,21 +2252,12 @@
                 } catch { }
             }
 
-            if (text && (isContentEditable || isRoleTextbox)) {
+            if (text && isContentEditable) {
                 selectNotionComposerContent(composer);
                 if (tryPasteNotionText(composer, text)) {
                     dispatchNotionComposerInput(composer, { inputType: "insertFromPaste", data: text });
                     if (await waitForNotionTextMutationSettle(composer, text)) return true;
                 }
-            }
-
-            if (isContentEditable || isRoleTextbox) {
-                try {
-                    if (isContentEditable) selectNotionComposerContent(composer);
-                    composer.textContent = text;
-                    dispatchNotionComposerInput(composer, { inputType, data: text || null });
-                    if (await waitForNotionTextMutationSettle(composer, text)) return true;
-                } catch { }
             }
 
             return false;
