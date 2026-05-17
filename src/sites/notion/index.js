@@ -16,6 +16,10 @@
     const LOG_TAG = "[Notion Shortcut Script]";
     const NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY = "notion_shortcuts_v1";
     const NOTION_QUICK_INPUT_STORAGE_KEY = "notion_quick_input_v1";
+    const NOTION_ORIGIN = "https://www.notion.so";
+    const NOTION_AI_HOME_PATH = "/ai";
+    const NOTION_AI_CHAT_PATH = "/chat";
+    const NOTION_NEW_CHAT_TARGET_TTL_MS = 15000;
     const LEGACY_NEW_CHAT_SIMULATE_KEYS = "CMD+O";
     const LEGACY_SELECT_AI_MODEL_KEY = "selectAiModel";
     const LEGACY_SELECT_AI_MODEL_SELECTOR = '[data-testid="unified-chat-model-button"][role="button"]';
@@ -1516,6 +1520,125 @@
             return engine?.i18n?.t?.("shortcuts.newChat", {}, "New Chat") || "New Chat";
         }
 
+        function getCurrentNotionUrl() {
+            try {
+                return String(window.location.href || "");
+            } catch {
+                return "";
+            }
+        }
+
+        function normalizeNotionPathname(pathname = "") {
+            const path = String(pathname || "").trim();
+            if (!path) return "/";
+            if (path === "/") return "/";
+            return path.replace(/\/+$/g, "") || "/";
+        }
+
+        function parseNotionQuickInputTarget(currentUrl = getCurrentNotionUrl()) {
+            const rawUrl = String(currentUrl || "").trim();
+            if (!rawUrl) return null;
+
+            let url = null;
+            try {
+                url = new URL(rawUrl, NOTION_ORIGIN);
+            } catch {
+                return null;
+            }
+            if (url.origin !== NOTION_ORIGIN) return null;
+
+            const pathname = normalizeNotionPathname(url.pathname);
+            if (pathname === NOTION_AI_HOME_PATH) {
+                return {
+                    kind: "ai",
+                    ready: true,
+                    pathname,
+                    targetUrl: `${NOTION_ORIGIN}${NOTION_AI_HOME_PATH}`,
+                    url: url.href
+                };
+            }
+
+            if (pathname === NOTION_AI_CHAT_PATH) {
+                return {
+                    kind: "chat",
+                    ready: true,
+                    pathname,
+                    targetUrl: `${NOTION_ORIGIN}${NOTION_AI_CHAT_PATH}`,
+                    url: url.href
+                };
+            }
+
+            return null;
+        }
+
+        function cloneNotionQuickInputTarget(target) {
+            if (!target || typeof target !== "object") return null;
+            if (!target.targetUrl || !target.url) return null;
+            return {
+                kind: String(target.kind || "").trim() || "ai",
+                ready: !!target.ready,
+                pathname: String(target.pathname || "").trim(),
+                targetUrl: String(target.targetUrl || "").trim(),
+                url: String(target.url || "").trim()
+            };
+        }
+
+        let pendingNotionNewChatTarget = null;
+        let pendingNotionNewChatTargetAt = 0;
+
+        function getPendingNotionNewChatTarget() {
+            if (!pendingNotionNewChatTarget) return null;
+            const ageMs = Date.now() - pendingNotionNewChatTargetAt;
+            if (ageMs >= 0 && ageMs <= NOTION_NEW_CHAT_TARGET_TTL_MS) {
+                return cloneNotionQuickInputTarget(pendingNotionNewChatTarget);
+            }
+            pendingNotionNewChatTarget = null;
+            pendingNotionNewChatTargetAt = 0;
+            return null;
+        }
+
+        function rememberPendingNotionNewChatTarget(target) {
+            const nextTarget = cloneNotionQuickInputTarget(target);
+            if (!nextTarget) return;
+            pendingNotionNewChatTarget = nextTarget;
+            pendingNotionNewChatTargetAt = Date.now();
+        }
+
+        function clearPendingNotionNewChatTarget(target = null) {
+            if (target && pendingNotionNewChatTarget && pendingNotionNewChatTarget.url !== String(target.url || "").trim()) return;
+            pendingNotionNewChatTarget = null;
+            pendingNotionNewChatTargetAt = 0;
+        }
+
+        function getNotionNewChatTriggerTarget() {
+            const currentTarget = parseNotionQuickInputTarget();
+            if (currentTarget) return currentTarget;
+            const pendingTarget = getPendingNotionNewChatTarget();
+            if (pendingTarget) return pendingTarget;
+            return {
+                kind: "ai",
+                ready: false,
+                pathname: NOTION_AI_HOME_PATH,
+                targetUrl: `${NOTION_ORIGIN}${NOTION_AI_HOME_PATH}`,
+                url: getCurrentNotionUrl()
+            };
+        }
+
+        function buildNotionTargetUrlMismatchMessage(currentUrl, { target = null, prefix = "" } = {}) {
+            const expectedTarget = target || getNotionNewChatTriggerTarget();
+            const targetUrl = String(expectedTarget?.targetUrl || `${NOTION_ORIGIN}${NOTION_AI_HOME_PATH}`);
+            const currentText = currentUrl || "(empty)";
+            const base = engine?.i18n?.t?.(
+                "quickInput.rootUrlMismatch",
+                {
+                    targetUrl,
+                    currentUrl: currentText
+                },
+                `Current URL must match ${targetUrl}; actual URL is ${currentText}`
+            ) || `Current URL must match ${targetUrl}; actual URL is ${currentText}`;
+            return prefix ? `${prefix}${base}` : base;
+        }
+
         const isInsideOverlayTree = typeof dom?.isInsideOverlayTree === "function"
             ? dom.isInsideOverlayTree
             : (target, targetOverlayId) => {
@@ -2630,16 +2753,24 @@
         }
 
         function getNotionNewChatReadyState() {
+            const currentUrl = getCurrentNotionUrl();
+            const currentTarget = parseNotionQuickInputTarget(currentUrl);
+            const pendingTarget = getPendingNotionNewChatTarget();
             const composer = findNotionComposerElement({ requireVisible: true });
-            const text = getNotionComposerPlainText(composer, { trimTrailingEditorNewlines: true }).trim();
             const container = findNotionComposerContainer(composer);
             const snapshot = getNotionAttachmentSnapshot(container);
+            const routeReady = !!currentTarget?.ready;
+            const pendingRouteChanged = !pendingTarget || String(currentUrl || "").trim() !== String(pendingTarget.url || "").trim();
             return {
                 composer,
                 container,
-                textLength: text.length,
+                currentUrl,
+                currentTarget,
+                pendingTarget,
+                routeReady,
+                pendingRouteChanged,
                 attachmentCount: Number(snapshot?.attachmentCount || 0),
-                ok: !!(composer && text.length === 0 && Number(snapshot?.attachmentCount || 0) === 0)
+                ok: !!(composer && routeReady && pendingRouteChanged)
             };
         }
 
@@ -2658,16 +2789,26 @@
             });
             const state = observed?.state || getNotionNewChatReadyState();
             if (observed?.cancelled) return { ok: false, cancelled: true };
+            if (observed?.ok) clearPendingNotionNewChatTarget(state?.pendingTarget || null);
+            const failureMessage = (() => {
+                if (!state?.currentTarget?.ready) {
+                    return buildNotionTargetUrlMismatchMessage(state?.currentUrl || getCurrentNotionUrl(), {
+                        prefix: engine?.i18n?.t?.("quickInput.newChatVerifyPrefix", {}, "Notion AI route verification failed: ") || "Notion AI route verification failed: "
+                    });
+                }
+                return `Notion new chat not ready: url=${state?.currentUrl || ""}, route=${state?.currentTarget?.kind || "unknown"}, composer=${state?.composer ? 1 : 0}, attachment=${state?.attachmentCount || 0}`;
+            })();
             return {
                 ok: !!observed?.ok,
                 cancelled: false,
-                message: observed?.ok ? "" : `Notion new chat not ready: composer=${state?.composer ? 1 : 0}, text=${state?.textLength || 0}, attachment=${state?.attachmentCount || 0}`
+                message: observed?.ok ? "" : failureMessage
             };
         }
 
         async function triggerNotionNewChat({ shouldCancel = null, fallbackTrigger = null } = {}) {
             const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
             if (cancelFn && cancelFn()) return { ok: false, label: getNotionNewChatLabel() };
+            const currentTarget = parseNotionQuickInputTarget();
             let ok = false;
             try {
                 ok = !!(await triggerNewChatAction());
@@ -2676,6 +2817,11 @@
             }
             if (!ok && typeof fallbackTrigger === "function") {
                 try { ok = !!(await fallbackTrigger()); } catch { ok = false; }
+            }
+            if (ok && currentTarget) {
+                rememberPendingNotionNewChatTarget(currentTarget);
+            } else {
+                clearPendingNotionNewChatTarget();
             }
             return { ok, label: getNotionNewChatLabel() };
         }
@@ -2790,7 +2936,9 @@
                 }
             },
             quickInput: {
-                title: "Notion - 快捷输入"
+                title: "Notion - 快捷输入",
+                rootUrlMismatch: "当前 Notion AI 页面仅支持 /ai 或 /chat 路由，实际是 {currentUrl}",
+                newChatVerifyPrefix: "Notion AI 路由校验失败："
             }
         },
         "en-US": {
@@ -2809,7 +2957,9 @@
                 }
             },
             quickInput: {
-                title: "Notion - Quick Input"
+                title: "Notion - Quick Input",
+                rootUrlMismatch: "Current Notion AI page only supports /ai or /chat routes; actual URL is {currentUrl}",
+                newChatVerifyPrefix: "Notion AI route verification failed: "
             }
         }
     });

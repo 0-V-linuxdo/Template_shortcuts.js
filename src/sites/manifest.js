@@ -293,16 +293,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260518] v1.0.0",
+            name: "[Grok] 快捷键跳转 [20260518] v1.1.0",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260518] v1.0.0",
-            updateLog: "1.0.0: 删除 Switch user 快捷键，新增 Admin 后台跳转至 https://grok.dairoot.cn/admin，并为 Grok 默认快捷键图标启用普通/黑暗模式自适应。",
+            version: "[20260518] v1.1.0",
+            updateLog: "1.1.0: 新增 Grok 模型选择器适配，支持 Auto、Fast、Expert、Grok 4.3 (beta)、Heavy 的默认快捷键与可配置 modelPicker 动作。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260518] v1.0.0",
+                    name: "[Grok] Shortcut Jump [20260518] v1.1.0",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.0.0: Removed the Switch user shortcut, added the Admin URL jump to https://grok.dairoot.cn/admin, and enabled light/dark adaptive icons for Grok default shortcuts."
+                    updateLog: "1.1.0: Added Grok model selector support with default shortcuts for Auto, Fast, Expert, Grok 4.3 (beta), and Heavy plus the configurable modelPicker action."
                 }
             },
             match: [
@@ -423,16 +423,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260518] v1.0.1",
+            name: "[Notion] 快捷键跳转 [20260518] v1.0.2",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260518] v1.0.1",
-            updateLog: "1.0.1: 修复 Notion AI Quick Input 输入框适配，支持 role=textbox / shadow DOM 输入区、真实写入读回校验与 Submit AI message 发送按钮识别。",
+            version: "[20260518] v1.0.2",
+            updateLog: "1.0.2: 修复 Notion AI Quick Input URL 就绪识别，支持 https://www.notion.so/ai 与 /chat?t=...&wfv=chat 路由，避免已写入文本后被误判为非新对话。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260518] v1.0.1",
+                    name: "[Notion] Shortcut Jump [20260518] v1.0.2",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.1: Fixed the Notion AI Quick Input composer adapter with role=textbox / shadow DOM support, readback verification, and Submit AI message button detection."
+                    updateLog: "1.0.2: Fixed Notion AI Quick Input URL readiness detection for https://www.notion.so/ai and /chat?t=...&wfv=chat routes, avoiding false new-chat failures after text is inserted."
                 }
             },
             match: [
