@@ -937,8 +937,12 @@
         "[role='menuitemradio']",
         "[role='menuitem']",
         "[role='option']",
+        "[role='menuitemcheckbox']",
         "button",
+        "li",
+        "[tabindex]",
         "[data-radix-collection-item]",
+        "[data-highlighted]",
         "[cmdk-item]"
     ]);
     const GROK_MODEL_TRIGGER_CANDIDATE_SELECTORS = Object.freeze([
@@ -1250,9 +1254,17 @@
         if (!element) return null;
         const selector = GROK_MODEL_MENU_ITEM_SELECTORS.join(", ");
         try {
-            if (element.matches?.(selector)) return element;
+            if (element.matches?.(selector)) {
+                if (menuRoot && element === menuRoot) return null;
+                return element;
+            }
+            let node = element.parentElement || null;
+            while (node && node !== menuRoot) {
+                if (node.matches?.(selector)) return node;
+                node = node.parentElement || null;
+            }
             const closest = element.closest?.(selector) || null;
-            if (!closest) return null;
+            if (!closest || closest === menuRoot) return null;
             if (menuRoot && !menuRoot.contains(closest)) return null;
             return closest;
         } catch {
@@ -1579,8 +1591,12 @@
         "[role='menuitemradio']",
         "[role='menuitem']",
         "[role='option']",
+        "[role='menuitemcheckbox']",
         "button",
+        "li",
+        "[tabindex]",
         "[data-radix-collection-item]",
+        "[data-highlighted]",
         "[cmdk-item]"
     ]);
     const GROK_CONVERSATION_TRIGGER_CANDIDATE_SELECTORS = Object.freeze([
@@ -1968,7 +1984,7 @@
             currentItem = currentRoot
                 ? getGrokConversationMenuItem(currentRoot, { textMatch, iconMatch, fallbackToFirst: false })
                 : null;
-            if (!currentRoot || !currentItem || !isElementVisible(currentItem)) return true;
+            if (!currentRoot || !currentItem || !isElementVisible(currentItem)) continue;
         }
 
         console.warn(`${LOG_TAG} conversationMenu: target menu item did not activate; menu stayed open.`);
@@ -2307,8 +2323,12 @@
         }
 
         host.appendChild(overlay);
-        try { confirmButton.focus({ preventScroll: true }); } catch { }
         try { panel.focus({ preventScroll: true }); } catch { }
+        try {
+            requestAnimationFrame?.(() => {
+                try { panel.focus({ preventScroll: true }); } catch { }
+            });
+        } catch { }
 
         return state.promise;
     }
@@ -2416,6 +2436,7 @@
         if (spec.targetId === "delete") {
             const confirmed = await showGrokDeleteConfirmDialog({ engine });
             if (!confirmed) return false;
+            await sleep(60);
         }
 
         const menuRoot = findGrokConversationMenuRoot() || await ensureGrokConversationMenuOpen();
