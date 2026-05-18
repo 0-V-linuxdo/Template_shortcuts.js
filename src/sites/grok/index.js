@@ -621,6 +621,35 @@
         return (hasLid && (hasHandle || hasCan || hasTines)) || (hasCan && hasTines);
     }
 
+    function grokMoreIconLooksLikeEllipsis(icon) {
+        if (!icon) return false;
+        const attrToken = normalizeGrokMenuToken(getGrokElementAttrText(icon, [
+            "aria-label",
+            "title",
+            "alt",
+            "data-icon",
+            "data-lucide",
+            "data-testid",
+            "class",
+            "name"
+        ]));
+        if (/(more|ellipsis|kebab|meatball|dots?)(horizontal|vertical)?/.test(attrToken)) return true;
+
+        const circleCount = typeof icon.querySelectorAll === "function"
+            ? (() => {
+                try { return icon.querySelectorAll("circle").length; } catch { return 0; }
+            })()
+            : 0;
+        if (circleCount >= 3) return true;
+
+        const vectorText = getGrokIconVectorText(icon).toLowerCase().replace(/\s+/g, "");
+        if (!vectorText) return false;
+        if (/(morehorizontal|morevertical|ellipsis|kebab|meatball|dots?)/.test(vectorText)) return true;
+        if (/cx.?=.?[0-9.]+.*cx.?=.?[0-9.]+.*cx.?=.?[0-9.]+/.test(vectorText)) return true;
+        if (/circle.*circle.*circle/.test(vectorText)) return true;
+        return false;
+    }
+
     function getGrokConversationTargetIdFromLeftIcon(menuItem) {
         const leftIcon = getGrokLeftmostIconElement(menuItem);
         if (grokLeftIconLooksLikeTrash(leftIcon)) return "delete";
@@ -1522,6 +1551,32 @@
         return roots;
     }
 
+    function grokConversationTriggerLooksLikeMore(element) {
+        if (!element || !isElementVisible(element)) return false;
+
+        const text = getGrokElementText(element);
+        const ariaLabel = String(element.getAttribute?.("aria-label") || "").trim();
+        const title = String(element.getAttribute?.("title") || "").trim();
+        const token = normalizeGrokMenuToken(text || ariaLabel || title);
+        if (token === "more" || token === "moreactions" || token.includes("more")) return true;
+
+        const icon = getGrokLeftmostIconElement(element);
+        if (grokMoreIconLooksLikeEllipsis(icon)) return true;
+
+        const hasMenuSemantics = String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "menu"
+            || String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "listbox"
+            || parseBooleanAttr(element.getAttribute?.("aria-expanded")) !== null;
+        if (!hasMenuSemantics) return false;
+
+        let rect = null;
+        try { rect = element.getBoundingClientRect?.() || null; } catch { }
+        if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+        const viewportWidth = Math.max(1, Number(window.innerWidth) || Number(document.documentElement?.clientWidth) || 1);
+        const inTopBand = rect.top <= 180;
+        const inRightBand = rect.right >= viewportWidth * 0.55;
+        return inTopBand && inRightBand;
+    }
+
     function findGrokConversationMenuTriggerElement() {
         const seen = new Set();
         const candidates = [];
@@ -1530,29 +1585,66 @@
             seen.add(element);
             if (element.closest?.(GROK_CONVERSATION_MENU_ROOT_SELECTORS.join(", "))) continue;
 
+            let rect = null;
+            try { rect = element.getBoundingClientRect?.() || null; } catch { }
+            if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+            if (rect.top > 180) continue;
+
             const text = getGrokElementText(element);
             const ariaLabel = String(element.getAttribute?.("aria-label") || "").trim();
-            const token = normalizeGrokMenuToken(text || ariaLabel);
-            if (!token) continue;
-            if (token !== "more" && token !== "moreactions" && !token.includes("more")) continue;
+            const title = String(element.getAttribute?.("title") || "").trim();
+            const token = normalizeGrokMenuToken(text || ariaLabel || title);
+            const icon = getGrokLeftmostIconElement(element);
+            const iconLooksLikeMore = grokMoreIconLooksLikeEllipsis(icon);
+            const hasMenuSemantics = String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "menu"
+                || String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "listbox"
+                || parseBooleanAttr(element.getAttribute?.("aria-expanded")) !== null
+                || parseBooleanAttr(element.getAttribute?.("aria-pressed")) !== null;
+
+            if (!token && !iconLooksLikeMore && !hasMenuSemantics) continue;
 
             let score = 0;
             if (token === "more") score += 1000;
-            else if (token === "moreactions") score += 200;
-            else score += 400;
-            if (String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "menu") score += 80;
-            if (String(element.getAttribute?.("aria-haspopup") || "").trim().toLowerCase() === "listbox") score += 60;
+            else if (token === "moreactions") score += 120;
+            else if (token.includes("more")) score += 700;
+            if (iconLooksLikeMore) score += 650;
+            if (hasMenuSemantics) score += 120;
+            if (!token && iconLooksLikeMore) score += 150;
+            if (!token && !ariaLabel && !title) score += 80;
+            if (rect.top <= 72) score += 70;
+            if (rect.right >= (Number(window.innerWidth) || 0) * 0.65) score += 60;
+            if (rect.width <= 56) score += 20;
+            if (rect.height <= 56) score += 20;
             if (parseBooleanAttr(element.getAttribute?.("aria-expanded")) !== null) score += 20;
             if (parseBooleanAttr(element.getAttribute?.("aria-pressed")) !== null) score += 10;
-            let top = 0;
-            try { top = Number(element.getBoundingClientRect?.().top || 0); } catch { }
-            candidates.push({ element, score, top });
+            candidates.push({ element, score, top: rect.top, left: rect.left, right: rect.right });
         }
         candidates.sort((a, b) => {
             if (b.score !== a.score) return b.score - a.score;
+            if (b.right !== a.right) return b.right - a.right;
+            if (a.left !== b.left) return a.left - b.left;
             return a.top - b.top;
         });
-        return candidates[0]?.element || null;
+        if (candidates[0]?.element) return candidates[0].element;
+
+        const fallback = [];
+        for (const element of Array.from(document.querySelectorAll("button, [role='button']"))) {
+            if (!element || seen.has(element) || !isElementVisible(element)) continue;
+            if (element.closest?.(GROK_CONVERSATION_MENU_ROOT_SELECTORS.join(", "))) continue;
+            if (!grokConversationTriggerLooksLikeMore(element)) continue;
+            let rect = null;
+            try { rect = element.getBoundingClientRect?.() || null; } catch { }
+            if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+            if (rect.top > 180) continue;
+            fallback.push({ element, score: (rect.top <= 72 ? 50 : 0) + (rect.right >= (Number(window.innerWidth) || 0) * 0.65 ? 40 : 0), top: rect.top, left: rect.left, right: rect.right });
+        }
+        fallback.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            if (b.right !== a.right) return b.right - a.right;
+            if (a.left !== b.left) return a.left - b.left;
+            return a.top - b.top;
+        });
+        return fallback[0]?.element || null;
     }
 
     function findGrokConversationMenuRoot(triggerEl = null) {
