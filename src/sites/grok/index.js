@@ -1037,17 +1037,171 @@
         return /\bdisabled\b/.test(className);
     }
 
-    function simulateGrokClick(element) {
+    function getGrokEventView(element) {
+        try { return element?.ownerDocument?.defaultView || document?.defaultView || window; } catch { }
+        try { return window; } catch { }
+        return null;
+    }
+
+    function getGrokEventConstructor(name, element = null) {
+        try {
+            const view = getGrokEventView(element);
+            return view?.[name] || window?.[name] || null;
+        } catch {
+            return null;
+        }
+    }
+
+    function getGrokElementCenterPoint(element) {
+        if (!element) return null;
+        try {
+            const rect = element.getBoundingClientRect?.();
+            if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+            const viewportWidth = Math.max(1, Number(window.innerWidth) || Number(document.documentElement?.clientWidth) || 1);
+            const viewportHeight = Math.max(1, Number(window.innerHeight) || Number(document.documentElement?.clientHeight) || 1);
+            const x = Math.min(Math.max(rect.left + rect.width / 2, 1), viewportWidth - 1);
+            const y = Math.min(Math.max(rect.top + rect.height / 2, 1), viewportHeight - 1);
+            return { x, y };
+        } catch {
+            return null;
+        }
+    }
+
+    function getGrokElementFromPoint(x, y, element = null) {
+        try {
+            const doc = element?.ownerDocument || document;
+            return doc.elementFromPoint?.(x, y) || null;
+        } catch {
+            return null;
+        }
+    }
+
+    function getGrokActivationTargets(element) {
+        if (!element) return [];
+        const targets = [];
+        const seen = new Set();
+        const add = (target) => {
+            if (!target || seen.has(target)) return;
+            seen.add(target);
+            targets.push(target);
+        };
+
+        const point = getGrokElementCenterPoint(element);
+        if (point) {
+            const pointTarget = getGrokElementFromPoint(point.x, point.y, element);
+            if (pointTarget && (pointTarget === element || element.contains?.(pointTarget) || pointTarget.contains?.(element))) {
+                add(pointTarget);
+                try { add(pointTarget.closest?.("button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option'], a[href]")); } catch { }
+            }
+        }
+        add(element);
+        try { add(element.closest?.("button, [role='button'], [role='menuitem'], [role='menuitemradio'], [role='option'], a[href]")); } catch { }
+        return targets;
+    }
+
+    function simulateGrokPointerClick(element) {
+        if (!element) return false;
+        const point = getGrokElementCenterPoint(element);
+        if (!point) return false;
+        const PointerEventCtor = getGrokEventConstructor("PointerEvent", element);
+        const MouseEventCtor = getGrokEventConstructor("MouseEvent", element);
+        if (typeof PointerEventCtor !== "function" && typeof MouseEventCtor !== "function") return false;
+
+        const clientX = Number(point.x) || 1;
+        const clientY = Number(point.y) || 1;
+        const view = getGrokEventView(element);
+        const common = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            view: view || null,
+            clientX,
+            clientY,
+            screenX: clientX,
+            screenY: clientY,
+            button: 0
+        };
+        const plans = [
+            typeof PointerEventCtor === "function" && { ctor: PointerEventCtor, type: "pointerdown", opts: { ...common, buttons: 1, pointerId: 1, pointerType: "mouse", isPrimary: true } },
+            typeof MouseEventCtor === "function" && { ctor: MouseEventCtor, type: "mousedown", opts: { ...common, buttons: 1, detail: 1 } },
+            typeof PointerEventCtor === "function" && { ctor: PointerEventCtor, type: "pointerup", opts: { ...common, buttons: 0, pointerId: 1, pointerType: "mouse", isPrimary: true } },
+            typeof MouseEventCtor === "function" && { ctor: MouseEventCtor, type: "mouseup", opts: { ...common, buttons: 0, detail: 1 } },
+            typeof MouseEventCtor === "function" && { ctor: MouseEventCtor, type: "click", opts: { ...common, buttons: 0, detail: 1 } }
+        ].filter(Boolean);
+
+        let dispatched = false;
+        for (const target of getGrokActivationTargets(element)) {
+            if (!target || typeof target.dispatchEvent !== "function") continue;
+            try { target.focus?.({ preventScroll: true }); } catch { }
+            try { target.focus?.(); } catch { }
+            for (const plan of plans) {
+                try {
+                    target.dispatchEvent(new plan.ctor(plan.type, plan.opts));
+                    dispatched = true;
+                } catch { }
+            }
+            if (dispatched) return true;
+        }
+        return false;
+    }
+
+    function simulateGrokTemplateClick(element) {
         if (!element) return false;
         try {
             const clicked = TemplateUtils?.events?.simulateClick?.(element, { nativeFallback: true });
             if (clicked) return true;
         } catch { }
+        return false;
+    }
+
+    function simulateGrokNativeClick(element) {
+        if (!element) return false;
         try {
             element.click();
             return true;
         } catch { }
         return false;
+    }
+
+    function simulateGrokKeyboardActivation(element) {
+        if (!element) return false;
+        const KeyboardEventCtor = getGrokEventConstructor("KeyboardEvent", element);
+        if (typeof KeyboardEventCtor !== "function") return false;
+        try { element.focus?.({ preventScroll: true }); } catch { }
+        try { element.focus?.(); } catch { }
+        const view = getGrokEventView(element);
+        const eventInit = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            view: view || null,
+            key: "Enter",
+            code: "Enter",
+            keyCode: 13,
+            which: 13
+        };
+        let dispatched = false;
+        try {
+            element.dispatchEvent(new KeyboardEventCtor("keydown", eventInit));
+            dispatched = true;
+        } catch { }
+        try {
+            element.dispatchEvent(new KeyboardEventCtor("keyup", eventInit));
+            dispatched = true;
+        } catch { }
+        return dispatched;
+    }
+
+    function simulateGrokClick(element, { method = "auto" } = {}) {
+        if (!element) return false;
+        const activationMethod = String(method || "auto").trim().toLowerCase();
+        if (activationMethod === "pointer") return simulateGrokPointerClick(element);
+        if (activationMethod === "template") return simulateGrokTemplateClick(element);
+        if (activationMethod === "native") return simulateGrokNativeClick(element);
+        if (activationMethod === "keyboard") return simulateGrokKeyboardActivation(element);
+        return simulateGrokPointerClick(element)
+            || simulateGrokTemplateClick(element)
+            || simulateGrokNativeClick(element);
     }
 
     function getGrokModelMenuItemCandidates(menuRoot) {
@@ -1726,14 +1880,21 @@
 
         const triggerEl = findGrokConversationMenuTriggerElement();
         if (!triggerEl) return null;
-        if (!simulateGrokClick(triggerEl)) return null;
-        if (openDelayMs > 0) await sleep(openDelayMs);
-
         const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
-        while (Date.now() < deadline) {
-            const menuRoot = findGrokConversationMenuRoot(triggerEl);
-            if (menuRoot) return menuRoot;
-            await sleep(intervalMs);
+        const methods = ["pointer", "template", "native", "keyboard"];
+        for (let index = 0; index < methods.length && Date.now() <= deadline; index += 1) {
+            if (!isElementVisible(triggerEl)) break;
+            if (!simulateGrokClick(triggerEl, { method: methods[index] })) continue;
+            if (openDelayMs > 0) await sleep(openDelayMs);
+
+            const perAttemptDeadline = index === methods.length - 1
+                ? deadline
+                : Math.min(deadline, Date.now() + Math.max(360, Number(intervalMs) * 3 || 360));
+            while (Date.now() <= perAttemptDeadline) {
+                const menuRoot = findGrokConversationMenuRoot(triggerEl);
+                if (menuRoot) return menuRoot;
+                await sleep(intervalMs);
+            }
         }
         return findGrokConversationMenuRoot(triggerEl);
     }
@@ -1748,6 +1909,19 @@
         try { item.focus?.({ preventScroll: true }); } catch { }
         try { item.focus?.(); } catch { }
         return true;
+    }
+
+    async function waitForGrokConversationMenuActivation({ menuRoot = null, textMatch = null, iconMatch = null, timeoutMs = 700, intervalMs = 55 } = {}) {
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        const interval = Math.max(25, Number(intervalMs) || 55);
+        while (Date.now() <= deadline) {
+            const currentRoot = findGrokConversationMenuRoot() || (isElementVisible(menuRoot) ? menuRoot : null);
+            if (!currentRoot || !isElementVisible(currentRoot)) return true;
+            const currentItem = getGrokConversationMenuItem(currentRoot, { textMatch, iconMatch, fallbackToFirst: false });
+            if (!currentItem || !isElementVisible(currentItem)) return true;
+            await sleep(interval);
+        }
+        return false;
     }
 
     async function clickCurrentGrokConversationMenuItem({ menuRoot, targetItem, textMatch = null, iconMatch = null } = {}) {
@@ -1775,7 +1949,30 @@
         }
 
         focusGrokConversationMenuItem(currentItem);
-        return simulateGrokClick(currentItem);
+        const methods = ["pointer", "keyboard", "template", "native"];
+        for (const method of methods) {
+            if (!currentItem || !isElementVisible(currentItem)) {
+                if (await waitForGrokConversationMenuActivation({ menuRoot: currentRoot, textMatch, iconMatch, timeoutMs: 120 })) return true;
+                currentRoot = await ensureGrokConversationMenuOpen({ openDelayMs: 80 });
+                currentItem = currentRoot
+                    ? getGrokConversationMenuItem(currentRoot, { textMatch, iconMatch, fallbackToFirst: false })
+                    : null;
+                if (!currentItem || !isElementVisible(currentItem)) break;
+            }
+
+            focusGrokConversationMenuItem(currentItem);
+            const clicked = simulateGrokClick(currentItem, { method });
+            if (clicked && await waitForGrokConversationMenuActivation({ menuRoot: currentRoot, textMatch, iconMatch })) return true;
+
+            currentRoot = findGrokConversationMenuRoot() || (isElementVisible(currentRoot) ? currentRoot : null);
+            currentItem = currentRoot
+                ? getGrokConversationMenuItem(currentRoot, { textMatch, iconMatch, fallbackToFirst: false })
+                : null;
+            if (!currentRoot || !currentItem || !isElementVisible(currentItem)) return true;
+        }
+
+        console.warn(`${LOG_TAG} conversationMenu: target menu item did not activate; menu stayed open.`);
+        return false;
     }
 
     function getGrokCssColor(value) {

@@ -293,16 +293,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260518] v1.1.7",
+            name: "[Grok] 快捷键跳转 [20260518] v1.1.8",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260518] v1.1.7",
-            updateLog: "1.1.7: 修复确认弹窗确认后未继续点击 Delete Chat 的问题，增强顶部三点 More 图标与位置识别。",
+            version: "[20260518] v1.1.8",
+            updateLog: "1.1.8: 修复 Delete Chat 菜单项未被真实激活的问题，新增带坐标的 pointer 点击、键盘激活兜底与菜单关闭校验。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260518] v1.1.7",
+                    name: "[Grok] Shortcut Jump [20260518] v1.1.8",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.1.7: Fixed Delete Chat not being clicked after confirming the script dialog, with stronger top More icon and position detection."
+                    updateLog: "1.1.8: Fixed the Delete Chat menu item not being truly activated by adding coordinate pointer clicks, keyboard fallback, and menu-dismiss verification."
                 }
             },
             match: [
