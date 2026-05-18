@@ -937,12 +937,8 @@
         "[role='menuitemradio']",
         "[role='menuitem']",
         "[role='option']",
-        "[role='menuitemcheckbox']",
         "button",
-        "li",
-        "[tabindex]",
         "[data-radix-collection-item]",
-        "[data-highlighted]",
         "[cmdk-item]"
     ]);
     const GROK_MODEL_TRIGGER_CANDIDATE_SELECTORS = Object.freeze([
@@ -1254,17 +1250,9 @@
         if (!element) return null;
         const selector = GROK_MODEL_MENU_ITEM_SELECTORS.join(", ");
         try {
-            if (element.matches?.(selector)) {
-                if (menuRoot && element === menuRoot) return null;
-                return element;
-            }
-            let node = element.parentElement || null;
-            while (node && node !== menuRoot) {
-                if (node.matches?.(selector)) return node;
-                node = node.parentElement || null;
-            }
+            if (element.matches?.(selector)) return element;
             const closest = element.closest?.(selector) || null;
-            if (!closest || closest === menuRoot) return null;
+            if (!closest) return null;
             if (menuRoot && !menuRoot.contains(closest)) return null;
             return closest;
         } catch {
@@ -1591,12 +1579,8 @@
         "[role='menuitemradio']",
         "[role='menuitem']",
         "[role='option']",
-        "[role='menuitemcheckbox']",
         "button",
-        "li",
-        "[tabindex]",
         "[data-radix-collection-item]",
-        "[data-highlighted]",
         "[cmdk-item]"
     ]);
     const GROK_CONVERSATION_TRIGGER_CANDIDATE_SELECTORS = Object.freeze([
@@ -1991,6 +1975,140 @@
         return false;
     }
 
+    function getCurrentGrokConversationId() {
+        const pathname = String(window.location?.pathname || "");
+        const directMatch = pathname.match(/\/(?:c|chat)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i);
+        if (directMatch?.[1]) return directMatch[1];
+        const fallbackMatch = pathname.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+        return fallbackMatch?.[1] || "";
+    }
+
+    function getGrokConversationDeleteApiUrls(conversationId) {
+        const id = String(conversationId || "").trim();
+        if (!id) return [];
+        const encodedId = encodeURIComponent(id);
+        const origin = String(window.location?.origin || "").replace(/\/+$/, "");
+        if (!origin) return [];
+        return [
+            `${origin}/rest/app-chat/conversations/soft/${encodedId}`,
+            `${origin}/rest/app-chat/conversations/${encodedId}`
+        ];
+    }
+
+    function navigateAfterGrokConversationDelete() {
+        try {
+            const homeUrl = new URL("/", window.location.href);
+            window.location.assign(homeUrl.href);
+            return true;
+        } catch { }
+        return false;
+    }
+
+    function grokDeleteConversationRequest(url) {
+        return new Promise((resolve) => {
+            const finalize = (result) => {
+                try { resolve(result); } catch { resolve({ ok: false, status: 0, text: "" }); }
+            };
+
+            const gmRequest = typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : null;
+            if (gmRequest) {
+                try {
+                    gmRequest({
+                        method: "DELETE",
+                        url,
+                        withCredentials: true,
+                        headers: {
+                            "Accept": "application/json, text/plain, */*"
+                        },
+                        onload: (response) => {
+                            const status = Number(response?.status || 0);
+                            finalize({
+                                ok: status >= 200 && status < 300,
+                                status,
+                                text: String(response?.responseText || "")
+                            });
+                        },
+                        onerror: (response) => {
+                            finalize({
+                                ok: false,
+                                status: Number(response?.status || 0),
+                                text: String(response?.responseText || "")
+                            });
+                        },
+                        ontimeout: () => {
+                            finalize({ ok: false, status: 0, text: "" });
+                        }
+                    });
+                    return;
+                } catch (error) {
+                    console.warn(`${LOG_TAG} conversationMenu: GM_xmlhttpRequest delete attempt failed, falling back to fetch.`, error);
+                }
+            }
+
+            void (async () => {
+                try {
+                    const response = await fetch(url, {
+                        method: "DELETE",
+                        credentials: "include",
+                        headers: {
+                            "Accept": "application/json, text/plain, */*"
+                        }
+                    });
+                    finalize({
+                        ok: response.ok,
+                        status: response.status,
+                        text: await response.text().catch(() => "")
+                    });
+                } catch (error) {
+                    finalize({
+                        ok: false,
+                        status: 0,
+                        text: "",
+                        error
+                    });
+                }
+            })();
+        });
+    }
+
+    async function deleteCurrentGrokConversationViaApi() {
+        const conversationId = getCurrentGrokConversationId();
+        if (!conversationId) {
+            console.warn(`${LOG_TAG} conversationMenu: current conversation id not found for delete API.`);
+            return false;
+        }
+
+        const urls = getGrokConversationDeleteApiUrls(conversationId);
+        if (urls.length === 0) {
+            console.warn(`${LOG_TAG} conversationMenu: delete API URL could not be built.`);
+            return false;
+        }
+
+        let lastError = null;
+        for (let index = 0; index < urls.length; index += 1) {
+            const url = urls[index];
+            try {
+                const response = await grokDeleteConversationRequest(url);
+
+                if (response.ok || response.status === 204) {
+                    console.info(`${LOG_TAG} conversationMenu: deleted conversation via API (${index === 0 ? "soft" : "standard"}).`);
+                    navigateAfterGrokConversationDelete();
+                    return true;
+                }
+
+                lastError = new Error(`HTTP ${response.status}`);
+                if (index === 0 && (response.status === 404 || response.status === 405)) continue;
+                console.warn(`${LOG_TAG} conversationMenu: delete API failed at ${url}: ${response.status}.`);
+            } catch (error) {
+                lastError = error;
+                console.warn(`${LOG_TAG} conversationMenu: delete API request failed at ${url}.`, error);
+            }
+        }
+
+        if (lastError) console.warn(`${LOG_TAG} conversationMenu: delete API fallback failed.`, lastError);
+        return false;
+    }
+
     function getGrokCssColor(value) {
         const text = String(value ?? "").trim();
         if (!text || text === "transparent") return null;
@@ -2323,12 +2441,8 @@
         }
 
         host.appendChild(overlay);
+        try { confirmButton.focus({ preventScroll: true }); } catch { }
         try { panel.focus({ preventScroll: true }); } catch { }
-        try {
-            requestAnimationFrame?.(() => {
-                try { panel.focus({ preventScroll: true }); } catch { }
-            });
-        } catch { }
 
         return state.promise;
     }
@@ -2436,6 +2550,9 @@
         if (spec.targetId === "delete") {
             const confirmed = await showGrokDeleteConfirmDialog({ engine });
             if (!confirmed) return false;
+            const apiDeleted = await deleteCurrentGrokConversationViaApi();
+            if (apiDeleted) return true;
+            console.warn(`${LOG_TAG} conversationMenu: delete API failed, falling back to menu click.`);
             await sleep(60);
         }
 
