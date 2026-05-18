@@ -132,7 +132,7 @@
             dialogs: {
                 deleteChatConfirm: {
                     title: "确认删除聊天",
-                    message: "确认后脚本将继续执行 Delete Chat 点击流程。此操作无法撤销。",
+                    message: "确认后脚本将删除当前聊天。此操作无法撤销。",
                     confirm: "确认删除",
                     cancel: "取消"
                 }
@@ -166,7 +166,7 @@
             dialogs: {
                 deleteChatConfirm: {
                     title: "Confirm delete chat",
-                    message: "The script will continue the Delete Chat click flow after you confirm. This action cannot be undone.",
+                    message: "The script will delete the current chat after you confirm. This action cannot be undone.",
                     confirm: "Delete Chat",
                     cancel: "Cancel"
                 }
@@ -2229,7 +2229,7 @@
         const mode = getGrokPageThemeMode();
         const theme = getGrokDeleteConfirmTheme(mode);
         const title = getGrokDeleteConfirmText(engine, "title", "Confirm delete chat");
-        const message = getGrokDeleteConfirmText(engine, "message", "The script will continue the Delete Chat click flow after you confirm. This action cannot be undone.");
+        const message = getGrokDeleteConfirmText(engine, "message", "The script will delete the current chat after you confirm. This action cannot be undone.");
         const confirmText = getGrokDeleteConfirmText(engine, "confirm", "Delete Chat");
         const cancelText = getGrokDeleteConfirmText(engine, "cancel", "Cancel");
         const host = document.body || document.documentElement;
@@ -2442,7 +2442,6 @@
 
         host.appendChild(overlay);
         try { confirmButton.focus({ preventScroll: true }); } catch { }
-        try { panel.focus({ preventScroll: true }); } catch { }
 
         return state.promise;
     }
