@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260518] v1.1.4
-// @name:en        [Grok] Shortcut Jump [20260518] v1.1.4
+// @name           [Grok] 快捷键跳转 [20260518] v1.1.6
+// @name:en        [Grok] Shortcut Jump [20260518] v1.1.6
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260518] v1.1.4
-// @update-log     1.1.4: Grok 删除聊天项改为按菜单最左侧图标识别，并继续支持 Enter 触发确认点击。
-// @update-log:en  1.1.4: The Grok delete shortcut now identifies the delete item by its leftmost menu icon and still supports Enter to confirm the click.
+// @version        [20260518] v1.1.6
+// @update-log     1.1.6: Grok 删除聊天改为脚本确认弹窗，Enter 可直接确认后再执行 Delete Chat 点击流程，并适配普通/黑暗模式。
+// @update-log:en  1.1.6: Grok delete now uses a script confirmation dialog, Enter confirms the action, and Delete Chat continues in both light and dark modes.
 
 // @match          https://grok.dairoot.cn/*
 // @match          https://grok.com/*
@@ -154,6 +154,14 @@
             label: "菜单关键词（或粘贴 JSON，高级用法）:",
             placeholder: '例如: Delete Chat / Delete / {"menu":{"id":"delete"}}'
           }
+        },
+        dialogs: {
+          deleteChatConfirm: {
+            title: "确认删除聊天",
+            message: "确认后脚本将继续执行 Delete Chat 点击流程。此操作无法撤销。",
+            confirm: "确认删除",
+            cancel: "取消"
+          }
         }
       },
       "en-US": {
@@ -179,6 +187,14 @@
           conversationMenu: {
             label: "Menu keyword (or paste JSON, advanced):",
             placeholder: 'Example: Delete Chat / Delete / {"menu":{"id":"delete"}}'
+          }
+        },
+        dialogs: {
+          deleteChatConfirm: {
+            title: "Confirm delete chat",
+            message: "The script will continue the Delete Chat click flow after you confirm. This action cannot be undone.",
+            confirm: "Delete Chat",
+            cancel: "Cancel"
           }
         }
       }
@@ -1323,7 +1339,7 @@
       pollIntervalMs: 120,
       openDelayMs: 120
     });
-    let grokConversationMenuEnterBridgeCleanup = null;
+    let grokDeleteConfirmDialogState = null;
     function isPlainEnterKeyEvent(event) {
       if (!event) return false;
       const key = String(event.key || "");
@@ -1557,82 +1573,196 @@
       }
       return true;
     }
-    function clearGrokConversationMenuEnterBridge() {
-      const cleanup = grokConversationMenuEnterBridgeCleanup;
-      if (typeof cleanup === "function") cleanup();
+    async function clickCurrentGrokConversationMenuItem({ menuRoot, targetItem, textMatch = null, iconMatch = null } = {}) {
+      let currentRoot = findGrokConversationMenuRoot() || (isElementVisible(menuRoot) ? menuRoot : null);
+      let currentItem = currentRoot ? getGrokConversationMenuItem(currentRoot, { textMatch, iconMatch, fallbackToFirst: false }) : null;
+      if (!currentItem && isElementVisible(targetItem)) currentItem = targetItem;
+      if (!currentItem || !isElementVisible(currentItem)) {
+        currentRoot = await ensureGrokConversationMenuOpen({ openDelayMs: 80 });
+        currentItem = currentRoot ? getGrokConversationMenuItem(currentRoot, { textMatch, iconMatch, fallbackToFirst: false }) : null;
+      }
+      if (!currentItem || !isElementVisible(currentItem)) {
+        console.warn(`${LOG_TAG} conversationMenu: target menu item disappeared before activation.`);
+        return false;
+      }
+      if (isGrokModelMenuItemDisabled(currentItem)) {
+        console.warn(`${LOG_TAG} conversationMenu: target menu item is disabled before activation.`);
+        return false;
+      }
+      focusGrokConversationMenuItem(currentItem);
+      return simulateGrokClick(currentItem);
     }
-    function armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch = null, iconMatch = null }, { engine: engine2 = null, timeoutMs = 3e4, closeCheckIntervalMs = 250 } = {}) {
-      if (!menuRoot || !targetItem) return false;
-      clearGrokConversationMenuEnterBridge();
-      const doc = menuRoot.ownerDocument || document;
-      const win = doc.defaultView || window;
+    function getGrokCssColor(value) {
+      const text = String(value ?? "").trim();
+      if (!text || text === "transparent") return null;
+      const match = text.match(/^rgba?\(([^)]+)\)$/i);
+      if (!match) return null;
+      const parts = match[1].split(",").map((part) => part.trim());
+      if (parts.length < 3) return null;
+      const r = Number(parts[0]);
+      const g = Number(parts[1]);
+      const b = Number(parts[2]);
+      const a = parts.length >= 4 ? Number(parts[3]) : 1;
+      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b) || !Number.isFinite(a) || a <= 0) return null;
+      return { r, g, b, a };
+    }
+    function isGrokCssColorDark(color) {
+      if (!color) return false;
+      const toLinear = (value) => {
+        const channel = Math.max(0, Math.min(255, Number(value) || 0)) / 255;
+        return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+      };
+      const luminance = 0.2126 * toLinear(color.r) + 0.7152 * toLinear(color.g) + 0.0722 * toLinear(color.b);
+      return luminance < 0.5;
+    }
+    function getGrokPageThemeMode() {
+      const candidates = [document.documentElement, document.body].filter(Boolean);
+      for (const element of candidates) {
+        const attrValues = [
+          element.getAttribute?.("data-theme"),
+          element.getAttribute?.("data-appearance"),
+          element.dataset?.theme,
+          element.dataset?.appearance
+        ];
+        for (const attrValue of attrValues) {
+          const token = String(attrValue ?? "").trim().toLowerCase();
+          if (!token) continue;
+          if (token.includes("dark")) return "dark";
+          if (token.includes("light")) return "light";
+        }
+        const className = String(element.className || "").toLowerCase();
+        if (/\bdark\b/.test(className)) return "dark";
+        if (/\blight\b/.test(className)) return "light";
+        try {
+          const colorScheme = String(getComputedStyle(element).colorScheme || "").toLowerCase();
+          if (colorScheme.includes("dark")) return "dark";
+          if (colorScheme.includes("light")) return "light";
+        } catch {
+        }
+      }
+      try {
+        const bodyColor = getGrokCssColor(getComputedStyle(document.body).backgroundColor);
+        if (bodyColor) return isGrokCssColorDark(bodyColor) ? "dark" : "light";
+      } catch {
+      }
+      try {
+        const rootColor = getGrokCssColor(getComputedStyle(document.documentElement).backgroundColor);
+        if (rootColor) return isGrokCssColorDark(rootColor) ? "dark" : "light";
+      } catch {
+      }
+      return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
+    }
+    function getGrokDeleteConfirmTheme(mode) {
+      const isDark = String(mode || "").toLowerCase() === "dark";
+      if (isDark) {
+        return Object.freeze({
+          overlay: "rgba(0, 0, 0, 0.58)",
+          backdropFilter: "blur(10px)",
+          panelBackground: "rgba(24, 24, 27, 0.96)",
+          panelBorder: "rgba(255, 255, 255, 0.10)",
+          panelShadow: "0 28px 80px rgba(0, 0, 0, 0.55)",
+          titleColor: "#f4f4f5",
+          textColor: "#d4d4d8",
+          mutedColor: "#a1a1aa",
+          neutralButtonBackground: "rgba(255, 255, 255, 0.06)",
+          neutralButtonBackgroundHover: "rgba(255, 255, 255, 0.10)",
+          neutralButtonBorder: "rgba(255, 255, 255, 0.10)",
+          neutralButtonText: "#f4f4f5",
+          dangerButtonBackground: "#ef4444",
+          dangerButtonBackgroundHover: "#dc2626",
+          dangerButtonBorder: "rgba(239, 68, 68, 0.55)",
+          dangerButtonText: "#ffffff",
+          focusRing: "rgba(255, 255, 255, 0.22)"
+        });
+      }
+      return Object.freeze({
+        overlay: "rgba(15, 23, 42, 0.18)",
+        backdropFilter: "blur(6px)",
+        panelBackground: "#ffffff",
+        panelBorder: "rgba(15, 23, 42, 0.10)",
+        panelShadow: "0 28px 80px rgba(15, 23, 42, 0.16)",
+        titleColor: "#111827",
+        textColor: "#374151",
+        mutedColor: "#6b7280",
+        neutralButtonBackground: "#f3f4f6",
+        neutralButtonBackgroundHover: "#e5e7eb",
+        neutralButtonBorder: "rgba(15, 23, 42, 0.08)",
+        neutralButtonText: "#111827",
+        dangerButtonBackground: "#ef4444",
+        dangerButtonBackgroundHover: "#dc2626",
+        dangerButtonBorder: "rgba(239, 68, 68, 0.50)",
+        dangerButtonText: "#ffffff",
+        focusRing: "rgba(239, 68, 68, 0.20)"
+      });
+    }
+    function getGrokDeleteConfirmText(engine2, key, fallback) {
+      return engine2?.i18n?.t?.(`dialogs.deleteChatConfirm.${key}`, {}, fallback) || fallback;
+    }
+    function showGrokDeleteConfirmDialog({ engine: engine2 = null } = {}) {
+      if (grokDeleteConfirmDialogState?.promise) return grokDeleteConfirmDialogState.promise;
+      const mode = getGrokPageThemeMode();
+      const theme = getGrokDeleteConfirmTheme(mode);
+      const title = getGrokDeleteConfirmText(engine2, "title", "Confirm delete chat");
+      const message = getGrokDeleteConfirmText(engine2, "message", "The script will continue the Delete Chat click flow after you confirm. This action cannot be undone.");
+      const confirmText = getGrokDeleteConfirmText(engine2, "confirm", "Delete Chat");
+      const cancelText = getGrokDeleteConfirmText(engine2, "cancel", "Cancel");
+      const host = document.body || document.documentElement;
+      if (!host) return Promise.resolve(false);
+      const overlay = document.createElement("div");
+      const panel = document.createElement("div");
+      const titleEl = document.createElement("div");
+      const messageEl = document.createElement("p");
+      const buttonRow = document.createElement("div");
+      const cancelButton = document.createElement("button");
+      const confirmButton = document.createElement("button");
+      const titleId = `grok-delete-confirm-title-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const messageId = `grok-delete-confirm-message-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       let cleaned = false;
-      let timeoutId = 0;
-      let closeCheckId = 0;
-      let missingSince = 0;
-      let handlingEnter = false;
-      const listenerTargets = [];
+      let resolved = false;
+      let previousBodyOverflow = "";
+      let previousHtmlOverflow = "";
+      const state = {
+        promise: null,
+        resolve: null,
+        overlay,
+        panel,
+        cancelButton,
+        confirmButton
+      };
       const cleanup = () => {
         if (cleaned) return;
         cleaned = true;
-        for (const target of listenerTargets) {
-          try {
-            target.removeEventListener?.("keydown", onEnter, true);
-          } catch {
-          }
-          try {
-            target.removeEventListener?.("keydown", onEnter, false);
-          } catch {
-          }
-          try {
-            target.removeEventListener?.("keyup", onEnter, true);
-          } catch {
-          }
-          try {
-            target.removeEventListener?.("keyup", onEnter, false);
-          } catch {
-          }
-          try {
-            target.removeEventListener?.("keypress", onEnter, true);
-          } catch {
-          }
-          try {
-            target.removeEventListener?.("keypress", onEnter, false);
-          } catch {
-          }
-        }
         try {
-          clearTimeout(timeoutId);
+          window.removeEventListener("keydown", onKeydown, true);
         } catch {
         }
         try {
-          clearInterval(closeCheckId);
+          document.removeEventListener("keydown", onKeydown, true);
         } catch {
         }
-        if (grokConversationMenuEnterBridgeCleanup === cleanup) grokConversationMenuEnterBridgeCleanup = null;
-      };
-      const addListenerTarget = (target) => {
-        if (!target || typeof target.addEventListener !== "function" || listenerTargets.includes(target)) return;
-        listenerTargets.push(target);
-      };
-      const resolveTargetItem = () => {
-        const latestRoot = findGrokConversationMenuRoot() || (isElementVisible(menuRoot) ? menuRoot : null);
-        const latestItem = latestRoot && (textMatch || iconMatch) ? getGrokConversationMenuItem(latestRoot, { textMatch, iconMatch, fallbackToFirst: false }) : null;
-        return latestItem || (isElementVisible(targetItem) ? targetItem : null);
-      };
-      const onEnter = (event) => {
-        if (!isPlainEnterKeyEvent(event)) return;
-        if (handlingEnter) return;
-        const latestRoot = findGrokConversationMenuRoot() || (isElementVisible(menuRoot) ? menuRoot : null);
-        const candidate = resolveTargetItem();
-        if (!candidate || !isElementVisible(candidate)) {
-          cleanup();
-          return;
+        try {
+          overlay.remove();
+        } catch {
         }
-        handlingEnter = true;
-        const eventTarget = event.target || null;
-        const isInsideMenu = !!(eventTarget && (candidate.contains?.(eventTarget) || latestRoot?.contains?.(eventTarget)));
-        if (!isInsideMenu) {
+        try {
+          if (document.body) document.body.style.overflow = previousBodyOverflow;
+          if (document.documentElement) document.documentElement.style.overflow = previousHtmlOverflow;
+        } catch {
+        }
+        if (grokDeleteConfirmDialogState === state) grokDeleteConfirmDialogState = null;
+      };
+      const finish = (ok) => {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        try {
+          state.resolve?.(!!ok);
+        } catch {
+        }
+      };
+      const onKeydown = (event) => {
+        if (resolved) return;
+        if (String(event.key || "").toLowerCase() === "escape") {
           try {
             event.preventDefault();
           } catch {
@@ -1645,54 +1775,168 @@
             event.stopImmediatePropagation?.();
           } catch {
           }
-        }
-        cleanup();
-        void (async () => {
-          if (isInsideMenu) await sleep(120);
-          else await sleep(0);
-          const settledCandidate = resolveTargetItem() || candidate;
-          if (!settledCandidate || !isElementVisible(settledCandidate)) return;
-          if (isInsideMenu) {
-            const stillOpen = findGrokConversationMenuRoot() || (isElementVisible(menuRoot) ? menuRoot : null);
-            if (!stillOpen) return;
-          }
-          focusGrokConversationMenuItem(settledCandidate);
-          simulateGrokClick(settledCandidate);
-        })();
-      };
-      grokConversationMenuEnterBridgeCleanup = cleanup;
-      try {
-        addListenerTarget(win);
-        addListenerTarget(doc);
-        addListenerTarget(doc.documentElement);
-        addListenerTarget(doc.body);
-        addListenerTarget(menuRoot);
-        addListenerTarget(targetItem);
-        for (const target of listenerTargets) {
-          target.addEventListener?.("keydown", onEnter, true);
-          target.addEventListener?.("keydown", onEnter, false);
-          target.addEventListener?.("keyup", onEnter, true);
-          target.addEventListener?.("keyup", onEnter, false);
-          target.addEventListener?.("keypress", onEnter, true);
-          target.addEventListener?.("keypress", onEnter, false);
-        }
-      } catch {
-        cleanup();
-        return false;
-      }
-      const timeout = Math.max(1e3, Number(timeoutMs) || 3e4);
-      const closeCheckInterval = Math.max(100, Number(closeCheckIntervalMs) || 250);
-      timeoutId = setTimeout(cleanup, timeout);
-      closeCheckId = setInterval(() => {
-        const latest = resolveTargetItem();
-        if (latest && isElementVisible(latest)) {
-          missingSince = 0;
+          finish(false);
           return;
         }
-        if (!missingSince) missingSince = Date.now();
-        if (Date.now() - missingSince > 1500) cleanup();
-      }, closeCheckInterval);
-      return true;
+        if (!isPlainEnterKeyEvent(event)) return;
+        try {
+          event.preventDefault();
+        } catch {
+        }
+        try {
+          event.stopPropagation();
+        } catch {
+        }
+        try {
+          event.stopImmediatePropagation?.();
+        } catch {
+        }
+        finish(true);
+      };
+      const setButtonBaseStyle = (button, { background, backgroundHover, borderColor, textColor, boxShadow = "none" } = {}) => {
+        const apply = (hovered) => {
+          Object.assign(button.style, {
+            appearance: "none",
+            border: `1px solid ${borderColor}`,
+            borderRadius: "999px",
+            background: hovered ? backgroundHover : background,
+            color: textColor,
+            boxShadow,
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "600",
+            lineHeight: "1",
+            minWidth: "96px",
+            padding: "10px 16px",
+            transition: "background-color 120ms ease, border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease"
+          });
+        };
+        apply(false);
+        button.addEventListener("mouseenter", () => apply(true));
+        button.addEventListener("mouseleave", () => apply(false));
+        button.addEventListener("focus", () => {
+          button.style.boxShadow = `0 0 0 3px ${theme.focusRing}`;
+        });
+        button.addEventListener("blur", () => {
+          button.style.boxShadow = boxShadow;
+        });
+      };
+      overlay.setAttribute("data-grok-delete-confirm-overlay", "1");
+      overlay.setAttribute("data-theme", mode);
+      overlay.setAttribute("role", "presentation");
+      Object.assign(overlay.style, {
+        position: "fixed",
+        inset: "0",
+        zIndex: "2147483647",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        boxSizing: "border-box",
+        background: theme.overlay,
+        backdropFilter: theme.backdropFilter,
+        WebkitBackdropFilter: theme.backdropFilter
+      });
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-modal", "true");
+      panel.setAttribute("aria-labelledby", titleId);
+      panel.setAttribute("aria-describedby", messageId);
+      panel.tabIndex = -1;
+      Object.assign(panel.style, {
+        boxSizing: "border-box",
+        width: "min(100%, 460px)",
+        borderRadius: "24px",
+        border: `1px solid ${theme.panelBorder}`,
+        background: theme.panelBackground,
+        color: theme.textColor,
+        boxShadow: theme.panelShadow,
+        padding: "24px 24px 20px",
+        fontFamily: "inherit",
+        display: "flex",
+        flexDirection: "column",
+        gap: "16px"
+      });
+      titleEl.id = titleId;
+      titleEl.textContent = title;
+      Object.assign(titleEl.style, {
+        margin: "0",
+        color: theme.titleColor,
+        fontSize: "18px",
+        fontWeight: "700",
+        letterSpacing: "0",
+        lineHeight: "1.25"
+      });
+      messageEl.id = messageId;
+      messageEl.textContent = message;
+      Object.assign(messageEl.style, {
+        margin: "0",
+        color: theme.mutedColor,
+        fontSize: "14px",
+        lineHeight: "1.55",
+        whiteSpace: "pre-wrap"
+      });
+      Object.assign(buttonRow.style, {
+        display: "flex",
+        justifyContent: "flex-end",
+        gap: "12px",
+        marginTop: "4px"
+      });
+      cancelButton.type = "button";
+      cancelButton.textContent = cancelText;
+      setButtonBaseStyle(cancelButton, {
+        background: theme.neutralButtonBackground,
+        backgroundHover: theme.neutralButtonBackgroundHover,
+        borderColor: theme.neutralButtonBorder,
+        textColor: theme.neutralButtonText
+      });
+      cancelButton.addEventListener("click", () => finish(false));
+      confirmButton.type = "button";
+      confirmButton.textContent = confirmText;
+      setButtonBaseStyle(confirmButton, {
+        background: theme.dangerButtonBackground,
+        backgroundHover: theme.dangerButtonBackgroundHover,
+        borderColor: theme.dangerButtonBorder,
+        textColor: theme.dangerButtonText,
+        boxShadow: "0 12px 24px rgba(239, 68, 68, 0.22)"
+      });
+      confirmButton.addEventListener("click", () => finish(true));
+      buttonRow.appendChild(cancelButton);
+      buttonRow.appendChild(confirmButton);
+      panel.appendChild(titleEl);
+      panel.appendChild(messageEl);
+      panel.appendChild(buttonRow);
+      overlay.appendChild(panel);
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) finish(false);
+      });
+      try {
+        previousBodyOverflow = String(document.body?.style.overflow || "");
+        previousHtmlOverflow = String(document.documentElement?.style.overflow || "");
+        if (document.body) document.body.style.overflow = "hidden";
+        if (document.documentElement) document.documentElement.style.overflow = "hidden";
+      } catch {
+      }
+      state.promise = new Promise((resolve) => {
+        state.resolve = resolve;
+      });
+      grokDeleteConfirmDialogState = state;
+      try {
+        window.addEventListener("keydown", onKeydown, true);
+        document.addEventListener("keydown", onKeydown, true);
+      } catch {
+        cleanup();
+        return Promise.resolve(false);
+      }
+      host.appendChild(overlay);
+      try {
+        confirmButton.focus({ preventScroll: true });
+      } catch {
+      }
+      try {
+        panel.focus({ preventScroll: true });
+      } catch {
+      }
+      return state.promise;
     }
     function getGrokConversationMenuSpec(shortcut) {
       const data = isPlainObjectLocal(shortcut?.data) ? shortcut.data : {};
@@ -1772,6 +2016,10 @@
       if (spec.action === "open") {
         return !!await ensureGrokConversationMenuOpen();
       }
+      if (spec.targetId === "delete") {
+        const confirmed = await showGrokDeleteConfirmDialog({ engine: engine2 });
+        if (!confirmed) return false;
+      }
       const menuRoot = findGrokConversationMenuRoot() || await ensureGrokConversationMenuOpen();
       if (!menuRoot) {
         console.warn(`${LOG_TAG} conversationMenu: menu not found.`);
@@ -1806,11 +2054,10 @@
         console.warn(`${LOG_TAG} conversationMenu: target menu item is disabled.`);
         return false;
       }
-      focusGrokConversationMenuItem(targetItem);
       if (spec.action === "click") {
-        return simulateGrokClick(targetItem);
+        return clickCurrentGrokConversationMenuItem({ menuRoot, targetItem, textMatch: spec.textMatch, iconMatch: spec.iconMatch });
       }
-      return armGrokConversationMenuEnterBridge({ menuRoot, targetItem, textMatch: spec.textMatch, iconMatch: spec.iconMatch }, { engine: engine2 });
+      return clickCurrentGrokConversationMenuItem({ menuRoot, targetItem, textMatch: spec.textMatch, iconMatch: spec.iconMatch });
     }
     function inferSidebarStateFromClassName(value) {
       const token = String(value ?? "").toLowerCase();
