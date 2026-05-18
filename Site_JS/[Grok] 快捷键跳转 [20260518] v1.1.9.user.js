@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260518] v1.1.8
-// @name:en        [Grok] Shortcut Jump [20260518] v1.1.8
+// @name           [Grok] 快捷键跳转 [20260518] v1.1.9
+// @name:en        [Grok] Shortcut Jump [20260518] v1.1.9
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260518] v1.1.8
-// @update-log     1.1.8: 修复 Delete Chat 菜单项未被真实激活的问题，新增带坐标的 pointer 点击、键盘激活兜底与菜单关闭校验。
-// @update-log:en  1.1.8: Fixed the Delete Chat menu item not being truly activated by adding coordinate pointer clicks, keyboard fallback, and menu-dismiss verification.
+// @version        [20260518] v1.1.9
+// @update-log     1.1.9: 修复 Grok Delete Chat 菜单项层级识别，兼容 tabindex/li 菜单项，增强未激活判定，并将脚本确认弹窗默认焦点改为整个弹窗区域。
+// @update-log:en  1.1.9: Fixed Grok Delete Chat menu-item layer detection for tabindex/li menu entries, strengthened non-activation detection, and changed the script confirmation dialog to focus the whole dialog panel by default.
 
 // @match          https://grok.dairoot.cn/*
 // @match          https://grok.com/*
@@ -895,8 +895,12 @@
       "[role='menuitemradio']",
       "[role='menuitem']",
       "[role='option']",
+      "[role='menuitemcheckbox']",
       "button",
+      "li",
+      "[tabindex]",
       "[data-radix-collection-item]",
+      "[data-highlighted]",
       "[cmdk-item]"
     ]);
     const GROK_MODEL_TRIGGER_CANDIDATE_SELECTORS = Object.freeze([
@@ -1233,9 +1237,17 @@
       if (!element) return null;
       const selector = GROK_MODEL_MENU_ITEM_SELECTORS.join(", ");
       try {
-        if (element.matches?.(selector)) return element;
+        if (element.matches?.(selector)) {
+          if (menuRoot && element === menuRoot) return null;
+          return element;
+        }
+        let node = element.parentElement || null;
+        while (node && node !== menuRoot) {
+          if (node.matches?.(selector)) return node;
+          node = node.parentElement || null;
+        }
         const closest = element.closest?.(selector) || null;
-        if (!closest) return null;
+        if (!closest || closest === menuRoot) return null;
         if (menuRoot && !menuRoot.contains(closest)) return null;
         return closest;
       } catch {
@@ -1519,8 +1531,12 @@
       "[role='menuitemradio']",
       "[role='menuitem']",
       "[role='option']",
+      "[role='menuitemcheckbox']",
       "button",
+      "li",
+      "[tabindex]",
       "[data-radix-collection-item]",
+      "[data-highlighted]",
       "[cmdk-item]"
     ]);
     const GROK_CONVERSATION_TRIGGER_CANDIDATE_SELECTORS = Object.freeze([
@@ -1871,7 +1887,7 @@
         if (clicked && await waitForGrokConversationMenuActivation({ menuRoot: currentRoot, textMatch, iconMatch })) return true;
         currentRoot = findGrokConversationMenuRoot() || (isElementVisible(currentRoot) ? currentRoot : null);
         currentItem = currentRoot ? getGrokConversationMenuItem(currentRoot, { textMatch, iconMatch, fallbackToFirst: false }) : null;
-        if (!currentRoot || !currentItem || !isElementVisible(currentItem)) return true;
+        if (!currentRoot || !currentItem || !isElementVisible(currentItem)) continue;
       }
       console.warn(`${LOG_TAG} conversationMenu: target menu item did not activate; menu stayed open.`);
       return false;
@@ -2213,11 +2229,16 @@
       }
       host.appendChild(overlay);
       try {
-        confirmButton.focus({ preventScroll: true });
+        panel.focus({ preventScroll: true });
       } catch {
       }
       try {
-        panel.focus({ preventScroll: true });
+        requestAnimationFrame?.(() => {
+          try {
+            panel.focus({ preventScroll: true });
+          } catch {
+          }
+        });
       } catch {
       }
       return state.promise;
@@ -2303,6 +2324,7 @@
       if (spec.targetId === "delete") {
         const confirmed = await showGrokDeleteConfirmDialog({ engine: engine2 });
         if (!confirmed) return false;
+        await sleep(60);
       }
       const menuRoot = findGrokConversationMenuRoot() || await ensureGrokConversationMenuOpen();
       if (!menuRoot) {
