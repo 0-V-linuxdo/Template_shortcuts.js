@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260518] v1.0.5
-// @name:en        [Notion] Shortcut Jump [20260518] v1.0.5
+// @name           [Notion] 快捷键跳转 [20260518] v1.0.6
+// @name:en        [Notion] Shortcut Jump [20260518] v1.0.6
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
-// @description:en Template-based visual custom shortcuts for Notion AI, with new chat, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
+// @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
+// @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260518] v1.0.5
-// @update-log     1.0.5: 修复 Notion AI Quick Input 真实输入框读取链路；当 DOM value/text 为空时改用聚焦选择后的 Selection 文本校验，并让 role=textbox 继续走真实编辑命令写入。
-// @update-log:en  1.0.5: Fixed Notion AI Quick Input's real composer read path; when DOM value/text is empty it now verifies focused selection text, and role=textbox continues through real editing commands for insertion.
+// @version        [20260518] v1.0.6
+// @update-log     1.0.6: 新增 Notion AI 删除话题快捷键，优先点击右上角三点菜单并执行 Delete；同时保留原生确认框，不自动确认删除。
+// @update-log:en  1.0.6: Added a Notion AI delete-topic shortcut that opens the conversation menu, clicks Delete, and leaves any native confirmation dialog untouched.
 
 // @match          https://*.notion.so/*
 // @match          https://notion.so/*
@@ -71,6 +71,7 @@
     const NEW_CHAT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14'/%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E";
     const WEB_ACCESS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 0 20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E";
     const QUICK_INPUT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M7 9h.01'/%3E%3Cpath d='M11 9h.01'/%3E%3Cpath d='M15 9h.01'/%3E%3Cpath d='M17 15H7'/%3E%3C/svg%3E";
+    const DELETE_TOPIC_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M8 6V4h8v2'/%3E%3Cpath d='M19 6l-1 14H6L5 6'/%3E%3Cpath d='M10 11v5'/%3E%3Cpath d='M14 11v5'/%3E%3C/svg%3E";
     const defaultIcons = [
       { name: "Notion", url: defaultIconURL },
       { name: "AI Assistant", url: NOTION_AI_ICON },
@@ -80,6 +81,7 @@
       { name: "New Chat", url: NEW_CHAT_ICON },
       { name: "Web Access", url: WEB_ACCESS_ICON },
       { name: "Quick Input", url: QUICK_INPUT_ICON },
+      { name: "Delete Topic", url: DELETE_TOPIC_ICON },
       { name: "Google", url: "https://www.google.com/favicon.ico" },
       { name: "ChatGPT", url: "https://chat.openai.com/favicon-32x32.png" },
       { name: "Claude", url: "https://claude.ai/favicon.ico" },
@@ -223,7 +225,8 @@
       "newChat",
       ...NOTION_MODEL_SHORTCUT_KEYS,
       "toggleWebAccess",
-      "quickInput"
+      "quickInput",
+      "deleteTopic"
     ]);
     const NOTION_NEW_CHAT_TRIGGER_SELECTORS = [
       '[data-testid*="new-chat" i]',
@@ -290,6 +293,46 @@
       '[tabindex]:not([tabindex="-1"])'
     ].join(", ");
     const SETTINGS_MENU_TIMING = Object.freeze({
+      pollIntervalMs: 120,
+      waitTimeoutMs: 3e3,
+      openDelayMs: 120
+    });
+    const NOTION_CONVERSATION_MENU_TARGETS = Object.freeze({
+      delete: Object.freeze({
+        id: "delete",
+        label: "Delete",
+        aliases: Object.freeze(["Delete", "删除"])
+      })
+    });
+    const NOTION_CONVERSATION_MENU_TRIGGER_SELECTORS = [
+      'button[aria-label*="Delete, rename, and more" i]',
+      '[role="button"][aria-label*="Delete, rename, and more" i]',
+      'button[aria-label*="delete, rename" i]',
+      '[role="button"][aria-label*="delete, rename" i]',
+      'button[aria-label*="删除、重命名" i]',
+      '[role="button"][aria-label*="删除、重命名" i]',
+      'button[aria-label*="删除，重命名" i]',
+      '[role="button"][aria-label*="删除，重命名" i]',
+      'button[aria-label*="删除" i][aria-label*="重命名" i]',
+      '[role="button"][aria-label*="删除" i][aria-label*="重命名" i]',
+      'button[aria-label*="more" i][aria-haspopup="menu"]',
+      '[role="button"][aria-label*="more" i][aria-haspopup="menu"]',
+      'button[aria-label*="更多" i][aria-haspopup="menu"]',
+      '[role="button"][aria-label*="更多" i][aria-haspopup="menu"]',
+      'button[aria-haspopup="menu"]',
+      '[role="button"][aria-haspopup="menu"]'
+    ].join(", ");
+    const NOTION_CONVERSATION_MENU_ROOT_SELECTOR = [
+      '[role="menu"]',
+      "[data-radix-menu-content]",
+      '[data-floating-ui-portal] [role="menu"]'
+    ].join(", ");
+    const NOTION_CONVERSATION_MENU_ITEM_SELECTOR = [
+      '[role="menuitem"]',
+      "button",
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(", ");
+    const CONVERSATION_MENU_TIMING = Object.freeze({
       pollIntervalMs: 120,
       waitTimeoutMs: 3e3,
       openDelayMs: 120
@@ -612,6 +655,194 @@
       const trigger = findNewChatTriggerElement();
       if (!trigger) return false;
       return simulateClickElement(trigger, { nativeFallback: true });
+    }
+    function textLooksLikeConversationMenuTrigger(value) {
+      const text = normalizeNotionText(value);
+      const key = normalizeNotionTargetKey(value);
+      if (!text && !key) return false;
+      if (key.includes("deleterenameandmore") || key.includes("deleterename")) return true;
+      if (text.includes("delete, rename") || text.includes("delete rename")) return true;
+      if (text.includes("delete") && text.includes("rename") && text.includes("more")) return true;
+      if (text.includes("删除") && text.includes("重命名") && (text.includes("更多") || text.includes("及更多") || text.includes("more"))) return true;
+      return false;
+    }
+    function scoreConversationMenuTriggerCandidate(element) {
+      if (!element || !isVisibleElement(element)) return -1;
+      if (isInsideShortcutUi(element) || isElementDisabled(element)) return -1;
+      if (element.closest?.(NOTION_CONVERSATION_MENU_ROOT_SELECTOR)) return -1;
+      const searchText = getElementSearchText(element);
+      if (!textLooksLikeConversationMenuTrigger(searchText)) return -1;
+      const rect = getElementRect(element);
+      const viewport = getViewportSize();
+      const role = String(element.getAttribute?.("role") || "").toLowerCase();
+      const tag = String(element.tagName || "").toLowerCase();
+      const hasMenu = String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "menu";
+      let score = 0;
+      if (normalizeNotionText(searchText).includes("delete, rename")) score += 1e3;
+      if (hasMenu) score += 120;
+      if (tag === "button" || role === "button") score += 80;
+      if (rect && viewport.width > 0 && viewport.height > 0) {
+        const topLimit = Math.max(72, viewport.height * 0.16);
+        const isTopRight = rect.top <= topLimit && rect.right >= viewport.width * 0.58;
+        const isMainHeader = rect.top <= Math.max(96, viewport.height * 0.2) && rect.left >= viewport.width * 0.35;
+        const isSidebar = rect.right <= viewport.width * 0.38;
+        if (isTopRight) score += 900;
+        if (isMainHeader) score += 520;
+        if (isSidebar) score += 80;
+        score += Math.max(0, Math.round(rect.right / 20));
+      }
+      return score > 0 ? score : -1;
+    }
+    function findConversationMenuTriggerElement() {
+      const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const element of safeQueryAll(document, NOTION_CONVERSATION_MENU_TRIGGER_SELECTORS)) {
+        if (!element || seen.has(element)) continue;
+        seen.add(element);
+        const score = scoreConversationMenuTriggerCandidate(element);
+        if (score < 0) continue;
+        const rect = getElementRect(element);
+        candidates.push({
+          element,
+          score,
+          top: rect ? rect.top : Number.MAX_SAFE_INTEGER,
+          right: rect ? rect.right : 0
+        });
+      }
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (a.top !== b.top) return a.top - b.top;
+        return b.right - a.right;
+      });
+      return getClickableActionElement(candidates[0]?.element || null);
+    }
+    function scoreConversationMenuRoot(root) {
+      if (!root || !isVisibleElement(root) || isInsideShortcutUi(root)) return -1;
+      const text = normalizeNotionText(getElementText(root));
+      if (!text) return -1;
+      let score = 0;
+      if (text.includes("delete") || text.includes("删除")) score += 260;
+      if (text.includes("rename") || text.includes("重命名")) score += 180;
+      if (text.includes("last updated") || text.includes("最后更新")) score += 40;
+      const role = String(root.getAttribute?.("role") || "").toLowerCase();
+      if (role === "menu") score += 120;
+      return score >= 260 ? score : -1;
+    }
+    function findConversationMenuRoot(triggerEl = null) {
+      if (triggerEl) {
+        const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+        if (controlsId) {
+          const controlled = document.getElementById(controlsId);
+          if (scoreConversationMenuRoot(controlled) > 0) return controlled;
+        }
+      }
+      const candidates = safeQueryAll(document, NOTION_CONVERSATION_MENU_ROOT_SELECTOR).map((element) => ({ element, score: scoreConversationMenuRoot(element), rect: getElementRect(element) })).filter((item) => item.score > 0);
+      if (candidates.length === 0) return null;
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (b.rect?.right || 0) - (a.rect?.right || 0);
+      });
+      return candidates[0]?.element || null;
+    }
+    async function ensureConversationMenuOpen(triggerEl, { timeoutMs = CONVERSATION_MENU_TIMING.waitTimeoutMs, intervalMs = CONVERSATION_MENU_TIMING.pollIntervalMs } = {}) {
+      const existing = findConversationMenuRoot(triggerEl);
+      if (existing) return existing;
+      if (!triggerEl) return null;
+      if (!simulateClickElement(triggerEl, { nativeFallback: true })) return null;
+      if (CONVERSATION_MENU_TIMING.openDelayMs > 0) await sleep(CONVERSATION_MENU_TIMING.openDelayMs);
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+      while (Date.now() <= deadline) {
+        const root = findConversationMenuRoot(triggerEl);
+        if (root) return root;
+        await sleep(Math.max(30, Number(intervalMs) || 30));
+      }
+      return findConversationMenuRoot(triggerEl);
+    }
+    function resolveConversationMenuTarget(value) {
+      const text = normalizeNotionText(value);
+      const key = normalizeNotionTargetKey(value);
+      if (!text && !key) return null;
+      if (key === "delete" || key === "remove" || key === "deletetopic" || text === "删除" || text.includes("删除话题")) {
+        return NOTION_CONVERSATION_MENU_TARGETS.delete;
+      }
+      return null;
+    }
+    function getConversationMenuSpec(shortcut) {
+      const data = getShortcutDataObject(shortcut);
+      const rawMenu = data.menu;
+      const menu = isPlainObject(rawMenu) ? rawMenu : rawMenu !== void 0 ? { textMatch: rawMenu } : data;
+      const rawTextMatch = menu.keyword !== void 0 ? menu.keyword : menu.textMatch;
+      const path = Array.isArray(menu.path) ? menu.path.map((item) => String(item ?? "").trim()).filter(Boolean) : [];
+      const pathLast = path.length ? path[path.length - 1] : "";
+      const target = resolveConversationMenuTarget(menu.id ?? rawTextMatch ?? pathLast ?? rawMenu ?? shortcut?.name);
+      const textMatch = target ? null : rawTextMatch ?? pathLast;
+      const waitForItem = menu.waitForItem !== void 0 ? !!menu.waitForItem : true;
+      if (!target && !textMatch) {
+        console.warn(`${LOG_TAG} conversationMenu: missing target; set data.menu = { id: "delete" } or plain text like "Delete".`);
+        return null;
+      }
+      return { target, textMatch, waitForItem };
+    }
+    function menuItemTextExactlyMatches(element, values) {
+      const labels = Array.isArray(values) ? values : [values];
+      const targets = labels.map(normalizeNotionText).filter(Boolean);
+      if (targets.length === 0) return false;
+      const candidates = [
+        getElementText(element),
+        element?.getAttribute?.("aria-label"),
+        element?.getAttribute?.("title"),
+        element?.textContent
+      ].map(normalizeNotionText).filter(Boolean);
+      return candidates.some((text) => targets.some((target) => text === target));
+    }
+    function conversationMenuItemMatches(element, spec) {
+      if (!element || !spec) return false;
+      if (spec.target) {
+        return menuItemTextExactlyMatches(element, [spec.target.label, ...spec.target.aliases || []]);
+      }
+      return menuItemTextExactlyMatches(element, spec.textMatch);
+    }
+    function findConversationMenuItem(root, spec) {
+      if (!root || !spec) return null;
+      const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const element of safeQueryAll(root, NOTION_CONVERSATION_MENU_ITEM_SELECTOR)) {
+        if (!element || seen.has(element) || !isVisibleElement(element)) continue;
+        seen.add(element);
+        candidates.push(element);
+      }
+      for (const element of candidates) {
+        if (conversationMenuItemMatches(element, spec)) return getClickableMenuItem(element, root);
+      }
+      const fallbackCandidates = safeQueryAll(root, "div, span, button").filter((element) => element && !seen.has(element) && isVisibleElement(element));
+      for (const element of fallbackCandidates) {
+        if (conversationMenuItemMatches(element, spec)) return getClickableMenuItem(element, root);
+      }
+      return null;
+    }
+    async function clickConversationMenuItem({ shortcut }) {
+      const spec = getConversationMenuSpec(shortcut);
+      if (!spec) return false;
+      const trigger = findConversationMenuTriggerElement();
+      if (!trigger) {
+        console.warn(`${LOG_TAG} conversationMenu: top/right conversation menu trigger not found.`);
+        return false;
+      }
+      const menuRoot = await ensureConversationMenuOpen(trigger);
+      if (!menuRoot) {
+        console.warn(`${LOG_TAG} conversationMenu: menu root not found after opening trigger.`);
+        return false;
+      }
+      const deadline = Date.now() + CONVERSATION_MENU_TIMING.waitTimeoutMs;
+      do {
+        const currentRoot = findConversationMenuRoot(trigger) || menuRoot;
+        const target = findConversationMenuItem(currentRoot, spec);
+        if (target && simulateClickElement(target, { nativeFallback: true })) return true;
+        if (!spec.waitForItem || Date.now() >= deadline) break;
+        await sleep(CONVERSATION_MENU_TIMING.pollIntervalMs);
+      } while (true);
+      console.warn(`${LOG_TAG} conversationMenu: target menu item not found.`);
+      return false;
     }
     function scoreModelTriggerCandidate(element) {
       if (!element || !isVisibleElement(element)) return -1;
@@ -3091,6 +3322,7 @@
           toggleResearchMode: "切换研究模式",
           selectSearchScope: "选择搜索范围",
           toggleWebAccess: "切换联网",
+          deleteTopic: "删除话题",
           addContext: "添加上下文",
           attachFile: "附加文件",
           quickInput: "快捷输入"
@@ -3099,6 +3331,10 @@
           modelPicker: {
             label: "模型 ID / 关键词（或粘贴 JSON，高级用法）:",
             placeholder: '例如: gemini pro / opus 4.7 / {"menu":{"id":"opus47"}}'
+          },
+          conversationMenu: {
+            label: "会话菜单项 ID / 关键词（或粘贴 JSON，高级用法）:",
+            placeholder: '例如: delete / Delete / {"menu":{"id":"delete"}}'
           }
         },
         quickInput: {
@@ -3114,12 +3350,17 @@
         shortcuts: {
           newChat: "New Chat",
           toggleWebAccess: "Toggle Web Access",
+          deleteTopic: "Delete Topic",
           quickInput: "Quick Input"
         },
         dataAdapters: {
           modelPicker: {
             label: "Model ID / keyword (or paste JSON, advanced):",
             placeholder: 'Example: gemini pro / opus 4.7 / {"menu":{"id":"opus47"}}'
+          },
+          conversationMenu: {
+            label: "Conversation menu item ID / keyword (or paste JSON, advanced):",
+            placeholder: 'Example: delete / Delete / {"menu":{"id":"delete"}}'
           }
         },
         quickInput: {
@@ -3196,6 +3437,16 @@
         customAction: "quickInput",
         hotkey: "CTRL+SHIFT+K",
         icon: QUICK_INPUT_ICON
+      }),
+      createShortcut({
+        key: "deleteTopic",
+        name: "Delete Topic",
+        labelKey: "shortcuts.deleteTopic",
+        actionType: "custom",
+        customAction: "conversationMenu",
+        hotkey: "CTRL+BACKSPACE",
+        icon: DELETE_TOPIC_ICON,
+        data: { menu: { id: "delete" } }
       }),
       createShortcut({
         key: "addContext",
@@ -3339,6 +3590,7 @@
         newChat: triggerNewChatAction,
         modelPicker: clickModelPickerItem,
         toggleWebAccess: toggleWebAccessAction,
+        conversationMenu: clickConversationMenuItem,
         quickInput: ({ engine: engine2 }) => {
           ensureQuickInputController(engine2)?.toggle?.();
         }
@@ -3347,6 +3599,10 @@
         modelPicker: createMenuDataAdapter({
           label: siteText("dataAdapters.modelPicker.label", "Model ID / keyword (or paste JSON, advanced):"),
           placeholder: siteText("dataAdapters.modelPicker.placeholder", 'Example: gemini pro / opus 4.7 / {"menu":{"id":"opus47"}}')
+        }),
+        conversationMenu: createMenuDataAdapter({
+          label: siteText("dataAdapters.conversationMenu.label", "Conversation menu item ID / keyword (or paste JSON, advanced):"),
+          placeholder: siteText("dataAdapters.conversationMenu.placeholder", 'Example: delete / Delete / {"menu":{"id":"delete"}}')
         })
       },
       consoleTag: LOG_TAG,
