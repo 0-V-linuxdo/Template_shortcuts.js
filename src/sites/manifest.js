@@ -260,16 +260,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260520] v1.0.1",
+            name: "[Gemini] 快捷键跳转 [20260520] v1.0.2",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260520] v1.0.1",
-            updateLog: "1.0.1: 修复 Gemini 删除话题快捷键误识别回答底部 More 按钮的问题；顶部当前会话菜单仍优先，缺失或不可用时才回退左侧当前话题三点菜单。",
+            version: "[20260520] v1.0.2",
+            updateLog: "1.0.2: 修复 Gemini 新 UI 左侧当前话题三点按钮识别；顶部当前会话菜单仍优先，缺失或不可用时会临时展开侧栏并回退到当前话题菜单。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260520] v1.0.1",
+                    name: "[Gemini] Shortcut Jump [20260520] v1.0.2",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.1: Fixed the Gemini delete shortcut misidentifying the response-footer More button; the top current-conversation menu is still preferred, with left current-topic fallback only when missing or unavailable."
+                    updateLog: "1.0.2: Fixed Gemini new UI detection for the left-sidebar current-topic three-dot button; the top current-conversation menu is still preferred, and when missing or unavailable the shortcut temporarily expands the sidebar and falls back to the current-topic menu."
                 }
             },
             match: [

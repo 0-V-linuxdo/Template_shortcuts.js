@@ -1300,8 +1300,8 @@
         return keepSidebarVisible && !isSidebarAutoExpandSuppressedByViewport();
     }
 
-    function ensureSidebarVisible() {
-        if (!keepSidebarVisible) return false;
+    function ensureSidebarVisible({ ignorePreference = false } = {}) {
+        if (!ignorePreference && !keepSidebarVisible) return false;
         const open = isSidebarOpen();
         if (open === true) return true;
         if (open !== false) return false;
@@ -1541,12 +1541,19 @@
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    const GEMINI_CONVERSATION_LINK_SELECTOR = "a[data-test-id='conversation']";
+    const GEMINI_CONVERSATION_LINK_SELECTOR = [
+        "a[data-test-id='conversation']",
+        "gem-nav-list-item[data-test-id='conversation'] a[href*='/app/']",
+        "a[href*='/app/']"
+    ].join(", ");
     const GEMINI_CONVERSATION_SIDEBAR_SELECTOR = "bard-sidenav, side-navigation-content, .sidenav-with-history-container";
     const GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR = [
+        "gem-nav-list-item[data-test-id='conversation']",
+        "gem-nav-list-item",
         ".conversation-item",
         ".conversation-list-item",
         ".conversation-row",
+        ".gem-nav-list-item",
         "[data-test-id='conversation-container']",
         "[data-test-id='conversation-row']",
         "[role='listitem']",
@@ -1556,6 +1563,14 @@
     ].join(", ");
     const GEMINI_CONVERSATION_CONTAINER_SELECTOR = ".conversation-items-container";
     const GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR = [
+        "gem-icon-button[data-test-id='actions-menu-button']",
+        "gem-icon-button[data-test-id='actions-menu-button'] button",
+        "gem-icon-button[data-test-id='conversation-actions-menu-icon-button']",
+        "gem-icon-button[data-test-id='conversation-actions-menu-icon-button'] button",
+        "gem-icon-button.gem-conversation-actions-menu-button",
+        "gem-icon-button.gem-conversation-actions-menu-button button",
+        ".hovered-trailing-content gem-icon-button[data-test-id='actions-menu-button']",
+        ".hovered-trailing-content gem-icon-button[data-test-id='actions-menu-button'] button",
         "button[data-test-id='actions-menu-button']",
         "button[data-test-id='conversation-actions-menu-icon-button']",
         "button[aria-label*='More options' i]",
@@ -1687,28 +1702,83 @@
         return best || link.parentElement || link.closest?.(GEMINI_CONVERSATION_CONTAINER_SELECTOR) || null;
     }
 
+    function getGeminiConversationActionButtonHost(element) {
+        if (!element || element.nodeType !== 1) return null;
+        const hostSelector = [
+            "gem-icon-button[data-test-id='actions-menu-button']",
+            "gem-icon-button[data-test-id='conversation-actions-menu-icon-button']",
+            "gem-icon-button.gem-conversation-actions-menu-button",
+            ".gem-conversation-actions-menu-button"
+        ].join(", ");
+
+        try {
+            if (element.matches?.(hostSelector)) return element;
+            return element.closest?.(hostSelector) || null;
+        } catch {
+            return null;
+        }
+    }
+
+    function getGeminiConversationMenuClickTarget(element) {
+        if (!element || element.nodeType !== 1) return null;
+        const tagName = String(element.tagName || "").toLowerCase();
+        const role = getStringAttr(element, "role").toLowerCase();
+        if (tagName === "button" || role === "button") return element;
+
+        const host = getGeminiConversationActionButtonHost(element) || element;
+        try {
+            return host.querySelector?.("button, [role='button']") || host;
+        } catch {
+            return host;
+        }
+    }
+
     function scoreGeminiConversationMenuButton(button) {
         if (!button || button.nodeType !== 1) return -Infinity;
         if (button.closest?.("mat-dialog-container, [role='dialog'], .cdk-overlay-pane")) return -Infinity;
+        const host = getGeminiConversationActionButtonHost(button);
         if (button.disabled || getStringAttr(button, "aria-disabled").toLowerCase() === "true") return -Infinity;
+        if (getStringAttr(host, "aria-disabled").toLowerCase() === "true") return -Infinity;
 
         let score = 0;
         const tagName = String(button.tagName || "").toLowerCase();
         const role = getStringAttr(button, "role").toLowerCase();
-        const dataTestId = getStringAttr(button, "data-test-id").toLowerCase();
-        const ariaLabel = normalizeGeminiUiText(button.getAttribute?.("aria-label") || "");
-        const title = normalizeGeminiUiText(button.getAttribute?.("title") || "");
-        const className = normalizeGeminiUiText(String(button.className || ""));
-        const ariaHasPopup = getStringAttr(button, "aria-haspopup").toLowerCase();
-        const iconNames = getGeminiElementIconNames(button).map(normalizeGeminiToolIconName);
+        const dataTestId = normalizeGeminiUiText([
+            getStringAttr(button, "data-test-id"),
+            getStringAttr(host, "data-test-id")
+        ].filter(Boolean).join(" "));
+        const ariaLabel = normalizeGeminiUiText([
+            button.getAttribute?.("aria-label"),
+            host?.getAttribute?.("aria-label")
+        ].filter(Boolean).join(" "));
+        const title = normalizeGeminiUiText([
+            button.getAttribute?.("title"),
+            host?.getAttribute?.("title")
+        ].filter(Boolean).join(" "));
+        const className = normalizeGeminiUiText([
+            String(button.className || ""),
+            host ? String(host.className || "") : ""
+        ].filter(Boolean).join(" "));
+        const ariaHasPopup = normalizeGeminiUiText([
+            getStringAttr(button, "aria-haspopup"),
+            getStringAttr(host, "aria-haspopup")
+        ].filter(Boolean).join(" "));
+        const iconNames = [
+            ...getGeminiElementIconNames(button),
+            ...(host && host !== button ? getGeminiElementIconNames(host) : [])
+        ].map(normalizeGeminiToolIconName);
 
-        if (dataTestId === "actions-menu-button") score += 170;
-        if (dataTestId === "conversation-actions-menu-icon-button") score += 170;
+        const dataTestIds = dataTestId.split(/\s+/).filter(Boolean);
+        const ariaPopupValues = ariaHasPopup.split(/\s+/).filter(Boolean);
+
+        if (dataTestIds.includes("actions-menu-button")) score += 170;
+        if (dataTestIds.includes("conversation-actions-menu-icon-button")) score += 170;
         if (className.includes("conversation-actions-menu-button")) score += 130;
         if (ariaLabel.includes("open menu for conversation actions")) score += 150;
         if (ariaLabel.includes("conversation actions")) score += 120;
+        if (ariaLabel.includes("more options for")) score += 140;
         if (ariaLabel.includes("more options") || ariaLabel.includes("更多选项")) score += 115;
-        if (ariaHasPopup === "menu") score += 80;
+        if (ariaPopupValues.includes("menu")) score += 80;
         if (title.includes("more options") || title.includes("conversation actions")) score += 55;
         if (iconNames.includes("more_vert") || iconNames.includes("more_horiz")) score += 100;
         if (ariaLabel.includes("delete") || ariaLabel.includes("rename") || ariaLabel.includes("pin")) score -= 80;
@@ -1734,7 +1804,8 @@
         const seen = new Set();
         for (const selector of selectors) {
             try {
-                for (const button of Array.from(container.querySelectorAll(selector))) {
+                for (const candidate of Array.from(container.querySelectorAll(selector))) {
+                    const button = getGeminiConversationMenuClickTarget(candidate);
                     if (!button || seen.has(button)) continue;
                     seen.add(button);
                     buttons.push(button);
@@ -1810,6 +1881,13 @@
 
     function isConversationMenuButtonUsable(button) {
         return !!button && isElementVisible(button);
+    }
+
+    function shouldTemporarilyExpandSidebarForConversationFallback(result) {
+        if (!result?.currentPathname) return false;
+        if (isConversationMenuButtonUsable(result?.entry?.button)) return false;
+        if (isConversationEntryVisible(result?.entry)) return false;
+        return isSidebarOpen() === false;
     }
 
     function getStringAttr(node, attrName) {
@@ -2038,6 +2116,7 @@
         const interval = Math.max(30, Number(intervalMs) || 30);
         const deadline = Date.now() + timeout;
         let lastResult = resolveCurrentConversationMenuTarget();
+        let temporarySidebarExpandAttempted = false;
 
         if (!lastResult?.currentPathname) return lastResult;
 
@@ -2045,6 +2124,21 @@
             ensureSidebarVisible();
             const result = resolveCurrentConversationMenuTarget();
             if (isConversationMenuButtonUsable(result?.entry?.button)) return result;
+
+            if (!temporarySidebarExpandAttempted && shouldTemporarilyExpandSidebarForConversationFallback(result)) {
+                temporarySidebarExpandAttempted = true;
+                const expanded = ensureSidebarVisible({ ignorePreference: true });
+                if (expanded) {
+                    await sleep(Math.max(interval, MENU_TIMING.openDelayMs || 120));
+                    lastResult = result;
+                    continue;
+                }
+                return {
+                    ...result,
+                    reason: "temporarySidebarExpandFailed"
+                };
+            }
+
             if (result?.entry) {
                 const revealedEntry = revealConversationEntryActions(result.entry);
                 if (isConversationMenuButtonUsable(revealedEntry?.button)) {
@@ -2091,6 +2185,9 @@
         switch (reason) {
             case "noCurrentConversationPath":
                 console.warn(`[Gemini Shortcut] conversationMenu: 未找到当前对话项，已中止操作。当前页面不是已保存对话: ${currentPathname}`);
+                return;
+            case "temporarySidebarExpandFailed":
+                console.warn(`[Gemini Shortcut] conversationMenu: 侧边栏未展开且临时展开失败，已中止操作。当前对话: ${currentPathname}`);
                 return;
             case "matchedUrlButButtonHidden":
                 console.warn(`[Gemini Shortcut] conversationMenu: 已定位当前对话，但三个点按钮暂不可用，已中止操作。当前对话: ${currentPathname}`);
