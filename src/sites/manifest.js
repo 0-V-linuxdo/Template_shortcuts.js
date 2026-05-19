@@ -265,6 +265,8 @@ export const SITE_MANIFEST = Object.freeze([
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
             version: "[20260519] v1.1.3",
             updateLog: "1.1.3: 修复 Gemini 新版删除/固定话题无反应的问题，当前话题菜单会按真实侧边栏行定位，并显式展开 hover-only 的行内菜单按钮。",
+            updateURL: releaseAsset("Site_JS/[Gemini] 快捷键跳转.user.js"),
+            downloadURL: releaseAsset("Site_JS/[Gemini] 快捷键跳转.user.js"),
             localized: {
                 "en-US": {
                     name: "[Gemini] Shortcut Jump [20260519] v1.1.3",
@@ -286,7 +288,11 @@ export const SITE_MANIFEST = Object.freeze([
                 "*"
             ],
             icon: GEMINI_KEYCAP_ICON
-        }
+        },
+        userscriptAliases: [
+            "[Gemini] 快捷键跳转.user.js",
+            "[Gemini] 快捷键跳转 [20260519] v1.1.2.user.js"
+        ]
     },
     {
         siteId: "grok",
