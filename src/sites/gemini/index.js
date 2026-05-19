@@ -1600,9 +1600,9 @@
 
     function revealConversationEntryActions(entry) {
         let nextEntry = refreshConversationEntryButton(entry);
-        if (isConversationMenuButtonUsable(nextEntry?.button)) return nextEntry;
+        if (isConversationMenuButtonUsable(nextEntry?.button, { allowHidden: true })) return nextEntry;
 
-        const targets = [nextEntry?.container, nextEntry?.link].filter(Boolean);
+        const targets = [nextEntry?.container, nextEntry?.link, nextEntry?.button].filter(Boolean);
         for (const target of targets) {
             try { target.scrollIntoView?.({ block: "nearest", inline: "nearest" }); } catch { }
             try { target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window })); } catch { }
@@ -1625,8 +1625,24 @@
         );
     }
 
-    function isConversationMenuButtonUsable(button) {
-        return !!button && isElementVisible(button);
+    function isConversationMenuButtonUsable(button, { allowHidden = false } = {}) {
+        if (!button) return false;
+        const ariaDisabled = getStringAttr(button, "aria-disabled").toLowerCase();
+        if (button.disabled || ariaDisabled === "true") return false;
+        if (isElementVisible(button)) return true;
+        if (!allowHidden) return false;
+
+        const dataTestId = getStringAttr(button, "data-test-id").toLowerCase();
+        const className = String(button.className || "");
+        const ariaHasPopup = getStringAttr(button, "aria-haspopup").toLowerCase();
+        const ariaLabel = normalizeGeminiUiText(button.getAttribute?.("aria-label") || "");
+        return (
+            dataTestId === "actions-menu-button" ||
+            dataTestId === "conversation-actions-menu-icon-button" ||
+            /\bconversation-actions-menu-button\b/.test(className) ||
+            ariaHasPopup === "menu" ||
+            ariaLabel.includes("more options")
+        );
     }
 
     function getStringAttr(node, attrName) {
@@ -1754,7 +1770,7 @@
     }
 
     function buildConversationTargetResult(entry, base = {}) {
-        return isConversationMenuButtonUsable(entry?.button)
+        return isConversationMenuButtonUsable(entry?.button, { allowHidden: true })
             ? {
                 ...base,
                 entry,
@@ -1854,15 +1870,15 @@
         const deadline = Date.now() + timeout;
         let lastResult = resolveCurrentConversationMenuTarget();
 
-        if (!lastResult?.currentPathname) return lastResult;
+        if (!lastResult?.currentPathname && !lastResult?.entry) return lastResult;
 
         while (Date.now() <= deadline) {
             ensureSidebarVisible();
             const result = resolveCurrentConversationMenuTarget();
-            if (isConversationMenuButtonUsable(result?.entry?.button)) return result;
+            if (isConversationMenuButtonUsable(result?.entry?.button, { allowHidden: true })) return result;
             if (result?.entry) {
                 const revealedEntry = revealConversationEntryActions(result.entry);
-                if (isConversationMenuButtonUsable(revealedEntry?.button)) {
+                if (isConversationMenuButtonUsable(revealedEntry?.button, { allowHidden: true })) {
                     return {
                         ...result,
                         entry: revealedEntry,
@@ -2909,7 +2925,7 @@
         timing: MENU_TIMING,
         submenus: Object.freeze({}),
         getTriggerElement(ctx) {
-            return getGeminiTopBarConversationActionButton() || topBarConversationMenuBase.getTriggerElement(ctx) || null;
+            return getGeminiTopBarConversationActionButton() || null;
         },
         activateTrigger(ctx) {
             const trigger = this.getTriggerElement(ctx);
@@ -3010,7 +3026,7 @@
         getTriggerElement() {
             const entry = resolveCurrentConversationMenuTarget()?.entry || null;
             if (!entry) return null;
-            if (isConversationMenuButtonUsable(entry.button)) return entry.button;
+            if (isConversationMenuButtonUsable(entry.button, { allowHidden: true })) return entry.button;
             return refreshConversationEntryButton(entry)?.button || null;
         },
         activateTrigger() {
@@ -3035,7 +3051,7 @@
 
             const target = await waitForCurrentConversationMenuTarget({ timeoutMs, intervalMs });
             const entry = target?.entry || null;
-            if (!entry?.button || !isConversationMenuButtonUsable(entry.button)) {
+            if (!entry?.button || !isConversationMenuButtonUsable(entry.button, { allowHidden: true })) {
                 logConversationMenuTargetAbort(target);
                 return false;
             }
@@ -3050,6 +3066,7 @@
             const existingRoot = getActiveRoot();
             if (existingRoot) return true;
 
+            revealConversationEntryActions(entry);
             if (!simulateGeminiMenuClick(entry.button)) return false;
             if (openDelayMs > 0) await sleep(openDelayMs);
 
