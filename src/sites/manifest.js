@@ -264,12 +264,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
             version: "[20260519] v1.0.0",
-            updateLog: "1.0.0: 适配 Gemini 新旧网页 UI，自适应识别新版输入栏、模型菜单、工具入口、侧边栏与 Quick Input 发送流程。",
+            updateLog: "1.0.0: 适配 Gemini 新旧网页 UI，补齐新版 Upload & tools 工具菜单和 More tools 二级菜单匹配，增强模型菜单、侧边栏与 Quick Input 发送流程。",
             localized: {
                 "en-US": {
                     name: "[Gemini] Shortcut Jump [20260519] v1.0.0",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.0: Adapted Gemini for both the new and legacy web UIs, with runtime detection for the new composer, model menu, tools entry, sidebar, and Quick Input send flow."
+                    updateLog: "1.0.0: Adapted Gemini for both the new and legacy web UIs, including the new Upload & tools menu, More tools submenu matching, model menu, sidebar, and Quick Input send flow."
                 }
             },
             match: [

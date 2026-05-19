@@ -371,6 +371,13 @@
             "button.toolbox-drawer-button[aria-haspopup='menu']",
             "button.toolbox-drawer-button"
         ], [
+            "[data-node-type='input-area'] button[aria-label='Upload & tools']",
+            "input-area-v2 button[aria-label='Upload & tools']",
+            "button[aria-label='Upload & tools']",
+            "[data-node-type='input-area'] button[aria-label*='tools' i]",
+            "input-area-v2 button[aria-label*='tools' i]",
+            "button[aria-label*='upload & tools' i]",
+            "button[aria-label*='upload and tools' i]",
             "[data-node-type='input-area'] button[aria-label='Open upload file menu']",
             "input-area-v2 button[aria-label='Open upload file menu']",
             "button[aria-label='Open upload file menu']",
@@ -389,6 +396,9 @@
             ".cdk-overlay-pane .mat-mdc-menu-panel[role='menu']",
             ".cdk-overlay-pane .mat-menu-panel[role='menu']",
             ".cdk-overlay-pane [role='menu']",
+            ".cdk-overlay-pane .mat-mdc-menu-panel",
+            ".cdk-overlay-pane .mat-menu-panel",
+            ".cdk-overlay-pane",
             ".mat-mdc-menu-panel[role='menu']",
             ".mat-menu-panel[role='menu']"
         ]),
@@ -553,6 +563,52 @@
             aliases: Object.freeze(["Learn", "Learning", "学习"])
         })
     });
+
+    const GEMINI_TOOLS_PRIMARY_MENU_MARKERS = Object.freeze([
+        "Upload files",
+        "Add from Drive",
+        "More uploads",
+        "Create image",
+        "Create video",
+        "Canvas",
+        "Deep research",
+        "More tools",
+        "上传文件",
+        "从云端硬盘添加",
+        "更多上传",
+        "创建图片",
+        "生成图片",
+        "创建视频",
+        "生成视频",
+        "画布",
+        "深度研究",
+        "更多工具"
+    ]);
+
+    const GEMINI_TOOLS_SUBMENU_MARKERS = Object.freeze([
+        "Learn",
+        "Learning",
+        "Create music",
+        "Music",
+        "学习",
+        "创建音乐",
+        "生成音乐"
+    ]);
+
+    const GEMINI_TOOLS_MENU_MARKERS = Object.freeze([
+        ...GEMINI_TOOLS_PRIMARY_MENU_MARKERS,
+        ...GEMINI_TOOLS_SUBMENU_MARKERS
+    ]);
+
+    const GEMINI_MORE_TOOLS_ALIASES = Object.freeze([
+        "More tools",
+        "更多工具"
+    ]);
+
+    const GEMINI_TOOLS_SUBMENU_TARGET_IDS = Object.freeze([
+        "learn",
+        "createMusic"
+    ]);
 
     const GEMINI_TOOL_TARGET_ID_ALIASES = Object.freeze(
         Object.values(GEMINI_TOOL_TARGETS).reduce((acc, target) => {
@@ -1190,7 +1246,7 @@
         });
     }
 
-    const toolsDrawerMenu = TemplateUtils.menu.createMenuController({
+    const toolsDrawerMenuBase = TemplateUtils.menu.createMenuController({
         trigger: {
             selectors: SELECTORS.toolsButton
         },
@@ -1201,6 +1257,7 @@
         },
         timing: MENU_TIMING
     });
+    const toolsDrawerMenu = createGeminiToolsMenuController(toolsDrawerMenuBase);
 
     const modelPickerMenu = TemplateUtils.menu.createMenuController({
         trigger: {
@@ -1770,15 +1827,18 @@
         if (!target && iconNames.length === 0) return null;
 
         return (rawText, element) => {
+            if (aliases.length > 0 && geminiMenuTextMatches(rawText, aliases, element)) return true;
+
+            const hasReadableText = !!normalizeGeminiUiText(element ? getGeminiUiElementText(element) : rawText);
+            if (hasReadableText) return false;
+
             if (iconNames.length > 0 && elementHasGeminiToolIconName(element, iconNames)) return true;
 
             const jslogId = getGeminiElementJslogId(element);
             if (jslogId && jslogIds.includes(jslogId)) return true;
 
             const featureId = getGeminiElementFeatureId(element);
-            if (featureId && featureIds.includes(featureId)) return true;
-
-            return aliases.length > 0 && geminiMenuTextMatches(rawText, aliases, element);
+            return !!featureId && featureIds.includes(featureId);
         };
     }
 
@@ -1912,6 +1972,370 @@
 
         if (!fallbackToFirst) return null;
         return candidates[0] || null;
+    }
+
+    function getGeminiNormalizedElementSearchText(element) {
+        if (!element) return "";
+        const parts = [];
+        try {
+            const text = String(element.textContent || "");
+            if (text) parts.push(text);
+        } catch { }
+        const uiText = getGeminiUiElementText(element);
+        if (uiText) parts.push(uiText);
+        return normalizeGeminiUiText(parts.join(" "));
+    }
+
+    function geminiNormalizedTextIncludesAny(normalizedText, markers) {
+        if (!normalizedText) return false;
+        return (Array.isArray(markers) ? markers : []).some(marker => {
+            const token = normalizeGeminiUiText(marker);
+            return !!token && normalizedText.includes(token);
+        });
+    }
+
+    function countGeminiToolsMarkers(element, markers = GEMINI_TOOLS_MENU_MARKERS) {
+        const text = getGeminiNormalizedElementSearchText(element);
+        if (!text) return 0;
+        const normalizedMarkers = Array.from(new Set((Array.isArray(markers) ? markers : [])
+            .map(normalizeGeminiUiText)
+            .filter(Boolean)))
+            .sort((a, b) => b.length - a.length);
+        const matched = [];
+        for (const marker of normalizedMarkers) {
+            if (!text.includes(marker)) continue;
+            if (matched.some(existing => existing.includes(marker))) continue;
+            matched.push(marker);
+        }
+        return matched.length;
+    }
+
+    function elementMatchesGeminiSelector(element, selector) {
+        if (!element || !selector) return false;
+        try {
+            return !!element.matches?.(selector);
+        } catch {
+            return false;
+        }
+    }
+
+    function isGeminiLegacyToolsMenuRoot(element) {
+        if (!element) return false;
+        const id = String(element.getAttribute?.("id") || "");
+        if (id === "toolbox-drawer-menu") return true;
+        const className = String(element.getAttribute?.("class") || "");
+        return /\btoolbox-drawer-card\b/.test(className);
+    }
+
+    function isGeminiToolsPrimaryMenuRoot(element) {
+        if (!element || !isElementVisible(element)) return false;
+        if (isGeminiLegacyToolsMenuRoot(element)) return true;
+
+        const text = getGeminiNormalizedElementSearchText(element);
+        if (!text) return false;
+
+        const hasUploadMarker = geminiNormalizedTextIncludesAny(text, [
+            "Upload files",
+            "Add from Drive",
+            "More uploads",
+            "上传文件",
+            "从云端硬盘添加",
+            "更多上传"
+        ]);
+        const hasMoreTools = geminiNormalizedTextIncludesAny(text, GEMINI_MORE_TOOLS_ALIASES);
+        const primaryCount = countGeminiToolsMarkers(element, GEMINI_TOOLS_PRIMARY_MENU_MARKERS);
+
+        return hasUploadMarker || hasMoreTools || primaryCount >= 2;
+    }
+
+    function isGeminiToolsAnyMenuRoot(element) {
+        if (!element || !isElementVisible(element)) return false;
+        if (isGeminiToolsPrimaryMenuRoot(element)) return true;
+        return countGeminiToolsMarkers(element, GEMINI_TOOLS_SUBMENU_MARKERS) > 0;
+    }
+
+    function getGeminiToolsMenuRootCandidates(ctx) {
+        const doc = globalThis.document || null;
+        if (!doc) return [];
+
+        const selectors = resolveSelectorListFromSpec(ctx, SELECTORS.toolsMenuRoot);
+        const seen = new Set();
+        const candidates = [];
+
+        for (const sel of selectors) {
+            let list = [];
+            try {
+                list = Array.from(doc.querySelectorAll(sel));
+            } catch {
+                continue;
+            }
+            for (const el of list) {
+                if (!el || seen.has(el)) continue;
+                seen.add(el);
+                candidates.push(el);
+            }
+        }
+
+        return candidates.filter(isElementVisible);
+    }
+
+    function getGeminiToolsMenuRootElements(ctx, { includeSubmenus = true } = {}) {
+        const candidates = getGeminiToolsMenuRootCandidates(ctx);
+        return candidates.filter(el => includeSubmenus
+            ? isGeminiToolsAnyMenuRoot(el)
+            : isGeminiToolsPrimaryMenuRoot(el));
+    }
+
+    function getGeminiToolsMenuRootElement(ctx) {
+        const roots = getGeminiToolsMenuRootElements(ctx, { includeSubmenus: false });
+        return roots[roots.length - 1] || null;
+    }
+
+    function geminiToolsMenuElementLooksTooBroad(element, rootEl) {
+        if (!element || element === rootEl) return true;
+        const text = getGeminiNormalizedElementSearchText(element);
+        if (!text) return false;
+        return countGeminiToolsMarkers(element) > 1;
+    }
+
+    const GEMINI_TOOLS_CLICKABLE_ITEM_SELECTOR = [
+        "button:not([disabled])",
+        "a[href]",
+        "label",
+        "[role='menuitem']",
+        "[role='menuitemradio']",
+        "[role='menuitemcheckbox']",
+        "[role='button']",
+        "[mat-menu-item]",
+        ".mat-mdc-menu-item",
+        ".mat-mdc-list-item",
+        "[jslog]",
+        "[data-test-id]",
+        "[tabindex]"
+    ].join(", ");
+
+    function getGeminiToolsMenuClickableElement(element, rootEl) {
+        if (!element) return null;
+
+        let node = element.nodeType === 1 ? element : (element.parentElement || null);
+        const candidates = [];
+        while (node && node.nodeType === 1 && node !== rootEl) {
+            if (
+                isElementVisible(node) &&
+                elementMatchesGeminiSelector(node, GEMINI_TOOLS_CLICKABLE_ITEM_SELECTOR) &&
+                !geminiToolsMenuElementLooksTooBroad(node, rootEl)
+            ) {
+                candidates.push(node);
+            }
+            node = node.parentElement || null;
+        }
+
+        const withKnownMarker = candidates.find(el => countGeminiToolsMarkers(el) > 0);
+        if (withKnownMarker) return withKnownMarker;
+        if (candidates[0]) return candidates[0];
+
+        if (
+            element.nodeType === 1 &&
+            isElementVisible(element) &&
+            !geminiToolsMenuElementLooksTooBroad(element, rootEl)
+        ) {
+            return element;
+        }
+        return null;
+    }
+
+    const GEMINI_TOOLS_TEXT_FALLBACK_ITEM_SELECTOR = [
+        "button",
+        "a",
+        "label",
+        "[role='menuitem']",
+        "[role='menuitemradio']",
+        "[role='menuitemcheckbox']",
+        "[role='button']",
+        "[aria-label]",
+        "[title]",
+        "[jslog]",
+        "[data-test-id]",
+        "[tabindex]",
+        "mat-icon",
+        "span",
+        "div"
+    ].join(", ");
+
+    function findGeminiToolsMenuItemInRoot(rootEl, selector, { textMatch = null, normalize, fallbackToFirst = false } = {}) {
+        const direct = findMenuItemInRoot(rootEl, selector, { textMatch, normalize, fallbackToFirst });
+        const directClickable = getGeminiToolsMenuClickableElement(direct, rootEl);
+        if (directClickable) return directClickable;
+
+        if (!textMatch) return directClickable || null;
+
+        let all = [];
+        try {
+            all = Array.from(rootEl.querySelectorAll(GEMINI_TOOLS_TEXT_FALLBACK_ITEM_SELECTOR));
+        } catch {
+            return null;
+        }
+
+        const visible = all.filter(el => el !== rootEl && isElementVisible(el));
+        const candidates = visible.length ? visible : all.filter(el => el !== rootEl);
+        if (candidates.length === 0) return null;
+
+        const normalizeText = (typeof normalize === "function")
+            ? normalize
+            : (value) => String(value ?? "").trim().toLowerCase();
+        const matchText = TemplateUtils?.dom?.matchText;
+        const structuredTextMatch = isStructuredGeminiTextMatchSpec(textMatch);
+        const textMatchGroups = structuredTextMatch
+            ? getGeminiTextMatchPriorityGroups(textMatch)
+            : [textMatch];
+
+        for (const group of textMatchGroups) {
+            for (const el of candidates) {
+                if (geminiToolsMenuElementLooksTooBroad(el, rootEl)) continue;
+
+                const uiText = getGeminiUiElementText(el);
+                const text = uiText || String(el?.textContent || "");
+                const matched = (typeof matchText === "function")
+                    ? matchText(text, group, { normalize: normalizeText, element: el })
+                    : geminiMenuTextMatches(text, group, el);
+                if (!matched) continue;
+
+                const clickable = getGeminiToolsMenuClickableElement(el, rootEl);
+                if (clickable) return clickable;
+            }
+        }
+
+        return null;
+    }
+
+    function geminiMoreToolsMenuMatcher(rawText, element) {
+        if (geminiMenuTextExactlyMatches(rawText, GEMINI_MORE_TOOLS_ALIASES, element)) return true;
+        const text = normalizeGeminiUiText(element ? getGeminiUiElementText(element) : rawText);
+        return text === "more tools" || text === "更多工具";
+    }
+
+    function createGeminiToolsMenuController(baseMenu) {
+        return Object.freeze({
+            timing: MENU_TIMING,
+            getTriggerElement(ctx) {
+                return baseMenu?.getTriggerElement?.(ctx) || null;
+            },
+            activateTrigger(ctx) {
+                return !!baseMenu?.activateTrigger?.(ctx);
+            },
+            getRootElement(ctx) {
+                return getGeminiToolsMenuRootElement(ctx);
+            },
+            isOpen(ctx) {
+                return !!this.getRootElement(ctx);
+            },
+            getOpenMenuRoots(ctx, { includeRoot = true, includeSubmenus = true } = {}) {
+                if (!includeRoot && !includeSubmenus) return [];
+                return getGeminiToolsMenuRootElements(ctx, { includeSubmenus });
+            },
+            async ensureOpen(ctx, opts = {}) {
+                const timeoutMs = opts.timeoutMs ?? MENU_TIMING.waitTimeoutMs;
+                const intervalMs = opts.intervalMs ?? MENU_TIMING.pollIntervalMs;
+                const openDelayMs = opts.openDelayMs ?? MENU_TIMING.openDelayMs;
+
+                if (this.isOpen(ctx)) return true;
+
+                const trigger = this.getTriggerElement(ctx);
+                if (!trigger || !isElementVisible(trigger)) return false;
+                if (!this.activateTrigger(ctx)) return false;
+                if (openDelayMs > 0) await sleep(openDelayMs);
+
+                const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+                while (Date.now() <= deadline) {
+                    if (this.isOpen(ctx)) return true;
+                    await sleep(Math.max(30, Number(intervalMs) || 30));
+                }
+                return this.isOpen(ctx);
+            },
+            async ensureSubmenuOpen(ctx, submenuKey, opts = {}) {
+                const key = normalizeMenuKey(submenuKey);
+                if (key !== "moretools") return false;
+                if (!await this.ensureOpen(ctx, opts)) return false;
+
+                const rootsBefore = this.getOpenMenuRoots(ctx, { includeSubmenus: true }).length;
+                const clicked = await this.clickInOpenMenus(ctx, {
+                    selector: TOOLS_DRAWER_ITEM_SELECTOR,
+                    textMatch: geminiMoreToolsMenuMatcher,
+                    waitForItem: true
+                });
+                if (!clicked) return false;
+
+                const timeoutMs = opts.timeoutMs ?? MENU_TIMING.waitTimeoutMs;
+                const intervalMs = opts.intervalMs ?? MENU_TIMING.pollIntervalMs;
+                const openDelayMs = opts.openDelayMs ?? MENU_TIMING.openDelayMs;
+                if (openDelayMs > 0) await sleep(openDelayMs);
+
+                const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+                while (Date.now() <= deadline) {
+                    const roots = this.getOpenMenuRoots(ctx, { includeSubmenus: true });
+                    if (roots.length > rootsBefore) return true;
+                    if (roots.some(root => countGeminiToolsMarkers(root, GEMINI_TOOLS_SUBMENU_MARKERS) > 0)) return true;
+                    await sleep(Math.max(30, Number(intervalMs) || 30));
+                }
+                return true;
+            },
+            async clickInOpenMenus(ctx, {
+                selector,
+                textMatch = null,
+                normalize = TemplateUtils?.dom?.normalizeText,
+                fallbackToFirst = false,
+                waitForItem = false
+            } = {}) {
+                const selectorList = resolveSelectorListFromSpec(ctx, selector);
+                if (selectorList.length === 0) return false;
+
+                const tryClickOnce = () => {
+                    const roots = this.getOpenMenuRoots(ctx, { includeRoot: true, includeSubmenus: true }).filter(Boolean);
+                    if (roots.length === 0) return false;
+
+                    for (const rootEl of roots) {
+                        for (const sel of selectorList) {
+                            const item = findGeminiToolsMenuItemInRoot(rootEl, sel, { textMatch, normalize, fallbackToFirst });
+                            if (item && simulateGeminiMenuClick(item)) return true;
+                        }
+                    }
+                    return false;
+                };
+
+                if (!waitForItem) return tryClickOnce();
+
+                const timeoutMs = MENU_TIMING.waitTimeoutMs ?? 3000;
+                const intervalMs = MENU_TIMING.pollIntervalMs ?? 120;
+                const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+                while (Date.now() <= deadline) {
+                    if (tryClickOnce()) return true;
+                    await sleep(Math.max(30, Number(intervalMs) || 30));
+                }
+                return tryClickOnce();
+            },
+            async oneStepClick(ctx, {
+                selector,
+                textMatch = null,
+                normalize = TemplateUtils?.dom?.normalizeText,
+                fallbackToFirst = false,
+                openSubmenus = [],
+                waitForItem = true
+            } = {}) {
+                if (!selector) return false;
+                if (await this.clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem: false })) return true;
+                if (!await this.ensureOpen(ctx)) return false;
+                if (await this.clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem: false })) return true;
+
+                const submenuKeys = Array.isArray(openSubmenus) ? openSubmenus.filter(Boolean) : [];
+                for (const key of submenuKeys) {
+                    await this.ensureSubmenuOpen(ctx, key);
+                    if (await this.clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem: false })) return true;
+                }
+
+                if (!waitForItem) return false;
+                return await this.clickInOpenMenus(ctx, { selector, textMatch, normalize, fallbackToFirst, waitForItem: true });
+            }
+        });
     }
 
     const topBarConversationMenu = Object.freeze({
@@ -2130,7 +2554,7 @@
         return token || "onestep";
     }
 
-    const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, button[mat-list-item], button.mat-mdc-list-item, [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']";
+    const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, button[mat-list-item], button.mat-mdc-list-item, button[aria-label], button[jslog], button[data-test-id], [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox'], [role='button'], [aria-label], [title], [jslog], [data-test-id], [tabindex]";
     const CONVERSATION_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitem'], [role='menuitemradio']";
     const CONVERSATION_MENU_PANEL_SELECTOR = SELECTORS.topBarConversationMenuRoot.join(", ");
     const CONVERSATION_MENU_MARKER_SELECTOR = [
@@ -2294,6 +2718,13 @@
 
         const openSubmenus = [];
         if (Array.isArray(menu.openSubmenus)) openSubmenus.push(...menu.openSubmenus);
+        if (
+            String(actionName || "") === "toolsDrawer" &&
+            inferredMenuTarget?.id &&
+            GEMINI_TOOLS_SUBMENU_TARGET_IDS.includes(inferredMenuTarget.id)
+        ) {
+            openSubmenus.push("More tools");
+        }
 
         if (pathParts.length) {
             if ((textMatch === undefined || textMatch === null || textMatch === "") && pathLast) textMatch = pathLast;
