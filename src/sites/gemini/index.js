@@ -230,6 +230,8 @@
         modern: "new",
         unknown: "unknown"
     });
+    let geminiUiVariantCache = GEMINI_UI_VARIANTS.unknown;
+    let geminiUiVariantCacheReady = false;
 
     function detectGeminiUiVariant() {
         try {
@@ -311,13 +313,22 @@
         return GEMINI_UI_VARIANTS.unknown;
     }
 
+    function getGeminiUiVariant() {
+        if (geminiUiVariantCacheReady) return geminiUiVariantCache;
+        geminiUiVariantCache = detectGeminiUiVariant();
+        geminiUiVariantCacheReady = true;
+        return geminiUiVariantCache;
+    }
+
     function getGeminiSelectorOrder(legacySelectors, modernSelectors) {
         const legacy = Array.isArray(legacySelectors) ? legacySelectors.filter(Boolean) : [legacySelectors].filter(Boolean);
         const modern = Array.isArray(modernSelectors) ? modernSelectors.filter(Boolean) : [modernSelectors].filter(Boolean);
-        const variant = detectGeminiUiVariant();
+        const variant = getGeminiUiVariant();
         if (variant === GEMINI_UI_VARIANTS.modern) return [...modern, ...legacy];
         return [...legacy, ...modern];
     }
+
+    getGeminiUiVariant();
 
     const SELECTORS = {
         sidebarToggle: getGeminiSelectorOrder([
@@ -789,6 +800,7 @@
     const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
     const SIDEBAR_OPEN_LAYOUT_MIN_WIDTH = 160;
     const SIDEBAR_CLOSED_LAYOUT_MAX_WIDTH = 96;
+    const SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS = 1200;
     const SIDEBAR_OPEN_SELECTORS = [
         "div.sidenav-with-history-container.expanded",
         "div.conversation-items-container.side-nav-opened",
@@ -807,6 +819,8 @@
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
     let sidebarVisibilityMenuCommandId = null;
     let sidebarWarmupTimer = null;
+    let sidebarWarmupRequestTimer = null;
+    let sidebarLastWarmupRequestAt = 0;
 
     const baseShortcut = Object.freeze({
         url: "",
@@ -1278,6 +1292,7 @@
         if (!keepSidebarVisible) return false;
         const open = isSidebarOpen();
         if (open === true) return true;
+        if (open !== false) return false;
         return clickSidebarToggleButton();
     }
 
@@ -1291,6 +1306,7 @@
                 stopSidebarWarmup();
             }
         } else {
+            cancelSidebarWarmupRequest();
             stopSidebarWarmup();
         }
 
@@ -1305,7 +1321,29 @@
         sidebarWarmupTimer = null;
     }
 
+    function cancelSidebarWarmupRequest() {
+        if (sidebarWarmupRequestTimer === null) return;
+        try { clearTimeout(sidebarWarmupRequestTimer); } catch { }
+        sidebarWarmupRequestTimer = null;
+    }
+
+    function requestSidebarWarmup({ attempts = 5, intervalMs = 300, delayMs = 0 } = {}) {
+        if (!shouldWarmupSidebarInBackground()) return;
+        const now = Date.now();
+        const delay = Math.max(0, Number(delayMs) || 0);
+        const cooldown = Math.max(0, SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS - (now - sidebarLastWarmupRequestAt));
+        const waitMs = Math.max(delay, cooldown);
+
+        if (sidebarWarmupRequestTimer !== null) return;
+        sidebarWarmupRequestTimer = window.setTimeout(() => {
+            sidebarWarmupRequestTimer = null;
+            sidebarLastWarmupRequestAt = Date.now();
+            startSidebarWarmup({ attempts, intervalMs });
+        }, waitMs);
+    }
+
     function startSidebarWarmup({ attempts = 20, intervalMs = 500 } = {}) {
+        cancelSidebarWarmupRequest();
         stopSidebarWarmup();
         if (!shouldWarmupSidebarInBackground()) return;
         let remaining = Math.max(1, Number(attempts) || 1);
@@ -1323,13 +1361,47 @@
                 return;
             }
 
-            ensureSidebarVisible();
+            if (open === false) ensureSidebarVisible();
             remaining -= 1;
             if (remaining <= 0) stopSidebarWarmup();
         };
 
         tick();
         sidebarWarmupTimer = window.setInterval(tick, interval);
+    }
+
+    function isSidebarToggleEventTarget(target) {
+        const element = target && typeof target.closest === "function"
+            ? target.closest("button, [role='button']")
+            : null;
+        if (!element) return false;
+
+        const label = normalizeGeminiUiText([
+            element.getAttribute?.("aria-label"),
+            element.getAttribute?.("title"),
+            element.textContent
+        ].filter(Boolean).join(" "));
+        if (/(sidebar|side bar|side nav|side-nav|navigation|侧栏|侧边栏|边栏|导航)/.test(label)) {
+            return true;
+        }
+
+        const inGeminiSidebarChrome = !!element.closest?.("top-bar-actions, bard-sidenav, side-navigation-content, side-nav-menu-button");
+        if (!inGeminiSidebarChrome) return false;
+
+        let iconText = "";
+        try {
+            iconText = Array.from(element.querySelectorAll("mat-icon"))
+                .map(icon => [
+                    icon.getAttribute?.("fonticon"),
+                    icon.getAttribute?.("data-mat-icon-name"),
+                    icon.textContent
+                ].filter(Boolean).join(" "))
+                .join(" ");
+        } catch {
+            iconText = "";
+        }
+        const normalizedIconText = normalizeGeminiUiText(iconText);
+        return /(?:^|\s)(menu|menu_open|left_panel_open|left_panel_close|side_navigation)(?:\s|$)/.test(normalizedIconText);
     }
 
     function setupKeepSidebarVisible() {
@@ -1344,30 +1416,39 @@
         }
 
         let lastUrl = location.href;
-        const observer = new MutationObserver(() => {
+        const handlePossibleRouteChange = () => {
             const currentUrl = location.href;
-            if (currentUrl !== lastUrl) {
-                lastUrl = currentUrl;
-                startSidebarWarmup();
-                return;
-            }
+            if (currentUrl === lastUrl) return;
+            lastUrl = currentUrl;
+            requestSidebarWarmup({ attempts: 8, intervalMs: 350, delayMs: 300 });
+        };
+        const patchHistoryMethod = (methodName) => {
+            try {
+                const original = window.history?.[methodName];
+                if (typeof original !== "function" || original.__geminiSidebarWarmupPatched) return;
+                const patched = function (...args) {
+                    const result = original.apply(this, args);
+                    handlePossibleRouteChange();
+                    return result;
+                };
+                patched.__geminiSidebarWarmupPatched = true;
+                patched.__geminiSidebarWarmupOriginal = original;
+                window.history[methodName] = patched;
+            } catch { }
+        };
+        patchHistoryMethod("pushState");
+        patchHistoryMethod("replaceState");
 
-            if (keepSidebarVisible && !isSidebarAutoExpandSuppressedByViewport()) {
-                const state = isSidebarOpen();
-                if (state === false) {
-                    startSidebarWarmup({ attempts: 3, intervalMs: 240 });
-                }
-            }
-        });
-        observer.observe(document.documentElement || document, {
-            subtree: true,
-            childList: true,
-            attributes: true,
-            attributeFilter: ["class", "style", "aria-expanded", "aria-label", "data-state"]
-        });
+        window.addEventListener("popstate", handlePossibleRouteChange);
+        window.addEventListener("hashchange", handlePossibleRouteChange);
+
+        document.addEventListener("click", (event) => {
+            if (!isSidebarToggleEventTarget(event.target)) return;
+            requestSidebarWarmup({ attempts: 5, intervalMs: 300, delayMs: 500 });
+        }, true);
 
         document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === "visible") startSidebarWarmup();
+            if (document.visibilityState === "visible") requestSidebarWarmup({ attempts: 8, intervalMs: 350, delayMs: 250 });
         });
 
         window.addEventListener("resize", () => {
@@ -1376,11 +1457,12 @@
 
             wasSidebarAutoExpandSuppressed = suppressed;
             if (suppressed) {
+                cancelSidebarWarmupRequest();
                 stopSidebarWarmup();
                 return;
             }
 
-            if (keepSidebarVisible) startSidebarWarmup();
+            if (keepSidebarVisible) requestSidebarWarmup({ attempts: 8, intervalMs: 350, delayMs: 250 });
         });
     }
 
