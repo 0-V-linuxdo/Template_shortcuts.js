@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260519] v1.1.1
-// @name:en        [Gemini] Shortcut Jump [20260519] v1.1.1
+// @name           [Gemini] 快捷键跳转 [20260520] v1.0.0
+// @name:en        [Gemini] Shortcut Jump [20260520] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260519] v1.1.1
-// @update-log     1.1.1: 修复 Gemini 新版删除话题快捷键无响应的问题，强化右上角当前会话菜单识别并修正删除确认流程；继续保持页面首次加载时仅判断一次新旧 UI，减少卡顿风险。
-// @update-log:en  1.1.1: Fixed the Gemini new-UI delete-topic shortcut not responding by strengthening current-conversation menu detection and the delete-confirm flow; UI-version detection still runs only once on initial page load to reduce stall risk.
+// @version        [20260520] v1.0.0
+// @update-log     1.0.0: 修复 Gemini 新 UI 顶部会话三点按钮缺失时删除快捷键无响应的问题；删除流程优先使用顶部当前会话菜单，缺失时回退左侧当前话题三点菜单。
+// @update-log:en  1.0.0: Fixed the Gemini new-UI delete shortcut when the top conversation three-dot button is missing; delete prefers the top current-conversation menu and falls back to the left current-topic three-dot menu.
 
 // @match          https://gemini.google.com/*
 
@@ -1449,13 +1449,34 @@
     }
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const GEMINI_CONVERSATION_LINK_SELECTOR = "a[data-test-id='conversation']";
+    const GEMINI_CONVERSATION_SIDEBAR_SELECTOR = "bard-sidenav, side-navigation-content, .sidenav-with-history-container";
+    const GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR = [
+      ".conversation-item",
+      ".conversation-list-item",
+      ".conversation-row",
+      "[data-test-id='conversation-container']",
+      "[data-test-id='conversation-row']",
+      "[role='listitem']",
+      ".mat-mdc-list-item",
+      ".mat-list-item",
+      "li"
+    ].join(", ");
     const GEMINI_CONVERSATION_CONTAINER_SELECTOR = ".conversation-items-container";
     const GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR = [
       "button[data-test-id='actions-menu-button']",
       "button[data-test-id='conversation-actions-menu-icon-button']",
       "button[aria-label*='More options' i]",
       "button[aria-label*='更多选项' i]",
+      "[role='button'][aria-label*='More options' i]",
+      "[role='button'][aria-label*='更多选项' i]",
+      "button[aria-haspopup='menu']",
+      "[role='button'][aria-haspopup='menu']",
       "button[aria-label*='menu' i]",
+      "[role='button'][aria-label*='menu' i]",
+      "button:has(mat-icon[fonticon='more_vert'])",
+      "button:has(mat-icon[data-mat-icon-name='more_vert'])",
+      "button:has(mat-icon[fonticon='more_horiz'])",
+      "button:has(mat-icon[data-mat-icon-name='more_horiz'])",
       "button.conversation-actions-menu-button"
     ].join(", ");
     function normalizePathname(value) {
@@ -1480,18 +1501,139 @@
         return "";
       }
     }
+    function countGeminiConversationLinks(element) {
+      if (!element) return 0;
+      try {
+        const selfCount = element.matches?.(GEMINI_CONVERSATION_LINK_SELECTOR) ? 1 : 0;
+        return selfCount + (element.querySelectorAll?.(GEMINI_CONVERSATION_LINK_SELECTOR)?.length || 0);
+      } catch {
+        return 0;
+      }
+    }
+    function isGeminiConversationSidebarBoundary(element) {
+      return !!element?.matches?.(GEMINI_CONVERSATION_SIDEBAR_SELECTOR);
+    }
+    function scoreGeminiConversationEntryContainer(element, link) {
+      if (!element || !link || element === document || element === document.body) return -Infinity;
+      if (!element.contains?.(link)) return -Infinity;
+      if (isGeminiConversationSidebarBoundary(element)) return -Infinity;
+      const linkCount = countGeminiConversationLinks(element);
+      if (linkCount <= 0) return -Infinity;
+      let score = 0;
+      if (linkCount === 1) score += 120;
+      else score -= Math.min(120, linkCount * 16);
+      if (element === link) score += 15;
+      if (element === link.parentElement) score += 30;
+      if (elementMatchesGeminiSelector(element, GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR)) score += 45;
+      if (elementMatchesGeminiSelector(element, GEMINI_CONVERSATION_CONTAINER_SELECTOR)) score -= 80;
+      if (getConversationMenuButton(element)) score += 80;
+      const text = normalizeGeminiUiText(getGeminiUiElementText(element));
+      if (text.includes("new chat") || text.includes("search chats") || text.includes("新建聊天") || text.includes("搜索聊天")) score -= 160;
+      try {
+        const rect = element.getBoundingClientRect?.();
+        if (rect && rect.width > 0 && rect.height > 0) {
+          score += 8;
+          if (rect.height <= 72) score += 28;
+          else if (rect.height <= 112) score += 12;
+          else score -= 25;
+        }
+      } catch {
+      }
+      return score;
+    }
+    function getGeminiConversationEntryContainer(link) {
+      if (!link) return null;
+      const seen = /* @__PURE__ */ new Set();
+      const candidates = [];
+      const pushCandidate = (node2) => {
+        if (!node2 || node2.nodeType !== 1 || seen.has(node2)) return;
+        seen.add(node2);
+        candidates.push(node2);
+      };
+      let node = link;
+      let guard = 0;
+      while (node && node.nodeType === 1 && guard < 12) {
+        pushCandidate(node);
+        let row = null;
+        try {
+          row = node.closest?.(GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR) || null;
+        } catch {
+          row = null;
+        }
+        pushCandidate(row);
+        const parent = node.parentElement || null;
+        if (!parent || parent === node) break;
+        if (isGeminiConversationSidebarBoundary(parent)) break;
+        node = parent;
+        guard += 1;
+      }
+      let best = null;
+      let bestScore = -Infinity;
+      for (const candidate of candidates) {
+        const score = scoreGeminiConversationEntryContainer(candidate, link);
+        if (score > bestScore) {
+          bestScore = score;
+          best = candidate;
+        }
+      }
+      return best || link.parentElement || link.closest?.(GEMINI_CONVERSATION_CONTAINER_SELECTOR) || null;
+    }
+    function scoreGeminiConversationMenuButton(button) {
+      if (!button || button.nodeType !== 1) return -Infinity;
+      if (button.closest?.("mat-dialog-container, [role='dialog'], .cdk-overlay-pane")) return -Infinity;
+      if (button.disabled || getStringAttr(button, "aria-disabled").toLowerCase() === "true") return -Infinity;
+      let score = 0;
+      const tagName = String(button.tagName || "").toLowerCase();
+      const role = getStringAttr(button, "role").toLowerCase();
+      const dataTestId = getStringAttr(button, "data-test-id").toLowerCase();
+      const ariaLabel = normalizeGeminiUiText(button.getAttribute?.("aria-label") || "");
+      const title = normalizeGeminiUiText(button.getAttribute?.("title") || "");
+      const className = normalizeGeminiUiText(String(button.className || ""));
+      const ariaHasPopup = getStringAttr(button, "aria-haspopup").toLowerCase();
+      const iconNames = getGeminiElementIconNames(button).map(normalizeGeminiToolIconName);
+      if (dataTestId === "actions-menu-button") score += 170;
+      if (dataTestId === "conversation-actions-menu-icon-button") score += 170;
+      if (className.includes("conversation-actions-menu-button")) score += 130;
+      if (ariaLabel.includes("open menu for conversation actions")) score += 150;
+      if (ariaLabel.includes("conversation actions")) score += 120;
+      if (ariaLabel.includes("more options") || ariaLabel.includes("更多选项")) score += 115;
+      if (ariaHasPopup === "menu") score += 80;
+      if (title.includes("more options") || title.includes("conversation actions")) score += 55;
+      if (iconNames.includes("more_vert") || iconNames.includes("more_horiz")) score += 100;
+      if (ariaLabel.includes("delete") || ariaLabel.includes("rename") || ariaLabel.includes("pin")) score -= 80;
+      if (ariaLabel.includes("删除") || ariaLabel.includes("重命名") || ariaLabel.includes("置顶") || ariaLabel.includes("固定")) score -= 80;
+      try {
+        const rect = button.getBoundingClientRect?.();
+        if (rect && rect.width > 0 && rect.height > 0) {
+          score += 8;
+          if (rect.width <= 64 && rect.height <= 64) score += 18;
+        }
+      } catch {
+      }
+      if (score > 0 && tagName === "button") score += 8;
+      if (score > 0 && role === "button") score += 5;
+      return score;
+    }
     function getConversationMenuButton(container) {
       if (!container || typeof container.querySelectorAll !== "function") return null;
       let buttons = [];
-      try {
-        buttons = Array.from(container.querySelectorAll(GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR));
-      } catch {
-        return null;
+      const selectors = GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR.split(",").map((selector) => selector.trim()).filter(Boolean);
+      const seen = /* @__PURE__ */ new Set();
+      for (const selector of selectors) {
+        try {
+          for (const button of Array.from(container.querySelectorAll(selector))) {
+            if (!button || seen.has(button)) continue;
+            seen.add(button);
+            buttons.push(button);
+          }
+        } catch {
+        }
       }
-      for (const button of buttons) {
-        if (isElementVisible(button)) return button;
-      }
-      return buttons[0] || null;
+      const scored = buttons.map((button) => ({ button, score: scoreGeminiConversationMenuButton(button), visible: isElementVisible(button) })).filter((item) => item.score > 0).sort((a, b) => {
+        if (a.visible !== b.visible) return a.visible ? -1 : 1;
+        return b.score - a.score;
+      });
+      return scored[0]?.button || null;
     }
     function refreshConversationEntryButton(entry) {
       if (!entry?.container) return entry;
@@ -1502,26 +1644,57 @@
     function revealConversationEntryActions(entry) {
       let nextEntry = refreshConversationEntryButton(entry);
       if (isConversationMenuButtonUsable(nextEntry?.button)) return nextEntry;
-      const targets = [nextEntry?.container, nextEntry?.link].filter(Boolean);
+      const targets = [];
+      const pushTarget = (target) => {
+        if (!target || targets.includes(target)) return;
+        targets.push(target);
+      };
+      pushTarget(nextEntry?.container);
+      pushTarget(nextEntry?.link);
+      let node = nextEntry?.link || null;
+      let guard = 0;
+      while (node && node.nodeType === 1 && guard < 5) {
+        pushTarget(node);
+        if (node === nextEntry?.container) break;
+        node = node.parentElement || null;
+        guard += 1;
+      }
       for (const target of targets) {
         try {
           target.scrollIntoView?.({ block: "nearest", inline: "nearest" });
         } catch {
         }
+        let rect = null;
         try {
-          target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true, view: window }));
+          rect = target.getBoundingClientRect?.() || null;
+        } catch {
+          rect = null;
+        }
+        const clientX = rect ? Math.max(1, Math.floor(rect.right - Math.min(12, Math.max(4, rect.width / 6)))) : 1;
+        const clientY = rect ? Math.max(1, Math.floor(rect.top + Math.min(rect.height - 4, Math.max(4, rect.height / 2)))) : 1;
+        const eventInit = { bubbles: true, cancelable: true, view: window, clientX, clientY };
+        try {
+          target.dispatchEvent(new MouseEvent("mousemove", eventInit));
         } catch {
         }
         try {
-          target.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true, cancelable: true, view: window }));
+          target.dispatchEvent(new MouseEvent("mouseover", eventInit));
         } catch {
         }
         try {
-          target.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, cancelable: true, view: window }));
+          target.dispatchEvent(new MouseEvent("mouseenter", eventInit));
         } catch {
         }
         try {
-          target.dispatchEvent(new PointerEvent("pointerenter", { bubbles: true, cancelable: true, view: window }));
+          target.dispatchEvent(new PointerEvent("pointermove", { ...eventInit, pointerId: 1, pointerType: "mouse", isPrimary: true }));
+        } catch {
+        }
+        try {
+          target.dispatchEvent(new PointerEvent("pointerover", { ...eventInit, pointerId: 1, pointerType: "mouse", isPrimary: true }));
+        } catch {
+        }
+        try {
+          target.dispatchEvent(new PointerEvent("pointerenter", { ...eventInit, pointerId: 1, pointerType: "mouse", isPrimary: true }));
         } catch {
         }
         try {
@@ -1613,7 +1786,8 @@
         return [];
       }
       return links.map((link) => {
-        const container = link.closest?.(GEMINI_CONVERSATION_CONTAINER_SELECTOR) || null;
+        if (!link.closest?.(GEMINI_CONVERSATION_SIDEBAR_SELECTOR)) return null;
+        const container = getGeminiConversationEntryContainer(link);
         const button = getConversationMenuButton(container);
         const pathname = normalizeGeminiConversationPathname(link.getAttribute?.("href") || link.href || "");
         const jslogMeta = parseGeminiConversationJslogMeta(link);
@@ -1624,7 +1798,7 @@
           pathname,
           jslogMeta
         };
-      }).filter((entry) => !!entry.link && !!entry.container);
+      }).filter(Boolean).filter((entry) => !!entry.link && !!entry.container);
     }
     function resolveUniqueConversationEntry(entries, predicate) {
       const matched = entries.filter(predicate);
