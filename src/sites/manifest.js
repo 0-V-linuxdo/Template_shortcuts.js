@@ -260,16 +260,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260519] v1.0.0",
+            name: "[Gemini] 快捷键跳转 [20260519] v1.1.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260519] v1.0.0",
-            updateLog: "1.0.0: 适配 Gemini 新旧网页 UI，首次加载时仅判断一次 UI 版本，补齐新版 Upload & tools 工具菜单、More tools 二级菜单与新版侧边栏固定/切换识别，并改为轻量触发以避免页面卡顿，增强模型菜单和 Quick Input 发送流程。",
+            version: "[20260519] v1.1.0",
+            updateLog: "1.1.0: 补齐 Gemini 新版删除话题适配，优先命中右上角当前会话菜单并安全回退侧边栏当前话题，增强删除确认框聚焦；继续保持页面首次加载时仅判断一次新旧 UI，减少卡顿风险。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260519] v1.0.0",
+                    name: "[Gemini] Shortcut Jump [20260519] v1.1.0",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.0: Adapted Gemini for both the new and legacy web UIs with a single UI-version check at initial load, including the new Upload & tools menu, More tools submenu, fixed/toggle sidebar detection, lighter sidebar wakeups to avoid page stalls, model menu, and Quick Input send flow."
+                    updateLog: "1.1.0: Completed Gemini new-UI delete-topic support by preferring the current conversation menu in the top bar, safely falling back to the current sidebar item, and improving delete-confirm focus; UI-version detection still runs only once on initial page load to reduce stall risk."
                 }
             },
             match: [
