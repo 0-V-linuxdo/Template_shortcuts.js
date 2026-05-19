@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260520] v1.0.0
-// @name:en        [Gemini] Shortcut Jump [20260520] v1.0.0
+// @name           [Gemini] 快捷键跳转 [20260520] v1.0.1
+// @name:en        [Gemini] Shortcut Jump [20260520] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260520] v1.0.0
-// @update-log     1.0.0: 修复 Gemini 新 UI 顶部会话三点按钮缺失时删除快捷键无响应的问题；删除流程优先使用顶部当前会话菜单，缺失时回退左侧当前话题三点菜单。
-// @update-log:en  1.0.0: Fixed the Gemini new-UI delete shortcut when the top conversation three-dot button is missing; delete prefers the top current-conversation menu and falls back to the left current-topic three-dot menu.
+// @version        [20260520] v1.0.1
+// @update-log     1.0.1: 修复 Gemini 删除话题快捷键误识别回答底部 More 按钮的问题；顶部当前会话菜单仍优先，缺失或不可用时才回退左侧当前话题三点菜单。
+// @update-log:en  1.0.1: Fixed the Gemini delete shortcut misidentifying the response-footer More button; the top current-conversation menu is still preferred, with left current-topic fallback only when missing or unavailable.
 
 // @match          https://gemini.google.com/*
 
@@ -2193,6 +2193,21 @@
       if (!isElementVisible(button)) return true;
       if (button.closest?.("bard-sidenav, side-navigation-content, .sidenav-with-history-container, .conversation-items-container, side-nav-menu-button, side-nav-action-button")) return true;
       if (button.closest?.("rich-textarea, input-area-v2, [data-node-type='input-area'], [contenteditable='true'], .prompt-input, .composer, .prompt-composer")) return true;
+      if (button.closest?.([
+        "user-query",
+        "user-query-content",
+        "model-response",
+        "message-content",
+        "message-actions",
+        "response-actions",
+        ".message-actions",
+        ".response-actions",
+        "[data-test-id*='user-query' i]",
+        "[data-test-id*='model-response' i]",
+        "[data-test-id*='response' i]",
+        "[data-test-id*='message' i]",
+        "[data-test-id*='query' i]"
+      ].join(", "))) return true;
       if (button.closest?.(".cdk-overlay-pane .mat-mdc-menu-panel, .cdk-overlay-pane .mat-menu-panel, .cdk-overlay-pane [role='menu'], mat-dialog-container, [role='dialog']")) return true;
       return false;
     }
@@ -2205,16 +2220,19 @@
       const text = normalizeGeminiUiText(getGeminiUiElementText(button));
       const className = normalizeGeminiUiText(String(button.className || ""));
       const iconNames = getGeminiElementIconNames(button);
+      const inTopBar = !!button.closest?.("top-bar-actions");
+      const explicitlyConversationAction = !!(inTopBar || dataTestId === "conversation-actions-menu-icon-button" || className.includes("conversation-actions-menu-button") || ariaLabel.includes("conversation actions") || ariaLabel.includes("open menu for conversation actions") || title.includes("conversation actions") || text.includes("conversation actions"));
+      if (!explicitlyConversationAction) return -Infinity;
       if (dataTestId === "conversation-actions-menu-icon-button") score += 160;
       if (dataTestId === "actions-menu-button") score += 70;
       if (className.includes("conversation-actions-menu-button")) score += 130;
-      if (button.closest?.("top-bar-actions")) score += 120;
+      if (inTopBar) score += 120;
       if (ariaLabel.includes("conversation actions")) score += 100;
       if (ariaLabel.includes("open menu for conversation actions")) score += 140;
-      if (ariaLabel.includes("more options")) score += 40;
+      if (inTopBar && ariaLabel.includes("more options")) score += 40;
       if (title.includes("conversation actions")) score += 60;
       if (text.includes("conversation actions")) score += 70;
-      if (iconNames.some((name) => normalizeGeminiToolIconName(name) === "more_vert")) score += 35;
+      if (inTopBar && iconNames.some((name) => normalizeGeminiToolIconName(name) === "more_vert")) score += 35;
       try {
         const rect = button.getBoundingClientRect?.();
         if (rect) {
@@ -3477,7 +3495,8 @@
         if (ok) {
           console.info(`${LOG_TAG} conversationMenu: top bar 命中 ${getConversationMenuShortcutLabel(shortcut)}。`);
         } else {
-          console.info(`${LOG_TAG} conversationMenu: top bar 不可用，已回退侧边栏处理 ${getConversationMenuShortcutLabel(shortcut)}。`);
+          console.info(`${LOG_TAG} conversationMenu: top bar 不可用，已回退侧边栏当前话题处理 ${getConversationMenuShortcutLabel(shortcut)}。`);
+          ok = await conversationMenuActionBase({ shortcut, engine: engine2 });
         }
       }
       if (!ok) {
