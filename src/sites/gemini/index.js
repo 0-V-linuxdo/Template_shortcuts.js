@@ -1773,33 +1773,6 @@
         const pool = visibleEntries.length ? visibleEntries : entries;
         const currentPathname = getCurrentGeminiConversationPathname();
 
-        if (!currentPathname) {
-            return {
-                entry: null,
-                reason: "noCurrentConversationPath",
-                currentPathname,
-                entriesCount: pool.length
-            };
-        }
-
-        const pathMatches = pool.filter(entry => entry.pathname === currentPathname);
-        if (pathMatches.length === 1) {
-            return buildConversationTargetResult(pathMatches[0], {
-                matchSource: "url",
-                currentPathname,
-                entriesCount: pool.length,
-                hiddenReason: "matchedUrlButButtonHidden"
-            });
-        }
-        if (pathMatches.length > 1) {
-            return {
-                entry: null,
-                reason: "multipleUrlMatches",
-                currentPathname,
-                entriesCount: pool.length
-            };
-        }
-
         const explicitEntry = resolveUniqueConversationEntry(pool, hasExplicitCurrentConversationState);
         if (explicitEntry) {
             return buildConversationTargetResult(explicitEntry, {
@@ -1830,11 +1803,38 @@
             });
         }
 
+        const pathMatches = currentPathname ? pool.filter(entry => entry.pathname === currentPathname) : [];
+        if (pathMatches.length === 1) {
+            return buildConversationTargetResult(pathMatches[0], {
+                matchSource: "url",
+                currentPathname,
+                entriesCount: pool.length,
+                hiddenReason: "matchedUrlButButtonHidden"
+            });
+        }
+        if (pathMatches.length > 1) {
+            return {
+                entry: null,
+                reason: "multipleUrlMatches",
+                currentPathname,
+                entriesCount: pool.length
+            };
+        }
+
         const jslogMatchesCount = pool.filter(hasJslogCurrentConversationState).length;
         if (jslogMatchesCount > 1) {
             return {
                 entry: null,
                 reason: "multipleJslogCurrentMatches",
+                currentPathname,
+                entriesCount: pool.length
+            };
+        }
+
+        if (!currentPathname) {
+            return {
+                entry: null,
+                reason: "noCurrentConversationPath",
                 currentPathname,
                 entriesCount: pool.length
             };
@@ -2941,7 +2941,7 @@
 
             const trigger = this.getTriggerElement(ctx);
             if (!trigger || !isElementVisible(trigger)) return false;
-            if (getGeminiConversationActionButtonExcluded(trigger)) return false;
+            if (isGeminiConversationActionButtonExcluded(trigger)) return false;
             if (!this.activateTrigger(ctx)) return false;
             if (openDelayMs > 0) await sleep(openDelayMs);
 
