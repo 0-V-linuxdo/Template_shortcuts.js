@@ -1,4 +1,4 @@
-import { safeQuerySelector } from "../utils/dom.js";
+import { isVisible, safeQuerySelectorAll } from "../utils/dom.js";
 import { simulateClick } from "../utils/events.js";
 
 /* -------------------------------------------------------------------------- *
@@ -142,15 +142,41 @@ import { simulateClick } from "../utils/events.js";
                 }
             }
 
-            function clickElement(selector) {
+            function resolveSelectorCandidates(selector) {
+                if (Array.isArray(selector)) {
+                    return selector.flatMap(resolveSelectorCandidates);
+                }
+                if (selector && typeof selector === "object") {
+                    if (Array.isArray(selector.selectors)) return resolveSelectorCandidates(selector.selectors);
+                    if (selector.selector !== undefined) return resolveSelectorCandidates(selector.selector);
+                    if (selector.fallback !== undefined) return resolveSelectorCandidates(selector.fallback);
+                    return [];
+                }
                 const sel = (typeof selector === "string") ? selector.trim() : "";
-                if (!sel) return;
+                return sel ? [sel] : [];
+            }
 
-                const element = safeQuerySelector(document, sel) || document.querySelector(sel);
+            function clickElement(selector) {
+                const selectors = resolveSelectorCandidates(selector);
+                if (selectors.length === 0) return;
+
+                let element = null;
+                let fallbackElement = null;
+                for (const sel of selectors) {
+                    const matches = safeQuerySelectorAll(document, sel);
+                    const visible = matches.find(isVisible) || null;
+                    if (visible) {
+                        element = visible;
+                        break;
+                    }
+                    if (!fallbackElement && matches[0]) fallbackElement = matches[0];
+                }
+                if (!element) element = fallbackElement;
+
                 if (!element) {
                     if (typeof showAlert === "function") {
                         const tpl = options?.text?.builtins?.elementNotFound || "Element not found: {selector}";
-                        showAlert(formatMessage(tpl, { selector: sel }));
+                        showAlert(formatMessage(tpl, { selector: selectors.join(", ") }));
                     }
                     return;
                 }
@@ -184,10 +210,11 @@ import { simulateClick } from "../utils/events.js";
                     const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
                     fallbackTarget.dispatchEvent(clickEvent);
                 } catch (eventError) {
-                    console.error(`${consoleTag} Failed to dispatch click event on element: ${sel}`, eventError);
+                    const selectorLabel = selectors.join(", ");
+                    console.error(`${consoleTag} Failed to dispatch click event on element: ${selectorLabel}`, eventError);
                     if (typeof showAlert === "function") {
                         const tpl = options?.text?.builtins?.clickFailed || "Could not simulate click on element: {selector}";
-                        showAlert(formatMessage(tpl, { selector: sel }));
+                        showAlert(formatMessage(tpl, { selector: selectorLabel }));
                     }
                 }
             }

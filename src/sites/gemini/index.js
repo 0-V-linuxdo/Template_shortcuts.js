@@ -225,8 +225,101 @@
     const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
     const siteMessage = (engine, key, vars = {}, fallback = "") => engine?.i18n?.t?.(key, vars, fallback) || fallback;
 
+    const GEMINI_UI_VARIANTS = Object.freeze({
+        legacy: "legacy",
+        modern: "new",
+        unknown: "unknown"
+    });
+
+    function detectGeminiUiVariant() {
+        try {
+            const modernSignals = [
+                "bard-sidenav .sidenav-with-history-container.expanded",
+                "side-navigation-content .sidenav-with-history-container.expanded",
+                "side-nav-action-button[data-test-id='new-chat-button']",
+                "div[contenteditable='true'][aria-label='Enter a prompt for Gemini']",
+                "div[contenteditable='true'][data-placeholder='Ask Gemini']",
+                "button[aria-label='Open upload file menu']"
+            ];
+            for (const selector of modernSignals) {
+                if (getFirstVisibleBySelector(selector, { fallbackToFirst: true })) {
+                    return GEMINI_UI_VARIANTS.modern;
+                }
+            }
+
+            const modernSidebarRoots = [
+                "bard-sidenav",
+                "side-navigation-content"
+            ];
+            const modernSidebarTokens = [
+                "new chat",
+                "search chats",
+                "images",
+                "videos",
+                "library",
+                "notebooks",
+                "recents"
+            ];
+            for (const selector of modernSidebarRoots) {
+                const root = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
+                if (!root) continue;
+                let sidebarNodes = [];
+                try {
+                    sidebarNodes = Array.from(root.querySelectorAll("button, a, [role='button'], [role='menuitem'], [role='tab']"));
+                } catch {
+                    sidebarNodes = [];
+                }
+                for (const node of sidebarNodes) {
+                    if (!isElementVisible(node)) continue;
+                    const text = normalizeGeminiUiText([
+                        node.textContent,
+                        node.getAttribute?.("aria-label"),
+                        node.getAttribute?.("title")
+                    ].filter(Boolean).join(" "));
+                    if (modernSidebarTokens.some(token => text.includes(token))) {
+                        return GEMINI_UI_VARIANTS.modern;
+                    }
+                }
+            }
+
+            const modernModelButton = getFirstVisibleBySelector([
+                "button[aria-label='Open mode picker']",
+                "bard-mode-switcher button",
+                "[data-test-id='bard-mode-menu-button']"
+            ], { fallbackToFirst: true });
+            const modernModelText = String(modernModelButton?.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+            if (/\bflash\b/.test(modernModelText) || /\bthinking level\b/.test(modernModelText) || /\b3\s*\.?\s*1\s*pro\b/.test(modernModelText)) {
+                return GEMINI_UI_VARIANTS.modern;
+            }
+
+            const legacySignals = [
+                "toolbox-drawer button.toolbox-drawer-button",
+                "button[data-test-id='bard-mode-option-pro']",
+                "button[data-test-id='bard-mode-option-thinking']",
+                "button[data-test-id='bard-mode-option-fast']",
+                "rich-textarea .ql-editor",
+                ".text-input-field .ql-editor",
+                "button[data-test-id='side-nav-menu-button']"
+            ];
+            for (const selector of legacySignals) {
+                if (getFirstVisibleBySelector(selector, { fallbackToFirst: true })) {
+                    return GEMINI_UI_VARIANTS.legacy;
+                }
+            }
+        } catch { }
+        return GEMINI_UI_VARIANTS.unknown;
+    }
+
+    function getGeminiSelectorOrder(legacySelectors, modernSelectors) {
+        const legacy = Array.isArray(legacySelectors) ? legacySelectors.filter(Boolean) : [legacySelectors].filter(Boolean);
+        const modern = Array.isArray(modernSelectors) ? modernSelectors.filter(Boolean) : [modernSelectors].filter(Boolean);
+        const variant = detectGeminiUiVariant();
+        if (variant === GEMINI_UI_VARIANTS.modern) return [...modern, ...legacy];
+        return [...legacy, ...modern];
+    }
+
     const SELECTORS = {
-        sidebarToggle: [
+        sidebarToggle: getGeminiSelectorOrder([
             "button[data-test-id='side-nav-menu-button']",
             "side-nav-menu-button button[data-test-id='side-nav-menu-button']",
             "button[data-test-id='side-nav-menu-button'][jslog^='204298']",
@@ -238,20 +331,74 @@
             "button[aria-label='Main menu']",
             "button[aria-label='Open main menu']",
             "button[aria-label='Open navigation menu']"
-        ].join(", "),
-        modelPickerButton: [
+        ], [
+            "bard-sidenav button[aria-label*='sidebar' i]",
+            "side-navigation-content button[aria-label*='sidebar' i]",
+            "bard-sidenav button[aria-label*='menu' i]",
+            "side-navigation-content button[aria-label*='menu' i]",
+            "button[aria-label='Close sidebar']",
+            "button[aria-label='Open sidebar']",
+            "button[aria-label='Close side bar']",
+            "button[aria-label='Open side bar']",
+            "button[aria-label='Collapse sidebar']",
+            "button[aria-label='Expand sidebar']",
+            "button[aria-label='Collapse side bar']",
+            "button[aria-label='Expand side bar']"
+        ]),
+        modelPickerButton: getGeminiSelectorOrder([
             "[data-test-id='bard-mode-menu-button'] button",
             "[data-test-id='bard-mode-menu-button']"
-        ],
-        toolsButton: [
+        ], [
+            "button[aria-label='Open mode picker']",
+            "bard-mode-switcher button[aria-label='Open mode picker']",
+            "bard-mode-switcher button",
+            "button[aria-label*='mode picker' i]",
+            "button[aria-label*='model' i]"
+        ]),
+        modelPickerMenuRoot: getGeminiSelectorOrder([
+            ".gds-mode-switch-menu.mat-mdc-menu-panel",
+            ".gds-mode-switch-menu[role='menu']"
+        ], [
+            ".cdk-overlay-pane .gds-mode-switch-menu.mat-mdc-menu-panel",
+            ".cdk-overlay-pane .mat-mdc-menu-panel[role='menu']",
+            ".cdk-overlay-pane .mat-menu-panel[role='menu']",
+            ".cdk-overlay-pane [role='menu']",
+            ".mat-mdc-menu-panel[role='menu']",
+            ".mat-menu-panel[role='menu']"
+        ]),
+        toolsButton: getGeminiSelectorOrder([
             "toolbox-drawer button.toolbox-drawer-button[aria-haspopup='menu']",
             "button.toolbox-drawer-button[aria-haspopup='menu']",
             "button.toolbox-drawer-button"
-        ].join(", "),
-        topBarConversationActionsButton: [
+        ], [
+            "[data-node-type='input-area'] button[aria-label='Open upload file menu']",
+            "input-area-v2 button[aria-label='Open upload file menu']",
+            "button[aria-label='Open upload file menu']",
+            "button[aria-label*='open upload' i]",
+            "button[aria-controls='upload-file-menu']",
+            "button.upload-card-button.open",
+            "button.upload-card-button"
+        ]),
+        toolsMenuRoot: getGeminiSelectorOrder([
+            "mat-action-list#toolbox-drawer-menu[role='menu']",
+            "mat-card.toolbox-drawer-card"
+        ], [
+            ".cdk-overlay-pane #upload-file-menu",
+            "#upload-file-menu",
+            ".cdk-overlay-pane [id*='upload-file-menu']",
+            ".cdk-overlay-pane .mat-mdc-menu-panel[role='menu']",
+            ".cdk-overlay-pane .mat-menu-panel[role='menu']",
+            ".cdk-overlay-pane [role='menu']",
+            ".mat-mdc-menu-panel[role='menu']",
+            ".mat-menu-panel[role='menu']"
+        ]),
+        topBarConversationActionsButton: getGeminiSelectorOrder([
             "top-bar-actions conversation-actions-icon button[data-test-id='conversation-actions-menu-icon-button']",
             "top-bar-actions button[data-test-id='conversation-actions-menu-icon-button']"
-        ].join(", "),
+        ], [
+            "button[data-test-id='actions-menu-button']",
+            "button.conversation-actions-menu-button"
+        ]),
         topBarConversationMenuRoot: [
             ".cdk-overlay-pane .mat-mdc-menu-panel[role='menu']",
             ".cdk-overlay-pane .mat-menu-panel[role='menu']",
@@ -260,10 +407,50 @@
         ],
     };
 
-    const MODEL_PICKER_OPTION_SELECTORS = Object.freeze({
-        pro: "button[data-test-id='bard-mode-option-pro']",
-        thinking: "button[data-test-id='bard-mode-option-thinking']",
-        fast: "button[data-test-id='bard-mode-option-fast']"
+    const MODEL_PICKER_OPTION_TARGETS = Object.freeze({
+        pro: Object.freeze({
+            selector: [
+                "button[data-test-id='bard-mode-option-pro']",
+                "button.bard-mode-list-button[role='menuitemradio']",
+                "button[role='menuitemradio']",
+                "button[role='menuitem']",
+                "button[mat-menu-item]",
+                "button.mat-mdc-menu-item",
+                "[role='menuitemradio']",
+                "[role='menuitem']"
+            ],
+            textMatch: ["Pro", "3.1 Pro"]
+        }),
+        thinking: Object.freeze({
+            selector: [
+                "button[data-test-id='bard-mode-option-thinking']",
+                "button.bard-mode-list-button[role='menuitemradio']",
+                "button[role='menuitemradio']",
+                "button[role='menuitem']",
+                "button[aria-haspopup='menu']",
+                "button[mat-menu-item]",
+                "button.mat-mdc-menu-item",
+                "[role='menuitemradio']",
+                "[role='menuitem']"
+            ],
+            textMatch: ["Thinking", "Thinking level"]
+        }),
+        fast: Object.freeze({
+            selector: [
+                "button[data-test-id='bard-mode-option-fast']",
+                "button.bard-mode-list-button[role='menuitemradio']",
+                "button[role='menuitemradio']",
+                "button[role='menuitem']",
+                "button[mat-menu-item]",
+                "button.mat-mdc-menu-item",
+                "[role='menuitemradio']",
+                "[role='menuitem']"
+            ],
+            textMatch: {
+                preferred: ["3 Flash"],
+                fallback: ["3.1 Flash-Lite", "Fast"]
+            }
+        })
     });
 
     function normalizeModelToken(value) {
@@ -273,12 +460,18 @@
     function inferModelKeyFromText(text) {
         const token = normalizeModelToken(text);
         if (!token) return "";
+        if (/(^|[^a-z0-9])flash[\s-]*lite([^a-z0-9]|$)/.test(token)) return "flashLite";
+        if (/(^|[^a-z0-9])3\s*\.?\s*1\s*pro([^a-z0-9]|$)/.test(token)) return "pro";
+        if (/(^|[^a-z0-9])thinking\s+level([^a-z0-9]|$)/.test(token)) return "thinking";
+        if (/(^|[^a-z0-9])3\s*flash([^a-z0-9]|$)/.test(token)) return "fast";
         if (token === "pro") return "pro";
         if (token === "thinking") return "thinking";
         if (token === "fast") return "fast";
+        if (token === "flash") return "fast";
         if (/(^|[^a-z0-9])pro([^a-z0-9]|$)/.test(token)) return "pro";
         if (/(^|[^a-z0-9])thinking([^a-z0-9]|$)/.test(token)) return "thinking";
         if (/(^|[^a-z0-9])fast([^a-z0-9]|$)/.test(token)) return "fast";
+        if (/(^|[^a-z0-9])flash([^a-z0-9]|$)/.test(token)) return "fast";
         return "";
     }
 
@@ -425,6 +618,16 @@
 
     function getCurrentModelKey() {
         const readText = () => {
+            const currentButton = getFirstVisibleBySelector(SELECTORS.modelPickerButton, { fallbackToFirst: true });
+            if (currentButton) {
+                const parts = [
+                    currentButton.textContent,
+                    currentButton.getAttribute?.("aria-label"),
+                    currentButton.getAttribute?.("title")
+                ].filter(Boolean);
+                if (parts.length > 0) return parts.join(" ");
+            }
+
             const span = document.querySelector("[data-test-id='bard-mode-menu-button'] [data-test-id='logo-pill-label-container'] span");
             if (span) return span.textContent || "";
 
@@ -520,21 +723,21 @@
             actionType: "custom",
             customAction: "modelPicker",
             hotkey: "CTRL+SHIFT+P",
-            data: { menu: { selector: MODEL_PICKER_OPTION_SELECTORS.pro } }
+            data: { menu: MODEL_PICKER_OPTION_TARGETS.pro }
         }, "model"),
         createShortcut({
             name: "Model: Thinking",
             actionType: "custom",
             customAction: "modelPicker",
             hotkey: "CTRL+SHIFT+T",
-            data: { menu: { selector: MODEL_PICKER_OPTION_SELECTORS.thinking } }
+            data: { menu: MODEL_PICKER_OPTION_TARGETS.thinking }
         }, "model"),
         createShortcut({
             name: "Model: Fast",
             actionType: "custom",
             customAction: "modelPicker",
             hotkey: "CTRL+SHIFT+F",
-            data: { menu: { selector: MODEL_PICKER_OPTION_SELECTORS.fast } }
+            data: { menu: MODEL_PICKER_OPTION_TARGETS.fast }
         }, "model"),
 
         createShortcut({ name: "Open Tools", actionType: "selector", selector: SELECTORS.toolsButton, hotkey: "CTRL+T" }, "tools"),
@@ -738,17 +941,42 @@
     }
 
     function getFirstVisibleBySelector(selector, { fallbackToFirst = false } = {}) {
-        if (typeof selector !== "string" || !selector.trim()) return null;
-        let all = [];
-        try {
-            all = Array.from(document.querySelectorAll(selector));
-        } catch {
-            return null;
+        const selectorList = (() => {
+            if (Array.isArray(selector)) {
+                return selector.flatMap(item => {
+                    if (Array.isArray(item)) return item;
+                    const token = String(item ?? "").trim();
+                    return token ? [token] : [];
+                }).map(item => String(item ?? "").trim()).filter(Boolean);
+            }
+            if (selector && typeof selector === "object") {
+                if (Array.isArray(selector.selectors)) return selector.selectors.flatMap(item => {
+                    const token = String(item ?? "").trim();
+                    return token ? [token] : [];
+                }).filter(Boolean);
+                const token = String(selector.selector ?? selector.fallback ?? "").trim();
+                return token ? [token] : [];
+            }
+            const token = String(selector ?? "").trim();
+            return token ? [token] : [];
+        })();
+
+        if (selectorList.length === 0) return null;
+
+        let fallback = null;
+        for (const sel of selectorList) {
+            let all = [];
+            try {
+                all = Array.from(document.querySelectorAll(sel));
+            } catch {
+                continue;
+            }
+            for (const el of all) {
+                if (isElementVisible(el)) return el;
+            }
+            if (fallbackToFirst && !fallback) fallback = all[0] || null;
         }
-        for (const el of all) {
-            if (isElementVisible(el)) return el;
-        }
-        return fallbackToFirst ? (all[0] || null) : null;
+        return fallbackToFirst ? fallback : null;
     }
 
     function getSidebarToggleButton() {
@@ -798,6 +1026,32 @@
         for (const selector of SIDEBAR_OPEN_SELECTORS) {
             const el = getFirstVisibleBySelector(selector);
             if (el) return true;
+        }
+
+        const sidebarRoots = [
+            "bard-sidenav",
+            "side-navigation-content"
+        ];
+        for (const selector of sidebarRoots) {
+            const root = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
+            if (!root) continue;
+            let nodes = [];
+            try {
+                nodes = Array.from(root.querySelectorAll("button, a, [role='button'], [role='menuitem'], [role='tab']"));
+            } catch {
+                nodes = [];
+            }
+            for (const node of nodes) {
+                if (!isElementVisible(node)) continue;
+                const text = normalizeGeminiUiText([
+                    node.textContent,
+                    node.getAttribute?.("aria-label"),
+                    node.getAttribute?.("title")
+                ].filter(Boolean).join(" "));
+                if (["new chat", "search chats", "images", "videos", "library", "notebooks", "recents"].some(token => text.includes(token))) {
+                    return true;
+                }
+            }
         }
 
         for (const selector of SIDEBAR_CLOSED_SELECTORS) {
@@ -938,11 +1192,11 @@
 
     const toolsDrawerMenu = TemplateUtils.menu.createMenuController({
         trigger: {
-            selector: { fromShortcutKey: "openTools", fallback: SELECTORS.toolsButton }
+            selectors: SELECTORS.toolsButton
         },
         root: {
             type: "selector",
-            selector: "mat-action-list#toolbox-drawer-menu[role='menu'], mat-card.toolbox-drawer-card",
+            selector: SELECTORS.toolsMenuRoot,
             pick: "last"
         },
         timing: MENU_TIMING
@@ -954,7 +1208,7 @@
         },
         root: {
             type: "selector",
-            selector: ".gds-mode-switch-menu.mat-mdc-menu-panel",
+            selector: SELECTORS.modelPickerMenuRoot,
             pick: "last"
         },
         timing: MENU_TIMING
@@ -1560,6 +1814,32 @@
         return list.length === 1 ? list[0] : list;
     }
 
+    function isStructuredGeminiTextMatchSpec(value) {
+        return !!value && typeof value === "object" && !Array.isArray(value) && !(value instanceof RegExp) && typeof value !== "function";
+    }
+
+    function getGeminiTextMatchPriorityGroups(textMatch) {
+        if (!isStructuredGeminiTextMatchSpec(textMatch)) {
+            return hasValidTextMatch(textMatch) ? [textMatch] : [];
+        }
+
+        const groups = [];
+        const pushGroup = (value) => {
+            if (hasValidTextMatch(value)) groups.push(value);
+        };
+
+        if (textMatch.preferred !== undefined) pushGroup(textMatch.preferred);
+        if (textMatch.primary !== undefined) pushGroup(textMatch.primary);
+        if (textMatch.first !== undefined) pushGroup(textMatch.first);
+        if (textMatch.fallback !== undefined) pushGroup(textMatch.fallback);
+        if (textMatch.any !== undefined) pushGroup(textMatch.any);
+        if (textMatch.values !== undefined) pushGroup(textMatch.values);
+        if (textMatch.textMatch !== undefined) pushGroup(textMatch.textMatch);
+        if (textMatch.match !== undefined) pushGroup(textMatch.match);
+
+        return groups;
+    }
+
     function resolveSelectorListFromSpec(ctx, spec) {
         if (!spec) return [];
         if (Array.isArray(spec)) {
@@ -1594,7 +1874,8 @@
 
     function findMenuItemInRoot(rootEl, selector, { textMatch = null, normalize, fallbackToFirst = false } = {}) {
         const findFirst = TemplateUtils?.dom?.findFirst;
-        if (typeof findFirst === "function") {
+        const structuredTextMatch = isStructuredGeminiTextMatchSpec(textMatch);
+        if (!structuredTextMatch && typeof findFirst === "function") {
             return findFirst(rootEl, selector, { textMatch, normalize, fallbackToFirst });
         }
 
@@ -1615,13 +1896,16 @@
             ? normalize
             : (value) => String(value ?? "").trim().toLowerCase();
         const matchText = TemplateUtils?.dom?.matchText;
+        const textMatchGroups = structuredTextMatch
+            ? getGeminiTextMatchPriorityGroups(textMatch)
+            : [textMatch];
 
-        if (textMatch) {
+        for (const group of textMatchGroups) {
             for (const el of candidates) {
                 const text = String(el?.textContent || "");
                 const matched = (typeof matchText === "function")
-                    ? matchText(text, textMatch, { normalize: normalizeText, element: el })
-                    : normalizeText(text).includes(normalizeText(textMatch));
+                    ? matchText(text, group, { normalize: normalizeText, element: el })
+                    : geminiMenuTextMatches(text, group, el);
                 if (matched) return el;
             }
         }
@@ -1846,7 +2130,7 @@
         return token || "onestep";
     }
 
-    const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-list-item], button.mat-mdc-list-item, [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']";
+    const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, button[mat-list-item], button.mat-mdc-list-item, [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']";
     const CONVERSATION_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitem'], [role='menuitemradio']";
     const CONVERSATION_MENU_PANEL_SELECTOR = SELECTORS.topBarConversationMenuRoot.join(", ");
     const CONVERSATION_MENU_MARKER_SELECTOR = [
@@ -1855,7 +2139,7 @@
         "button[data-test-id='rename-button']",
         "button[data-test-id='studio-sidebar-button']"
     ].join(", ");
-    const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio']";
+    const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio'], button[role='menuitemradio'], button[role='menuitem'], button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitemradio'], [role='menuitem']";
 
     function inferModelKeyFromSelectorSpec(selectorSpec) {
         const fromString = (value) => {
@@ -1864,7 +2148,7 @@
             if (token.includes("bard-mode-option-pro")) return "pro";
             if (token.includes("bard-mode-option-thinking")) return "thinking";
             if (token.includes("bard-mode-option-fast")) return "fast";
-            return "";
+            return inferModelKeyFromText(token);
         };
 
         if (typeof selectorSpec === "string") return fromString(selectorSpec);
@@ -1876,6 +2160,12 @@
             return "";
         }
         if (selectorSpec && typeof selectorSpec === "object") {
+            for (const key of ["textMatch", "keyword", "id", "name", "label"]) {
+                if (selectorSpec[key] !== undefined && selectorSpec[key] !== null) {
+                    const found = inferModelKeyFromSelectorSpec(selectorSpec[key]);
+                    if (found) return found;
+                }
+            }
             if (selectorSpec.selector) {
                 const found = inferModelKeyFromSelectorSpec(selectorSpec.selector);
                 if (found) return found;
@@ -1905,11 +2195,30 @@
         if (fromSelector) return fromSelector;
 
         const candidates = [];
-        if (typeof menu.keyword === "string") candidates.push(menu.keyword);
-        if (typeof menu.textMatch === "string") candidates.push(menu.textMatch);
+        const pushCandidate = (value) => {
+            if (Array.isArray(value)) {
+                for (const item of value) pushCandidate(item);
+                return;
+            }
+            if (value instanceof RegExp || typeof value === "function") return;
+            if (value && typeof value === "object") {
+                for (const key of ["preferred", "primary", "first", "fallback", "any", "values", "textMatch", "match", "keyword", "id", "name", "label"]) {
+                    pushCandidate(value[key]);
+                }
+                return;
+            }
+            const token = String(value ?? "").trim();
+            if (token) candidates.push(token);
+        };
+
+        pushCandidate(menu.id);
+        pushCandidate(menu.keyword);
+        pushCandidate(menu.textMatch);
+        pushCandidate(menu.name);
+        pushCandidate(menu.label);
         if (Array.isArray(menu.path) && menu.path.length) candidates.push(menu.path[menu.path.length - 1]);
-        if (typeof rawMenu === "string") candidates.push(rawMenu);
-        if (typeof shortcut?.name === "string") candidates.push(shortcut.name);
+        pushCandidate(rawMenu);
+        pushCandidate(shortcut?.name);
 
         for (const text of candidates) {
             const found = inferModelKeyFromText(text);
@@ -2026,6 +2335,7 @@
         if (textMatch instanceof RegExp) return true;
         if (typeof textMatch === "function") return true;
         if (Array.isArray(textMatch)) return textMatch.some(v => hasValidTextMatch(v));
+        if (isStructuredGeminiTextMatchSpec(textMatch)) return getGeminiTextMatchPriorityGroups(textMatch).length > 0;
         return false;
     }
 
@@ -3069,12 +3379,32 @@
                 if (direct) return direct;
             } catch { }
             try {
+                const near = composerEl?.closest?.(".input-area-container");
+                if (near) return near;
+            } catch { }
+            try {
+                const near = composerEl?.closest?.("[data-node-type='input-area']");
+                if (near) return near;
+            } catch { }
+            try {
+                const near = composerEl?.closest?.("input-area-v2");
+                if (near) return near;
+            } catch { }
+            try {
                 const near = composerEl?.closest?.(".text-input-field");
                 if (near) return near;
             } catch { }
 
             let zones = [];
-            try { zones = Array.from(document.querySelectorAll("[xapfileselectordropzone]")); } catch { zones = []; }
+            try {
+                zones = Array.from(document.querySelectorAll([
+                    "[xapfileselectordropzone]",
+                    ".input-area-container",
+                    "[data-node-type='input-area']",
+                    "input-area-v2",
+                    ".text-input-field"
+                ].join(", ")));
+            } catch { zones = []; }
             if (!zones.length) return null;
             if (composerEl) {
                 const containing = zones.find(z => z && z.contains(composerEl));
@@ -3101,6 +3431,18 @@
 
         function findGeminiComposerContainer(composerEl) {
             if (!composerEl) return null;
+            try {
+                const field = composerEl.closest?.(".input-area-container");
+                if (field) return field;
+            } catch { }
+            try {
+                const field = composerEl.closest?.("[data-node-type='input-area']");
+                if (field) return field;
+            } catch { }
+            try {
+                const field = composerEl.closest?.("input-area-v2");
+                if (field) return field;
+            } catch { }
             try {
                 const field = composerEl.closest?.(".text-input-field");
                 if (field) return field;
@@ -3296,12 +3638,29 @@
         ]);
 
         const GEMINI_COMPOSER_SELECTORS = Object.freeze([
+            ".input-area-container [contenteditable='true'][role='textbox']",
+            ".input-area-container [contenteditable='true']",
+            ".input-area-container textarea",
+            "[data-node-type='input-area'] [contenteditable='true'][role='textbox']",
+            "[data-node-type='input-area'] [contenteditable='true']",
+            "[data-node-type='input-area'] textarea",
+            "input-area-v2 [contenteditable='true'][role='textbox']",
+            "input-area-v2 [contenteditable='true']",
+            "input-area-v2 textarea",
+            "[contenteditable='true'][data-placeholder='Ask Gemini']",
+            "[contenteditable='true'][aria-label='Ask Gemini']",
+            "[contenteditable='true'][aria-label='Enter a prompt for Gemini']",
             ".text-input-field [contenteditable='true'][role='textbox']",
             ".text-input-field [contenteditable='true']",
             "rich-textarea [contenteditable='true'][role='textbox']",
             "rich-textarea [contenteditable='true']",
             "[contenteditable='true'][aria-label*='Gemini']",
             "[contenteditable='true'][role='textbox']",
+            "textarea[placeholder='Ask Gemini']",
+            "textarea[placeholder*='Ask Gemini']",
+            "textarea[placeholder*='Gemini']",
+            "textarea[aria-label='Ask Gemini']",
+            "textarea[aria-label='Enter a prompt for Gemini']",
             "textarea[aria-label*='Gemini']",
             "textarea"
         ]);
@@ -3370,6 +3729,9 @@
 
         function scoreGeminiComposerCandidate(el) {
             let score = 0;
+            try { if (el.closest?.(".input-area-container")) score += 130; } catch { }
+            try { if (el.closest?.("[data-node-type='input-area']")) score += 130; } catch { }
+            try { if (el.closest?.("input-area-v2")) score += 130; } catch { }
             try { if (el.closest?.(".text-input-field")) score += 120; } catch { }
             try { if (el.closest?.("rich-textarea")) score += 90; } catch { }
             try { if (el.classList?.contains?.("ql-editor")) score += 60; } catch { }
@@ -3379,6 +3741,9 @@
             } catch { }
             try {
                 const aria = String(el.getAttribute?.("aria-label") || "").toLowerCase();
+                const placeholder = String(el.getAttribute?.("placeholder") || el.getAttribute?.("data-placeholder") || "").toLowerCase();
+                if (aria.includes("ask gemini") || aria.includes("enter a prompt for gemini")) score += 80;
+                if (placeholder.includes("ask gemini") || placeholder.includes("gemini")) score += 80;
                 if (aria.includes("prompt") || aria.includes("gemini")) score += 30;
             } catch { }
             try {
@@ -3429,6 +3794,9 @@
 
             try { pushScope(el.closest?.(".text-input-field") || null); } catch { }
             try { pushScope(el.closest?.("rich-textarea") || null); } catch { }
+            try { pushScope(el.closest?.(".input-area-container") || null); } catch { }
+            try { pushScope(el.closest?.("[data-node-type='input-area']") || null); } catch { }
+            try { pushScope(el.closest?.("input-area-v2") || null); } catch { }
             try { pushScope(el.closest?.("[xapfileselectordropzone]") || null); } catch { }
             pushScope(el);
 
@@ -3984,6 +4352,9 @@
             };
 
             pushRoot(composer);
+            try { pushRoot(composer?.closest?.(".input-area-container") || null); } catch { }
+            try { pushRoot(composer?.closest?.("[data-node-type='input-area']") || null); } catch { }
+            try { pushRoot(composer?.closest?.("input-area-v2") || null); } catch { }
             try { pushRoot(composer?.closest?.(".text-input-field") || null); } catch { }
             try { pushRoot(composer?.closest?.("rich-textarea") || null); } catch { }
             try { pushRoot(composer?.closest?.("form") || null); } catch { }
@@ -4004,7 +4375,10 @@
                 ".uploader-file-preview-container",
                 "uploader-file-preview-container",
                 ".file-preview-wrapper",
-                ".text-input-field.with-file-preview"
+                ".text-input-field.with-file-preview",
+                ".input-area-container",
+                "[data-node-type='input-area']",
+                "input-area-v2"
             ];
 
             for (const selector of selectors) {
@@ -4689,15 +5063,27 @@
         function findSendButtonNearComposer(composerEl) {
             const candidates = [];
             const scopes = [];
+            const pushScope = (scope) => {
+                if (!scope || scopes.includes(scope)) return;
+                scopes.push(scope);
+            };
             try {
                 const form = composerEl?.closest?.("form");
-                if (form) scopes.push(form);
+                if (form) pushScope(form);
             } catch { }
-            scopes.push(document);
+            try { pushScope(composerEl?.closest?.(".input-area-container") || null); } catch { }
+            try { pushScope(composerEl?.closest?.("[data-node-type='input-area']") || null); } catch { }
+            try { pushScope(composerEl?.closest?.("input-area-v2") || null); } catch { }
+            try { pushScope(composerEl?.closest?.(".text-input-field") || null); } catch { }
+            pushScope(document);
 
             const selectors = [
                 "button[type='submit']",
+                "button[aria-label='Send']",
+                "button[aria-label*='Send message']",
                 "button[aria-label*='Send']",
+                "button[title*='Send']",
+                "button[aria-label*='send' i]",
                 "button[aria-label*='发送']",
                 "button[data-test-id*='send']"
             ];
