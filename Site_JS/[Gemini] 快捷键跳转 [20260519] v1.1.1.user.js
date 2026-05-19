@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260519] v1.1.0
-// @name:en        [Gemini] Shortcut Jump [20260519] v1.1.0
+// @name           [Gemini] 快捷键跳转 [20260519] v1.1.1
+// @name:en        [Gemini] Shortcut Jump [20260519] v1.1.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260519] v1.1.0
-// @update-log     1.1.0: 补齐 Gemini 新版删除话题适配，优先命中右上角当前会话菜单并安全回退侧边栏当前话题，增强删除确认框聚焦；继续保持页面首次加载时仅判断一次新旧 UI，减少卡顿风险。
-// @update-log:en  1.1.0: Completed Gemini new-UI delete-topic support by preferring the current conversation menu in the top bar, safely falling back to the current sidebar item, and improving delete-confirm focus; UI-version detection still runs only once on initial page load to reduce stall risk.
+// @version        [20260519] v1.1.1
+// @update-log     1.1.1: 修复 Gemini 新版删除话题快捷键无响应的问题，强化右上角当前会话菜单识别并修正删除确认流程；继续保持页面首次加载时仅判断一次新旧 UI，减少卡顿风险。
+// @update-log:en  1.1.1: Fixed the Gemini new-UI delete-topic shortcut not responding by strengthening current-conversation menu detection and the delete-confirm flow; UI-version detection still runs only once on initial page load to reduce stall risk.
 
 // @match          https://gemini.google.com/*
 
@@ -1647,31 +1647,6 @@
       const visibleEntries = entries.filter(isConversationEntryVisible);
       const pool = visibleEntries.length ? visibleEntries : entries;
       const currentPathname = getCurrentGeminiConversationPathname();
-      if (!currentPathname) {
-        return {
-          entry: null,
-          reason: "noCurrentConversationPath",
-          currentPathname,
-          entriesCount: pool.length
-        };
-      }
-      const pathMatches = pool.filter((entry) => entry.pathname === currentPathname);
-      if (pathMatches.length === 1) {
-        return buildConversationTargetResult(pathMatches[0], {
-          matchSource: "url",
-          currentPathname,
-          entriesCount: pool.length,
-          hiddenReason: "matchedUrlButButtonHidden"
-        });
-      }
-      if (pathMatches.length > 1) {
-        return {
-          entry: null,
-          reason: "multipleUrlMatches",
-          currentPathname,
-          entriesCount: pool.length
-        };
-      }
       const explicitEntry = resolveUniqueConversationEntry(pool, hasExplicitCurrentConversationState);
       if (explicitEntry) {
         return buildConversationTargetResult(explicitEntry, {
@@ -1699,11 +1674,36 @@
           hiddenReason: "matchedJslogCurrentButButtonHidden"
         });
       }
+      const pathMatches = currentPathname ? pool.filter((entry) => entry.pathname === currentPathname) : [];
+      if (pathMatches.length === 1) {
+        return buildConversationTargetResult(pathMatches[0], {
+          matchSource: "url",
+          currentPathname,
+          entriesCount: pool.length,
+          hiddenReason: "matchedUrlButButtonHidden"
+        });
+      }
+      if (pathMatches.length > 1) {
+        return {
+          entry: null,
+          reason: "multipleUrlMatches",
+          currentPathname,
+          entriesCount: pool.length
+        };
+      }
       const jslogMatchesCount = pool.filter(hasJslogCurrentConversationState).length;
       if (jslogMatchesCount > 1) {
         return {
           entry: null,
           reason: "multipleJslogCurrentMatches",
+          currentPathname,
+          entriesCount: pool.length
+        };
+      }
+      if (!currentPathname) {
+        return {
+          entry: null,
+          reason: "noCurrentConversationPath",
           currentPathname,
           entriesCount: pool.length
         };
@@ -2616,7 +2616,7 @@
         if (this.isOpen(ctx)) return true;
         const trigger = this.getTriggerElement(ctx);
         if (!trigger || !isElementVisible(trigger)) return false;
-        if (getGeminiConversationActionButtonExcluded(trigger)) return false;
+        if (isGeminiConversationActionButtonExcluded(trigger)) return false;
         if (!this.activateTrigger(ctx)) return false;
         if (openDelayMs > 0) await sleep(openDelayMs);
         const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
