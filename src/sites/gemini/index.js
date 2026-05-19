@@ -813,6 +813,9 @@
     const SIDEBAR_OPEN_LAYOUT_MIN_WIDTH = 160;
     const SIDEBAR_CLOSED_LAYOUT_MAX_WIDTH = 96;
     const SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS = 1200;
+    const SIDEBAR_TOGGLE_SETTLE_MS = 700;
+    const SIDEBAR_TEMPORARY_EXPAND_WAIT_MS = 1000;
+    const SIDEBAR_STATE_POLL_INTERVAL_MS = 80;
     const SIDEBAR_OPEN_SELECTORS = [
         "div.sidenav-with-history-container.expanded",
         "div.conversation-items-container.side-nav-opened",
@@ -833,6 +836,7 @@
     let sidebarWarmupTimer = null;
     let sidebarWarmupRequestTimer = null;
     let sidebarLastWarmupRequestAt = 0;
+    let sidebarTogglePendingUntil = 0;
 
     const baseShortcut = Object.freeze({
         url: "",
@@ -1272,15 +1276,37 @@
         return null;
     }
 
-    function clickSidebarToggleButton() {
+    function clearSidebarTogglePending() {
+        sidebarTogglePendingUntil = 0;
+    }
+
+    function isSidebarTogglePending() {
+        if (sidebarTogglePendingUntil <= Date.now()) return false;
+        if (isSidebarOpen() === true) {
+            clearSidebarTogglePending();
+            return false;
+        }
+        return true;
+    }
+
+    function markSidebarTogglePending(settleMs = SIDEBAR_TOGGLE_SETTLE_MS) {
+        sidebarTogglePendingUntil = Date.now() + Math.max(150, Number(settleMs) || SIDEBAR_TOGGLE_SETTLE_MS);
+    }
+
+    function clickSidebarToggleButton({ settleMs = SIDEBAR_TOGGLE_SETTLE_MS } = {}) {
+        if (isSidebarTogglePending()) return true;
         const button = getSidebarToggleButton();
         if (!button) return false;
         try {
             const clicked = TemplateUtils?.events?.simulateClick?.(button, { nativeFallback: true });
-            if (clicked) return true;
+            if (clicked) {
+                markSidebarTogglePending(settleMs);
+                return true;
+            }
         } catch { }
         try {
             button.click();
+            markSidebarTogglePending(settleMs);
             return true;
         } catch { }
         return false;
@@ -1303,7 +1329,11 @@
     function ensureSidebarVisible({ ignorePreference = false } = {}) {
         if (!ignorePreference && !keepSidebarVisible) return false;
         const open = isSidebarOpen();
-        if (open === true) return true;
+        if (open === true) {
+            clearSidebarTogglePending();
+            return true;
+        }
+        if (isSidebarTogglePending()) return true;
         if (open !== false) return false;
         return clickSidebarToggleButton();
     }
@@ -1364,21 +1394,26 @@
         const tick = () => {
             if (!shouldWarmupSidebarInBackground()) {
                 stopSidebarWarmup();
-                return;
+                return false;
             }
 
             const open = isSidebarOpen();
             if (open === true) {
+                clearSidebarTogglePending();
                 stopSidebarWarmup();
-                return;
+                return false;
             }
 
             if (open === false) ensureSidebarVisible();
             remaining -= 1;
-            if (remaining <= 0) stopSidebarWarmup();
+            if (remaining <= 0) {
+                stopSidebarWarmup();
+                return false;
+            }
+            return true;
         };
 
-        tick();
+        if (!tick()) return;
         sidebarWarmupTimer = window.setInterval(tick, interval);
     }
 
@@ -1540,6 +1575,24 @@
     }
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function waitForSidebarOpen({ timeoutMs = SIDEBAR_TEMPORARY_EXPAND_WAIT_MS, intervalMs = SIDEBAR_STATE_POLL_INTERVAL_MS } = {}) {
+        const timeout = Math.max(0, Number(timeoutMs) || 0);
+        const interval = Math.max(30, Number(intervalMs) || SIDEBAR_STATE_POLL_INTERVAL_MS);
+        const deadline = Date.now() + timeout;
+
+        while (Date.now() <= deadline) {
+            if (isSidebarOpen() === true) {
+                clearSidebarTogglePending();
+                return true;
+            }
+            await sleep(interval);
+        }
+
+        const open = isSidebarOpen() === true;
+        if (open) clearSidebarTogglePending();
+        return open;
+    }
 
     const GEMINI_CONVERSATION_LINK_SELECTOR = [
         "a[data-test-id='conversation']",
@@ -2129,8 +2182,24 @@
                 temporarySidebarExpandAttempted = true;
                 const expanded = ensureSidebarVisible({ ignorePreference: true });
                 if (expanded) {
-                    await sleep(Math.max(interval, MENU_TIMING.openDelayMs || 120));
-                    lastResult = result;
+                    const remainingMs = Math.max(0, deadline - Date.now());
+                    const waitMs = Math.min(
+                        SIDEBAR_TEMPORARY_EXPAND_WAIT_MS,
+                        Math.max(remainingMs, MENU_TIMING.openDelayMs || 120)
+                    );
+                    const opened = await waitForSidebarOpen({
+                        timeoutMs: waitMs,
+                        intervalMs: Math.min(interval, SIDEBAR_STATE_POLL_INTERVAL_MS)
+                    });
+                    const expandedResult = resolveCurrentConversationMenuTarget();
+                    if (!opened && !isConversationEntryVisible(expandedResult?.entry)) {
+                        return {
+                            ...expandedResult,
+                            reason: "temporarySidebarExpandFailed",
+                            currentPathname: expandedResult?.currentPathname || result.currentPathname
+                        };
+                    }
+                    lastResult = expandedResult;
                     continue;
                 }
                 return {
