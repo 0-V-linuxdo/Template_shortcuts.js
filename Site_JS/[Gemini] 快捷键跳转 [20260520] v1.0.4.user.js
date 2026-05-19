@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260520] v1.0.3
-// @name:en        [Gemini] Shortcut Jump [20260520] v1.0.3
+// @name           [Gemini] 快捷键跳转 [20260520] v1.0.4
+// @name:en        [Gemini] Shortcut Jump [20260520] v1.0.4
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260520] v1.0.3
-// @update-log     1.0.3: 修复删除快捷键侧栏 fallback 临时展开时的卡顿；内部展开动作现在会去抖并等待侧栏稳定后再定位当前话题菜单。
-// @update-log:en  1.0.3: Fixed stutter during the delete shortcut's sidebar fallback temporary expansion; internal sidebar opening is now debounced and waits for the sidebar to settle before locating the current-topic menu.
+// @version        [20260520] v1.0.4
+// @update-log     1.0.4: 重构 Gemini 删除快捷键侧栏 fallback 热路径；临时展开侧栏后按当前 URL 精准定位当前话题行，避免动画期间反复全量扫描历史列表。
+// @update-log:en  1.0.4: Refactored the Gemini delete shortcut sidebar fallback hot path; after temporary sidebar expansion it now targets the current URL's topic row directly instead of repeatedly scanning the full history list during animation.
 
 // @match          https://gemini.google.com/*
 
@@ -808,7 +808,8 @@
     const SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS = 1200;
     const SIDEBAR_TOGGLE_SETTLE_MS = 700;
     const SIDEBAR_TEMPORARY_EXPAND_WAIT_MS = 1e3;
-    const SIDEBAR_STATE_POLL_INTERVAL_MS = 80;
+    const SIDEBAR_STATE_POLL_INTERVAL_MS = 120;
+    const CONVERSATION_MENU_TARGET_POLL_INTERVAL_MS = 240;
     const SIDEBAR_OPEN_SELECTORS = [
       "div.sidenav-with-history-container.expanded",
       "div.conversation-items-container.side-nav-opened",
@@ -1501,6 +1502,16 @@
       "a[href*='/app/']"
     ].join(", ");
     const GEMINI_CONVERSATION_SIDEBAR_SELECTOR = "bard-sidenav, side-navigation-content, .sidenav-with-history-container";
+    const GEMINI_CONVERSATION_SEARCH_ROOT_SELECTOR = [
+      "conversations-list",
+      ".chat-history-list",
+      ".chat-history",
+      "mat-nav-list[role='navigation']",
+      "mat-nav-list.gds-sidenav-list",
+      "bard-sidenav",
+      "side-navigation-content",
+      ".sidenav-with-history-container"
+    ].join(", ");
     const GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR = [
       "gem-nav-list-item[data-test-id='conversation']",
       "gem-nav-list-item",
@@ -1516,6 +1527,16 @@
       "li"
     ].join(", ");
     const GEMINI_CONVERSATION_CONTAINER_SELECTOR = ".conversation-items-container";
+    const GEMINI_CONVERSATION_ACTION_BUTTON_FAST_SELECTOR = [
+      ".hovered-trailing-content gem-icon-button[data-test-id='actions-menu-button'] button",
+      ".hovered-trailing-content gem-icon-button[data-test-id='actions-menu-button']",
+      "gem-icon-button[data-test-id='actions-menu-button'] button",
+      "gem-icon-button[data-test-id='actions-menu-button']",
+      "gem-icon-button.gem-conversation-actions-menu-button button",
+      "gem-icon-button.gem-conversation-actions-menu-button",
+      "button[data-test-id='actions-menu-button']",
+      "button[data-test-id='conversation-actions-menu-icon-button']"
+    ].join(", ");
     const GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR = [
       "gem-icon-button[data-test-id='actions-menu-button']",
       "gem-icon-button[data-test-id='actions-menu-button'] button",
@@ -1575,6 +1596,30 @@
     function isGeminiConversationSidebarBoundary(element) {
       return !!element?.matches?.(GEMINI_CONVERSATION_SIDEBAR_SELECTOR);
     }
+    function getPreferredGeminiConversationEntryContainer(link) {
+      if (!link) return null;
+      const preferredSelectors = [
+        "gem-nav-list-item[data-test-id='conversation']",
+        "gem-nav-list-item",
+        ".conversation-item",
+        ".conversation-list-item",
+        ".conversation-row",
+        ".mat-mdc-list-item",
+        ".mat-list-item",
+        "[role='listitem']"
+      ];
+      for (const selector of preferredSelectors) {
+        let candidate = null;
+        try {
+          candidate = link.closest?.(selector) || null;
+        } catch {
+          candidate = null;
+        }
+        if (!candidate || isGeminiConversationSidebarBoundary(candidate)) continue;
+        if (countGeminiConversationLinks(candidate) === 1) return candidate;
+      }
+      return null;
+    }
     function scoreGeminiConversationEntryContainer(element, link) {
       if (!element || !link || element === document || element === document.body) return -Infinity;
       if (!element.contains?.(link)) return -Infinity;
@@ -1605,6 +1650,8 @@
     }
     function getGeminiConversationEntryContainer(link) {
       if (!link) return null;
+      const preferred = getPreferredGeminiConversationEntryContainer(link);
+      if (preferred) return preferred;
       const seen = /* @__PURE__ */ new Set();
       const candidates = [];
       const pushCandidate = (node2) => {
@@ -1726,10 +1773,10 @@
       if (score > 0 && role === "button") score += 5;
       return score;
     }
-    function getConversationMenuButton(container) {
+    function getScoredConversationMenuButton(container, selectorText) {
       if (!container || typeof container.querySelectorAll !== "function") return null;
       let buttons = [];
-      const selectors = GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR.split(",").map((selector) => selector.trim()).filter(Boolean);
+      const selectors = String(selectorText || "").split(",").map((selector) => selector.trim()).filter(Boolean);
       const seen = /* @__PURE__ */ new Set();
       for (const selector of selectors) {
         try {
@@ -1747,6 +1794,9 @@
         return b.score - a.score;
       });
       return scored[0]?.button || null;
+    }
+    function getConversationMenuButton(container) {
+      return getScoredConversationMenuButton(container, GEMINI_CONVERSATION_ACTION_BUTTON_FAST_SELECTOR) || getScoredConversationMenuButton(container, GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR);
     }
     function refreshConversationEntryButton(entry) {
       if (!entry?.container) return entry;
@@ -1825,12 +1875,6 @@
     function isConversationMenuButtonUsable(button) {
       return !!button && isElementVisible(button);
     }
-    function shouldTemporarilyExpandSidebarForConversationFallback(result) {
-      if (!result?.currentPathname) return false;
-      if (isConversationMenuButtonUsable(result?.entry?.button)) return false;
-      if (isConversationEntryVisible(result?.entry)) return false;
-      return isSidebarOpen() === false;
-    }
     function getStringAttr(node, attrName) {
       if (!node || !attrName) return "";
       try {
@@ -1897,27 +1941,99 @@
     function hasJslogCurrentConversationState(entry) {
       return !!entry?.jslogMeta?.isCurrent;
     }
-    function collectGeminiConversationEntries() {
-      let links = [];
+    function getGeminiConversationSearchRoots() {
+      const roots = [];
+      const seen = /* @__PURE__ */ new Set();
+      const pushRoot = (root) => {
+        if (!root || root.nodeType !== 1 || seen.has(root)) return;
+        seen.add(root);
+        roots.push(root);
+      };
       try {
-        links = Array.from(document.querySelectorAll(GEMINI_CONVERSATION_LINK_SELECTOR));
+        for (const root of Array.from(document.querySelectorAll(GEMINI_CONVERSATION_SEARCH_ROOT_SELECTOR))) {
+          pushRoot(root);
+        }
       } catch {
-        return [];
       }
-      return links.map((link) => {
-        if (!link.closest?.(GEMINI_CONVERSATION_SIDEBAR_SELECTOR)) return null;
-        const container = getGeminiConversationEntryContainer(link);
-        const button = getConversationMenuButton(container);
-        const pathname = normalizeGeminiConversationPathname(link.getAttribute?.("href") || link.href || "");
-        const jslogMeta = parseGeminiConversationJslogMeta(link);
+      for (const root of getGeminiSidebarRoots()) {
+        if (root?.matches?.("top-bar-actions")) continue;
+        pushRoot(root);
+      }
+      return roots;
+    }
+    function queryGeminiConversationLinks({ fallbackToDocument = false } = {}) {
+      const links = [];
+      const seen = /* @__PURE__ */ new Set();
+      const collectFromRoot = (root) => {
+        if (!root || typeof root.querySelectorAll !== "function") return;
+        try {
+          for (const link of Array.from(root.querySelectorAll(GEMINI_CONVERSATION_LINK_SELECTOR))) {
+            if (!link || seen.has(link)) continue;
+            if (!link.closest?.(GEMINI_CONVERSATION_SIDEBAR_SELECTOR)) continue;
+            seen.add(link);
+            links.push(link);
+          }
+        } catch {
+        }
+      };
+      for (const root of getGeminiConversationSearchRoots()) collectFromRoot(root);
+      if (links.length === 0 && fallbackToDocument) collectFromRoot(document);
+      return links;
+    }
+    function getGeminiConversationLinkPathname(link) {
+      if (!link) return "";
+      return normalizeGeminiConversationPathname(link.getAttribute?.("href") || link.href || "");
+    }
+    function createGeminiConversationEntry(link) {
+      if (!link?.closest?.(GEMINI_CONVERSATION_SIDEBAR_SELECTOR)) return null;
+      const container = getGeminiConversationEntryContainer(link);
+      if (!container) return null;
+      return {
+        link,
+        container,
+        button: getConversationMenuButton(container),
+        pathname: getGeminiConversationLinkPathname(link),
+        jslogMeta: parseGeminiConversationJslogMeta(link)
+      };
+    }
+    function resolveCurrentConversationMenuTargetByPath(currentPathname) {
+      const pathname = String(currentPathname || "").trim();
+      if (!pathname) {
         return {
-          link,
-          container,
-          button,
-          pathname,
-          jslogMeta
+          entry: null,
+          reason: "noCurrentConversationPath",
+          currentPathname: pathname,
+          entriesCount: 0
         };
-      }).filter(Boolean).filter((entry) => !!entry.link && !!entry.container);
+      }
+      const matches = queryGeminiConversationLinks({ fallbackToDocument: true }).filter((link) => getGeminiConversationLinkPathname(link) === pathname);
+      if (matches.length === 0) {
+        return {
+          entry: null,
+          reason: "noCurrentConversationEntry",
+          currentPathname: pathname,
+          entriesCount: 0
+        };
+      }
+      const visibleMatches = matches.filter((link) => isElementVisible(link) || isElementVisible(link.closest?.(GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR)));
+      const pool = visibleMatches.length ? visibleMatches : matches;
+      if (pool.length > 1) {
+        return {
+          entry: null,
+          reason: "multipleUrlMatches",
+          currentPathname: pathname,
+          entriesCount: pool.length
+        };
+      }
+      return buildConversationTargetResult(createGeminiConversationEntry(pool[0]), {
+        matchSource: "url",
+        currentPathname: pathname,
+        entriesCount: pool.length,
+        hiddenReason: "matchedUrlButButtonHidden"
+      });
+    }
+    function collectGeminiConversationEntries() {
+      return queryGeminiConversationLinks({ fallbackToDocument: true }).map(createGeminiConversationEntry).filter(Boolean).filter((entry) => !!entry.link && !!entry.container);
     }
     function resolveUniqueConversationEntry(entries, predicate) {
       const matched = entries.filter(predicate);
@@ -1935,16 +2051,26 @@
         reason: base.hiddenReason || "matchedButButtonHidden"
       };
     }
-    function resolveCurrentConversationMenuTarget() {
+    function resolveCurrentConversationMenuTarget({ currentPathname = getCurrentGeminiConversationPathname(), allowFullScan = true } = {}) {
+      const pathname = String(currentPathname || "").trim();
+      if (!pathname) {
+        return {
+          entry: null,
+          reason: "noCurrentConversationPath",
+          currentPathname: pathname,
+          entriesCount: 0
+        };
+      }
+      const pathResult = resolveCurrentConversationMenuTargetByPath(pathname);
+      if (pathResult.entry || pathResult.reason === "multipleUrlMatches" || !allowFullScan) return pathResult;
       const entries = collectGeminiConversationEntries();
       const visibleEntries = entries.filter(isConversationEntryVisible);
       const pool = visibleEntries.length ? visibleEntries : entries;
-      const currentPathname = getCurrentGeminiConversationPathname();
       const explicitEntry = resolveUniqueConversationEntry(pool, hasExplicitCurrentConversationState);
       if (explicitEntry) {
         return buildConversationTargetResult(explicitEntry, {
           matchSource: "explicitCurrent",
-          currentPathname,
+          currentPathname: pathname,
           entriesCount: pool.length,
           hiddenReason: "matchedExplicitCurrentButButtonHidden"
         });
@@ -1954,7 +2080,7 @@
         return {
           entry: null,
           reason: "multipleExplicitCurrentMatches",
-          currentPathname,
+          currentPathname: pathname,
           entriesCount: pool.length
         };
       }
@@ -1962,16 +2088,16 @@
       if (jslogEntry) {
         return buildConversationTargetResult(jslogEntry, {
           matchSource: "jslogCurrent",
-          currentPathname,
+          currentPathname: pathname,
           entriesCount: pool.length,
           hiddenReason: "matchedJslogCurrentButButtonHidden"
         });
       }
-      const pathMatches = currentPathname ? pool.filter((entry) => entry.pathname === currentPathname) : [];
+      const pathMatches = pool.filter((entry) => entry.pathname === pathname);
       if (pathMatches.length === 1) {
         return buildConversationTargetResult(pathMatches[0], {
           matchSource: "url",
-          currentPathname,
+          currentPathname: pathname,
           entriesCount: pool.length,
           hiddenReason: "matchedUrlButButtonHidden"
         });
@@ -1980,7 +2106,7 @@
         return {
           entry: null,
           reason: "multipleUrlMatches",
-          currentPathname,
+          currentPathname: pathname,
           entriesCount: pool.length
         };
       }
@@ -1989,67 +2115,62 @@
         return {
           entry: null,
           reason: "multipleJslogCurrentMatches",
-          currentPathname,
-          entriesCount: pool.length
-        };
-      }
-      if (!currentPathname) {
-        return {
-          entry: null,
-          reason: "noCurrentConversationPath",
-          currentPathname,
+          currentPathname: pathname,
           entriesCount: pool.length
         };
       }
       return {
         entry: null,
         reason: "noCurrentConversationEntry",
-        currentPathname,
+        currentPathname: pathname,
         entriesCount: pool.length
       };
     }
     async function waitForCurrentConversationMenuTarget({ timeoutMs = MENU_TIMING.waitTimeoutMs, intervalMs = MENU_TIMING.pollIntervalMs } = {}) {
       const timeout = Math.max(0, Number(timeoutMs) || 0);
-      const interval = Math.max(30, Number(intervalMs) || 30);
+      const interval = Math.max(CONVERSATION_MENU_TARGET_POLL_INTERVAL_MS, Number(intervalMs) || 0);
       const deadline = Date.now() + timeout;
-      let lastResult = resolveCurrentConversationMenuTarget();
-      let temporarySidebarExpandAttempted = false;
-      if (!lastResult?.currentPathname) return lastResult;
-      while (Date.now() <= deadline) {
-        ensureSidebarVisible();
-        const result = resolveCurrentConversationMenuTarget();
-        if (isConversationMenuButtonUsable(result?.entry?.button)) return result;
-        if (!temporarySidebarExpandAttempted && shouldTemporarilyExpandSidebarForConversationFallback(result)) {
-          temporarySidebarExpandAttempted = true;
-          const expanded = ensureSidebarVisible({ ignorePreference: true });
-          if (expanded) {
-            const remainingMs = Math.max(0, deadline - Date.now());
-            const waitMs = Math.min(
-              SIDEBAR_TEMPORARY_EXPAND_WAIT_MS,
-              Math.max(remainingMs, MENU_TIMING.openDelayMs || 120)
-            );
-            const opened = await waitForSidebarOpen({
-              timeoutMs: waitMs,
-              intervalMs: Math.min(interval, SIDEBAR_STATE_POLL_INTERVAL_MS)
-            });
-            const expandedResult = resolveCurrentConversationMenuTarget();
-            if (!opened && !isConversationEntryVisible(expandedResult?.entry)) {
-              return {
-                ...expandedResult,
-                reason: "temporarySidebarExpandFailed",
-                currentPathname: expandedResult?.currentPathname || result.currentPathname
-              };
-            }
-            lastResult = expandedResult;
-            continue;
-          }
+      const currentPathname = getCurrentGeminiConversationPathname();
+      if (!currentPathname) {
+        return {
+          entry: null,
+          reason: "noCurrentConversationPath",
+          currentPathname,
+          entriesCount: 0
+        };
+      }
+      let lastResult = {
+        entry: null,
+        reason: "noCurrentConversationEntry",
+        currentPathname,
+        entriesCount: 0
+      };
+      let revealedContainer = null;
+      if (isSidebarOpen() === false) {
+        const expanded = ensureSidebarVisible({ ignorePreference: true });
+        if (!expanded) {
           return {
-            ...result,
+            ...lastResult,
             reason: "temporarySidebarExpandFailed"
           };
         }
+        const remainingMs = Math.max(0, deadline - Date.now());
+        const waitMs = Math.min(
+          SIDEBAR_TEMPORARY_EXPAND_WAIT_MS,
+          Math.max(remainingMs, MENU_TIMING.openDelayMs || 120)
+        );
+        await waitForSidebarOpen({
+          timeoutMs: waitMs,
+          intervalMs: SIDEBAR_STATE_POLL_INTERVAL_MS
+        });
+      }
+      while (Date.now() <= deadline) {
+        const result = resolveCurrentConversationMenuTarget({ currentPathname, allowFullScan: false });
+        if (isConversationMenuButtonUsable(result?.entry?.button)) return result;
         if (result?.entry) {
-          const revealedEntry = revealConversationEntryActions(result.entry);
+          const shouldReveal = revealedContainer !== result.entry.container;
+          const revealedEntry = shouldReveal ? revealConversationEntryActions(result.entry) : refreshConversationEntryButton(result.entry);
+          if (shouldReveal) revealedContainer = result.entry.container;
           if (isConversationMenuButtonUsable(revealedEntry?.button)) {
             return {
               ...result,
@@ -2061,7 +2182,8 @@
         lastResult = result;
         await sleep(interval);
       }
-      return lastResult;
+      const finalResult = resolveCurrentConversationMenuTarget({ currentPathname, allowFullScan: true });
+      return finalResult?.entry || finalResult?.reason !== "noCurrentConversationEntry" ? finalResult : lastResult;
     }
     function getConversationMenuRootElementFromEntry(entry) {
       const button = entry?.button;
@@ -3020,7 +3142,7 @@
       timing: MENU_TIMING,
       submenus: Object.freeze({}),
       getTriggerElement() {
-        const entry = resolveCurrentConversationMenuTarget()?.entry || null;
+        const entry = resolveCurrentConversationMenuTarget({ allowFullScan: false })?.entry || null;
         if (!entry) return null;
         if (isConversationMenuButtonUsable(entry.button)) return entry.button;
         return refreshConversationEntryButton(entry)?.button || null;
@@ -3030,7 +3152,7 @@
         return !!(trigger && simulateGeminiMenuClick(trigger));
       },
       getRootElement() {
-        const entry = resolveCurrentConversationMenuTarget()?.entry || null;
+        const entry = resolveCurrentConversationMenuTarget({ allowFullScan: false })?.entry || null;
         return entry ? getConversationMenuRootElementFromEntry(entry) : null;
       },
       isOpen() {
@@ -3051,8 +3173,13 @@
           return false;
         }
         const getActiveRoot = () => {
-          const latest = resolveCurrentConversationMenuTarget();
-          return latest?.entry ? getConversationMenuRootElementFromEntry(latest.entry) : getConversationMenuRootElementFromEntry(entry);
+          const existing = getConversationMenuRootElementFromEntry(entry);
+          if (existing) return existing;
+          const latest = resolveCurrentConversationMenuTarget({
+            currentPathname: target.currentPathname,
+            allowFullScan: false
+          });
+          return latest?.entry ? getConversationMenuRootElementFromEntry(latest.entry) : null;
         };
         const existingRoot = getActiveRoot();
         if (existingRoot) return true;
@@ -3078,7 +3205,7 @@
         const selectorList = resolveSelectorListFromSpec(ctx, selector);
         if (selectorList.length === 0) return false;
         const tryClickOnce = () => {
-          const target = resolveCurrentConversationMenuTarget();
+          const target = resolveCurrentConversationMenuTarget({ allowFullScan: false });
           const rootEl = target?.entry ? getConversationMenuRootElementFromEntry(target.entry) : null;
           if (!rootEl) return false;
           for (const sel of selectorList) {
