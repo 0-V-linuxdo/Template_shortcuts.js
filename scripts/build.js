@@ -114,20 +114,6 @@ function getUserscriptOutputFileName(siteEntry) {
   return scriptName ? `${scriptName}.user.js` : "";
 }
 
-function normalizeUserscriptAliasFileName(fileName, siteId) {
-  const normalized = String(fileName || "").trim();
-  if (!normalized) return "";
-  assertSafeUserscriptOutputFileName(normalized, siteId);
-  return normalized;
-}
-
-function getUserscriptOutputFileNames(siteEntry) {
-  const primary = getUserscriptOutputFileName(siteEntry);
-  const aliasList = Array.isArray(siteEntry?.userscriptAliases) ? siteEntry.userscriptAliases : [];
-  const names = [primary, ...aliasList.map((alias) => normalizeUserscriptAliasFileName(alias, siteEntry?.siteId || ""))];
-  return Array.from(new Set(names.filter(Boolean)));
-}
-
 function getUserscriptOutputRelativePath(siteEntry) {
   const fileName = getUserscriptOutputFileName(siteEntry);
   return fileName ? `Site_JS/${fileName}` : "";
@@ -379,27 +365,23 @@ function ensureManifestIntegrity(entries) {
     const siteId = typeof entry?.siteId === "string" ? entry.siteId.trim() : "";
     const sourceEntry = typeof entry?.sourceEntry === "string" ? entry.sourceEntry.trim() : "";
     const metadata = entry?.metadata && typeof entry.metadata === "object" ? entry.metadata : null;
-    const userscriptOutputFileNames = getUserscriptOutputFileNames(entry);
+    const userscriptOutputFileName = getUserscriptOutputFileName(entry);
+    const userscriptOutput = getUserscriptOutputRelativePath(entry);
 
     if (!siteId) throw new Error(`Invalid siteId in SITE_MANIFEST entry: ${JSON.stringify(entry)}`);
     if (!sourceEntry) throw new Error(`Missing sourceEntry for site "${siteId}"`);
     if (!metadata) throw new Error(`Missing metadata object for site "${siteId}"`);
-    if (userscriptOutputFileNames.length === 0) {
-      throw new Error(`Missing userscript output file name for site "${siteId}"`);
-    }
+    assertSafeUserscriptOutputFileName(userscriptOutputFileName, siteId);
 
     if (seenSiteIds.has(siteId)) throw new Error(`Duplicate siteId in SITE_MANIFEST: ${siteId}`);
     if (seenSourceEntries.has(sourceEntry)) throw new Error(`Duplicate sourceEntry in SITE_MANIFEST: ${sourceEntry}`);
-    for (const userscriptOutputFileName of userscriptOutputFileNames) {
-      const userscriptOutputItem = `Site_JS/${userscriptOutputFileName}`;
-      if (seenUserscriptOutputs.has(userscriptOutputItem)) {
-        throw new Error(`Duplicate derived userscript output in SITE_MANIFEST: ${userscriptOutputItem}`);
-      }
-      seenUserscriptOutputs.add(userscriptOutputItem);
+    if (seenUserscriptOutputs.has(userscriptOutput)) {
+      throw new Error(`Duplicate derived userscript output in SITE_MANIFEST: ${userscriptOutput}`);
     }
 
     seenSiteIds.add(siteId);
     seenSourceEntries.add(sourceEntry);
+    seenUserscriptOutputs.add(userscriptOutput);
 
     enforcePathExists(path.join(repoRoot, sourceEntry), `Site source entry for "${siteId}"`);
 
@@ -479,9 +461,7 @@ function renderUserscriptHeader(siteEntry, templateCoreRequireUrl) {
       lines.push(formatMetadataLine(name.replace(/^updateLog/, "update-log"), value));
     }
   }
-  if (metadata.updateURL) lines.push(formatMetadataLine("updateURL", metadata.updateURL));
-  if (metadata.downloadURL) lines.push(formatMetadataLine("downloadURL", metadata.downloadURL));
-  if (metadata.version || metadata.updateLog || metadata.updateURL || metadata.downloadURL) lines.push("");
+  if (metadata.version || metadata.updateLog) lines.push("");
 
   for (const match of matches) {
     lines.push(formatMetadataLine("match", match));
@@ -600,8 +580,7 @@ export async function build() {
 
   for (const siteEntry of SITE_MANIFEST) {
     const sourceEntryPath = path.join(repoRoot, siteEntry.sourceEntry);
-    const userscriptOutputFileNames = getUserscriptOutputFileNames(siteEntry);
-    const userscriptOutputPaths = userscriptOutputFileNames.map((fileName) => path.join(siteJsDir, fileName));
+    const userscriptOutputPath = path.join(siteJsDir, getUserscriptOutputFileName(siteEntry));
     const siteScriptText = await bundleJavaScript(sourceEntryPath, "iife");
     const userscriptText = [
       renderUserscriptHeader(siteEntry, templateCoreRequireUrl).trimEnd(),
@@ -609,12 +588,10 @@ export async function build() {
       siteScriptText.trimEnd()
     ].join("\n\n") + "\n";
 
-    assertBuiltUserscript(siteEntry, userscriptText, templateCoreRequireUrl, userscriptOutputPaths[0]);
-    for (const userscriptOutputPath of userscriptOutputPaths) {
-      fs.mkdirSync(path.dirname(userscriptOutputPath), { recursive: true });
-      fs.writeFileSync(userscriptOutputPath, userscriptText, "utf8");
-      builtSiteOutputs.push({ siteId: siteEntry.siteId, userscriptOutputPath });
-    }
+    assertBuiltUserscript(siteEntry, userscriptText, templateCoreRequireUrl, userscriptOutputPath);
+    fs.mkdirSync(path.dirname(userscriptOutputPath), { recursive: true });
+    fs.writeFileSync(userscriptOutputPath, userscriptText, "utf8");
+    builtSiteOutputs.push({ siteId: siteEntry.siteId, userscriptOutputPath });
   }
 
   process.stdout.write(`Built template core: ${toRepoRelative(templateCorePath)}\n`);
