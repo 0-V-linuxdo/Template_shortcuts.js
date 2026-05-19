@@ -133,7 +133,7 @@
 
     function getClickableTarget(element) {
         if (!element || typeof element.closest !== "function") return element || null;
-        return element.closest("button, a[href], [role='button'], [onclick], label") || element;
+        return element.closest("button, a[href], input[type='radio'], input[type='checkbox'], [role='button'], [role='radio'], [role='switch'], [aria-checked], [onclick], label") || element;
     }
 
     function clickDeepSeekElement(element) {
@@ -176,7 +176,17 @@
         if (!element) return "";
         const parts = [
             element.getAttribute?.("aria-label"),
+            element.getAttribute?.("aria-labelledby")
+                ?.split(/\s+/)
+                .map(id => document.getElementById(id)?.textContent || "")
+                .join(" "),
             element.getAttribute?.("title"),
+            element.getAttribute?.("value"),
+            element.id ? Array.from(document.querySelectorAll("label"))
+                .filter(label => label.getAttribute?.("for") === element.id)
+                .map(label => label.textContent || "")
+                .join(" ") : "",
+            element.closest?.("label")?.textContent,
             element.innerText,
             element.textContent
         ].filter(Boolean);
@@ -520,6 +530,7 @@
     let defaultExpertModeWarmupTimer = null;
     let defaultExpertModeRequestTimer = null;
     let defaultExpertModeLastRequestAt = 0;
+    let defaultExpertModeObserver = null;
 
     function getDefaultExpertModeSetting() {
         const localFallback = getLocalBooleanFallback(DEFAULT_EXPERT_MODE_STORAGE_KEY, DEFAULT_EXPERT_MODE_ENABLED);
@@ -551,17 +562,121 @@
         });
     }
 
+    const DEEPSEEK_MODE_CONTROL_SELECTOR = "input[type='radio'], [role='radio'], button, [role='button'], [aria-checked], [aria-selected], label";
+
+    function matchesDeepSeekSelector(element, selector) {
+        if (!element || typeof element.matches !== "function") return false;
+        try {
+            return element.matches(selector);
+        } catch {
+            return false;
+        }
+    }
+
+    function closestDeepSeekSelector(element, selector) {
+        if (!element || typeof element.closest !== "function") return null;
+        try {
+            return element.closest(selector);
+        } catch {
+            return null;
+        }
+    }
+
+    function resolveDeepSeekModeControl(element) {
+        if (!element) return null;
+        if (matchesDeepSeekSelector(element, DEEPSEEK_MODE_CONTROL_SELECTOR)) return element;
+        return closestDeepSeekSelector(element, DEEPSEEK_MODE_CONTROL_SELECTOR) || element;
+    }
+
+    function parseDeepSeekBooleanAttr(value) {
+        const token = String(value ?? "").trim().toLowerCase();
+        if (token === "true" || token === "1" || token === "checked" || token === "selected") return true;
+        if (token === "false" || token === "0" || token === "unchecked" || token === "unselected") return false;
+        return null;
+    }
+
+    function getDeepSeekLabelControl(element) {
+        if (!element) return null;
+        if (String(element.tagName || "").toLowerCase() !== "label") return null;
+        try {
+            if (element.control) return element.control;
+        } catch { }
+        const forId = String(element.getAttribute?.("for") || "").trim();
+        if (forId) {
+            try {
+                const byId = document.getElementById(forId);
+                if (byId) return byId;
+            } catch { }
+        }
+        try {
+            return element.querySelector("input[type='radio'], input[type='checkbox'], [role='radio'], [aria-checked], [aria-selected]");
+        } catch {
+            return null;
+        }
+    }
+
+    function readDeepSeekModeOptionSelected(element) {
+        const control = resolveDeepSeekModeControl(element);
+        if (!control) return null;
+
+        const labelControl = getDeepSeekLabelControl(control);
+        if (labelControl && labelControl !== control) {
+            const labelState = readDeepSeekModeOptionSelected(labelControl);
+            if (labelState !== null) return labelState;
+        }
+
+        const tagName = String(control.tagName || "").toLowerCase();
+        if ((tagName === "input") && /^(?:radio|checkbox)$/i.test(String(control.type || ""))) {
+            return !!control.checked;
+        }
+
+        for (const attr of ["aria-checked", "aria-selected", "aria-pressed"]) {
+            const parsed = parseDeepSeekBooleanAttr(control.getAttribute?.(attr));
+            if (parsed !== null) return parsed;
+        }
+
+        const dataState = String(control.getAttribute?.("data-state") || "").trim().toLowerCase();
+        if (/^(?:checked|selected|active|on|open)$/.test(dataState)) return true;
+        if (/^(?:unchecked|unselected|inactive|off|closed)$/.test(dataState)) return false;
+
+        const dataSelected = parseDeepSeekBooleanAttr(control.getAttribute?.("data-selected"));
+        if (dataSelected !== null) return dataSelected;
+
+        const nestedInput = control.querySelector?.("input[type='radio'], input[type='checkbox']");
+        if (nestedInput) return !!nestedInput.checked;
+
+        const className = normalizeDeepSeekToken(String(control.className || ""));
+        if (/(?:^|\s)(?:checked|selected|active|is-checked|is-selected|is-active)(?:\s|$)/.test(className)) return true;
+        if (/(?:^|\s)(?:unchecked|unselected|inactive|is-unchecked|is-unselected|is-inactive)(?:\s|$)/.test(className)) return false;
+
+        return null;
+    }
+
+    function getDeepSeekModeClickTarget(element) {
+        const control = resolveDeepSeekModeControl(element);
+        const labelControl = getDeepSeekLabelControl(control);
+        if (labelControl && !isVisibleElement(labelControl) && control && isVisibleElement(control)) return control;
+        if (control && isVisibleElement(control)) return control;
+        if (element && isVisibleElement(element)) return element;
+        return control || element || null;
+    }
+
     function findDeepSeekModeOption(labels) {
-        const candidates = Array.from(document.querySelectorAll("[role='radio'], input[type='radio'], [aria-checked], button, [role='button']"))
+        const candidates = Array.from(document.querySelectorAll("[role='radio'], input[type='radio'], [aria-checked], [aria-selected], label, button, [role='button']"))
             .filter(isVisibleElement)
             .map((element) => {
-                if (matchesAnyLabel(element, labels, { exact: true })) return { element, exact: true };
-                if (matchesAnyLabel(element, labels, { exact: false })) return { element, exact: false };
+                const control = resolveDeepSeekModeControl(element) || element;
+                if (matchesAnyLabel(element, labels, { exact: true }) || matchesAnyLabel(control, labels, { exact: true })) {
+                    return { element: control, exact: true };
+                }
+                if (matchesAnyLabel(element, labels, { exact: false }) || matchesAnyLabel(control, labels, { exact: false })) {
+                    return { element: control, exact: false };
+                }
                 return null;
             })
             .filter(Boolean);
 
-        if (!candidates.length) return findExactTextElement(labels);
+        if (!candidates.length) return resolveDeepSeekModeControl(findExactTextElement(labels));
 
         const composerInput = getVisibleComposerInputs()[0] || null;
         if (!composerInput) {
@@ -594,10 +709,28 @@
             .sort((a, b) => a.score - b.score)[0]?.element || null;
     }
 
+    function isDeepSeekExpertModeSelected() {
+        const expertOption = findDeepSeekModeOption(["Expert"]);
+        const expertSelected = readDeepSeekModeOptionSelected(expertOption);
+        if (expertSelected !== null) return expertSelected;
+
+        const instantOption = findDeepSeekModeOption(["Instant"]);
+        const instantSelected = readDeepSeekModeOptionSelected(instantOption);
+        if (instantSelected === true) return false;
+        if (instantSelected === false && expertOption) return true;
+        return null;
+    }
+
     function selectDeepSeekExpertMode() {
+        const selected = isDeepSeekExpertModeSelected();
+        if (selected === true) return true;
+
         const expertOption = findDeepSeekModeOption(["Expert"]);
         if (!expertOption) return false;
-        return clickDeepSeekElement(expertOption);
+        const clicked = clickDeepSeekElement(getDeepSeekModeClickTarget(expertOption));
+        if (!clicked) return false;
+
+        return isDeepSeekExpertModeSelected() === true;
     }
 
     function shouldWarmupDefaultExpertMode() {
@@ -676,7 +809,33 @@
         return defaultExpertModeEnabled;
     }
 
+    function setupDefaultExpertModeObserver() {
+        if (defaultExpertModeObserver || typeof MutationObserver !== "function") return;
+        const root = document.documentElement || document.body;
+        if (!root) return;
+
+        defaultExpertModeObserver = new MutationObserver(() => {
+            if (!shouldWarmupDefaultExpertMode()) return;
+            if (defaultExpertModeRequestTimer !== null || defaultExpertModeWarmupTimer !== null) return;
+            if (isDeepSeekExpertModeSelected() === true) return;
+            requestDefaultExpertModeWarmup({ attempts: 6, intervalMs: 250, delayMs: 80 });
+        });
+
+        try {
+            defaultExpertModeObserver.observe(root, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ["aria-checked", "aria-selected", "aria-pressed", "data-state", "data-selected", "class"]
+            });
+        } catch {
+            defaultExpertModeObserver = null;
+        }
+    }
+
     function setupDefaultExpertModeSelection() {
+        setupDefaultExpertModeObserver();
+
         window.addEventListener("load", () => {
             requestDefaultExpertModeWarmup({ attempts: 14, intervalMs: 350, delayMs: 650 });
         }, { once: true });
