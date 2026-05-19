@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260512] v1.2.2
-// @name:en        [Gemini] Shortcut Jump [20260512] v1.2.2
+// @name           [Gemini] 快捷键跳转 [20260519] v1.0.0
+// @name:en        [Gemini] Shortcut Jump [20260519] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260512] v1.2.2
-// @update-log     1.2.2: 增强 Gemini Notebook Quick Input 新对话校验：Notebook 场景改为最多 3 次重试、每次等待 45 秒、重试间隔 2 秒，以适应 Thinking 状态较久的循环。
-// @update-log:en  1.2.2: Strengthened Gemini Notebook Quick Input new-chat verification with up to 3 retries, 45 seconds per check, and a 2-second retry delay for long Thinking states.
+// @version        [20260519] v1.0.0
+// @update-log     1.0.0: 适配 Gemini 新旧网页 UI，自适应识别新版输入栏、模型菜单、工具入口、侧边栏与 Quick Input 发送流程。
+// @update-log:en  1.0.0: Adapted Gemini for both the new and legacy web UIs, with runtime detection for the new composer, model menu, tools entry, sidebar, and Quick Input send flow.
 
 // @match          https://gemini.google.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22gemini-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.gemini-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.gemini-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Csvg%20x%3D%2213%22%20y%3D%2211%22%20width%3D%2238%22%20height%3D%2238%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cdefs%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-0%22%20x1%3D%227%22%20x2%3D%2211%22%20y1%3D%2215.5%22%20y2%3D%2212%22%3E%3Cstop%20stop-color%3D%22%2308B962%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2308B962%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-1%22%20x1%3D%228%22%20x2%3D%2211.5%22%20y1%3D%225.5%22%20y2%3D%2211%22%3E%3Cstop%20stop-color%3D%22%23F94543%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23F94543%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-2%22%20x1%3D%223.5%22%20x2%3D%2217.5%22%20y1%3D%2213.5%22%20y2%3D%2212%22%3E%3Cstop%20stop-color%3D%22%23FABC12%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%22.46%22%20stop-color%3D%22%23FABC12%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22%233186FF%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-0)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-1)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-2)%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260517.1.0.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260519.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -251,8 +251,96 @@
     });
     const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
     const siteMessage = (engine2, key, vars = {}, fallback = "") => engine2?.i18n?.t?.(key, vars, fallback) || fallback;
+    const GEMINI_UI_VARIANTS = Object.freeze({
+      legacy: "legacy",
+      modern: "new",
+      unknown: "unknown"
+    });
+    function detectGeminiUiVariant() {
+      try {
+        const modernSignals = [
+          "bard-sidenav .sidenav-with-history-container.expanded",
+          "side-navigation-content .sidenav-with-history-container.expanded",
+          "side-nav-action-button[data-test-id='new-chat-button']",
+          "div[contenteditable='true'][aria-label='Enter a prompt for Gemini']",
+          "div[contenteditable='true'][data-placeholder='Ask Gemini']",
+          "button[aria-label='Open upload file menu']"
+        ];
+        for (const selector of modernSignals) {
+          if (getFirstVisibleBySelector(selector, { fallbackToFirst: true })) {
+            return GEMINI_UI_VARIANTS.modern;
+          }
+        }
+        const modernSidebarRoots = [
+          "bard-sidenav",
+          "side-navigation-content"
+        ];
+        const modernSidebarTokens = [
+          "new chat",
+          "search chats",
+          "images",
+          "videos",
+          "library",
+          "notebooks",
+          "recents"
+        ];
+        for (const selector of modernSidebarRoots) {
+          const root = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
+          if (!root) continue;
+          let sidebarNodes = [];
+          try {
+            sidebarNodes = Array.from(root.querySelectorAll("button, a, [role='button'], [role='menuitem'], [role='tab']"));
+          } catch {
+            sidebarNodes = [];
+          }
+          for (const node of sidebarNodes) {
+            if (!isElementVisible(node)) continue;
+            const text = normalizeGeminiUiText([
+              node.textContent,
+              node.getAttribute?.("aria-label"),
+              node.getAttribute?.("title")
+            ].filter(Boolean).join(" "));
+            if (modernSidebarTokens.some((token) => text.includes(token))) {
+              return GEMINI_UI_VARIANTS.modern;
+            }
+          }
+        }
+        const modernModelButton = getFirstVisibleBySelector([
+          "button[aria-label='Open mode picker']",
+          "bard-mode-switcher button",
+          "[data-test-id='bard-mode-menu-button']"
+        ], { fallbackToFirst: true });
+        const modernModelText = String(modernModelButton?.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+        if (/\bflash\b/.test(modernModelText) || /\bthinking level\b/.test(modernModelText) || /\b3\s*\.?\s*1\s*pro\b/.test(modernModelText)) {
+          return GEMINI_UI_VARIANTS.modern;
+        }
+        const legacySignals = [
+          "toolbox-drawer button.toolbox-drawer-button",
+          "button[data-test-id='bard-mode-option-pro']",
+          "button[data-test-id='bard-mode-option-thinking']",
+          "button[data-test-id='bard-mode-option-fast']",
+          "rich-textarea .ql-editor",
+          ".text-input-field .ql-editor",
+          "button[data-test-id='side-nav-menu-button']"
+        ];
+        for (const selector of legacySignals) {
+          if (getFirstVisibleBySelector(selector, { fallbackToFirst: true })) {
+            return GEMINI_UI_VARIANTS.legacy;
+          }
+        }
+      } catch {
+      }
+      return GEMINI_UI_VARIANTS.unknown;
+    }
+    function getGeminiSelectorOrder(legacySelectors, modernSelectors) {
+      const legacy = Array.isArray(legacySelectors) ? legacySelectors.filter(Boolean) : [legacySelectors].filter(Boolean);
+      const modern = Array.isArray(modernSelectors) ? modernSelectors.filter(Boolean) : [modernSelectors].filter(Boolean);
+      const variant = detectGeminiUiVariant();
+      if (variant === GEMINI_UI_VARIANTS.modern) return [...modern, ...legacy];
+      return [...legacy, ...modern];
+    }
     const SELECTORS = {
-      sidebarToggle: [
+      sidebarToggle: getGeminiSelectorOrder([
         "button[data-test-id='side-nav-menu-button']",
         "side-nav-menu-button button[data-test-id='side-nav-menu-button']",
         "button[data-test-id='side-nav-menu-button'][jslog^='204298']",
@@ -264,20 +352,74 @@
         "button[aria-label='Main menu']",
         "button[aria-label='Open main menu']",
         "button[aria-label='Open navigation menu']"
-      ].join(", "),
-      modelPickerButton: [
+      ], [
+        "bard-sidenav button[aria-label*='sidebar' i]",
+        "side-navigation-content button[aria-label*='sidebar' i]",
+        "bard-sidenav button[aria-label*='menu' i]",
+        "side-navigation-content button[aria-label*='menu' i]",
+        "button[aria-label='Close sidebar']",
+        "button[aria-label='Open sidebar']",
+        "button[aria-label='Close side bar']",
+        "button[aria-label='Open side bar']",
+        "button[aria-label='Collapse sidebar']",
+        "button[aria-label='Expand sidebar']",
+        "button[aria-label='Collapse side bar']",
+        "button[aria-label='Expand side bar']"
+      ]),
+      modelPickerButton: getGeminiSelectorOrder([
         "[data-test-id='bard-mode-menu-button'] button",
         "[data-test-id='bard-mode-menu-button']"
-      ],
-      toolsButton: [
+      ], [
+        "button[aria-label='Open mode picker']",
+        "bard-mode-switcher button[aria-label='Open mode picker']",
+        "bard-mode-switcher button",
+        "button[aria-label*='mode picker' i]",
+        "button[aria-label*='model' i]"
+      ]),
+      modelPickerMenuRoot: getGeminiSelectorOrder([
+        ".gds-mode-switch-menu.mat-mdc-menu-panel",
+        ".gds-mode-switch-menu[role='menu']"
+      ], [
+        ".cdk-overlay-pane .gds-mode-switch-menu.mat-mdc-menu-panel",
+        ".cdk-overlay-pane .mat-mdc-menu-panel[role='menu']",
+        ".cdk-overlay-pane .mat-menu-panel[role='menu']",
+        ".cdk-overlay-pane [role='menu']",
+        ".mat-mdc-menu-panel[role='menu']",
+        ".mat-menu-panel[role='menu']"
+      ]),
+      toolsButton: getGeminiSelectorOrder([
         "toolbox-drawer button.toolbox-drawer-button[aria-haspopup='menu']",
         "button.toolbox-drawer-button[aria-haspopup='menu']",
         "button.toolbox-drawer-button"
-      ].join(", "),
-      topBarConversationActionsButton: [
+      ], [
+        "[data-node-type='input-area'] button[aria-label='Open upload file menu']",
+        "input-area-v2 button[aria-label='Open upload file menu']",
+        "button[aria-label='Open upload file menu']",
+        "button[aria-label*='open upload' i]",
+        "button[aria-controls='upload-file-menu']",
+        "button.upload-card-button.open",
+        "button.upload-card-button"
+      ]),
+      toolsMenuRoot: getGeminiSelectorOrder([
+        "mat-action-list#toolbox-drawer-menu[role='menu']",
+        "mat-card.toolbox-drawer-card"
+      ], [
+        ".cdk-overlay-pane #upload-file-menu",
+        "#upload-file-menu",
+        ".cdk-overlay-pane [id*='upload-file-menu']",
+        ".cdk-overlay-pane .mat-mdc-menu-panel[role='menu']",
+        ".cdk-overlay-pane .mat-menu-panel[role='menu']",
+        ".cdk-overlay-pane [role='menu']",
+        ".mat-mdc-menu-panel[role='menu']",
+        ".mat-menu-panel[role='menu']"
+      ]),
+      topBarConversationActionsButton: getGeminiSelectorOrder([
         "top-bar-actions conversation-actions-icon button[data-test-id='conversation-actions-menu-icon-button']",
         "top-bar-actions button[data-test-id='conversation-actions-menu-icon-button']"
-      ].join(", "),
+      ], [
+        "button[data-test-id='actions-menu-button']",
+        "button.conversation-actions-menu-button"
+      ]),
       topBarConversationMenuRoot: [
         ".cdk-overlay-pane .mat-mdc-menu-panel[role='menu']",
         ".cdk-overlay-pane .mat-menu-panel[role='menu']",
@@ -285,10 +427,50 @@
         ".mat-menu-panel[role='menu']"
       ]
     };
-    const MODEL_PICKER_OPTION_SELECTORS = Object.freeze({
-      pro: "button[data-test-id='bard-mode-option-pro']",
-      thinking: "button[data-test-id='bard-mode-option-thinking']",
-      fast: "button[data-test-id='bard-mode-option-fast']"
+    const MODEL_PICKER_OPTION_TARGETS = Object.freeze({
+      pro: Object.freeze({
+        selector: [
+          "button[data-test-id='bard-mode-option-pro']",
+          "button.bard-mode-list-button[role='menuitemradio']",
+          "button[role='menuitemradio']",
+          "button[role='menuitem']",
+          "button[mat-menu-item]",
+          "button.mat-mdc-menu-item",
+          "[role='menuitemradio']",
+          "[role='menuitem']"
+        ],
+        textMatch: ["Pro", "3.1 Pro"]
+      }),
+      thinking: Object.freeze({
+        selector: [
+          "button[data-test-id='bard-mode-option-thinking']",
+          "button.bard-mode-list-button[role='menuitemradio']",
+          "button[role='menuitemradio']",
+          "button[role='menuitem']",
+          "button[aria-haspopup='menu']",
+          "button[mat-menu-item]",
+          "button.mat-mdc-menu-item",
+          "[role='menuitemradio']",
+          "[role='menuitem']"
+        ],
+        textMatch: ["Thinking", "Thinking level"]
+      }),
+      fast: Object.freeze({
+        selector: [
+          "button[data-test-id='bard-mode-option-fast']",
+          "button.bard-mode-list-button[role='menuitemradio']",
+          "button[role='menuitemradio']",
+          "button[role='menuitem']",
+          "button[mat-menu-item]",
+          "button.mat-mdc-menu-item",
+          "[role='menuitemradio']",
+          "[role='menuitem']"
+        ],
+        textMatch: {
+          preferred: ["3 Flash"],
+          fallback: ["3.1 Flash-Lite", "Fast"]
+        }
+      })
     });
     function normalizeModelToken(value) {
       return String(value ?? "").trim().toLowerCase();
@@ -296,12 +478,18 @@
     function inferModelKeyFromText(text) {
       const token = normalizeModelToken(text);
       if (!token) return "";
+      if (/(^|[^a-z0-9])flash[\s-]*lite([^a-z0-9]|$)/.test(token)) return "flashLite";
+      if (/(^|[^a-z0-9])3\s*\.?\s*1\s*pro([^a-z0-9]|$)/.test(token)) return "pro";
+      if (/(^|[^a-z0-9])thinking\s+level([^a-z0-9]|$)/.test(token)) return "thinking";
+      if (/(^|[^a-z0-9])3\s*flash([^a-z0-9]|$)/.test(token)) return "fast";
       if (token === "pro") return "pro";
       if (token === "thinking") return "thinking";
       if (token === "fast") return "fast";
+      if (token === "flash") return "fast";
       if (/(^|[^a-z0-9])pro([^a-z0-9]|$)/.test(token)) return "pro";
       if (/(^|[^a-z0-9])thinking([^a-z0-9]|$)/.test(token)) return "thinking";
       if (/(^|[^a-z0-9])fast([^a-z0-9]|$)/.test(token)) return "fast";
+      if (/(^|[^a-z0-9])flash([^a-z0-9]|$)/.test(token)) return "fast";
       return "";
     }
     function normalizeGeminiUiText(value) {
@@ -436,6 +624,15 @@
     }
     function getCurrentModelKey() {
       const readText = () => {
+        const currentButton = getFirstVisibleBySelector(SELECTORS.modelPickerButton, { fallbackToFirst: true });
+        if (currentButton) {
+          const parts = [
+            currentButton.textContent,
+            currentButton.getAttribute?.("aria-label"),
+            currentButton.getAttribute?.("title")
+          ].filter(Boolean);
+          if (parts.length > 0) return parts.join(" ");
+        }
         const span = document.querySelector("[data-test-id='bard-mode-menu-button'] [data-test-id='logo-pill-label-container'] span");
         if (span) return span.textContent || "";
         const container = document.querySelector("[data-test-id='bard-mode-menu-button'] [data-test-id='logo-pill-label-container']");
@@ -514,21 +711,21 @@
         actionType: "custom",
         customAction: "modelPicker",
         hotkey: "CTRL+SHIFT+P",
-        data: { menu: { selector: MODEL_PICKER_OPTION_SELECTORS.pro } }
+        data: { menu: MODEL_PICKER_OPTION_TARGETS.pro }
       }, "model"),
       createShortcut({
         name: "Model: Thinking",
         actionType: "custom",
         customAction: "modelPicker",
         hotkey: "CTRL+SHIFT+T",
-        data: { menu: { selector: MODEL_PICKER_OPTION_SELECTORS.thinking } }
+        data: { menu: MODEL_PICKER_OPTION_TARGETS.thinking }
       }, "model"),
       createShortcut({
         name: "Model: Fast",
         actionType: "custom",
         customAction: "modelPicker",
         hotkey: "CTRL+SHIFT+F",
-        data: { menu: { selector: MODEL_PICKER_OPTION_SELECTORS.fast } }
+        data: { menu: MODEL_PICKER_OPTION_TARGETS.fast }
       }, "model"),
       createShortcut({ name: "Open Tools", actionType: "selector", selector: SELECTORS.toolsButton, hotkey: "CTRL+T" }, "tools"),
       createShortcut({
@@ -716,17 +913,40 @@
       }
     }
     function getFirstVisibleBySelector(selector, { fallbackToFirst = false } = {}) {
-      if (typeof selector !== "string" || !selector.trim()) return null;
-      let all = [];
-      try {
-        all = Array.from(document.querySelectorAll(selector));
-      } catch {
-        return null;
+      const selectorList = (() => {
+        if (Array.isArray(selector)) {
+          return selector.flatMap((item) => {
+            if (Array.isArray(item)) return item;
+            const token2 = String(item ?? "").trim();
+            return token2 ? [token2] : [];
+          }).map((item) => String(item ?? "").trim()).filter(Boolean);
+        }
+        if (selector && typeof selector === "object") {
+          if (Array.isArray(selector.selectors)) return selector.selectors.flatMap((item) => {
+            const token3 = String(item ?? "").trim();
+            return token3 ? [token3] : [];
+          }).filter(Boolean);
+          const token2 = String(selector.selector ?? selector.fallback ?? "").trim();
+          return token2 ? [token2] : [];
+        }
+        const token = String(selector ?? "").trim();
+        return token ? [token] : [];
+      })();
+      if (selectorList.length === 0) return null;
+      let fallback = null;
+      for (const sel of selectorList) {
+        let all = [];
+        try {
+          all = Array.from(document.querySelectorAll(sel));
+        } catch {
+          continue;
+        }
+        for (const el of all) {
+          if (isElementVisible(el)) return el;
+        }
+        if (fallbackToFirst && !fallback) fallback = all[0] || null;
       }
-      for (const el of all) {
-        if (isElementVisible(el)) return el;
-      }
-      return fallbackToFirst ? all[0] || null : null;
+      return fallbackToFirst ? fallback : null;
     }
     function getSidebarToggleButton() {
       return getFirstVisibleBySelector(SELECTORS.sidebarToggle, { fallbackToFirst: true });
@@ -765,6 +985,31 @@
       for (const selector of SIDEBAR_OPEN_SELECTORS) {
         const el = getFirstVisibleBySelector(selector);
         if (el) return true;
+      }
+      const sidebarRoots = [
+        "bard-sidenav",
+        "side-navigation-content"
+      ];
+      for (const selector of sidebarRoots) {
+        const root = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
+        if (!root) continue;
+        let nodes = [];
+        try {
+          nodes = Array.from(root.querySelectorAll("button, a, [role='button'], [role='menuitem'], [role='tab']"));
+        } catch {
+          nodes = [];
+        }
+        for (const node of nodes) {
+          if (!isElementVisible(node)) continue;
+          const text = normalizeGeminiUiText([
+            node.textContent,
+            node.getAttribute?.("aria-label"),
+            node.getAttribute?.("title")
+          ].filter(Boolean).join(" "));
+          if (["new chat", "search chats", "images", "videos", "library", "notebooks", "recents"].some((token) => text.includes(token))) {
+            return true;
+          }
+        }
       }
       for (const selector of SIDEBAR_CLOSED_SELECTORS) {
         const el = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
@@ -886,11 +1131,11 @@
     }
     const toolsDrawerMenu = TemplateUtils.menu.createMenuController({
       trigger: {
-        selector: { fromShortcutKey: "openTools", fallback: SELECTORS.toolsButton }
+        selectors: SELECTORS.toolsButton
       },
       root: {
         type: "selector",
-        selector: "mat-action-list#toolbox-drawer-menu[role='menu'], mat-card.toolbox-drawer-card",
+        selector: SELECTORS.toolsMenuRoot,
         pick: "last"
       },
       timing: MENU_TIMING
@@ -901,7 +1146,7 @@
       },
       root: {
         type: "selector",
-        selector: ".gds-mode-switch-menu.mat-mdc-menu-panel",
+        selector: SELECTORS.modelPickerMenuRoot,
         pick: "last"
       },
       timing: MENU_TIMING
@@ -1406,6 +1651,27 @@
       if (list.length === 0) return void 0;
       return list.length === 1 ? list[0] : list;
     }
+    function isStructuredGeminiTextMatchSpec(value) {
+      return !!value && typeof value === "object" && !Array.isArray(value) && !(value instanceof RegExp) && typeof value !== "function";
+    }
+    function getGeminiTextMatchPriorityGroups(textMatch) {
+      if (!isStructuredGeminiTextMatchSpec(textMatch)) {
+        return hasValidTextMatch(textMatch) ? [textMatch] : [];
+      }
+      const groups = [];
+      const pushGroup = (value) => {
+        if (hasValidTextMatch(value)) groups.push(value);
+      };
+      if (textMatch.preferred !== void 0) pushGroup(textMatch.preferred);
+      if (textMatch.primary !== void 0) pushGroup(textMatch.primary);
+      if (textMatch.first !== void 0) pushGroup(textMatch.first);
+      if (textMatch.fallback !== void 0) pushGroup(textMatch.fallback);
+      if (textMatch.any !== void 0) pushGroup(textMatch.any);
+      if (textMatch.values !== void 0) pushGroup(textMatch.values);
+      if (textMatch.textMatch !== void 0) pushGroup(textMatch.textMatch);
+      if (textMatch.match !== void 0) pushGroup(textMatch.match);
+      return groups;
+    }
     function resolveSelectorListFromSpec(ctx, spec) {
       if (!spec) return [];
       if (Array.isArray(spec)) {
@@ -1434,7 +1700,8 @@
     }
     function findMenuItemInRoot(rootEl, selector, { textMatch = null, normalize, fallbackToFirst = false } = {}) {
       const findFirst = TemplateUtils?.dom?.findFirst;
-      if (typeof findFirst === "function") {
+      const structuredTextMatch = isStructuredGeminiTextMatchSpec(textMatch);
+      if (!structuredTextMatch && typeof findFirst === "function") {
         return findFirst(rootEl, selector, { textMatch, normalize, fallbackToFirst });
       }
       let all = [];
@@ -1449,10 +1716,11 @@
       if (!textMatch) return candidates[0] || null;
       const normalizeText = typeof normalize === "function" ? normalize : (value) => String(value ?? "").trim().toLowerCase();
       const matchText = TemplateUtils?.dom?.matchText;
-      if (textMatch) {
+      const textMatchGroups = structuredTextMatch ? getGeminiTextMatchPriorityGroups(textMatch) : [textMatch];
+      for (const group of textMatchGroups) {
         for (const el of candidates) {
           const text = String(el?.textContent || "");
-          const matched = typeof matchText === "function" ? matchText(text, textMatch, { normalize: normalizeText, element: el }) : normalizeText(text).includes(normalizeText(textMatch));
+          const matched = typeof matchText === "function" ? matchText(text, group, { normalize: normalizeText, element: el }) : geminiMenuTextMatches(text, group, el);
           if (matched) return el;
         }
       }
@@ -1648,7 +1916,7 @@
       const token = normalizeMenuToken(value).toLowerCase();
       return token || "onestep";
     }
-    const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-list-item], button.mat-mdc-list-item, [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']";
+    const TOOLS_DRAWER_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, button[mat-list-item], button.mat-mdc-list-item, [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']";
     const CONVERSATION_ITEM_SELECTOR = "button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitem'], [role='menuitemradio']";
     const CONVERSATION_MENU_PANEL_SELECTOR = SELECTORS.topBarConversationMenuRoot.join(", ");
     const CONVERSATION_MENU_MARKER_SELECTOR = [
@@ -1657,7 +1925,7 @@
       "button[data-test-id='rename-button']",
       "button[data-test-id='studio-sidebar-button']"
     ].join(", ");
-    const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio']";
+    const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio'], button[role='menuitemradio'], button[role='menuitem'], button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitemradio'], [role='menuitem']";
     function inferModelKeyFromSelectorSpec(selectorSpec) {
       const fromString = (value) => {
         const token = normalizeModelToken(value);
@@ -1665,7 +1933,7 @@
         if (token.includes("bard-mode-option-pro")) return "pro";
         if (token.includes("bard-mode-option-thinking")) return "thinking";
         if (token.includes("bard-mode-option-fast")) return "fast";
-        return "";
+        return inferModelKeyFromText(token);
       };
       if (typeof selectorSpec === "string") return fromString(selectorSpec);
       if (Array.isArray(selectorSpec)) {
@@ -1676,6 +1944,12 @@
         return "";
       }
       if (selectorSpec && typeof selectorSpec === "object") {
+        for (const key of ["textMatch", "keyword", "id", "name", "label"]) {
+          if (selectorSpec[key] !== void 0 && selectorSpec[key] !== null) {
+            const found = inferModelKeyFromSelectorSpec(selectorSpec[key]);
+            if (found) return found;
+          }
+        }
         if (selectorSpec.selector) {
           const found = inferModelKeyFromSelectorSpec(selectorSpec.selector);
           if (found) return found;
@@ -1699,11 +1973,29 @@
       const fromSelector = inferModelKeyFromSelectorSpec(menu.selector);
       if (fromSelector) return fromSelector;
       const candidates = [];
-      if (typeof menu.keyword === "string") candidates.push(menu.keyword);
-      if (typeof menu.textMatch === "string") candidates.push(menu.textMatch);
+      const pushCandidate = (value) => {
+        if (Array.isArray(value)) {
+          for (const item of value) pushCandidate(item);
+          return;
+        }
+        if (value instanceof RegExp || typeof value === "function") return;
+        if (value && typeof value === "object") {
+          for (const key of ["preferred", "primary", "first", "fallback", "any", "values", "textMatch", "match", "keyword", "id", "name", "label"]) {
+            pushCandidate(value[key]);
+          }
+          return;
+        }
+        const token = String(value ?? "").trim();
+        if (token) candidates.push(token);
+      };
+      pushCandidate(menu.id);
+      pushCandidate(menu.keyword);
+      pushCandidate(menu.textMatch);
+      pushCandidate(menu.name);
+      pushCandidate(menu.label);
       if (Array.isArray(menu.path) && menu.path.length) candidates.push(menu.path[menu.path.length - 1]);
-      if (typeof rawMenu === "string") candidates.push(rawMenu);
-      if (typeof shortcut?.name === "string") candidates.push(shortcut.name);
+      pushCandidate(rawMenu);
+      pushCandidate(shortcut?.name);
       for (const text of candidates) {
         const found = inferModelKeyFromText(text);
         if (found) return found;
@@ -1783,6 +2075,7 @@
       if (textMatch instanceof RegExp) return true;
       if (typeof textMatch === "function") return true;
       if (Array.isArray(textMatch)) return textMatch.some((v) => hasValidTextMatch(v));
+      if (isStructuredGeminiTextMatchSpec(textMatch)) return getGeminiTextMatchPriorityGroups(textMatch).length > 0;
       return false;
     }
     function ensureMenuTarget(spec, actionName) {
@@ -2774,13 +3067,34 @@
         } catch {
         }
         try {
+          const near = composerEl?.closest?.(".input-area-container");
+          if (near) return near;
+        } catch {
+        }
+        try {
+          const near = composerEl?.closest?.("[data-node-type='input-area']");
+          if (near) return near;
+        } catch {
+        }
+        try {
+          const near = composerEl?.closest?.("input-area-v2");
+          if (near) return near;
+        } catch {
+        }
+        try {
           const near = composerEl?.closest?.(".text-input-field");
           if (near) return near;
         } catch {
         }
         let zones = [];
         try {
-          zones = Array.from(document.querySelectorAll("[xapfileselectordropzone]"));
+          zones = Array.from(document.querySelectorAll([
+            "[xapfileselectordropzone]",
+            ".input-area-container",
+            "[data-node-type='input-area']",
+            "input-area-v2",
+            ".text-input-field"
+          ].join(", ")));
         } catch {
           zones = [];
         }
@@ -2809,6 +3123,21 @@
       }
       function findGeminiComposerContainer(composerEl) {
         if (!composerEl) return null;
+        try {
+          const field = composerEl.closest?.(".input-area-container");
+          if (field) return field;
+        } catch {
+        }
+        try {
+          const field = composerEl.closest?.("[data-node-type='input-area']");
+          if (field) return field;
+        } catch {
+        }
+        try {
+          const field = composerEl.closest?.("input-area-v2");
+          if (field) return field;
+        } catch {
+        }
         try {
           const field = composerEl.closest?.(".text-input-field");
           if (field) return field;
@@ -2978,12 +3307,29 @@
         "aria-busy"
       ]);
       const GEMINI_COMPOSER_SELECTORS = Object.freeze([
+        ".input-area-container [contenteditable='true'][role='textbox']",
+        ".input-area-container [contenteditable='true']",
+        ".input-area-container textarea",
+        "[data-node-type='input-area'] [contenteditable='true'][role='textbox']",
+        "[data-node-type='input-area'] [contenteditable='true']",
+        "[data-node-type='input-area'] textarea",
+        "input-area-v2 [contenteditable='true'][role='textbox']",
+        "input-area-v2 [contenteditable='true']",
+        "input-area-v2 textarea",
+        "[contenteditable='true'][data-placeholder='Ask Gemini']",
+        "[contenteditable='true'][aria-label='Ask Gemini']",
+        "[contenteditable='true'][aria-label='Enter a prompt for Gemini']",
         ".text-input-field [contenteditable='true'][role='textbox']",
         ".text-input-field [contenteditable='true']",
         "rich-textarea [contenteditable='true'][role='textbox']",
         "rich-textarea [contenteditable='true']",
         "[contenteditable='true'][aria-label*='Gemini']",
         "[contenteditable='true'][role='textbox']",
+        "textarea[placeholder='Ask Gemini']",
+        "textarea[placeholder*='Ask Gemini']",
+        "textarea[placeholder*='Gemini']",
+        "textarea[aria-label='Ask Gemini']",
+        "textarea[aria-label='Enter a prompt for Gemini']",
         "textarea[aria-label*='Gemini']",
         "textarea"
       ]);
@@ -3055,6 +3401,18 @@
       function scoreGeminiComposerCandidate(el) {
         let score = 0;
         try {
+          if (el.closest?.(".input-area-container")) score += 130;
+        } catch {
+        }
+        try {
+          if (el.closest?.("[data-node-type='input-area']")) score += 130;
+        } catch {
+        }
+        try {
+          if (el.closest?.("input-area-v2")) score += 130;
+        } catch {
+        }
+        try {
           if (el.closest?.(".text-input-field")) score += 120;
         } catch {
         }
@@ -3073,6 +3431,9 @@
         }
         try {
           const aria = String(el.getAttribute?.("aria-label") || "").toLowerCase();
+          const placeholder = String(el.getAttribute?.("placeholder") || el.getAttribute?.("data-placeholder") || "").toLowerCase();
+          if (aria.includes("ask gemini") || aria.includes("enter a prompt for gemini")) score += 80;
+          if (placeholder.includes("ask gemini") || placeholder.includes("gemini")) score += 80;
           if (aria.includes("prompt") || aria.includes("gemini")) score += 30;
         } catch {
         }
@@ -3125,6 +3486,18 @@
         }
         try {
           pushScope(el.closest?.("rich-textarea") || null);
+        } catch {
+        }
+        try {
+          pushScope(el.closest?.(".input-area-container") || null);
+        } catch {
+        }
+        try {
+          pushScope(el.closest?.("[data-node-type='input-area']") || null);
+        } catch {
+        }
+        try {
+          pushScope(el.closest?.("input-area-v2") || null);
         } catch {
         }
         try {
@@ -3680,6 +4053,18 @@
         };
         pushRoot(composer);
         try {
+          pushRoot(composer?.closest?.(".input-area-container") || null);
+        } catch {
+        }
+        try {
+          pushRoot(composer?.closest?.("[data-node-type='input-area']") || null);
+        } catch {
+        }
+        try {
+          pushRoot(composer?.closest?.("input-area-v2") || null);
+        } catch {
+        }
+        try {
           pushRoot(composer?.closest?.(".text-input-field") || null);
         } catch {
         }
@@ -3706,7 +4091,10 @@
           ".uploader-file-preview-container",
           "uploader-file-preview-container",
           ".file-preview-wrapper",
-          ".text-input-field.with-file-preview"
+          ".text-input-field.with-file-preview",
+          ".input-area-container",
+          "[data-node-type='input-area']",
+          "input-area-v2"
         ];
         for (const selector of selectors) {
           try {
@@ -4395,15 +4783,39 @@
       function findSendButtonNearComposer(composerEl) {
         const candidates = [];
         const scopes = [];
+        const pushScope = (scope) => {
+          if (!scope || scopes.includes(scope)) return;
+          scopes.push(scope);
+        };
         try {
           const form = composerEl?.closest?.("form");
-          if (form) scopes.push(form);
+          if (form) pushScope(form);
         } catch {
         }
-        scopes.push(document);
+        try {
+          pushScope(composerEl?.closest?.(".input-area-container") || null);
+        } catch {
+        }
+        try {
+          pushScope(composerEl?.closest?.("[data-node-type='input-area']") || null);
+        } catch {
+        }
+        try {
+          pushScope(composerEl?.closest?.("input-area-v2") || null);
+        } catch {
+        }
+        try {
+          pushScope(composerEl?.closest?.(".text-input-field") || null);
+        } catch {
+        }
+        pushScope(document);
         const selectors = [
           "button[type='submit']",
+          "button[aria-label='Send']",
+          "button[aria-label*='Send message']",
           "button[aria-label*='Send']",
+          "button[title*='Send']",
+          "button[aria-label*='send' i]",
           "button[aria-label*='发送']",
           "button[data-test-id*='send']"
         ];

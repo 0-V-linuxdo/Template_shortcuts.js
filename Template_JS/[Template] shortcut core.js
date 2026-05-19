@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260517] v1.0.0
-// @name:en        [Template] Shortcut Core [20260517] v1.0.0
+// @name           [Template] 快捷键跳转 [20260519] v1.0.0
+// @name:en        [Template] Shortcut Core [20260519] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260517] v1.0.0
-// @update-log     1.0.0: 修复 Quick Input 运行中导出按钮被禁用的问题，并增强含 Markdown 代码块输入的发送完整性。
-// @update-log:en  1.0.0: Fixed Quick Input export being disabled during runs, and improved complete sending for Markdown code-block input.
+// @version        [20260519] v1.0.0
+// @update-log     1.0.0: 支持 selector 候选数组并优先点击可见元素，提升新旧网页 UI 自适应快捷键的稳定性。
+// @update-log:en  1.0.0: Added selector candidate arrays and visible-element preference for more reliable adaptive shortcuts across old and new web UIs.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260517";
+  var TEMPLATE_VERSION = "20260519";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -1264,14 +1264,38 @@
         }
       }
     }
-    function clickElement(selector) {
+    function resolveSelectorCandidates(selector) {
+      if (Array.isArray(selector)) {
+        return selector.flatMap(resolveSelectorCandidates);
+      }
+      if (selector && typeof selector === "object") {
+        if (Array.isArray(selector.selectors)) return resolveSelectorCandidates(selector.selectors);
+        if (selector.selector !== void 0) return resolveSelectorCandidates(selector.selector);
+        if (selector.fallback !== void 0) return resolveSelectorCandidates(selector.fallback);
+        return [];
+      }
       const sel = typeof selector === "string" ? selector.trim() : "";
-      if (!sel) return;
-      const element = safeQuerySelector(document, sel) || document.querySelector(sel);
+      return sel ? [sel] : [];
+    }
+    function clickElement(selector) {
+      const selectors = resolveSelectorCandidates(selector);
+      if (selectors.length === 0) return;
+      let element = null;
+      let fallbackElement = null;
+      for (const sel of selectors) {
+        const matches = safeQuerySelectorAll(document, sel);
+        const visible = matches.find(isVisible) || null;
+        if (visible) {
+          element = visible;
+          break;
+        }
+        if (!fallbackElement && matches[0]) fallbackElement = matches[0];
+      }
+      if (!element) element = fallbackElement;
       if (!element) {
         if (typeof showAlert === "function") {
           const tpl = options?.text?.builtins?.elementNotFound || "Element not found: {selector}";
-          showAlert(formatMessage2(tpl, { selector: sel }));
+          showAlert(formatMessage2(tpl, { selector: selectors.join(", ") }));
         }
         return;
       }
@@ -1305,10 +1329,11 @@
         const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true, view: window });
         fallbackTarget.dispatchEvent(clickEvent);
       } catch (eventError) {
-        console.error(`${consoleTag} Failed to dispatch click event on element: ${sel}`, eventError);
+        const selectorLabel = selectors.join(", ");
+        console.error(`${consoleTag} Failed to dispatch click event on element: ${selectorLabel}`, eventError);
         if (typeof showAlert === "function") {
           const tpl = options?.text?.builtins?.clickFailed || "Could not simulate click on element: {selector}";
-          showAlert(formatMessage2(tpl, { selector: sel }));
+          showAlert(formatMessage2(tpl, { selector: selectorLabel }));
         }
       }
     }
