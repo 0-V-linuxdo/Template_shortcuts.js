@@ -163,6 +163,20 @@
         }
     }
 
+    function clickDeepSeekElementNativeFirst(element) {
+        const target = getClickableTarget(element);
+        if (!target || !isVisibleElement(target)) return false;
+
+        try {
+            if (typeof target.click === "function") {
+                target.click();
+                return true;
+            }
+        } catch { }
+
+        return clickDeepSeekElement(target);
+    }
+
     function clickCssSelector(selector) {
         const matches = safeQuerySelectorAllLocal(selector);
         for (const match of matches) {
@@ -727,7 +741,7 @@
 
         const expertOption = findDeepSeekModeOption(["Expert"]);
         if (!expertOption) return false;
-        const clicked = clickDeepSeekElement(getDeepSeekModeClickTarget(expertOption));
+        const clicked = clickDeepSeekElementNativeFirst(getDeepSeekModeClickTarget(expertOption));
         if (!clicked) return false;
 
         return isDeepSeekExpertModeSelected() === true;

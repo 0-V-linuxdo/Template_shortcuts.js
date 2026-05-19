@@ -228,16 +228,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[DeepSeek] 快捷键跳转",
         sourceEntry: "src/sites/deepseek/index.js",
         metadata: {
-            name: "[DeepSeek] 快捷键跳转 [20260519] v1.0.3",
+            name: "[DeepSeek] 快捷键跳转 [20260520] v1.0.4",
             namespace: "0_V userscripts/[DeepSeek] shortcut",
             description: "为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025",
-            version: "[20260519] v1.0.3",
-            updateLog: "1.0.3: 修复默认 Expert 模式未稳定选中的问题，改为识别当前 Instant/Expert 选中态并在控件渲染后持续校验重试。",
+            version: "[20260520] v1.0.4",
+            updateLog: "1.0.4: 修复默认 Expert 模式仍未生效的问题，经过控制台验证后改为对 DeepSeek 模式 radio 控件优先执行原生 click，再校验 aria-checked。",
             localized: {
                 "en-US": {
-                    name: "[DeepSeek] Shortcut Jump [20260519] v1.0.3",
+                    name: "[DeepSeek] Shortcut Jump [20260520] v1.0.4",
                     description: "Adds custom shortcuts for DeepSeek Chat with URL jumps, clicks, simulated keys, a visual settings panel, filters, dark mode, responsive layout, icon cache, and shortcut capture.",
-                    updateLog: "1.0.3: Fixed default Expert mode selection by reading the current Instant/Expert state and retrying after the mode controls render."
+                    updateLog: "1.0.4: Fixed default Expert mode again after console verification by native-clicking DeepSeek mode radio controls before checking aria-checked."
                 }
             },
             match: [
