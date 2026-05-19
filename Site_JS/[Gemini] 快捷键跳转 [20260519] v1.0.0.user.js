@@ -6,8 +6,8 @@
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
 // @version        [20260519] v1.0.0
-// @update-log     1.0.0: 适配 Gemini 新旧网页 UI，补齐新版 Upload & tools 工具菜单和 More tools 二级菜单匹配，增强模型菜单、侧边栏与 Quick Input 发送流程。
-// @update-log:en  1.0.0: Adapted Gemini for both the new and legacy web UIs, including the new Upload & tools menu, More tools submenu matching, model menu, sidebar, and Quick Input send flow.
+// @update-log     1.0.0: 适配 Gemini 新旧网页 UI，补齐新版 Upload & tools 工具菜单、More tools 二级菜单与新版侧边栏固定/切换识别，增强模型菜单和 Quick Input 发送流程。
+// @update-log:en  1.0.0: Adapted Gemini for both the new and legacy web UIs, including the new Upload & tools menu, More tools submenu, fixed/toggle sidebar detection, model menu, and Quick Input send flow.
 
 // @match          https://gemini.google.com/*
 
@@ -261,6 +261,7 @@
         const modernSignals = [
           "bard-sidenav .sidenav-with-history-container.expanded",
           "side-navigation-content .sidenav-with-history-container.expanded",
+          "top-bar-actions.side-nav-expanded",
           "side-nav-action-button[data-test-id='new-chat-button']",
           "div[contenteditable='true'][aria-label='Enter a prompt for Gemini']",
           "div[contenteditable='true'][data-placeholder='Ask Gemini']",
@@ -353,10 +354,72 @@
         "button[aria-label='Open main menu']",
         "button[aria-label='Open navigation menu']"
       ], [
-        "bard-sidenav button[aria-label*='sidebar' i]",
-        "side-navigation-content button[aria-label*='sidebar' i]",
-        "bard-sidenav button[aria-label*='menu' i]",
-        "side-navigation-content button[aria-label*='menu' i]",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Toggle Sidebar']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Open sidebar']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Close sidebar']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Open side bar']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Close side bar']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Open navigation menu']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Close navigation menu']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label*='sidebar' i]",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label*='side bar' i]",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label*='side nav' i]",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label*='side-nav' i]",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label*='navigation' i]",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label*='侧栏']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label*='侧边栏']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label*='边栏']",
+        "top-bar-actions button:not([aria-haspopup='menu'])[aria-label*='导航']",
+        "top-bar-actions button:has(mat-icon[fonticon='menu'])",
+        "top-bar-actions button:has(mat-icon[data-mat-icon-name='menu'])",
+        "top-bar-actions button:has(mat-icon[fonticon='menu_open'])",
+        "top-bar-actions button:has(mat-icon[data-mat-icon-name='menu_open'])",
+        "top-bar-actions button:has(mat-icon[fonticon='left_panel_open'])",
+        "top-bar-actions button:has(mat-icon[data-mat-icon-name='left_panel_open'])",
+        "top-bar-actions button:has(mat-icon[fonticon='left_panel_close'])",
+        "top-bar-actions button:has(mat-icon[data-mat-icon-name='left_panel_close'])",
+        "top-bar-actions button:has(mat-icon[fonticon='side_navigation'])",
+        "top-bar-actions button:has(mat-icon[data-mat-icon-name='side_navigation'])",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='sidebar' i]",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='sidebar' i]",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='side bar' i]",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='side bar' i]",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='side nav' i]",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='side nav' i]",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='side-nav' i]",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='side-nav' i]",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='navigation' i]",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='navigation' i]",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='menu' i]",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='menu' i]",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='侧栏']",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='侧栏']",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='侧边栏']",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='侧边栏']",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='边栏']",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='边栏']",
+        "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='导航']",
+        "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='导航']",
+        "bard-sidenav button:has(mat-icon[fonticon='menu'])",
+        "side-navigation-content button:has(mat-icon[fonticon='menu'])",
+        "bard-sidenav button:has(mat-icon[data-mat-icon-name='menu'])",
+        "side-navigation-content button:has(mat-icon[data-mat-icon-name='menu'])",
+        "bard-sidenav button:has(mat-icon[fonticon='menu_open'])",
+        "side-navigation-content button:has(mat-icon[fonticon='menu_open'])",
+        "bard-sidenav button:has(mat-icon[data-mat-icon-name='menu_open'])",
+        "side-navigation-content button:has(mat-icon[data-mat-icon-name='menu_open'])",
+        "bard-sidenav button:has(mat-icon[fonticon='left_panel_open'])",
+        "side-navigation-content button:has(mat-icon[fonticon='left_panel_open'])",
+        "bard-sidenav button:has(mat-icon[data-mat-icon-name='left_panel_open'])",
+        "side-navigation-content button:has(mat-icon[data-mat-icon-name='left_panel_open'])",
+        "bard-sidenav button:has(mat-icon[fonticon='left_panel_close'])",
+        "side-navigation-content button:has(mat-icon[fonticon='left_panel_close'])",
+        "bard-sidenav button:has(mat-icon[data-mat-icon-name='left_panel_close'])",
+        "side-navigation-content button:has(mat-icon[data-mat-icon-name='left_panel_close'])",
+        "bard-sidenav button:has(mat-icon[fonticon='side_navigation'])",
+        "side-navigation-content button:has(mat-icon[fonticon='side_navigation'])",
+        "bard-sidenav button:has(mat-icon[data-mat-icon-name='side_navigation'])",
+        "side-navigation-content button:has(mat-icon[data-mat-icon-name='side_navigation'])",
         "button[aria-label='Close sidebar']",
         "button[aria-label='Open sidebar']",
         "button[aria-label='Close side bar']",
@@ -364,7 +427,12 @@
         "button[aria-label='Collapse sidebar']",
         "button[aria-label='Expand sidebar']",
         "button[aria-label='Collapse side bar']",
-        "button[aria-label='Expand side bar']"
+        "button[aria-label='Expand side bar']",
+        "button:not([aria-haspopup='menu'])[aria-label='Open navigation menu']",
+        "button:not([aria-haspopup='menu'])[aria-label='Close navigation menu']",
+        "button:not([aria-haspopup='menu'])[aria-label*='侧栏']",
+        "button:not([aria-haspopup='menu'])[aria-label*='侧边栏']",
+        "button:not([aria-haspopup='menu'])[aria-label*='边栏']"
       ]),
       modelPickerButton: getGeminiSelectorOrder([
         "[data-test-id='bard-mode-menu-button'] button",
@@ -504,6 +572,15 @@
     }
     function normalizeGeminiUiText(value) {
       return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+    }
+    function getElementLayoutWidth(element) {
+      if (!element) return 0;
+      try {
+        const rect = element.getBoundingClientRect?.();
+        return Number(rect?.width) || 0;
+      } catch {
+        return 0;
+      }
     }
     function normalizeGeminiMenuTargetKey(value) {
       return String(value ?? "").trim().replace(/[\s_-]+/g, "").toLowerCase();
@@ -705,11 +782,16 @@
     const SIDEBAR_VISIBILITY_STORAGE_KEY = "gemini_keep_sidebar_visible_v1";
     const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
     const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
+    const SIDEBAR_OPEN_LAYOUT_MIN_WIDTH = 160;
+    const SIDEBAR_CLOSED_LAYOUT_MAX_WIDTH = 96;
     const SIDEBAR_OPEN_SELECTORS = [
       "div.sidenav-with-history-container.expanded",
       "div.conversation-items-container.side-nav-opened",
       "div.conversation-actions-container.side-nav-opened",
       "bard-sidenav[style*='--bard-sidenav-open-width']",
+      "bard-sidenav.side-nav-expanded",
+      "side-navigation-content.side-nav-expanded",
+      "top-bar-actions.side-nav-expanded",
       "side-navigation-content side-nav-action-button.is-expanded",
       "side-navigation-content [data-test-id='new-chat-button'].is-expanded"
     ];
@@ -1011,8 +1093,53 @@
     function inferSidebarStateFromClassName(value) {
       const token = String(value ?? "").toLowerCase();
       if (!token) return null;
-      if (/(sidebar|sidenav)[-_a-z0-9]*(collapsed|closed)/.test(token)) return false;
-      if (/(sidebar|sidenav)[-_a-z0-9]*(expanded|opened|open)/.test(token)) return true;
+      if (/(?:sidebar|sidenav|side[-_]?nav)[-_a-z0-9]*(collapsed|closed)/.test(token)) return false;
+      if (/(?:sidebar|sidenav|side[-_]?nav)[-_a-z0-9]*(expanded|opened|open)/.test(token)) return true;
+      return null;
+    }
+    function readSidebarStateFromRoot(root) {
+      if (!root) return null;
+      const ariaExpanded = parseBooleanAttr(root.getAttribute?.("aria-expanded"));
+      if (ariaExpanded !== null) return ariaExpanded;
+      const dataState = String(root.getAttribute?.("data-state") || "").trim().toLowerCase();
+      if (dataState === "expanded" || dataState === "open" || dataState === "opened") return true;
+      if (dataState === "collapsed" || dataState === "close" || dataState === "closed") return false;
+      const classState = inferSidebarStateFromClassName(root.className || "");
+      if (classState !== null) return classState;
+      const style = String(root.getAttribute?.("style") || "");
+      if (style.includes("--bard-sidenav-open-width")) return true;
+      if (style.includes("--bard-sidenav-closed-width")) return false;
+      const explicitOpen = [
+        ".sidenav-with-history-container.expanded",
+        ".conversation-items-container.side-nav-opened",
+        ".conversation-actions-container.side-nav-opened",
+        "side-nav-action-button.is-expanded",
+        "[data-test-id='new-chat-button'].is-expanded"
+      ];
+      for (const selector of explicitOpen) {
+        try {
+          if (root.querySelector?.(selector)) return true;
+        } catch {
+        }
+      }
+      const explicitClosed = [
+        ".sidenav-with-history-container:not(.expanded)",
+        ".conversation-items-container:not(.side-nav-opened)",
+        "side-nav-action-button:not(.is-expanded)",
+        "[data-test-id='new-chat-button']:not(.is-expanded)"
+      ];
+      for (const selector of explicitClosed) {
+        try {
+          if (root.querySelector?.(selector)) {
+            const width2 = getElementLayoutWidth(root);
+            if (width2 > 0 && width2 <= SIDEBAR_CLOSED_LAYOUT_MAX_WIDTH) return false;
+          }
+        } catch {
+        }
+      }
+      const width = getElementLayoutWidth(root);
+      if (root.matches?.("bard-sidenav, side-navigation-content") && width >= SIDEBAR_OPEN_LAYOUT_MIN_WIDTH) return true;
+      if (root.matches?.("bard-sidenav, side-navigation-content") && width > 0 && width <= SIDEBAR_CLOSED_LAYOUT_MAX_WIDTH) return false;
       return null;
     }
     function readSidebarStateFromToggle(button) {
@@ -1027,40 +1154,29 @@
       const ariaLabel = String(button.getAttribute?.("aria-label") || "").trim().toLowerCase();
       if (/(open|expand).*(menu|navigation|sidebar|side nav)/.test(ariaLabel)) return false;
       if (/(close|collapse|hide).*(menu|navigation|sidebar|side nav)/.test(ariaLabel)) return true;
+      if (/(打开|展开|显示|开启).*(侧栏|侧边栏|边栏|导航|菜单)/.test(ariaLabel)) return false;
+      if (/(关闭|收起|折叠|隐藏).*(侧栏|侧边栏|边栏|导航|菜单)/.test(ariaLabel)) return true;
       const host = button.closest?.("side-nav-menu-button, [class*='side-nav'], [class*='sidebar'], [class*='sidenav']");
       const byHostClass = inferSidebarStateFromClassName(host?.className || "");
       if (byHostClass !== null) return byHostClass;
       return inferSidebarStateFromClassName(button.className || "");
     }
+    function getGeminiSidebarRoots() {
+      const roots = [];
+      for (const selector of ["top-bar-actions", "bard-sidenav", "side-navigation-content"]) {
+        const root = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
+        if (root && !roots.includes(root)) roots.push(root);
+      }
+      return roots;
+    }
     function isSidebarOpen() {
+      for (const root of getGeminiSidebarRoots()) {
+        const state = readSidebarStateFromRoot(root);
+        if (state !== null) return state;
+      }
       for (const selector of SIDEBAR_OPEN_SELECTORS) {
         const el = getFirstVisibleBySelector(selector);
         if (el) return true;
-      }
-      const sidebarRoots = [
-        "bard-sidenav",
-        "side-navigation-content"
-      ];
-      for (const selector of sidebarRoots) {
-        const root = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
-        if (!root) continue;
-        let nodes = [];
-        try {
-          nodes = Array.from(root.querySelectorAll("button, a, [role='button'], [role='menuitem'], [role='tab']"));
-        } catch {
-          nodes = [];
-        }
-        for (const node of nodes) {
-          if (!isElementVisible(node)) continue;
-          const text = normalizeGeminiUiText([
-            node.textContent,
-            node.getAttribute?.("aria-label"),
-            node.getAttribute?.("title")
-          ].filter(Boolean).join(" "));
-          if (["new chat", "search chats", "images", "videos", "library", "notebooks", "recents"].some((token) => text.includes(token))) {
-            return true;
-          }
-        }
       }
       for (const selector of SIDEBAR_CLOSED_SELECTORS) {
         const el = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
@@ -1069,7 +1185,7 @@
       const button = getSidebarToggleButton();
       const fromToggle = readSidebarStateFromToggle(button);
       if (fromToggle !== null) return fromToggle;
-      return button ? false : null;
+      return null;
     }
     function clickSidebarToggleButton() {
       const button = getSidebarToggleButton();
@@ -1163,9 +1279,21 @@
         if (currentUrl !== lastUrl) {
           lastUrl = currentUrl;
           startSidebarWarmup();
+          return;
+        }
+        if (keepSidebarVisible && !isSidebarAutoExpandSuppressedByViewport()) {
+          const state = isSidebarOpen();
+          if (state === false) {
+            startSidebarWarmup({ attempts: 3, intervalMs: 240 });
+          }
         }
       });
-      observer.observe(document.documentElement || document, { subtree: true, childList: true });
+      observer.observe(document.documentElement || document, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["class", "style", "aria-expanded", "aria-label", "data-state"]
+      });
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") startSidebarWarmup();
       });
