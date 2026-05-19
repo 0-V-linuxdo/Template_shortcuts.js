@@ -6,8 +6,8 @@
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
 // @version        [20260519] v1.0.0
-// @update-log     1.0.0: 适配 Gemini 新旧网页 UI，补齐新版 Upload & tools 工具菜单、More tools 二级菜单与新版侧边栏固定/切换识别，增强模型菜单和 Quick Input 发送流程。
-// @update-log:en  1.0.0: Adapted Gemini for both the new and legacy web UIs, including the new Upload & tools menu, More tools submenu, fixed/toggle sidebar detection, model menu, and Quick Input send flow.
+// @update-log     1.0.0: 适配 Gemini 新旧网页 UI，首次加载时仅判断一次 UI 版本，补齐新版 Upload & tools 工具菜单、More tools 二级菜单与新版侧边栏固定/切换识别，并改为轻量触发以避免页面卡顿，增强模型菜单和 Quick Input 发送流程。
+// @update-log:en  1.0.0: Adapted Gemini for both the new and legacy web UIs with a single UI-version check at initial load, including the new Upload & tools menu, More tools submenu, fixed/toggle sidebar detection, lighter sidebar wakeups to avoid page stalls, model menu, and Quick Input send flow.
 
 // @match          https://gemini.google.com/*
 
@@ -256,6 +256,8 @@
       modern: "new",
       unknown: "unknown"
     });
+    let geminiUiVariantCache = GEMINI_UI_VARIANTS.unknown;
+    let geminiUiVariantCacheReady = false;
     function detectGeminiUiVariant() {
       try {
         const modernSignals = [
@@ -333,13 +335,20 @@
       }
       return GEMINI_UI_VARIANTS.unknown;
     }
+    function getGeminiUiVariant() {
+      if (geminiUiVariantCacheReady) return geminiUiVariantCache;
+      geminiUiVariantCache = detectGeminiUiVariant();
+      geminiUiVariantCacheReady = true;
+      return geminiUiVariantCache;
+    }
     function getGeminiSelectorOrder(legacySelectors, modernSelectors) {
       const legacy = Array.isArray(legacySelectors) ? legacySelectors.filter(Boolean) : [legacySelectors].filter(Boolean);
       const modern = Array.isArray(modernSelectors) ? modernSelectors.filter(Boolean) : [modernSelectors].filter(Boolean);
-      const variant = detectGeminiUiVariant();
+      const variant = getGeminiUiVariant();
       if (variant === GEMINI_UI_VARIANTS.modern) return [...modern, ...legacy];
       return [...legacy, ...modern];
     }
+    getGeminiUiVariant();
     const SELECTORS = {
       sidebarToggle: getGeminiSelectorOrder([
         "button[data-test-id='side-nav-menu-button']",
@@ -784,6 +793,7 @@
     const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
     const SIDEBAR_OPEN_LAYOUT_MIN_WIDTH = 160;
     const SIDEBAR_CLOSED_LAYOUT_MAX_WIDTH = 96;
+    const SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS = 1200;
     const SIDEBAR_OPEN_SELECTORS = [
       "div.sidenav-with-history-container.expanded",
       "div.conversation-items-container.side-nav-opened",
@@ -802,6 +812,8 @@
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
     let sidebarVisibilityMenuCommandId = null;
     let sidebarWarmupTimer = null;
+    let sidebarWarmupRequestTimer = null;
+    let sidebarLastWarmupRequestAt = 0;
     const baseShortcut = Object.freeze({
       url: "",
       urlMethod: "current",
@@ -1217,6 +1229,7 @@
       if (!keepSidebarVisible) return false;
       const open = isSidebarOpen();
       if (open === true) return true;
+      if (open !== false) return false;
       return clickSidebarToggleButton();
     }
     function setSidebarVisibilityPreference(nextValue, engine2 = null) {
@@ -1229,6 +1242,7 @@
           stopSidebarWarmup();
         }
       } else {
+        cancelSidebarWarmupRequest();
         stopSidebarWarmup();
       }
       console.info(`${LOG_TAG} keep sidebar visible is now ${keepSidebarVisible ? "enabled" : "disabled"}.`);
@@ -1243,7 +1257,29 @@
       }
       sidebarWarmupTimer = null;
     }
+    function cancelSidebarWarmupRequest() {
+      if (sidebarWarmupRequestTimer === null) return;
+      try {
+        clearTimeout(sidebarWarmupRequestTimer);
+      } catch {
+      }
+      sidebarWarmupRequestTimer = null;
+    }
+    function requestSidebarWarmup({ attempts = 5, intervalMs = 300, delayMs = 0 } = {}) {
+      if (!shouldWarmupSidebarInBackground()) return;
+      const now = Date.now();
+      const delay = Math.max(0, Number(delayMs) || 0);
+      const cooldown = Math.max(0, SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS - (now - sidebarLastWarmupRequestAt));
+      const waitMs = Math.max(delay, cooldown);
+      if (sidebarWarmupRequestTimer !== null) return;
+      sidebarWarmupRequestTimer = window.setTimeout(() => {
+        sidebarWarmupRequestTimer = null;
+        sidebarLastWarmupRequestAt = Date.now();
+        startSidebarWarmup({ attempts, intervalMs });
+      }, waitMs);
+    }
     function startSidebarWarmup({ attempts = 20, intervalMs = 500 } = {}) {
+      cancelSidebarWarmupRequest();
       stopSidebarWarmup();
       if (!shouldWarmupSidebarInBackground()) return;
       let remaining = Math.max(1, Number(attempts) || 1);
@@ -1258,12 +1294,38 @@
           stopSidebarWarmup();
           return;
         }
-        ensureSidebarVisible();
+        if (open === false) ensureSidebarVisible();
         remaining -= 1;
         if (remaining <= 0) stopSidebarWarmup();
       };
       tick();
       sidebarWarmupTimer = window.setInterval(tick, interval);
+    }
+    function isSidebarToggleEventTarget(target) {
+      const element = target && typeof target.closest === "function" ? target.closest("button, [role='button']") : null;
+      if (!element) return false;
+      const label = normalizeGeminiUiText([
+        element.getAttribute?.("aria-label"),
+        element.getAttribute?.("title"),
+        element.textContent
+      ].filter(Boolean).join(" "));
+      if (/(sidebar|side bar|side nav|side-nav|navigation|侧栏|侧边栏|边栏|导航)/.test(label)) {
+        return true;
+      }
+      const inGeminiSidebarChrome = !!element.closest?.("top-bar-actions, bard-sidenav, side-navigation-content, side-nav-menu-button");
+      if (!inGeminiSidebarChrome) return false;
+      let iconText = "";
+      try {
+        iconText = Array.from(element.querySelectorAll("mat-icon")).map((icon) => [
+          icon.getAttribute?.("fonticon"),
+          icon.getAttribute?.("data-mat-icon-name"),
+          icon.textContent
+        ].filter(Boolean).join(" ")).join(" ");
+      } catch {
+        iconText = "";
+      }
+      const normalizedIconText = normalizeGeminiUiText(iconText);
+      return /(?:^|\s)(menu|menu_open|left_panel_open|left_panel_close|side_navigation)(?:\s|$)/.test(normalizedIconText);
     }
     function setupKeepSidebarVisible() {
       let wasSidebarAutoExpandSuppressed = isSidebarAutoExpandSuppressedByViewport();
@@ -1274,38 +1336,48 @@
         setTimeout(() => startSidebarWarmup(), 800);
       }
       let lastUrl = location.href;
-      const observer = new MutationObserver(() => {
+      const handlePossibleRouteChange = () => {
         const currentUrl = location.href;
-        if (currentUrl !== lastUrl) {
-          lastUrl = currentUrl;
-          startSidebarWarmup();
-          return;
+        if (currentUrl === lastUrl) return;
+        lastUrl = currentUrl;
+        requestSidebarWarmup({ attempts: 8, intervalMs: 350, delayMs: 300 });
+      };
+      const patchHistoryMethod = (methodName) => {
+        try {
+          const original = window.history?.[methodName];
+          if (typeof original !== "function" || original.__geminiSidebarWarmupPatched) return;
+          const patched = function(...args) {
+            const result = original.apply(this, args);
+            handlePossibleRouteChange();
+            return result;
+          };
+          patched.__geminiSidebarWarmupPatched = true;
+          patched.__geminiSidebarWarmupOriginal = original;
+          window.history[methodName] = patched;
+        } catch {
         }
-        if (keepSidebarVisible && !isSidebarAutoExpandSuppressedByViewport()) {
-          const state = isSidebarOpen();
-          if (state === false) {
-            startSidebarWarmup({ attempts: 3, intervalMs: 240 });
-          }
-        }
-      });
-      observer.observe(document.documentElement || document, {
-        subtree: true,
-        childList: true,
-        attributes: true,
-        attributeFilter: ["class", "style", "aria-expanded", "aria-label", "data-state"]
-      });
+      };
+      patchHistoryMethod("pushState");
+      patchHistoryMethod("replaceState");
+      window.addEventListener("popstate", handlePossibleRouteChange);
+      window.addEventListener("hashchange", handlePossibleRouteChange);
+      document.addEventListener("click", (event) => {
+        if (!isSidebarToggleEventTarget(event.target)) return;
+        requestSidebarWarmup({ attempts: 5, intervalMs: 300, delayMs: 500 });
+      }, true);
       document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") startSidebarWarmup();
+        if (document.visibilityState === "visible") requestSidebarWarmup({ attempts: 8, intervalMs: 350, delayMs: 250 });
       });
       window.addEventListener("resize", () => {
         const suppressed = isSidebarAutoExpandSuppressedByViewport();
         if (suppressed === wasSidebarAutoExpandSuppressed) return;
         wasSidebarAutoExpandSuppressed = suppressed;
         if (suppressed) {
+          cancelSidebarWarmupRequest();
           stopSidebarWarmup();
           return;
         }
-        if (keepSidebarVisible) startSidebarWarmup();
+        if (keepSidebarVisible) requestSidebarWarmup({ attempts: 8, intervalMs: 350, delayMs: 250 });
       });
     }
     const toolsDrawerMenuBase = TemplateUtils.menu.createMenuController({
