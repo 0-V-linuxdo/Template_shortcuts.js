@@ -228,16 +228,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[DeepSeek] 快捷键跳转",
         sourceEntry: "src/sites/deepseek/index.js",
         metadata: {
-            name: "[DeepSeek] 快捷键跳转 [20260508] v1.0.0",
+            name: "[DeepSeek] 快捷键跳转 [20260519] v1.0.2",
             namespace: "0_V userscripts/[DeepSeek] shortcut",
             description: "为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025",
-            version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 保留原键帽样式，将 DeepSeek 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
+            version: "[20260519] v1.0.2",
+            updateLog: "1.0.2: 新增默认 Expert 模式开关，页面加载、路由变化和可见性恢复时自动选中 Expert，交互方式参考 Gemini 固定 sidebar。",
             localized: {
                 "en-US": {
-                    name: "[DeepSeek] Shortcut Jump [20260508] v1.0.0",
+                    name: "[DeepSeek] Shortcut Jump [20260519] v1.0.2",
                     description: "Adds custom shortcuts for DeepSeek Chat with URL jumps, clicks, simulated keys, a visual settings panel, filters, dark mode, responsive layout, icon cache, and shortcut capture.",
-                    updateLog: "1.0.0: Kept the original keycap style and made the DeepSeek script icon keycap adapt to black in light mode and white in dark mode."
+                    updateLog: "1.0.2: Added a default Expert mode switch that auto-selects Expert on load, route changes, and visibility restore, following the Gemini keep-sidebar interaction pattern."
                 }
             },
             match: [
