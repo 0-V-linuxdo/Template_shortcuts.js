@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260520] v1.0.2
-// @name:en        [Gemini] Shortcut Jump [20260520] v1.0.2
+// @name           [Gemini] 快捷键跳转 [20260520] v1.0.3
+// @name:en        [Gemini] Shortcut Jump [20260520] v1.0.3
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260520] v1.0.2
-// @update-log     1.0.2: 修复 Gemini 新 UI 左侧当前话题三点按钮识别；顶部当前会话菜单仍优先，缺失或不可用时会临时展开侧栏并回退到当前话题菜单。
-// @update-log:en  1.0.2: Fixed Gemini new UI detection for the left-sidebar current-topic three-dot button; the top current-conversation menu is still preferred, and when missing or unavailable the shortcut temporarily expands the sidebar and falls back to the current-topic menu.
+// @version        [20260520] v1.0.3
+// @update-log     1.0.3: 修复删除快捷键侧栏 fallback 临时展开时的卡顿；内部展开动作现在会去抖并等待侧栏稳定后再定位当前话题菜单。
+// @update-log:en  1.0.3: Fixed stutter during the delete shortcut's sidebar fallback temporary expansion; internal sidebar opening is now debounced and waits for the sidebar to settle before locating the current-topic menu.
 
 // @match          https://gemini.google.com/*
 
@@ -806,6 +806,9 @@
     const SIDEBAR_OPEN_LAYOUT_MIN_WIDTH = 160;
     const SIDEBAR_CLOSED_LAYOUT_MAX_WIDTH = 96;
     const SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS = 1200;
+    const SIDEBAR_TOGGLE_SETTLE_MS = 700;
+    const SIDEBAR_TEMPORARY_EXPAND_WAIT_MS = 1e3;
+    const SIDEBAR_STATE_POLL_INTERVAL_MS = 80;
     const SIDEBAR_OPEN_SELECTORS = [
       "div.sidenav-with-history-container.expanded",
       "div.conversation-items-container.side-nav-opened",
@@ -826,6 +829,7 @@
     let sidebarWarmupTimer = null;
     let sidebarWarmupRequestTimer = null;
     let sidebarLastWarmupRequestAt = 0;
+    let sidebarTogglePendingUntil = 0;
     const baseShortcut = Object.freeze({
       url: "",
       urlMethod: "current",
@@ -1211,16 +1215,35 @@
       if (fromToggle !== null) return fromToggle;
       return null;
     }
-    function clickSidebarToggleButton() {
+    function clearSidebarTogglePending() {
+      sidebarTogglePendingUntil = 0;
+    }
+    function isSidebarTogglePending() {
+      if (sidebarTogglePendingUntil <= Date.now()) return false;
+      if (isSidebarOpen() === true) {
+        clearSidebarTogglePending();
+        return false;
+      }
+      return true;
+    }
+    function markSidebarTogglePending(settleMs = SIDEBAR_TOGGLE_SETTLE_MS) {
+      sidebarTogglePendingUntil = Date.now() + Math.max(150, Number(settleMs) || SIDEBAR_TOGGLE_SETTLE_MS);
+    }
+    function clickSidebarToggleButton({ settleMs = SIDEBAR_TOGGLE_SETTLE_MS } = {}) {
+      if (isSidebarTogglePending()) return true;
       const button = getSidebarToggleButton();
       if (!button) return false;
       try {
         const clicked = TemplateUtils?.events?.simulateClick?.(button, { nativeFallback: true });
-        if (clicked) return true;
+        if (clicked) {
+          markSidebarTogglePending(settleMs);
+          return true;
+        }
       } catch {
       }
       try {
         button.click();
+        markSidebarTogglePending(settleMs);
         return true;
       } catch {
       }
@@ -1240,7 +1263,11 @@
     function ensureSidebarVisible({ ignorePreference = false } = {}) {
       if (!ignorePreference && !keepSidebarVisible) return false;
       const open = isSidebarOpen();
-      if (open === true) return true;
+      if (open === true) {
+        clearSidebarTogglePending();
+        return true;
+      }
+      if (isSidebarTogglePending()) return true;
       if (open !== false) return false;
       return clickSidebarToggleButton();
     }
@@ -1299,18 +1326,23 @@
       const tick = () => {
         if (!shouldWarmupSidebarInBackground()) {
           stopSidebarWarmup();
-          return;
+          return false;
         }
         const open = isSidebarOpen();
         if (open === true) {
+          clearSidebarTogglePending();
           stopSidebarWarmup();
-          return;
+          return false;
         }
         if (open === false) ensureSidebarVisible();
         remaining -= 1;
-        if (remaining <= 0) stopSidebarWarmup();
+        if (remaining <= 0) {
+          stopSidebarWarmup();
+          return false;
+        }
+        return true;
       };
-      tick();
+      if (!tick()) return;
       sidebarWarmupTimer = window.setInterval(tick, interval);
     }
     function isSidebarToggleEventTarget(target) {
@@ -1448,6 +1480,21 @@
       return visibleRoots[visibleRoots.length - 1] || null;
     }
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    async function waitForSidebarOpen({ timeoutMs = SIDEBAR_TEMPORARY_EXPAND_WAIT_MS, intervalMs = SIDEBAR_STATE_POLL_INTERVAL_MS } = {}) {
+      const timeout = Math.max(0, Number(timeoutMs) || 0);
+      const interval = Math.max(30, Number(intervalMs) || SIDEBAR_STATE_POLL_INTERVAL_MS);
+      const deadline = Date.now() + timeout;
+      while (Date.now() <= deadline) {
+        if (isSidebarOpen() === true) {
+          clearSidebarTogglePending();
+          return true;
+        }
+        await sleep(interval);
+      }
+      const open = isSidebarOpen() === true;
+      if (open) clearSidebarTogglePending();
+      return open;
+    }
     const GEMINI_CONVERSATION_LINK_SELECTOR = [
       "a[data-test-id='conversation']",
       "gem-nav-list-item[data-test-id='conversation'] a[href*='/app/']",
@@ -1976,8 +2023,24 @@
           temporarySidebarExpandAttempted = true;
           const expanded = ensureSidebarVisible({ ignorePreference: true });
           if (expanded) {
-            await sleep(Math.max(interval, MENU_TIMING.openDelayMs || 120));
-            lastResult = result;
+            const remainingMs = Math.max(0, deadline - Date.now());
+            const waitMs = Math.min(
+              SIDEBAR_TEMPORARY_EXPAND_WAIT_MS,
+              Math.max(remainingMs, MENU_TIMING.openDelayMs || 120)
+            );
+            const opened = await waitForSidebarOpen({
+              timeoutMs: waitMs,
+              intervalMs: Math.min(interval, SIDEBAR_STATE_POLL_INTERVAL_MS)
+            });
+            const expandedResult = resolveCurrentConversationMenuTarget();
+            if (!opened && !isConversationEntryVisible(expandedResult?.entry)) {
+              return {
+                ...expandedResult,
+                reason: "temporarySidebarExpandFailed",
+                currentPathname: expandedResult?.currentPathname || result.currentPathname
+              };
+            }
+            lastResult = expandedResult;
             continue;
           }
           return {
