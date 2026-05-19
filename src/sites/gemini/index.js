@@ -2394,6 +2394,21 @@
         if (!isElementVisible(button)) return true;
         if (button.closest?.("bard-sidenav, side-navigation-content, .sidenav-with-history-container, .conversation-items-container, side-nav-menu-button, side-nav-action-button")) return true;
         if (button.closest?.("rich-textarea, input-area-v2, [data-node-type='input-area'], [contenteditable='true'], .prompt-input, .composer, .prompt-composer")) return true;
+        if (button.closest?.([
+            "user-query",
+            "user-query-content",
+            "model-response",
+            "message-content",
+            "message-actions",
+            "response-actions",
+            ".message-actions",
+            ".response-actions",
+            "[data-test-id*='user-query' i]",
+            "[data-test-id*='model-response' i]",
+            "[data-test-id*='response' i]",
+            "[data-test-id*='message' i]",
+            "[data-test-id*='query' i]"
+        ].join(", "))) return true;
         if (button.closest?.(".cdk-overlay-pane .mat-mdc-menu-panel, .cdk-overlay-pane .mat-menu-panel, .cdk-overlay-pane [role='menu'], mat-dialog-container, [role='dialog']")) return true;
         return false;
     }
@@ -2408,17 +2423,29 @@
         const text = normalizeGeminiUiText(getGeminiUiElementText(button));
         const className = normalizeGeminiUiText(String(button.className || ""));
         const iconNames = getGeminiElementIconNames(button);
+        const inTopBar = !!button.closest?.("top-bar-actions");
+        const explicitlyConversationAction = !!(
+            inTopBar ||
+            dataTestId === "conversation-actions-menu-icon-button" ||
+            className.includes("conversation-actions-menu-button") ||
+            ariaLabel.includes("conversation actions") ||
+            ariaLabel.includes("open menu for conversation actions") ||
+            title.includes("conversation actions") ||
+            text.includes("conversation actions")
+        );
+
+        if (!explicitlyConversationAction) return -Infinity;
 
         if (dataTestId === "conversation-actions-menu-icon-button") score += 160;
         if (dataTestId === "actions-menu-button") score += 70;
         if (className.includes("conversation-actions-menu-button")) score += 130;
-        if (button.closest?.("top-bar-actions")) score += 120;
+        if (inTopBar) score += 120;
         if (ariaLabel.includes("conversation actions")) score += 100;
         if (ariaLabel.includes("open menu for conversation actions")) score += 140;
-        if (ariaLabel.includes("more options")) score += 40;
+        if (inTopBar && ariaLabel.includes("more options")) score += 40;
         if (title.includes("conversation actions")) score += 60;
         if (text.includes("conversation actions")) score += 70;
-        if (iconNames.some(name => normalizeGeminiToolIconName(name) === "more_vert")) score += 35;
+        if (inTopBar && iconNames.some(name => normalizeGeminiToolIconName(name) === "more_vert")) score += 35;
 
         try {
             const rect = button.getBoundingClientRect?.();
@@ -3903,7 +3930,8 @@
             if (ok) {
                 console.info(`${LOG_TAG} conversationMenu: top bar 命中 ${getConversationMenuShortcutLabel(shortcut)}。`);
             } else {
-                console.info(`${LOG_TAG} conversationMenu: top bar 不可用，已回退侧边栏处理 ${getConversationMenuShortcutLabel(shortcut)}。`);
+                console.info(`${LOG_TAG} conversationMenu: top bar 不可用，已回退侧边栏当前话题处理 ${getConversationMenuShortcutLabel(shortcut)}。`);
+                ok = await conversationMenuActionBase({ shortcut, engine });
             }
         }
 
