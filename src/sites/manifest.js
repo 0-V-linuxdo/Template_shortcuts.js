@@ -260,18 +260,18 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260519] v1.1.3",
+            name: "[Gemini] 快捷键跳转 [20260519] v1.1.4",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260519] v1.1.3",
-            updateLog: "1.1.3: 修复 Gemini 新版删除/固定话题无反应的问题，当前话题菜单会按真实侧边栏行定位，并显式展开 hover-only 的行内菜单按钮。",
+            version: "[20260519] v1.1.4",
+            updateLog: "1.1.4: 回退上一版无效的无顶部三点适配，重写为侧栏当前话题行定位；无顶部菜单时会从当前话题行打开会话菜单，并清理旧版兼容文件输出。",
             updateURL: releaseAsset("Site_JS/[Gemini] 快捷键跳转.user.js"),
             downloadURL: releaseAsset("Site_JS/[Gemini] 快捷键跳转.user.js"),
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260519] v1.1.3",
+                    name: "[Gemini] Shortcut Jump [20260519] v1.1.4",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.1.3: Fixed no-op delete/pin shortcuts in Gemini's new UI by targeting the real current sidebar row and explicitly revealing hover-only row action buttons."
+                    updateLog: "1.1.4: Reverted the ineffective no-topbar adaptation and rebuilt it around the current sidebar conversation row; no-topbar layouts now open the conversation menu from that row, with stale compatibility output removed."
                 }
             },
             match: [
@@ -290,8 +290,7 @@ export const SITE_MANIFEST = Object.freeze([
             icon: GEMINI_KEYCAP_ICON
         },
         userscriptAliases: [
-            "[Gemini] 快捷键跳转.user.js",
-            "[Gemini] 快捷键跳转 [20260519] v1.1.2.user.js"
+            "[Gemini] 快捷键跳转.user.js"
         ]
     },
     {

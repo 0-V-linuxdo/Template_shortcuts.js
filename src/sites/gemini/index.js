@@ -1543,7 +1543,6 @@
 
     const GEMINI_CONVERSATION_LINK_SELECTOR = "a[data-test-id='conversation']";
     const GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR = [
-        ".conversation-items-container",
         ".conversation-item",
         ".conversation-list-item",
         ".conversation-row",
@@ -1554,6 +1553,7 @@
         ".mat-list-item",
         "li"
     ].join(", ");
+    const GEMINI_CONVERSATION_CONTAINER_SELECTOR = ".conversation-items-container";
     const GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR = [
         "button[data-test-id='actions-menu-button']",
         "button[data-test-id='conversation-actions-menu-icon-button']",
@@ -1565,18 +1565,14 @@
         "button[aria-label*='更多' i]",
         "[role='button'][aria-label*='More' i]",
         "[role='button'][aria-label*='更多' i]",
-        "button[aria-label*='menu' i]",
-        "[role='button'][aria-label*='menu' i]",
         "button[aria-haspopup='menu']",
         "[role='button'][aria-haspopup='menu']",
-        "button.conversation-actions-menu-button",
-        "[role='button'].conversation-actions-menu-button",
+        "[role='button'][aria-label*='menu' i]",
+        "button[aria-label*='menu' i]",
         "button[jslog]",
         "[role='button'][jslog]",
-        "button"
+        "button.conversation-actions-menu-button"
     ].join(", ");
-    const GEMINI_CONVERSATION_ACTION_REVEAL_STYLE_ID = "gemini-shortcut-conversation-action-reveal-style";
-    const GEMINI_CONVERSATION_ACTION_REVEAL_CLASS = "gemini-shortcut-reveal-conversation-actions";
 
     function normalizePathname(value) {
         if (value === undefined || value === null || value === "") return "";
@@ -1603,52 +1599,44 @@
         }
     }
 
-    function getGeminiConversationEntryLinkCount(container) {
-        if (!container) return 0;
+    function countGeminiConversationLinks(element) {
+        if (!element) return 0;
         try {
-            const selfCount = container.matches?.(GEMINI_CONVERSATION_LINK_SELECTOR) ? 1 : 0;
-            return selfCount + (container.querySelectorAll?.(GEMINI_CONVERSATION_LINK_SELECTOR)?.length || 0);
+            const selfCount = element.matches?.(GEMINI_CONVERSATION_LINK_SELECTOR) ? 1 : 0;
+            return selfCount + (element.querySelectorAll?.(GEMINI_CONVERSATION_LINK_SELECTOR)?.length || 0);
         } catch {
             return 0;
         }
     }
 
-    function getGeminiConversationEntryRowArea(node) {
-        try {
-            const rect = node?.getBoundingClientRect?.();
-            if (!rect) return null;
-            if (!(rect.width > 0 && rect.height > 0)) return null;
-            return rect;
-        } catch {
-            return null;
-        }
+    function isGeminiConversationSidebarBoundary(element) {
+        return !!element?.matches?.("bard-sidenav, side-navigation-content, .sidenav-with-history-container");
     }
 
-    function getGeminiConversationEntryRowCandidateScore(node, link) {
-        if (!node || !link || node === document || node === document.body) return -Infinity;
+    function scoreGeminiConversationEntryContainer(element, link) {
+        if (!element || !link || element === document || element === document.body) return -Infinity;
+
+        const linkCount = countGeminiConversationLinks(element);
+        if (linkCount <= 0) return -Infinity;
+
         let score = 0;
-        const linkCount = getGeminiConversationEntryLinkCount(node);
-        if (linkCount === 0) return -Infinity;
+        if (linkCount === 1) score += 120;
+        if (linkCount > 1) score -= Math.min(90, linkCount * 12);
+        if (element === link) score += 20;
+        if (element === link.parentElement) score += 30;
+        if (elementMatchesGeminiSelector(element, GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR)) score += 35;
+        if (elementMatchesGeminiSelector(element, GEMINI_CONVERSATION_CONTAINER_SELECTOR)) score -= 50;
+        if (isGeminiConversationSidebarBoundary(element)) score -= 120;
 
-        if (linkCount === 1) score += 100;
-        if (elementMatchesGeminiSelector(node, GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR)) score += 60;
-
-        const rect = getGeminiConversationEntryRowArea(node);
-        if (rect) {
-            if (rect.height <= 96) score += 30;
-            else if (rect.height <= 128) score += 12;
-            else score -= 30;
-
-            if (rect.width > 0 && rect.width < 900) score += 8;
-        }
-
-        if (node === link.parentElement) score += 18;
-        if (typeof node.contains === "function" && node.contains(link)) score += 10;
-        if (getConversationMenuButton(node)) score += 80;
-
-        const text = normalizeGeminiUiText(getGeminiUiElementText(node));
-        if (text && !text.includes("gemini")) score += 4;
-        if (text.includes("new chat") || text.includes("search chats")) score -= 120;
+        try {
+            const rect = element.getBoundingClientRect?.();
+            if (rect && rect.width > 0 && rect.height > 0) {
+                score += 8;
+                if (rect.height <= 72) score += 25;
+                else if (rect.height <= 112) score += 12;
+                else score -= 20;
+            }
+        } catch { }
 
         return score;
     }
@@ -1657,154 +1645,42 @@
         if (!link) return null;
 
         const seen = new Set();
-        const addCandidate = (node, list) => {
-            if (!node || seen.has(node)) return;
+        const candidates = [];
+        const pushCandidate = (node) => {
+            if (!node || node.nodeType !== 1 || seen.has(node)) return;
             seen.add(node);
-            list.push(node);
+            candidates.push(node);
         };
 
-        const candidates = [];
-        let current = link;
-        while (current && current.nodeType === 1) {
-            addCandidate(current, candidates);
+        let node = link;
+        let guard = 0;
+        while (node && node.nodeType === 1 && guard < 12) {
+            pushCandidate(node);
 
-            let matchedAncestor = null;
-            try {
-                matchedAncestor = current.closest?.(GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR) || null;
-            } catch {
-                matchedAncestor = null;
-            }
-            if (matchedAncestor) addCandidate(matchedAncestor, candidates);
+            let row = null;
+            try { row = node.closest?.(GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR) || null; } catch { row = null; }
+            pushCandidate(row);
 
-            const parent = current.parentElement || null;
-            if (!parent || parent === current) break;
-            if (parent.matches?.("bard-sidenav, side-navigation-content, .sidenav-with-history-container")) {
-                addCandidate(parent, candidates);
-                break;
-            }
-            current = parent;
+            const parent = node.parentElement || null;
+            if (!parent || parent === node) break;
+            pushCandidate(parent);
+            if (isGeminiConversationSidebarBoundary(parent)) break;
+
+            node = parent;
+            guard += 1;
         }
 
         let best = null;
         let bestScore = -Infinity;
         for (const candidate of candidates) {
-            const score = getGeminiConversationEntryRowCandidateScore(candidate, link);
+            const score = scoreGeminiConversationEntryContainer(candidate, link);
             if (score > bestScore) {
                 bestScore = score;
                 best = candidate;
             }
         }
 
-        if (best) return best;
-        return link.closest?.(GEMINI_CONVERSATION_ROW_CANDIDATE_SELECTOR) || link.parentElement || null;
-    }
-
-    function getGeminiConversationMenuButtonScore(button) {
-        if (!button || button.nodeType !== 1) return -Infinity;
-        if (button.closest?.("mat-dialog-container, [role='dialog'], .cdk-overlay-pane")) return -Infinity;
-
-        let score = 0;
-        const tagName = String(button.tagName || "").toLowerCase();
-        const role = getStringAttr(button, "role").toLowerCase();
-        const dataTestId = getStringAttr(button, "data-test-id").toLowerCase();
-        const ariaLabel = normalizeGeminiUiText(button.getAttribute?.("aria-label") || "");
-        const title = normalizeGeminiUiText(button.getAttribute?.("title") || "");
-        const className = normalizeGeminiUiText(String(button.className || ""));
-        const iconNames = getGeminiElementIconNames(button);
-        const jslog = normalizeGeminiUiText(getGeminiElementJslog(button));
-
-        if (dataTestId === "actions-menu-button") score += 160;
-        if (dataTestId === "conversation-actions-menu-icon-button") score += 180;
-        if (className.includes("conversation-actions-menu-button")) score += 140;
-        if (ariaLabel.includes("open menu for conversation actions")) score += 180;
-        if (ariaLabel.includes("conversation actions")) score += 120;
-        if (ariaLabel.includes("more options")) score += 100;
-        if (ariaLabel.includes("更多选项")) score += 100;
-        if (ariaLabel.includes("more")) score += 24;
-        if (ariaLabel.includes("更多")) score += 24;
-        if (ariaLabel.includes("menu")) score += 28;
-        if (title.includes("more options")) score += 30;
-        if (title.includes("conversation actions")) score += 50;
-        if (jslog) score += 2;
-        if (button.getAttribute?.("aria-haspopup")?.toLowerCase() === "menu") score += 60;
-        if (iconNames.some(name => {
-            const token = normalizeGeminiToolIconName(name);
-            return token === "more_vert" || token === "more_horiz" || token === "more";
-        })) score += 90;
-        if (className.includes("actions") || className.includes("menu") || className.includes("overflow")) score += 20;
-        if (ariaLabel.includes("pin") || ariaLabel.includes("delete") || ariaLabel.includes("rename")) score -= 20;
-        if (button.disabled) score -= 100;
-        if (getStringAttr(button, "aria-disabled").toLowerCase() === "true") score -= 100;
-
-        try {
-            const rect = button.getBoundingClientRect?.();
-            if (rect && rect.width > 0 && rect.height > 0) {
-                score += 5;
-                if (rect.height <= 48) score += 10;
-                if (rect.width <= 64) score += 5;
-            }
-        } catch { }
-
-        if (score > 0 && tagName === "button") score += 8;
-        if (score > 0 && role === "button") score += 5;
-
-        return score;
-    }
-
-    function ensureGeminiConversationActionRevealStyle() {
-        if (document.getElementById?.(GEMINI_CONVERSATION_ACTION_REVEAL_STYLE_ID)) return;
-        const style = document.createElement("style");
-        style.id = GEMINI_CONVERSATION_ACTION_REVEAL_STYLE_ID;
-        style.textContent = `
-            .${GEMINI_CONVERSATION_ACTION_REVEAL_CLASS} button[data-test-id='actions-menu-button'],
-            .${GEMINI_CONVERSATION_ACTION_REVEAL_CLASS} button[data-test-id='conversation-actions-menu-icon-button'],
-            .${GEMINI_CONVERSATION_ACTION_REVEAL_CLASS} button.conversation-actions-menu-button,
-            .${GEMINI_CONVERSATION_ACTION_REVEAL_CLASS} [role='button'][aria-label*='More options' i],
-            .${GEMINI_CONVERSATION_ACTION_REVEAL_CLASS} [role='button'][aria-label*='更多选项' i],
-            .${GEMINI_CONVERSATION_ACTION_REVEAL_CLASS} [role='button'][aria-label*='More' i],
-            .${GEMINI_CONVERSATION_ACTION_REVEAL_CLASS} [role='button'][aria-label*='更多' i],
-            .${GEMINI_CONVERSATION_ACTION_REVEAL_CLASS} button[aria-haspopup='menu'],
-            .${GEMINI_CONVERSATION_ACTION_REVEAL_CLASS} [role='button'][aria-haspopup='menu'] {
-                visibility: visible !important;
-                opacity: 1 !important;
-                display: inline-flex !important;
-                pointer-events: auto !important;
-            }
-        `;
-        try { document.head?.appendChild(style); } catch { }
-    }
-
-    function setGeminiConversationEntryRevealState(entry, enabled = true) {
-        const container = entry?.container || null;
-        if (!container?.classList) return;
-        ensureGeminiConversationActionRevealStyle();
-        try {
-            container.classList.toggle(GEMINI_CONVERSATION_ACTION_REVEAL_CLASS, !!enabled);
-        } catch { }
-    }
-
-    function dispatchGeminiHoverLikeEvents(target) {
-        if (!target || typeof target.dispatchEvent !== "function") return;
-        let rect = null;
-        try { rect = target.getBoundingClientRect?.() || null; } catch { rect = null; }
-        const clientX = rect ? Math.max(1, Math.floor(rect.left + Math.min(rect.width / 2, Math.max(8, rect.width - 8)))) : 1;
-        const clientY = rect ? Math.max(1, Math.floor(rect.top + Math.min(rect.height / 2, Math.max(8, rect.height - 8)))) : 1;
-        const base = {
-            bubbles: true,
-            cancelable: true,
-            view: window,
-            clientX,
-            clientY,
-            screenX: clientX,
-            screenY: clientY
-        };
-        try { target.dispatchEvent(new MouseEvent("mousemove", base)); } catch { }
-        try { target.dispatchEvent(new MouseEvent("mouseover", base)); } catch { }
-        try { target.dispatchEvent(new MouseEvent("mouseenter", base)); } catch { }
-        try { target.dispatchEvent(new PointerEvent("pointermove", { ...base, pointerId: 1, pointerType: "mouse", isPrimary: true })); } catch { }
-        try { target.dispatchEvent(new PointerEvent("pointerover", { ...base, pointerId: 1, pointerType: "mouse", isPrimary: true })); } catch { }
-        try { target.dispatchEvent(new PointerEvent("pointerenter", { ...base, pointerId: 1, pointerType: "mouse", isPrimary: true })); } catch { }
-        try { target.focus?.({ preventScroll: true }); } catch { }
+        return best || link.parentElement || link.closest?.(GEMINI_CONVERSATION_CONTAINER_SELECTOR) || null;
     }
 
     function getConversationMenuButton(container) {
@@ -1812,21 +1688,19 @@
         let buttons = [];
         try {
             buttons = Array.from(container.querySelectorAll(GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR));
+            if (elementMatchesGeminiSelector(container, GEMINI_CONVERSATION_ACTION_BUTTON_SELECTOR)) {
+                buttons.unshift(container);
+            }
         } catch {
             return null;
         }
-        const scored = buttons
-            .map(button => ({
-                button,
-                score: getGeminiConversationMenuButtonScore(button),
-                visible: isElementVisible(button)
-            }))
-            .filter(item => item.score > 0)
-            .sort((a, b) => {
-                if (a.visible !== b.visible) return a.visible ? -1 : 1;
-                return b.score - a.score;
-            });
-        return scored[0]?.button || null;
+        for (const button of buttons) {
+            if (isElementVisible(button)) return button;
+        }
+        for (const button of buttons) {
+            if (isConversationMenuButtonUsable(button, { allowHidden: true })) return button;
+        }
+        return null;
     }
 
     function refreshConversationEntryButton(entry) {
@@ -1838,31 +1712,26 @@
 
     function revealConversationEntryActions(entry) {
         let nextEntry = refreshConversationEntryButton(entry);
-        if (nextEntry?.container) setGeminiConversationEntryRevealState(nextEntry, true);
-        if (isConversationMenuButtonUsable(nextEntry?.button, { allowHidden: true })) return nextEntry;
+        if (isConversationMenuButtonUsable(nextEntry?.button)) return nextEntry;
 
-        const targets = [];
-        const pushTarget = (target) => {
-            if (!target || targets.includes(target)) return;
-            targets.push(target);
-        };
-        let node = nextEntry?.link || nextEntry?.container || nextEntry?.button || null;
-        let guard = 0;
-        while (node && node.nodeType === 1 && guard < 6) {
-            pushTarget(node);
-            node = node.parentElement || null;
-            guard += 1;
-        }
-        pushTarget(nextEntry?.container);
-        pushTarget(nextEntry?.link);
-        pushTarget(nextEntry?.button);
+        const targets = [nextEntry?.container, nextEntry?.link, nextEntry?.button].filter(Boolean);
         for (const target of targets) {
             try { target.scrollIntoView?.({ block: "nearest", inline: "nearest" }); } catch { }
-            dispatchGeminiHoverLikeEvents(target);
+            let rect = null;
+            try { rect = target.getBoundingClientRect?.() || null; } catch { rect = null; }
+            const clientX = rect ? Math.max(1, Math.floor(rect.right - Math.min(10, Math.max(4, rect.width / 6)))) : 1;
+            const clientY = rect ? Math.max(1, Math.floor(rect.top + Math.min(rect.height - 4, Math.max(4, rect.height / 2)))) : 1;
+            const eventInit = { bubbles: true, cancelable: true, view: window, clientX, clientY };
+            try { target.dispatchEvent(new MouseEvent("mousemove", eventInit)); } catch { }
+            try { target.dispatchEvent(new MouseEvent("mouseover", eventInit)); } catch { }
+            try { target.dispatchEvent(new MouseEvent("mouseenter", eventInit)); } catch { }
+            try { target.dispatchEvent(new PointerEvent("pointermove", { ...eventInit, pointerId: 1, pointerType: "mouse", isPrimary: true })); } catch { }
+            try { target.dispatchEvent(new PointerEvent("pointerover", { ...eventInit, pointerId: 1, pointerType: "mouse", isPrimary: true })); } catch { }
+            try { target.dispatchEvent(new PointerEvent("pointerenter", { ...eventInit, pointerId: 1, pointerType: "mouse", isPrimary: true })); } catch { }
+            try { target.focus?.({ preventScroll: true }); } catch { }
         }
 
         nextEntry = refreshConversationEntryButton(nextEntry);
-        if (nextEntry?.container) setGeminiConversationEntryRevealState(nextEntry, true);
         return nextEntry;
     }
 
@@ -1882,18 +1751,17 @@
         if (isElementVisible(button)) return true;
         if (!allowHidden) return false;
 
-        if (getGeminiConversationMenuButtonScore(button) > 0) return true;
-
         const dataTestId = getStringAttr(button, "data-test-id").toLowerCase();
-        const className = String(button.className || "");
         const ariaHasPopup = getStringAttr(button, "aria-haspopup").toLowerCase();
         const ariaLabel = normalizeGeminiUiText(button.getAttribute?.("aria-label") || "");
+        const className = normalizeGeminiUiText(String(button.className || ""));
         return (
             dataTestId === "actions-menu-button" ||
             dataTestId === "conversation-actions-menu-icon-button" ||
-            /\bconversation-actions-menu-button\b/.test(className) ||
             ariaHasPopup === "menu" ||
-            ariaLabel.includes("more options")
+            ariaLabel.includes("more options") ||
+            ariaLabel.includes("更多选项") ||
+            className.includes("conversation-actions-menu-button")
         );
     }
 
@@ -2022,7 +1890,7 @@
     }
 
     function buildConversationTargetResult(entry, base = {}) {
-        return isConversationMenuButtonUsable(entry?.button, { allowHidden: true })
+        return isConversationMenuButtonUsable(entry?.button)
             ? {
                 ...base,
                 entry,
@@ -2127,10 +1995,10 @@
         while (Date.now() <= deadline) {
             ensureSidebarVisible();
             const result = resolveCurrentConversationMenuTarget();
-            if (isConversationMenuButtonUsable(result?.entry?.button, { allowHidden: true })) return result;
+            if (isConversationMenuButtonUsable(result?.entry?.button)) return result;
             if (result?.entry) {
                 const revealedEntry = revealConversationEntryActions(result.entry);
-                if (isConversationMenuButtonUsable(revealedEntry?.button, { allowHidden: true })) {
+                if (isConversationMenuButtonUsable(revealedEntry?.button)) {
                     return {
                         ...result,
                         entry: revealedEntry,
@@ -2147,7 +2015,10 @@
 
     function getConversationMenuRootElementFromEntry(entry) {
         const button = entry?.button;
-        if (!button) return null;
+        if (!button) {
+            const panels = getVisibleConversationMenuPanels();
+            return panels[panels.length - 1] || null;
+        }
 
         const expanded = getStringAttr(button, "aria-expanded").toLowerCase();
         if (expanded && expanded !== "true") return null;
@@ -2208,6 +2079,34 @@
         } catch {
             return false;
         }
+    }
+
+    function simulateGeminiConversationContextMenu(entry) {
+        const target = entry?.container || entry?.link || null;
+        if (!target || typeof target.dispatchEvent !== "function") return false;
+
+        let rect = null;
+        try { rect = target.getBoundingClientRect?.() || null; } catch { rect = null; }
+        if (rect && !(rect.width > 0 && rect.height > 0)) rect = null;
+
+        const clientX = rect ? Math.max(1, Math.floor(rect.right - Math.min(18, Math.max(6, rect.width / 5)))) : 1;
+        const clientY = rect ? Math.max(1, Math.floor(rect.top + Math.min(rect.height - 4, Math.max(4, rect.height / 2)))) : 1;
+        const eventInit = {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            button: 2,
+            buttons: 2,
+            clientX,
+            clientY
+        };
+
+        try { target.scrollIntoView?.({ block: "nearest", inline: "nearest" }); } catch { }
+        try { target.focus?.({ preventScroll: true }); } catch { }
+        try { target.dispatchEvent(new PointerEvent("pointerdown", { ...eventInit, pointerId: 1, pointerType: "mouse", isPrimary: true })); } catch { }
+        try { target.dispatchEvent(new MouseEvent("mousedown", eventInit)); } catch { }
+        try { target.dispatchEvent(new MouseEvent("contextmenu", eventInit)); return true; } catch { }
+        return false;
     }
 
     function getGeminiElementJslog(element) {
@@ -3278,7 +3177,7 @@
         getTriggerElement() {
             const entry = resolveCurrentConversationMenuTarget()?.entry || null;
             if (!entry) return null;
-            if (isConversationMenuButtonUsable(entry.button, { allowHidden: true })) return entry.button;
+            if (isConversationMenuButtonUsable(entry.button)) return entry.button;
             return refreshConversationEntryButton(entry)?.button || null;
         },
         activateTrigger() {
@@ -3302,11 +3201,14 @@
             const openDelayMs = opts.openDelayMs ?? MENU_TIMING.openDelayMs;
 
             const target = await waitForCurrentConversationMenuTarget({ timeoutMs, intervalMs });
-            const entry = target?.entry || null;
-            if (!entry?.button || !isConversationMenuButtonUsable(entry.button, { allowHidden: true })) {
+            let entry = target?.entry || null;
+            if (!entry) {
                 logConversationMenuTargetAbort(target);
                 return false;
             }
+
+            entry = revealConversationEntryActions(entry) || entry;
+            const trigger = isConversationMenuButtonUsable(entry?.button) ? entry.button : null;
 
             const getActiveRoot = () => {
                 const latest = resolveCurrentConversationMenuTarget();
@@ -3318,8 +3220,12 @@
             const existingRoot = getActiveRoot();
             if (existingRoot) return true;
 
-            revealConversationEntryActions(entry);
-            if (!simulateGeminiMenuClick(entry.button)) return false;
+            if (trigger) {
+                if (!simulateGeminiMenuClick(trigger)) return false;
+            } else if (!simulateGeminiConversationContextMenu(entry)) {
+                logConversationMenuTargetAbort(target);
+                return false;
+            }
             if (openDelayMs > 0) await sleep(openDelayMs);
 
             const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
