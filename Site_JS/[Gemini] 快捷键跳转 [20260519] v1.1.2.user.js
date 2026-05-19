@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260519] v1.1.1
-// @name:en        [Gemini] Shortcut Jump [20260519] v1.1.1
+// @name           [Gemini] 快捷键跳转 [20260519] v1.1.2
+// @name:en        [Gemini] Shortcut Jump [20260519] v1.1.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260519] v1.1.1
-// @update-log     1.1.1: 修复 Gemini 新版删除话题快捷键无响应的问题，强化右上角当前会话菜单识别并修正删除确认流程；继续保持页面首次加载时仅判断一次新旧 UI，减少卡顿风险。
-// @update-log:en  1.1.1: Fixed the Gemini new-UI delete-topic shortcut not responding by strengthening current-conversation menu detection and the delete-confirm flow; UI-version detection still runs only once on initial page load to reduce stall risk.
+// @version        [20260519] v1.1.2
+// @update-log     1.1.2: 适配 Gemini 新版无顶部三点按钮的会话布局，删除/固定话题会直接回退左侧栏当前话题，并支持点击 hover 才显示的隐藏话题菜单按钮。
+// @update-log:en  1.1.2: Adapted Gemini layouts without a top conversation overflow button; delete/pin now fall back directly to the current sidebar conversation and can click hidden hover-only conversation menu buttons.
 
 // @match          https://gemini.google.com/*
 
@@ -1501,8 +1501,8 @@
     }
     function revealConversationEntryActions(entry) {
       let nextEntry = refreshConversationEntryButton(entry);
-      if (isConversationMenuButtonUsable(nextEntry?.button)) return nextEntry;
-      const targets = [nextEntry?.container, nextEntry?.link].filter(Boolean);
+      if (isConversationMenuButtonUsable(nextEntry?.button, { allowHidden: true })) return nextEntry;
+      const targets = [nextEntry?.container, nextEntry?.link, nextEntry?.button].filter(Boolean);
       for (const target of targets) {
         try {
           target.scrollIntoView?.({ block: "nearest", inline: "nearest" });
@@ -1536,8 +1536,17 @@
       if (!entry) return false;
       return !!(isElementVisible(entry.button) || isElementVisible(entry.link) || isElementVisible(entry.container));
     }
-    function isConversationMenuButtonUsable(button) {
-      return !!button && isElementVisible(button);
+    function isConversationMenuButtonUsable(button, { allowHidden = false } = {}) {
+      if (!button) return false;
+      const ariaDisabled = getStringAttr(button, "aria-disabled").toLowerCase();
+      if (button.disabled || ariaDisabled === "true") return false;
+      if (isElementVisible(button)) return true;
+      if (!allowHidden) return false;
+      const dataTestId = getStringAttr(button, "data-test-id").toLowerCase();
+      const className = String(button.className || "");
+      const ariaHasPopup = getStringAttr(button, "aria-haspopup").toLowerCase();
+      const ariaLabel = normalizeGeminiUiText(button.getAttribute?.("aria-label") || "");
+      return dataTestId === "actions-menu-button" || dataTestId === "conversation-actions-menu-icon-button" || /\bconversation-actions-menu-button\b/.test(className) || ariaHasPopup === "menu" || ariaLabel.includes("more options");
     }
     function getStringAttr(node, attrName) {
       if (!node || !attrName) return "";
@@ -1632,7 +1641,7 @@
       return matched[0] || null;
     }
     function buildConversationTargetResult(entry, base = {}) {
-      return isConversationMenuButtonUsable(entry?.button) ? {
+      return isConversationMenuButtonUsable(entry?.button, { allowHidden: true }) ? {
         ...base,
         entry,
         reason: ""
@@ -1720,14 +1729,14 @@
       const interval = Math.max(30, Number(intervalMs) || 30);
       const deadline = Date.now() + timeout;
       let lastResult = resolveCurrentConversationMenuTarget();
-      if (!lastResult?.currentPathname) return lastResult;
+      if (!lastResult?.currentPathname && !lastResult?.entry) return lastResult;
       while (Date.now() <= deadline) {
         ensureSidebarVisible();
         const result = resolveCurrentConversationMenuTarget();
-        if (isConversationMenuButtonUsable(result?.entry?.button)) return result;
+        if (isConversationMenuButtonUsable(result?.entry?.button, { allowHidden: true })) return result;
         if (result?.entry) {
           const revealedEntry = revealConversationEntryActions(result.entry);
-          if (isConversationMenuButtonUsable(revealedEntry?.button)) {
+          if (isConversationMenuButtonUsable(revealedEntry?.button, { allowHidden: true })) {
             return {
               ...result,
               entry: revealedEntry,
@@ -2588,7 +2597,7 @@
       timing: MENU_TIMING,
       submenus: Object.freeze({}),
       getTriggerElement(ctx) {
-        return getGeminiTopBarConversationActionButton() || topBarConversationMenuBase.getTriggerElement(ctx) || null;
+        return getGeminiTopBarConversationActionButton() || null;
       },
       activateTrigger(ctx) {
         const trigger = this.getTriggerElement(ctx);
@@ -2678,7 +2687,7 @@
       getTriggerElement() {
         const entry = resolveCurrentConversationMenuTarget()?.entry || null;
         if (!entry) return null;
-        if (isConversationMenuButtonUsable(entry.button)) return entry.button;
+        if (isConversationMenuButtonUsable(entry.button, { allowHidden: true })) return entry.button;
         return refreshConversationEntryButton(entry)?.button || null;
       },
       activateTrigger() {
@@ -2702,7 +2711,7 @@
         const openDelayMs = opts.openDelayMs ?? MENU_TIMING.openDelayMs;
         const target = await waitForCurrentConversationMenuTarget({ timeoutMs, intervalMs });
         const entry = target?.entry || null;
-        if (!entry?.button || !isConversationMenuButtonUsable(entry.button)) {
+        if (!entry?.button || !isConversationMenuButtonUsable(entry.button, { allowHidden: true })) {
           logConversationMenuTargetAbort(target);
           return false;
         }
@@ -2712,6 +2721,7 @@
         };
         const existingRoot = getActiveRoot();
         if (existingRoot) return true;
+        revealConversationEntryActions(entry);
         if (!simulateGeminiMenuClick(entry.button)) return false;
         if (openDelayMs > 0) await sleep(openDelayMs);
         const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
