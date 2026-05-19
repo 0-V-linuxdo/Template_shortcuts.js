@@ -260,16 +260,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260520] v1.0.3",
+            name: "[Gemini] 快捷键跳转 [20260520] v1.0.4",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260520] v1.0.3",
-            updateLog: "1.0.3: 修复删除快捷键侧栏 fallback 临时展开时的卡顿；内部展开动作现在会去抖并等待侧栏稳定后再定位当前话题菜单。",
+            version: "[20260520] v1.0.4",
+            updateLog: "1.0.4: 重构 Gemini 删除快捷键侧栏 fallback 热路径；临时展开侧栏后按当前 URL 精准定位当前话题行，避免动画期间反复全量扫描历史列表。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260520] v1.0.3",
+                    name: "[Gemini] Shortcut Jump [20260520] v1.0.4",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.3: Fixed stutter during the delete shortcut's sidebar fallback temporary expansion; internal sidebar opening is now debounced and waits for the sidebar to settle before locating the current-topic menu."
+                    updateLog: "1.0.4: Refactored the Gemini delete shortcut sidebar fallback hot path; after temporary sidebar expansion it now targets the current URL's topic row directly instead of repeatedly scanning the full history list during animation."
                 }
             },
             match: [
