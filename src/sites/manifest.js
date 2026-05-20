@@ -228,16 +228,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[DeepSeek] 快捷键跳转",
         sourceEntry: "src/sites/deepseek/index.js",
         metadata: {
-            name: "[DeepSeek] 快捷键跳转 [20260520] v1.1.0",
+            name: "[DeepSeek] 快捷键跳转 [20260520] v1.1.1",
             namespace: "0_V userscripts/[DeepSeek] shortcut",
             description: "为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025",
-            version: "[20260520] v1.1.0",
-            updateLog: "1.1.0: 将新聊天改为映射 DeepSeek 网页原生 CMD+J 快捷键，移除冗余 selector/顶部图标/跳首页兜底，并更新默认新聊天图标。",
+            version: "[20260520] v1.1.1",
+            updateLog: "1.1.1: 修复 DeepSeek 默认快捷键 SVG 图标在深色面板中仍显示黑色的问题，为 New Chat/Search/DeepThink/Sidebar 默认图标启用普通/黑暗模式自适应迁移。",
             localized: {
                 "en-US": {
-                    name: "[DeepSeek] Shortcut Jump [20260520] v1.1.0",
+                    name: "[DeepSeek] Shortcut Jump [20260520] v1.1.1",
                     description: "Adds custom shortcuts for DeepSeek Chat with URL jumps, clicks, simulated keys, a visual settings panel, filters, dark mode, responsive layout, icon cache, and shortcut capture.",
-                    updateLog: "1.1.0: Changed New Chat to map DeepSeek's native CMD+J shortcut, removed redundant selector/header-icon/home-route fallbacks, and refreshed the default New Chat icon."
+                    updateLog: "1.1.1: Fixed DeepSeek default shortcut SVG icons staying black in the dark settings panel by enabling light/dark adaptive migration for New Chat/Search/DeepThink/Sidebar default icons."
                 }
             },
             match: [
