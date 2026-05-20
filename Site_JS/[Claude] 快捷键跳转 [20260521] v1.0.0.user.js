@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Claude] 快捷键跳转 [20260508] v1.0.0
-// @name:en        [Claude] Shortcut Jump [20260508] v1.0.0
+// @name           [Claude] 快捷键跳转 [20260521] v1.0.0
+// @name:en        [Claude] Shortcut Jump [20260521] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。
 // @description:en Adds visual custom shortcuts for Claude AI, including URL jumps, clicks, simulated keys, custom icons, dark mode, and a reusable icon library.
 
-// @version        [20260508] v1.0.0
-// @update-log     1.0.0: 保留原键帽样式，将 Claude 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。
-// @update-log:en  1.0.0: Kept the original keycap style and made the Claude script icon keycap adapt to black in light mode and white in dark mode.
+// @version        [20260521] v1.0.0
+// @update-log     1.0.0: 适配 Claude 新版界面，修复 Ctrl+W Web Search 菜单入口，更新 Profile/Features 设置路由并自动迁移旧链接，补齐 Toggle extended thinking 原生快捷键。
+// @update-log:en  1.0.0: Adapted to Claude's updated UI, fixed the Ctrl+W Web Search menu entry, updated Profile/Features settings routes with automatic legacy-link migration, and added native Toggle extended thinking shortcut support.
 
 // @match          https://claude.ai/*
 
@@ -56,6 +56,60 @@
       iconCachePrefix: "claude_icon_cache_v1::",
       userIcons: "claude_user_icons_v1"
     };
+    const CLAUDE_SETTINGS_URLS = Object.freeze({
+      profile: "https://claude.ai/new#settings/general",
+      features: "https://claude.ai/new#settings/capabilities"
+    });
+    const CLAUDE_NATIVE_SHORTCUTS = Object.freeze({
+      toggleExtendedThinking: Object.freeze({
+        name: "Toggle extended thinking",
+        legacyNames: Object.freeze(["Extended thinking"]),
+        simulateKeys: "SHIFT+CMD+E"
+      })
+    });
+    const CLAUDE_LEGACY_SETTINGS_URL_MIGRATIONS = Object.freeze({
+      "https://claude.ai/settings/profile": CLAUDE_SETTINGS_URLS.profile,
+      "https://claude.ai/settings/profile/": CLAUDE_SETTINGS_URLS.profile,
+      "https://claude.ai/settings/features": CLAUDE_SETTINGS_URLS.features,
+      "https://claude.ai/settings/features/": CLAUDE_SETTINGS_URLS.features
+    });
+    function migrateClaudeStoredShortcuts() {
+      if (typeof GM_getValue !== "function" || typeof GM_setValue !== "function") return;
+      try {
+        const stored = GM_getValue(STORAGE_KEYS.shortcuts, null);
+        if (!Array.isArray(stored)) return;
+        let changed = false;
+        const next = stored.map((shortcut) => {
+          if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return shortcut;
+          let nextShortcut = shortcut;
+          const rawUrl = typeof shortcut.url === "string" ? shortcut.url.trim() : "";
+          const migratedUrl = CLAUDE_LEGACY_SETTINGS_URL_MIGRATIONS[rawUrl];
+          if (migratedUrl && shortcut.url !== migratedUrl) {
+            changed = true;
+            nextShortcut = { ...nextShortcut, url: migratedUrl };
+          }
+          const rawName = typeof nextShortcut.name === "string" ? nextShortcut.name.trim() : "";
+          const toggleThinkingSpec = CLAUDE_NATIVE_SHORTCUTS.toggleExtendedThinking;
+          const isToggleThinkingShortcut = rawName === toggleThinkingSpec.name || toggleThinkingSpec.legacyNames.includes(rawName);
+          if (isToggleThinkingShortcut) {
+            const migrated = {
+              ...nextShortcut,
+              name: toggleThinkingSpec.name,
+              actionType: "simulate",
+              simulateKeys: toggleThinkingSpec.simulateKeys
+            };
+            if (migrated.name !== nextShortcut.name || migrated.actionType !== nextShortcut.actionType || migrated.simulateKeys !== nextShortcut.simulateKeys) {
+              changed = true;
+              nextShortcut = migrated;
+            }
+          }
+          return nextShortcut;
+        });
+        if (changed) GM_setValue(STORAGE_KEYS.shortcuts, next);
+      } catch (err) {
+        console.warn("[Claude Shortcut] Stored shortcut migration failed:", err);
+      }
+    }
     const defaultIcons = [
       { name: "Claude AI", url: "https://claude.ai/favicon.ico" },
       { name: "Claude Icon Alt", url: "https://claude.ai/images/claude_app_icon.png" },
@@ -89,6 +143,7 @@
           "Star Conversation": "收藏对话",
           "Delete Conversation": "删除对话",
           "Stop Claude's Response": "停止 Claude 回复",
+          "Toggle extended thinking": "切换扩展思考",
           "Extended thinking": "扩展思考",
           "web": "网页搜索",
           "Profile": "个人资料",
@@ -121,10 +176,46 @@
       }
     });
     const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
-    const CLAUDE_MENU_ITEM_SELECTOR = "[role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']";
+    const CLAUDE_MENU_ITEM_SELECTOR = [
+      "[role='menuitem']",
+      "[role='menuitemcheckbox']",
+      "[role='menuitemradio']",
+      "[role='option']",
+      "[data-radix-collection-item]",
+      "button"
+    ].join(", ");
+    const CLAUDE_WEB_TRIGGER_TEXT_MATCH = [
+      "Add files, connectors, and more",
+      "Add files",
+      "Add connectors",
+      "添加文件",
+      "添加附件",
+      "连接器",
+      "更多"
+    ];
     const CLAUDE_WEB_SELECTORS = {
-      moreButton: "button[aria-haspopup='menu'][aria-label='Toggle menu']",
-      dropdownMenu: "div.z-dropdown [role='menu']",
+      moreButton: [
+        {
+          selector: "button[aria-haspopup='menu'][aria-label='Add files, connectors, and more']",
+          pick: "bottommost"
+        },
+        {
+          selector: "button[aria-haspopup='menu'][aria-label='Toggle menu']",
+          pick: "preferSvgPath",
+          preferSvgPathDIncludes: ["V9.5H16.5", "H3.5"]
+        },
+        {
+          selector: "button[aria-haspopup='menu'], [role='button'][aria-haspopup='menu']",
+          textMatch: CLAUDE_WEB_TRIGGER_TEXT_MATCH,
+          pick: "bottommost"
+        }
+      ],
+      dropdownMenu: [
+        "[role='menu'][aria-label='Add files, connectors, and more']",
+        "[role='menu'][data-radix-menu-content]",
+        "div.z-dropdown [role='menu']",
+        "[role='menu']"
+      ],
       menuItem: CLAUDE_MENU_ITEM_SELECTOR
     };
     const CLAUDE_CONVERSATION_MENU_SELECTORS = {
@@ -141,13 +232,12 @@
     }
     const moreMenu = TemplateUtils.menu.createMenuController({
       trigger: {
-        selector: CLAUDE_WEB_SELECTORS.moreButton,
-        pick: "preferSvgPath",
-        preferSvgPathDIncludes: ["V9.5H16.5", "H3.5"]
+        candidates: CLAUDE_WEB_SELECTORS.moreButton
       },
       root: {
-        type: "ariaLabelledBy",
-        selector: CLAUDE_WEB_SELECTORS.dropdownMenu
+        type: "selector",
+        selector: CLAUDE_WEB_SELECTORS.dropdownMenu,
+        pick: "first"
       }
     });
     const conversationMenu = TemplateUtils.menu.createMenuController({
@@ -382,6 +472,7 @@
       icon: defaultIconURL
     };
     const createShortcut = (overrides) => ({ ...baseShortcut, ...overrides });
+    migrateClaudeStoredShortcuts();
     const defaultShortcuts = [
       createShortcut({ name: "Toggle Sidebar", actionType: "simulate", simulateKeys: "META+.", hotkey: "CTRL+B" }),
       createShortcut({ name: "New Conversation", actionType: "url", url: "https://claude.ai/new", hotkey: "CTRL+N" }),
@@ -402,10 +493,15 @@
         hotkey: "CTRL+BACKSPACE"
       }),
       createShortcut({ name: "Stop Claude's Response", actionType: "simulate", simulateKeys: "ESC", hotkey: "CTRL+SHIFT+S" }),
-      createShortcut({ name: "Extended thinking", actionType: "simulate", simulateKeys: "SHIFT+META+E", hotkey: "CTRL+T" }),
+      createShortcut({
+        name: CLAUDE_NATIVE_SHORTCUTS.toggleExtendedThinking.name,
+        actionType: "simulate",
+        simulateKeys: CLAUDE_NATIVE_SHORTCUTS.toggleExtendedThinking.simulateKeys,
+        hotkey: "CTRL+T"
+      }),
       createShortcut({ name: "web", actionType: "custom", customAction: "toolMenu", data: { menu: "web" }, hotkey: "CTRL+W" }),
-      createShortcut({ name: "Profile", actionType: "url", url: "https://claude.ai/settings/profile", hotkey: "CTRL+SHIFT+P" }),
-      createShortcut({ name: "Features", actionType: "url", url: "https://claude.ai/settings/features", hotkey: "CTRL+SHIFT+F" })
+      createShortcut({ name: "Profile", actionType: "url", url: CLAUDE_SETTINGS_URLS.profile, hotkey: "CTRL+SHIFT+P" }),
+      createShortcut({ name: "Features", actionType: "url", url: CLAUDE_SETTINGS_URLS.features, hotkey: "CTRL+SHIFT+F" })
     ];
     const engine = ShortcutTemplate.createShortcutEngine({
       // 基本配置
