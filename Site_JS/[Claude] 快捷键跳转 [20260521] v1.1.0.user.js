@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Claude] 快捷键跳转 [20260521] v1.0.0
-// @name:en        [Claude] Shortcut Jump [20260521] v1.0.0
+// @name           [Claude] 快捷键跳转 [20260521] v1.1.0
+// @name:en        [Claude] Shortcut Jump [20260521] v1.1.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。
 // @description:en Adds visual custom shortcuts for Claude AI, including URL jumps, clicks, simulated keys, custom icons, dark mode, and a reusable icon library.
 
-// @version        [20260521] v1.0.0
-// @update-log     1.0.0: 适配 Claude 新版界面，修复 Ctrl+W Web Search 菜单入口，更新 Profile/Features 设置路由并自动迁移旧链接，补齐 Toggle extended thinking 原生快捷键。
-// @update-log:en  1.0.0: Adapted to Claude's updated UI, fixed the Ctrl+W Web Search menu entry, updated Profile/Features settings routes with automatic legacy-link migration, and added native Toggle extended thinking shortcut support.
+// @version        [20260521] v1.1.0
+// @update-log     1.1.0: 修复 Claude Profile/Features 设置快捷键跳转后需手动刷新才弹窗的问题；对齐当前原生快捷键，新增 Quick chat / Settings 模拟入口，并统一现有模拟键。
+// @update-log:en  1.1.0: Fixed Claude Profile/Features settings shortcuts requiring a manual refresh before the dialog opens; aligned with current native shortcuts, added Quick chat / Settings simulated-key entries, and normalized existing simulated keys.
 
 // @match          https://claude.ai/*
 
@@ -60,11 +60,44 @@
       profile: "https://claude.ai/new#settings/general",
       features: "https://claude.ai/new#settings/capabilities"
     });
+    const CLAUDE_SETTINGS_TARGETS = Object.freeze({
+      profile: Object.freeze({
+        name: "Profile",
+        url: CLAUDE_SETTINGS_URLS.profile,
+        hash: "#settings/general"
+      }),
+      features: Object.freeze({
+        name: "Features",
+        url: CLAUDE_SETTINGS_URLS.features,
+        hash: "#settings/capabilities"
+      })
+    });
     const CLAUDE_NATIVE_SHORTCUTS = Object.freeze({
+      quickChatOrSearch: Object.freeze({
+        name: "Quick chat or search",
+        simulateKeys: "CMD+K"
+      }),
+      incognitoChat: Object.freeze({
+        name: "Incognito Chat",
+        simulateKeys: "SHIFT+CMD+I"
+      }),
+      toggleSidebar: Object.freeze({
+        name: "Toggle Sidebar",
+        simulateKeys: "CMD+."
+      }),
+      settings: Object.freeze({
+        name: "Settings",
+        simulateKeys: "SHIFT+CMD+,"
+      }),
       toggleExtendedThinking: Object.freeze({
         name: "Toggle extended thinking",
         legacyNames: Object.freeze(["Extended thinking"]),
         simulateKeys: "SHIFT+CMD+E"
+      }),
+      stopResponse: Object.freeze({
+        name: "Stop Claude's Response",
+        legacyNames: Object.freeze(["Stop Claude’s response"]),
+        simulateKeys: "ESC"
       })
     });
     const CLAUDE_LEGACY_SETTINGS_URL_MIGRATIONS = Object.freeze({
@@ -73,6 +106,75 @@
       "https://claude.ai/settings/features": CLAUDE_SETTINGS_URLS.features,
       "https://claude.ai/settings/features/": CLAUDE_SETTINGS_URLS.features
     });
+    function normalizeClaudeSettingsTarget(value) {
+      const token = String(value ?? "").trim().toLowerCase();
+      if (!token) return "";
+      if (["profile", "general"].includes(token)) return "profile";
+      if (["features", "feature", "capabilities", "capability"].includes(token)) return "features";
+      return "";
+    }
+    function getClaudeSettingsTargetFromUrl(url) {
+      const rawUrl = typeof url === "string" ? url.trim() : "";
+      if (!rawUrl) return "";
+      const migratedUrl = CLAUDE_LEGACY_SETTINGS_URL_MIGRATIONS[rawUrl] || rawUrl;
+      if (migratedUrl === CLAUDE_SETTINGS_URLS.profile) return "profile";
+      if (migratedUrl === CLAUDE_SETTINGS_URLS.features) return "features";
+      const lowerUrl = migratedUrl.toLowerCase();
+      if (lowerUrl.includes("/settings/profile") || lowerUrl.includes("#settings/general")) return "profile";
+      if (lowerUrl.includes("/settings/features") || lowerUrl.includes("#settings/capabilities")) return "features";
+      return "";
+    }
+    function getClaudeSettingsTargetFromShortcut(shortcut, { allowNameFallback = false } = {}) {
+      const data = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : {};
+      const dataTarget = normalizeClaudeSettingsTarget(data.target);
+      if (dataTarget) return dataTarget;
+      const urlTarget = getClaudeSettingsTargetFromUrl(shortcut?.url);
+      if (urlTarget) return urlTarget;
+      if (allowNameFallback) {
+        const nameTarget = normalizeClaudeSettingsTarget(shortcut?.name);
+        if (nameTarget) return nameTarget;
+      }
+      return "";
+    }
+    function migrateClaudeSettingsShortcut(shortcut, targetKey) {
+      const target = CLAUDE_SETTINGS_TARGETS[targetKey];
+      if (!target) return { shortcut, changed: false };
+      const rawData = shortcut && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : {};
+      const nextData = rawData.target === targetKey ? rawData : { ...rawData, target: targetKey };
+      const migrated = {
+        ...shortcut,
+        actionType: "custom",
+        customAction: "claudeSettings",
+        data: nextData,
+        url: target.url
+      };
+      const changed = migrated.actionType !== shortcut.actionType || migrated.customAction !== shortcut.customAction || migrated.data !== shortcut.data || migrated.url !== shortcut.url;
+      return { shortcut: migrated, changed };
+    }
+    function normalizeClaudeShortcutName(value) {
+      return String(value ?? "").trim().replace(/\u2019/g, "'").toLowerCase();
+    }
+    function getClaudeNativeShortcutSpecByName(value) {
+      const normalizedName = normalizeClaudeShortcutName(value);
+      if (!normalizedName) return null;
+      return Object.values(CLAUDE_NATIVE_SHORTCUTS).find((spec) => {
+        if (!spec) return false;
+        if (normalizeClaudeShortcutName(spec.name) === normalizedName) return true;
+        const legacyNames = Array.isArray(spec.legacyNames) ? spec.legacyNames : [];
+        return legacyNames.some((name) => normalizeClaudeShortcutName(name) === normalizedName);
+      }) || null;
+    }
+    function migrateClaudeNativeShortcut(shortcut, spec) {
+      if (!shortcut || !spec) return { shortcut, changed: false };
+      const migrated = {
+        ...shortcut,
+        name: spec.name,
+        actionType: "simulate",
+        simulateKeys: spec.simulateKeys
+      };
+      const changed = migrated.name !== shortcut.name || migrated.actionType !== shortcut.actionType || migrated.simulateKeys !== shortcut.simulateKeys;
+      return { shortcut: migrated, changed };
+    }
     function migrateClaudeStoredShortcuts() {
       if (typeof GM_getValue !== "function" || typeof GM_setValue !== "function") return;
       try {
@@ -88,19 +190,20 @@
             changed = true;
             nextShortcut = { ...nextShortcut, url: migratedUrl };
           }
-          const rawName = typeof nextShortcut.name === "string" ? nextShortcut.name.trim() : "";
-          const toggleThinkingSpec = CLAUDE_NATIVE_SHORTCUTS.toggleExtendedThinking;
-          const isToggleThinkingShortcut = rawName === toggleThinkingSpec.name || toggleThinkingSpec.legacyNames.includes(rawName);
-          if (isToggleThinkingShortcut) {
-            const migrated = {
-              ...nextShortcut,
-              name: toggleThinkingSpec.name,
-              actionType: "simulate",
-              simulateKeys: toggleThinkingSpec.simulateKeys
-            };
-            if (migrated.name !== nextShortcut.name || migrated.actionType !== nextShortcut.actionType || migrated.simulateKeys !== nextShortcut.simulateKeys) {
+          const settingsTarget = getClaudeSettingsTargetFromShortcut(nextShortcut);
+          if (settingsTarget) {
+            const migratedSettings = migrateClaudeSettingsShortcut(nextShortcut, settingsTarget);
+            if (migratedSettings.changed) {
               changed = true;
-              nextShortcut = migrated;
+              nextShortcut = migratedSettings.shortcut;
+            }
+          }
+          const nativeShortcutSpec = getClaudeNativeShortcutSpecByName(nextShortcut.name);
+          if (nativeShortcutSpec) {
+            const migratedNativeShortcut = migrateClaudeNativeShortcut(nextShortcut, nativeShortcutSpec);
+            if (migratedNativeShortcut.changed) {
+              changed = true;
+              nextShortcut = migratedNativeShortcut.shortcut;
             }
           }
           return nextShortcut;
@@ -136,6 +239,7 @@
         menuCommandLabel: "Claude - 设置快捷键",
         panelTitle: "Claude - 自定义快捷键",
         shortcuts: {
+          "Quick chat or search": "快速聊天或搜索",
           "Toggle Sidebar": "切换侧边栏",
           "New Conversation": "新建对话",
           "Recent Conversations": "最近对话",
@@ -143,6 +247,7 @@
           "Star Conversation": "收藏对话",
           "Delete Conversation": "删除对话",
           "Stop Claude's Response": "停止 Claude 回复",
+          "Settings": "设置",
           "Toggle extended thinking": "切换扩展思考",
           "Extended thinking": "扩展思考",
           "web": "网页搜索",
@@ -451,6 +556,131 @@
       label: siteText("dataAdapters.conversationMenu.label", "Conversation menu keyword (or paste JSON, advanced):"),
       placeholder: siteText("dataAdapters.conversationMenu.placeholder", "Example: Star / Rename / Add to project / Delete")
     });
+    const CLAUDE_SETTINGS_DIALOG_SELECTOR = [
+      "[data-radix-dialog-content]",
+      "[role='dialog'][aria-modal='true']",
+      "[role='dialog']"
+    ].join(", ");
+    const CLAUDE_SETTINGS_DIALOG_TEXT_MATCH = [
+      "settings",
+      "general",
+      "profile",
+      "capabilities",
+      "features",
+      "设置",
+      "个人",
+      "功能"
+    ];
+    const CLAUDE_SETTINGS_DIALOG_WAIT_MS = 1200;
+    function getElementTextWithLabels(element) {
+      if (!element) return "";
+      const parts = [
+        element.getAttribute?.("aria-label"),
+        element.getAttribute?.("title"),
+        element.textContent
+      ];
+      const labelledBy = element.getAttribute?.("aria-labelledby");
+      if (labelledBy && TemplateUtils?.dom?.escapeForAttributeSelector) {
+        const ids = labelledBy.split(/\s+/).map((token) => token.trim()).filter(Boolean);
+        for (const id of ids) {
+          const labelEl = TemplateUtils.dom.safeQuerySelector?.(document, `[id="${TemplateUtils.dom.escapeForAttributeSelector(id)}"]`);
+          if (labelEl) parts.push(labelEl.textContent);
+        }
+      }
+      return parts.filter(Boolean).join(" ");
+    }
+    function isClaudeSettingsDialogVisible() {
+      const dom = TemplateUtils?.dom;
+      if (!dom?.safeQuerySelectorAll || !dom?.isVisible) return false;
+      const dialogs = dom.safeQuerySelectorAll(document, CLAUDE_SETTINGS_DIALOG_SELECTOR).filter((dialog) => dom.isVisible(dialog));
+      return dialogs.some((dialog) => {
+        const text = getElementTextWithLabels(dialog);
+        if (dom.matchText) {
+          return dom.matchText(text, CLAUDE_SETTINGS_DIALOG_TEXT_MATCH);
+        }
+        const normalized = String(text || "").toLowerCase();
+        return CLAUDE_SETTINGS_DIALOG_TEXT_MATCH.some((token) => normalized.includes(token));
+      });
+    }
+    async function waitForClaudeSettingsDialog(timeoutMs = CLAUDE_SETTINGS_DIALOG_WAIT_MS) {
+      const dom = TemplateUtils?.dom;
+      if (isClaudeSettingsDialogVisible()) return true;
+      if (!dom?.waitFor) return false;
+      return await dom.waitFor(isClaudeSettingsDialogVisible, { timeoutMs, intervalMs: 100 });
+    }
+    function getClaudeSettingsTargetUrl(target) {
+      try {
+        return new URL(target.url, window.location.href);
+      } catch {
+        return null;
+      }
+    }
+    function isCurrentClaudeSettingsRoute(targetUrl) {
+      if (!targetUrl) return false;
+      return window.location.origin === targetUrl.origin && window.location.pathname === targetUrl.pathname && window.location.search === targetUrl.search && window.location.hash === targetUrl.hash;
+    }
+    function isSameClaudeSettingsBase(targetUrl) {
+      if (!targetUrl) return false;
+      return window.location.origin === targetUrl.origin && window.location.pathname === targetUrl.pathname && window.location.search === targetUrl.search;
+    }
+    function dispatchClaudeSettingsRouteEvents(oldUrl, newUrl) {
+      try {
+        window.dispatchEvent(new HashChangeEvent("hashchange", { oldURL: oldUrl, newURL: newUrl }));
+      } catch {
+        try {
+          window.dispatchEvent(new Event("hashchange"));
+        } catch {
+        }
+      }
+      try {
+        window.dispatchEvent(new PopStateEvent("popstate", { state: { url: newUrl } }));
+      } catch {
+        try {
+          window.dispatchEvent(new Event("popstate"));
+        } catch {
+        }
+      }
+    }
+    function pushClaudeSettingsRoute(targetUrl) {
+      const oldUrl = window.location.href;
+      const nextPath = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+      try {
+        if (oldUrl === targetUrl.href) {
+          window.history.replaceState({ url: targetUrl.href }, document.title, nextPath);
+        } else {
+          window.history.pushState({ url: targetUrl.href }, document.title, nextPath);
+        }
+        dispatchClaudeSettingsRouteEvents(oldUrl, targetUrl.href);
+        return true;
+      } catch (err) {
+        console.warn("[Claude Shortcut] Settings route push failed, fallback to location.href:", err);
+        window.location.href = targetUrl.href;
+        return false;
+      }
+    }
+    async function openClaudeSettings({ shortcut }) {
+      const targetKey = getClaudeSettingsTargetFromShortcut(shortcut, { allowNameFallback: true }) || "profile";
+      const target = CLAUDE_SETTINGS_TARGETS[targetKey];
+      const targetUrl = target ? getClaudeSettingsTargetUrl(target) : null;
+      if (!target || !targetUrl) {
+        console.warn("[Claude Shortcut] Unknown settings target:", targetKey);
+        return false;
+      }
+      if (!isCurrentClaudeSettingsRoute(targetUrl)) {
+        if (isSameClaudeSettingsBase(targetUrl)) {
+          pushClaudeSettingsRoute(targetUrl);
+        } else {
+          window.location.href = targetUrl.href;
+          return true;
+        }
+      } else if (!isClaudeSettingsDialogVisible()) {
+        dispatchClaudeSettingsRouteEvents(window.location.href, targetUrl.href);
+      }
+      if (await waitForClaudeSettingsDialog()) return true;
+      console.warn("[Claude Shortcut] Settings dialog did not open after route change; reloading once.");
+      window.location.reload();
+      return false;
+    }
     const CUSTOM_ACTIONS = {
       toolMenu: createClaudeMenuAction({
         actionName: "toolMenu",
@@ -461,7 +691,8 @@
         actionName: "conversationMenu",
         menuController: conversationMenu,
         defaultItemSelector: CLAUDE_CONVERSATION_MENU_SELECTORS.menuItem
-      })
+      }),
+      claudeSettings: openClaudeSettings
     };
     const baseShortcut = {
       url: "",
@@ -474,10 +705,26 @@
     const createShortcut = (overrides) => ({ ...baseShortcut, ...overrides });
     migrateClaudeStoredShortcuts();
     const defaultShortcuts = [
-      createShortcut({ name: "Toggle Sidebar", actionType: "simulate", simulateKeys: "META+.", hotkey: "CTRL+B" }),
+      createShortcut({
+        name: CLAUDE_NATIVE_SHORTCUTS.quickChatOrSearch.name,
+        actionType: "simulate",
+        simulateKeys: CLAUDE_NATIVE_SHORTCUTS.quickChatOrSearch.simulateKeys,
+        hotkey: "CTRL+K"
+      }),
+      createShortcut({
+        name: CLAUDE_NATIVE_SHORTCUTS.toggleSidebar.name,
+        actionType: "simulate",
+        simulateKeys: CLAUDE_NATIVE_SHORTCUTS.toggleSidebar.simulateKeys,
+        hotkey: "CTRL+B"
+      }),
       createShortcut({ name: "New Conversation", actionType: "url", url: "https://claude.ai/new", hotkey: "CTRL+N" }),
       createShortcut({ name: "Recent Conversations", actionType: "url", url: "https://claude.ai/recents", hotkey: "CTRL+H" }),
-      createShortcut({ name: "Incognito Chat", actionType: "simulate", simulateKeys: "SHIFT+META+I", hotkey: "CTRL+I" }),
+      createShortcut({
+        name: CLAUDE_NATIVE_SHORTCUTS.incognitoChat.name,
+        actionType: "simulate",
+        simulateKeys: CLAUDE_NATIVE_SHORTCUTS.incognitoChat.simulateKeys,
+        hotkey: "CTRL+I"
+      }),
       createShortcut({
         name: "Star Conversation",
         actionType: "custom",
@@ -492,16 +739,27 @@
         data: { menu: "Delete" },
         hotkey: "CTRL+BACKSPACE"
       }),
-      createShortcut({ name: "Stop Claude's Response", actionType: "simulate", simulateKeys: "ESC", hotkey: "CTRL+SHIFT+S" }),
+      createShortcut({
+        name: CLAUDE_NATIVE_SHORTCUTS.stopResponse.name,
+        actionType: "simulate",
+        simulateKeys: CLAUDE_NATIVE_SHORTCUTS.stopResponse.simulateKeys,
+        hotkey: "CTRL+SHIFT+S"
+      }),
       createShortcut({
         name: CLAUDE_NATIVE_SHORTCUTS.toggleExtendedThinking.name,
         actionType: "simulate",
         simulateKeys: CLAUDE_NATIVE_SHORTCUTS.toggleExtendedThinking.simulateKeys,
         hotkey: "CTRL+T"
       }),
+      createShortcut({
+        name: CLAUDE_NATIVE_SHORTCUTS.settings.name,
+        actionType: "simulate",
+        simulateKeys: CLAUDE_NATIVE_SHORTCUTS.settings.simulateKeys,
+        hotkey: "CTRL+,"
+      }),
       createShortcut({ name: "web", actionType: "custom", customAction: "toolMenu", data: { menu: "web" }, hotkey: "CTRL+W" }),
-      createShortcut({ name: "Profile", actionType: "url", url: CLAUDE_SETTINGS_URLS.profile, hotkey: "CTRL+SHIFT+P" }),
-      createShortcut({ name: "Features", actionType: "url", url: CLAUDE_SETTINGS_URLS.features, hotkey: "CTRL+SHIFT+F" })
+      createShortcut({ name: "Profile", actionType: "custom", customAction: "claudeSettings", data: { target: "profile" }, hotkey: "CTRL+SHIFT+P" }),
+      createShortcut({ name: "Features", actionType: "custom", customAction: "claudeSettings", data: { target: "features" }, hotkey: "CTRL+SHIFT+F" })
     ];
     const engine = ShortcutTemplate.createShortcutEngine({
       // 基本配置
