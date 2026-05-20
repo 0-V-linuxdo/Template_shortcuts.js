@@ -196,16 +196,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Claude] 快捷键跳转",
         sourceEntry: "src/sites/claude/index.js",
         metadata: {
-            name: "[Claude] 快捷键跳转 [20260521] v1.1.0",
+            name: "[Claude] 快捷键跳转 [20260521] v1.1.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。",
-            version: "[20260521] v1.1.0",
-            updateLog: "1.1.0: 修复 Claude Profile/Features 设置快捷键跳转后需手动刷新才弹窗的问题；对齐当前原生快捷键，新增 Quick chat / Settings 模拟入口，并统一现有模拟键。",
+            version: "[20260521] v1.1.1",
+            updateLog: "1.1.1: 将 New Conversation 改为 SHIFT+CMD+O 原生快捷键模拟，并自动迁移旧的 URL 跳转配置。",
             localized: {
                 "en-US": {
-                    name: "[Claude] Shortcut Jump [20260521] v1.1.0",
+                    name: "[Claude] Shortcut Jump [20260521] v1.1.1",
                     description: "Adds visual custom shortcuts for Claude AI, including URL jumps, clicks, simulated keys, custom icons, dark mode, and a reusable icon library.",
-                    updateLog: "1.1.0: Fixed Claude Profile/Features settings shortcuts requiring a manual refresh before the dialog opens; aligned with current native shortcuts, added Quick chat / Settings simulated-key entries, and normalized existing simulated keys."
+                    updateLog: "1.1.1: Changed New Conversation to SHIFT+CMD+O native shortcut simulation and automatically migrates the old URL-jump configuration."
                 }
             },
             match: [

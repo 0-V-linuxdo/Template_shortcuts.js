@@ -41,6 +41,11 @@
     });
 
     const CLAUDE_NATIVE_SHORTCUTS = Object.freeze({
+        newConversation: Object.freeze({
+            name: "New Conversation",
+            legacyNames: Object.freeze(["New chat"]),
+            simulateKeys: "SHIFT+CMD+O"
+        }),
         quickChatOrSearch: Object.freeze({
             name: "Quick chat or search",
             simulateKeys: "CMD+K"
@@ -791,7 +796,12 @@
 	            simulateKeys: CLAUDE_NATIVE_SHORTCUTS.toggleSidebar.simulateKeys,
 	            hotkey: "CTRL+B"
 	        }),
-	        createShortcut({ name: "New Conversation", actionType: "url", url: "https://claude.ai/new", hotkey: "CTRL+N" }),
+	        createShortcut({
+	            name: CLAUDE_NATIVE_SHORTCUTS.newConversation.name,
+	            actionType: "simulate",
+	            simulateKeys: CLAUDE_NATIVE_SHORTCUTS.newConversation.simulateKeys,
+	            hotkey: "CTRL+N"
+	        }),
 	        createShortcut({ name: "Recent Conversations", actionType: "url", url: "https://claude.ai/recents", hotkey: "CTRL+H" }),
 	        createShortcut({
 	            name: CLAUDE_NATIVE_SHORTCUTS.incognitoChat.name,
