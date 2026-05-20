@@ -196,16 +196,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Claude] 快捷键跳转",
         sourceEntry: "src/sites/claude/index.js",
         metadata: {
-            name: "[Claude] 快捷键跳转 [20260508] v1.0.0",
+            name: "[Claude] 快捷键跳转 [20260521] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Claude AI 添加自定义快捷键(跳转/点击/模拟按键), 支持自定义 图标/快捷键/选择器/模拟按键, 适配暗黑模式。新增: 预设图标库(可折叠/自定义添加/长按删除)。功能包括: 侧边栏切换、新建话题、历史记录等快捷操作。基于Template模块重构。",
-            version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 保留原键帽样式，将 Claude 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
+            version: "[20260521] v1.0.0",
+            updateLog: "1.0.0: 适配 Claude 新版界面，修复 Ctrl+W Web Search 菜单入口，更新 Profile/Features 设置路由并自动迁移旧链接，补齐 Toggle extended thinking 原生快捷键。",
             localized: {
                 "en-US": {
-                    name: "[Claude] Shortcut Jump [20260508] v1.0.0",
+                    name: "[Claude] Shortcut Jump [20260521] v1.0.0",
                     description: "Adds visual custom shortcuts for Claude AI, including URL jumps, clicks, simulated keys, custom icons, dark mode, and a reusable icon library.",
-                    updateLog: "1.0.0: Kept the original keycap style and made the Claude script icon keycap adapt to black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Adapted to Claude's updated UI, fixed the Ctrl+W Web Search menu entry, updated Profile/Features settings routes with automatic legacy-link migration, and added native Toggle extended thinking shortcut support."
                 }
             },
             match: [
