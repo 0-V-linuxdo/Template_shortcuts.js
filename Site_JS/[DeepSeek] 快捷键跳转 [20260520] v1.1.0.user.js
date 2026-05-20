@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [DeepSeek] 快捷键跳转 [20260520] v1.0.4
-// @name:en        [DeepSeek] Shortcut Jump [20260520] v1.0.4
+// @name           [DeepSeek] 快捷键跳转 [20260520] v1.1.0
+// @name:en        [DeepSeek] Shortcut Jump [20260520] v1.1.0
 // @namespace      0_V userscripts/[DeepSeek] shortcut
 // @description    为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025
 // @description:en Adds custom shortcuts for DeepSeek Chat with URL jumps, clicks, simulated keys, a visual settings panel, filters, dark mode, responsive layout, icon cache, and shortcut capture.
 
-// @version        [20260520] v1.0.4
-// @update-log     1.0.4: 修复默认 Expert 模式仍未生效的问题，经过控制台验证后改为对 DeepSeek 模式 radio 控件优先执行原生 click，再校验 aria-checked。
-// @update-log:en  1.0.4: Fixed default Expert mode again after console verification by native-clicking DeepSeek mode radio controls before checking aria-checked.
+// @version        [20260520] v1.1.0
+// @update-log     1.1.0: 将新聊天改为映射 DeepSeek 网页原生 CMD+J 快捷键，移除冗余 selector/顶部图标/跳首页兜底，并更新默认新聊天图标。
+// @update-log:en  1.1.0: Changed New Chat to map DeepSeek's native CMD+J shortcut, removed redundant selector/header-icon/home-route fallbacks, and refreshed the default New Chat icon.
 
 // @match          https://chat.deepseek.com/*
 
@@ -117,7 +117,7 @@
     const SHORTCUTS_STORAGE_KEY = "deepseek_shortcuts_v1";
     const ICON_CACHE_PREFIX = "deepseek_icon_cache_v1::";
     const USER_ICONS_STORAGE_KEY = "deepseek_user_icons_v1";
-    const DEFAULTS_MIGRATION_KEY = "deepseek_defaults_migrated_20260519_v1";
+    const DEFAULTS_MIGRATION_KEY = "deepseek_defaults_migrated_20260520_cmdj_icons_v1";
     const DEFAULT_EXPERT_MODE_STORAGE_KEY = "deepseek_default_expert_mode_v1";
     const DEFAULT_EXPERT_MODE_ENABLED = true;
     const DEFAULT_EXPERT_MODE_REQUEST_COOLDOWN_MS = 1200;
@@ -289,17 +289,6 @@
       }).sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
       return buttons[indexFromLeft] || buttons[0] || buttons[buttons.length - 1] || null;
     }
-    function navigateToDeepSeekHome() {
-      try {
-        const home = `${location.origin}/`;
-        if (location.href !== home) {
-          location.assign(home);
-          return true;
-        }
-      } catch {
-      }
-      return false;
-    }
     function formatDeepSeekTemplateText(text, params = {}) {
       return String(text || "").replace(/\{([^{}]+)\}/g, (match, key) => {
         return Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : match;
@@ -363,13 +352,22 @@
         }
       }
     });
+    function createDeepSeekSvgIcon(svg) {
+      return `data:image/svg+xml,${encodeURIComponent(String(svg || "").trim())}`;
+    }
+    const DEEPSEEK_NEW_CHAT_ICON = createDeepSeekSvgIcon(`
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M7 1.4C3.90721 1.4 1.4 3.90721 1.4 7C1.4 10.0928 3.90721 12.6 7 12.6C10.0928 12.6 12.6 10.0928 12.6 7C12.6 3.90721 10.0928 1.4 7 1.4ZM0.2 7C0.2 3.24446 3.24446 0.2 7 0.2C10.7555 0.2 13.8 3.24446 13.8 7C13.8 10.7555 10.7555 13.8 7 13.8C3.24446 13.8 0.2 10.7555 0.2 7ZM7.6 3.9C7.6 3.56863 7.33137 3.3 7 3.3C6.66863 3.3 6.4 3.56863 6.4 3.9V6.4H3.9C3.56863 6.4 3.3 6.66863 3.3 7C3.3 7.33137 3.56863 7.6 3.9 7.6H6.4V10.1C6.4 10.4314 6.66863 10.7 7 10.7C7.33137 10.7 7.6 10.4314 7.6 10.1V7.6H10.1C10.4314 7.6 10.7 7.33137 10.7 7C10.7 6.66863 10.4314 6.4 10.1 6.4H7.6V3.9Z" fill="currentColor"/>
+        </svg>
+    `);
     const DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY = Object.freeze({
       newChat: {
         name: "新聊天",
-        actionType: "selector",
-        selector: "button[aria-label*='New'], button[title*='New'], a[href='/'], a[href='/chat'], a[href='/a/chat']",
+        actionType: "simulate",
+        selector: "",
+        simulateKeys: "CMD+J",
         hotkey: "CTRL+N",
-        icon: "https://chat.deepseek.com/favicon.svg"
+        icon: DEEPSEEK_NEW_CHAT_ICON
       },
       searchToggle: {
         name: "Search 按钮",
@@ -405,6 +403,9 @@
       deepThinkToggle: Object.freeze(["DeepThink", "M7.06431"]),
       sidebarToggle: Object.freeze(["sidebar", "M9.67269"])
     });
+    const DEEPSEEK_LEGACY_DEFAULT_ICONS_BY_KEY = Object.freeze({
+      newChat: "https://chat.deepseek.com/favicon.svg"
+    });
     function getDeepSeekManagedShortcutKey(shortcut) {
       const key = String(shortcut?.key || "").trim();
       if (key && Object.prototype.hasOwnProperty.call(DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY, key)) return key;
@@ -423,6 +424,37 @@
       if (!selector) return false;
       return DEEPSEEK_LEGACY_SELECTOR_HINTS[managedKey].some((hint) => selector.includes(normalizeDeepSeekToken(hint)));
     }
+    function normalizeDeepSeekIconValue(value) {
+      return String(value || "").trim();
+    }
+    function getDeepSeekLegacyDefaultIcon(managedKey) {
+      return DEEPSEEK_LEGACY_DEFAULT_ICONS_BY_KEY[managedKey] || DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY[managedKey]?.icon || "";
+    }
+    function isDeepSeekDefaultIconValue(icon, managedKey) {
+      const value = normalizeDeepSeekIconValue(icon);
+      if (!value) return true;
+      const currentIcon = normalizeDeepSeekIconValue(DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY[managedKey]?.icon);
+      const legacyIcon = normalizeDeepSeekIconValue(getDeepSeekLegacyDefaultIcon(managedKey));
+      return value === currentIcon || value === legacyIcon;
+    }
+    function isDeepSeekLegacyDefaultIconValue(icon, managedKey) {
+      const value = normalizeDeepSeekIconValue(icon);
+      const legacyIcon = normalizeDeepSeekIconValue(getDeepSeekLegacyDefaultIcon(managedKey));
+      return !!value && !!legacyIcon && value === legacyIcon;
+    }
+    function shouldMigrateDeepSeekShortcut(shortcut, managedKey) {
+      if (!managedKey) return false;
+      if (isDeepSeekLegacyDefaultSelector(shortcut)) return true;
+      if (managedKey === "newChat") {
+        if (isDeepSeekLegacyDefaultIconValue(shortcut?.icon, managedKey)) return true;
+        const actionType = normalizeDeepSeekToken(shortcut?.actionType);
+        const simulateKeys = normalizeDeepSeekToken(shortcut?.simulateKeys).replace(/\s+/g, "");
+        if (actionType !== "simulate" || simulateKeys !== "cmd+j") {
+          return isDeepSeekDefaultIconValue(shortcut?.icon, managedKey);
+        }
+      }
+      return false;
+    }
     function migrateDeepSeekShortcuts() {
       if (gmGetValueLocal(DEFAULTS_MIGRATION_KEY, false) === true) return;
       const stored = gmGetValueLocal(SHORTCUTS_STORAGE_KEY, null);
@@ -433,10 +465,11 @@
       let changed = false;
       const next = stored.map((shortcut) => {
         const managedKey = getDeepSeekManagedShortcutKey(shortcut);
-        if (!managedKey || !isDeepSeekLegacyDefaultSelector(shortcut)) return shortcut;
+        if (!managedKey || !shouldMigrateDeepSeekShortcut(shortcut, managedKey)) return shortcut;
         const replacement = cloneShortcutRecord(DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY[managedKey]);
         if (!replacement) return shortcut;
         const source = shortcut && typeof shortcut === "object" ? shortcut : {};
+        const sourceIcon = normalizeDeepSeekIconValue(source.icon);
         changed = true;
         return {
           ...replacement,
@@ -444,7 +477,7 @@
           id: String(source.id || replacement.id || "").trim() || replacement.id,
           name: String(source.name || "").trim() || replacement.name,
           hotkey: Object.prototype.hasOwnProperty.call(source, "hotkey") ? String(source.hotkey || "").trim() : replacement.hotkey,
-          icon: String(source.icon || "").trim() || replacement.icon,
+          icon: isDeepSeekDefaultIconValue(sourceIcon, managedKey) ? replacement.icon : sourceIcon,
           iconDark: String(source.iconDark || "").trim(),
           iconAdaptive: typeof source.iconAdaptive === "boolean" ? source.iconAdaptive : replacement.iconAdaptive,
           data: source.data && typeof source.data === "object" && !Array.isArray(source.data) ? cloneShortcutRecord(source.data) || {} : replacement.data || {}
@@ -458,12 +491,12 @@
       {
         key: "newChat",
         name: "新聊天",
-        actionType: "selector",
-        selector: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.newChat.selector,
+        actionType: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.newChat.actionType,
+        selector: "",
         url: "",
         urlMethod: "current",
         urlAdvanced: "href",
-        simulateKeys: "",
+        simulateKeys: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.newChat.simulateKeys,
         hotkey: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.newChat.hotkey,
         icon: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.newChat.icon
       },
@@ -808,9 +841,6 @@
       if (managedKey === "deepThinkToggle") {
         return findComposerToggle(["DeepThink"]);
       }
-      if (managedKey === "newChat") {
-        return findExactTextElement(["New chat", "新聊天"]) || findTopHeaderIconButton(0);
-      }
       if (managedKey === "sidebarToggle") {
         return findTopHeaderIconButton(0) || findTopHeaderIconButton(1);
       }
@@ -820,9 +850,6 @@
       }
       if (label === normalizeDeepSeekToken("DeepThink 按钮") || label === normalizeDeepSeekToken("DeepThink button")) {
         return findComposerToggle(["DeepThink"]);
-      }
-      if (label === normalizeDeepSeekToken("新聊天") || label === normalizeDeepSeekToken("New chat")) {
-        return findExactTextElement(["New chat", "新聊天"]) || findTopHeaderIconButton(0);
       }
       if (label === normalizeDeepSeekToken("侧边栏") || label === normalizeDeepSeekToken("Sidebar")) {
         return findTopHeaderIconButton(0) || findTopHeaderIconButton(1);
@@ -834,9 +861,6 @@
       if (selector && clickCssSelector(selector)) return true;
       const fallbackElement = findDeepSeekSelectorFallback(shortcut);
       if (fallbackElement && clickDeepSeekElement(fallbackElement)) return true;
-      if (getDeepSeekManagedShortcutKey(shortcut) === "newChat") {
-        return navigateToDeepSeekHome();
-      }
       console.warn(`${LOG_TAG} selector action could not locate target:`, shortcut?.name || "(unnamed)");
       return false;
     }
