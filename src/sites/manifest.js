@@ -133,6 +133,11 @@ const GEMINI_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     `<svg x="13" y="11" width="38" height="38" viewBox="0 0 24 24"><defs><linearGradient gradientUnits="userSpaceOnUse" id="gemini-keycap-gradient-0" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="gemini-keycap-gradient-1" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="gemini-keycap-gradient-2" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-keycap-gradient-0)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-keycap-gradient-1)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#gemini-keycap-gradient-2)"></path></svg>`
 );
 
+const AISTUDIO_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "aistudio-keycap-icon",
+    `<g transform="translate(12 11)" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"><path d="M11 7.5 14.5 4 18 7.5 14.5 11z"></path><path d="M27 7.5 30.5 4 34 7.5 30.5 11z"></path><path d="M19 30.5 22.5 27 26 30.5 22.5 34z"></path><path d="M13 20h19"></path><path d="M22.5 12v19"></path><path d="M16 16.5 29 29.5"></path><path d="M29 16.5 16 29.5"></path></g>`
+);
+
 const KAGI_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     "kagi-keycap-icon",
     `<path d="M35.262 38.36H28.51c-1.855 0-2.138-1.99-1.792-2.789.165-.379.539-.927.892-1.376a9.06 9.06 0 0 0 4.389 1.13 9.13 9.13 0 0 0 9.12-9.122 9.1 9.1 0 0 0-3.022-6.775l.21-.212a2.32 2.32 0 0 1 1.9-.68l1.097.116v-4.47h-1.918a5.21 5.21 0 0 0-4.833 3.267 9.1 9.1 0 0 0-2.559-.366 9.13 9.13 0 0 0-6.446 2.674 9.13 9.13 0 0 0-2.675 6.446 9.08 9.08 0 0 0 1.774 5.402l-.54.416a4 4 0 0 0-.267.229c-1.848 1.723-2.695 3.98-2.211 6.49.265 1.376 1.433 2.804 2.621 3.561a5.35 5.35 0 0 0 2.823.82l7.569-.306a2.49 2.49 0 0 1 2.109 1.155l.989 1.785 4.692-1.568-.803-1.748a7.01 7.01 0 0 0-6.367-4.079m-3.263-16.519a4.367 4.367 0 0 1 4.36 4.36 4.367 4.367 0 0 1-4.36 4.359 4.367 4.367 0 0 1-4.36-4.36A4.367 4.367 0 0 1 32 21.842" fill="#FFB319"></path>`
@@ -253,6 +258,39 @@ export const SITE_MANIFEST = Object.freeze([
                 "*"
             ],
             icon: DEEPSEEK_KEYCAP_ICON
+        }
+    },
+    {
+        siteId: "aistudio",
+        displayName: "[AI Studio] 快捷键跳转",
+        sourceEntry: "src/sites/aistudio/index.js",
+        metadata: {
+            name: "[AI Studio] 快捷键跳转 [20260522] v1.0.0",
+            namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
+            description: "为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。",
+            version: "[20260522] v1.0.0",
+            updateLog: "1.0.0: 新增 AI Studio 基础快捷键脚本，覆盖左/右侧边栏展开折叠与底部 Tools 工具栏 Google Search、Code execution、URL context 开关。",
+            localized: {
+                "en-US": {
+                    name: "[AI Studio] Shortcut Jump [20260522] v1.0.0",
+                    description: "Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.",
+                    updateLog: "1.0.0: Added the AI Studio shortcut script with left/right side-panel toggles and bottom Tools switches for Google Search, Code execution, and URL context."
+                }
+            },
+            match: [
+                "https://aistudio.google.com/*"
+            ],
+            grant: [
+                "GM_registerMenuCommand",
+                "GM_unregisterMenuCommand",
+                "GM_getValue",
+                "GM_setValue",
+                "GM_xmlhttpRequest"
+            ],
+            connect: [
+                "*"
+            ],
+            icon: AISTUDIO_KEYCAP_ICON
         }
     },
     {
