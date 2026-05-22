@@ -265,16 +265,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[AI Studio] 快捷键跳转",
         sourceEntry: "src/sites/aistudio/index.js",
         metadata: {
-            name: "[AI Studio] 快捷键跳转 [20260522] v1.0.0",
+            name: "[AI Studio] 快捷键跳转 [20260522] v1.0.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。",
-            version: "[20260522] v1.0.0",
-            updateLog: "1.0.0: 新增 AI Studio 基础快捷键脚本，覆盖左/右侧边栏展开折叠与底部 Tools 工具栏 Google Search、Code execution、URL context 开关。",
+            version: "[20260522] v1.0.1",
+            updateLog: "1.0.1: 修复右侧边栏展开态折叠失败与底部 Tools 工具 chip 只能开启不能关闭的问题；工具关闭现在会优先精确点击 chip 内的关闭图标。",
             localized: {
                 "en-US": {
-                    name: "[AI Studio] Shortcut Jump [20260522] v1.0.0",
+                    name: "[AI Studio] Shortcut Jump [20260522] v1.0.1",
                     description: "Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.",
-                    updateLog: "1.0.0: Added the AI Studio shortcut script with left/right side-panel toggles and bottom Tools switches for Google Search, Code execution, and URL context."
+                    updateLog: "1.0.1: Fixed right-sidebar collapsing when expanded and bottom Tools chips only turning on; tool shutdown now targets the chip close icon directly."
                 }
             },
             match: [
