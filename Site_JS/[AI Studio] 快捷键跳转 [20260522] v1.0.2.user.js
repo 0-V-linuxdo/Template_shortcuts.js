@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [AI Studio] 快捷键跳转 [20260522] v1.0.1
-// @name:en        [AI Studio] Shortcut Jump [20260522] v1.0.1
+// @name           [AI Studio] 快捷键跳转 [20260522] v1.0.2
+// @name:en        [AI Studio] Shortcut Jump [20260522] v1.0.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @description    为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。
-// @description:en Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.
+// @description    为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠、历史与 Dashboard/API keys 跳转，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。
+// @description:en Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles, History and Dashboard/API keys jumps, plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.
 
-// @version        [20260522] v1.0.1
-// @update-log     1.0.1: 修复右侧边栏展开态折叠失败与底部 Tools 工具 chip 只能开启不能关闭的问题；工具关闭现在会优先精确点击 chip 内的关闭图标。
-// @update-log:en  1.0.1: Fixed right-sidebar collapsing when expanded and bottom Tools chips only turning on; tool shutdown now targets the chip close icon directly.
+// @version        [20260522] v1.0.2
+// @update-log     1.0.2: 新增 History 与 Dashboard/API keys 快捷跳转（CTRL+H / CTRL+K），并修复 Toggle Tool 误匹配右侧设置面板同名工具项的问题。
+// @update-log:en  1.0.2: Added History and Dashboard/API keys shortcuts (CTRL+H / CTRL+K), and fixed Toggle Tool matching same-name tools in the right settings panel.
 
 // @match          https://aistudio.google.com/*
 
@@ -79,6 +79,8 @@
         shortcuts: {
           toggleLeftSidebar: "左侧边栏展开/折叠",
           toggleRightSidebar: "右侧边栏展开/折叠",
+          history: "历史",
+          dashboard: "Dashboard",
           toolGoogleSearch: "工具：Google 搜索",
           toolCodeExecution: "工具：代码执行",
           toolUrlContext: "工具：URL 上下文"
@@ -96,6 +98,8 @@
         shortcuts: {
           toggleLeftSidebar: "Toggle left sidebar",
           toggleRightSidebar: "Toggle right sidebar",
+          history: "History",
+          dashboard: "Dashboard",
           toolGoogleSearch: "Tool: Google Search",
           toolCodeExecution: "Tool: Code execution",
           toolUrlContext: "Tool: URL context"
@@ -123,6 +127,8 @@
     const SHORTCUT_ICON_SETS = Object.freeze({
       leftSidebar: createShortcutIconSet('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M6.5 9h.01"/><path d="M6.5 12h.01"/><path d="M6.5 15h.01"/>'),
       rightSidebar: createShortcutIconSet('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M18 9h.01"/><path d="M18 12h.01"/><path d="M18 15h.01"/>'),
+      history: createShortcutIconSet('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/>'),
+      key: createShortcutIconSet('<circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12 21 1"/><path d="m16 6 3 3"/><path d="m14 8 2 2"/>'),
       search: createShortcutIconSet('<circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/><path d="M5 11h12"/><path d="M11 5a10 10 0 0 1 0 12"/><path d="M11 5a10 10 0 0 0 0 12"/>'),
       code: createShortcutIconSet('<path d="m9 18-6-6 6-6"/><path d="m15 6 6 6-6 6"/><path d="m14 4-4 16"/>'),
       urlContext: createShortcutIconSet('<path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/>')
@@ -169,6 +175,22 @@
         customAction: "toggleRightSidebar",
         hotkey: "CTRL+SHIFT+B"
       }, "rightSidebar"),
+      createShortcut({
+        key: "aistudio.history",
+        name: "History",
+        labelKey: "shortcuts.history",
+        actionType: "url",
+        url: "https://aistudio.google.com/library",
+        hotkey: "CTRL+H"
+      }, "history"),
+      createShortcut({
+        key: "aistudio.dashboard",
+        name: "Dashboard",
+        labelKey: "shortcuts.dashboard",
+        actionType: "url",
+        url: "https://aistudio.google.com/api-keys",
+        hotkey: "CTRL+K"
+      }, "key"),
       createShortcut({
         key: "aistudio.toolGoogleSearch",
         name: "Toggle Tool: Grounding with Google Search",
@@ -458,7 +480,12 @@
       for (const selector of candidates) {
         const matches = safeQuerySelectorAll(document, selector).filter((element) => isVisible(element) && isInBottomPromptToolbar(element) && textMatchesAny(element, matchers));
         if (matches.length > 0) {
-          matches.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top);
+          matches.sort((a, b) => {
+            const rectA = a.getBoundingClientRect();
+            const rectB = b.getBoundingClientRect();
+            if (rectA.top !== rectB.top) return rectB.top - rectA.top;
+            return rectA.width * rectA.height - rectB.width * rectB.height;
+          });
           return matches[0];
         }
       }
@@ -536,7 +563,7 @@
       if (tagName === "svg" || tagName === "mat-icon") score += 1;
       return score;
     }
-    function findToolMenuItem(target) {
+    function findToolMenuItem(target, { toolsButton = null } = {}) {
       const matchers = getToolMatchers(target);
       if (matchers.length === 0) return null;
       const overlaySelectors = [
@@ -547,7 +574,7 @@
         ".mat-mdc-select-panel",
         '[class*="overlay"]'
       ];
-      const roots = [document];
+      const roots = [];
       for (const selector of overlaySelectors) {
         roots.push(...safeQuerySelectorAll(document, selector).filter(isVisible));
       }
@@ -555,12 +582,52 @@
         const item = findFirstInteractiveByText(matchers, { root });
         if (item && !isInBottomPromptToolbar(item)) return item;
       }
+      const bounded = findBottomToolsMenuItem(matchers, { toolsButton });
+      if (bounded) return bounded;
       return null;
     }
-    async function openToolsMenu() {
-      const toolsButton = findToolsButton();
-      if (!toolsButton) return false;
-      if (!clickElement(toolsButton)) return false;
+    function findBottomToolsMenuItem(matchers, { toolsButton = null } = {}) {
+      const viewportWidth = Math.max(document.documentElement?.clientWidth || 0, window.innerWidth || 0);
+      const viewportHeight = Math.max(document.documentElement?.clientHeight || 0, window.innerHeight || 0);
+      let toolsRect = null;
+      try {
+        toolsRect = toolsButton?.getBoundingClientRect?.() || null;
+      } catch {
+        toolsRect = null;
+      }
+      const candidates = getVisibleInteractiveElements(document).filter((element) => {
+        if (!textMatchesAny(element, matchers)) return false;
+        if (isInBottomPromptToolbar(element)) return false;
+        try {
+          const rect = element.getBoundingClientRect();
+          if (rect.top < viewportHeight * 0.32) return false;
+          if (rect.left > viewportWidth - 320) return false;
+          if (toolsRect) {
+            const leftLimit = Math.max(0, toolsRect.left - 160);
+            const rightLimit = Math.min(viewportWidth - 320, toolsRect.right + 520);
+            if (rect.right < leftLimit || rect.left > rightLimit) return false;
+          }
+        } catch {
+          return false;
+        }
+        return true;
+      });
+      candidates.sort((a, b) => {
+        const rectA = a.getBoundingClientRect();
+        const rectB = b.getBoundingClientRect();
+        if (toolsRect) {
+          const distA = Math.abs(rectA.left - toolsRect.left) + Math.abs(rectA.top - toolsRect.top);
+          const distB = Math.abs(rectB.left - toolsRect.left) + Math.abs(rectB.top - toolsRect.top);
+          if (distA !== distB) return distA - distB;
+        }
+        return rectB.top - rectA.top;
+      });
+      return candidates[0] || null;
+    }
+    async function openToolsMenu(toolsButton = null) {
+      const targetButton = toolsButton || findToolsButton();
+      if (!targetButton) return false;
+      if (!clickElement(targetButton)) return false;
       await sleep(180);
       return true;
     }
@@ -572,19 +639,25 @@
       }
       const activeChip = findActiveToolChip(target);
       if (activeChip) {
-        if (!closeActiveToolChip(activeChip)) {
-          console.warn(`${LOG_TAG} failed to close active tool chip: ${target.keyword}`);
+        const closedByChip = closeActiveToolChip(activeChip);
+        await sleep(180);
+        if (closedByChip && !findActiveToolChip(target)) {
+          return;
         }
+        const toolsButton2 = findToolsButton();
+        if (await openToolsMenu(toolsButton2)) {
+          const menuItem = findToolMenuItem(target, { toolsButton: toolsButton2 });
+          if (clickElement(menuItem)) return;
+        }
+        console.warn(`${LOG_TAG} failed to close active tool chip: ${target.keyword}`);
         return;
       }
-      let menuItem = findToolMenuItem(target);
-      if (!menuItem) {
-        await openToolsMenu();
-        menuItem = findToolMenuItem(target);
+      const toolsButton = findToolsButton();
+      if (await openToolsMenu(toolsButton)) {
+        const menuItem = findToolMenuItem(target, { toolsButton });
+        if (clickElement(menuItem)) return;
       }
-      if (!clickElement(menuItem)) {
-        console.warn(`${LOG_TAG} tool menu item not found: ${target.keyword}`);
-      }
+      console.warn(`${LOG_TAG} tool menu item not found: ${target.keyword}`);
     }
     function formatToolSwitchData(data) {
       const target = resolveToolTarget(data);
