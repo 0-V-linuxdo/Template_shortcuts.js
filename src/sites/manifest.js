@@ -265,16 +265,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[AI Studio] 快捷键跳转",
         sourceEntry: "src/sites/aistudio/index.js",
         metadata: {
-            name: "[AI Studio] 快捷键跳转 [20260522] v1.0.1",
+            name: "[AI Studio] 快捷键跳转 [20260522] v1.0.2",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
-            description: "为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。",
-            version: "[20260522] v1.0.1",
-            updateLog: "1.0.1: 修复右侧边栏展开态折叠失败与底部 Tools 工具 chip 只能开启不能关闭的问题；工具关闭现在会优先精确点击 chip 内的关闭图标。",
+            description: "为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠、历史与 Dashboard/API keys 跳转，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。",
+            version: "[20260522] v1.0.2",
+            updateLog: "1.0.2: 新增 History 与 Dashboard/API keys 快捷跳转（CTRL+H / CTRL+K），并修复 Toggle Tool 误匹配右侧设置面板同名工具项的问题。",
             localized: {
                 "en-US": {
-                    name: "[AI Studio] Shortcut Jump [20260522] v1.0.1",
-                    description: "Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.",
-                    updateLog: "1.0.1: Fixed right-sidebar collapsing when expanded and bottom Tools chips only turning on; tool shutdown now targets the chip close icon directly."
+                    name: "[AI Studio] Shortcut Jump [20260522] v1.0.2",
+                    description: "Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles, History and Dashboard/API keys jumps, plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.",
+                    updateLog: "1.0.2: Added History and Dashboard/API keys shortcuts (CTRL+H / CTRL+K), and fixed Toggle Tool matching same-name tools in the right settings panel."
                 }
             },
             match: [
