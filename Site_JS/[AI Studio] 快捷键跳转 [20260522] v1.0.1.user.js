@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [AI Studio] 快捷键跳转 [20260522] v1.0.0
-// @name:en        [AI Studio] Shortcut Jump [20260522] v1.0.0
+// @name           [AI Studio] 快捷键跳转 [20260522] v1.0.1
+// @name:en        [AI Studio] Shortcut Jump [20260522] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。
 // @description:en Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.
 
-// @version        [20260522] v1.0.0
-// @update-log     1.0.0: 新增 AI Studio 基础快捷键脚本，覆盖左/右侧边栏展开折叠与底部 Tools 工具栏 Google Search、Code execution、URL context 开关。
-// @update-log:en  1.0.0: Added the AI Studio shortcut script with left/right side-panel toggles and bottom Tools switches for Google Search, Code execution, and URL context.
+// @version        [20260522] v1.0.1
+// @update-log     1.0.1: 修复右侧边栏展开态折叠失败与底部 Tools 工具 chip 只能开启不能关闭的问题；工具关闭现在会优先精确点击 chip 内的关闭图标。
+// @update-log:en  1.0.1: Fixed right-sidebar collapsing when expanded and bottom Tools chips only turning on; tool shutdown now targets the chip close icon directly.
 
 // @match          https://aistudio.google.com/*
 
@@ -203,7 +203,7 @@
     function getElementText(element) {
       if (!element) return "";
       const parts = [];
-      for (const attr of ["aria-label", "title", "data-tooltip", "data-test-id", "placeholder"]) {
+      for (const attr of ["aria-label", "title", "data-tooltip", "data-test-id", "placeholder", "data-mat-icon-name", "fonticon"]) {
         const value = element.getAttribute?.(attr);
         if (value) parts.push(value);
       }
@@ -257,6 +257,28 @@
       }
       try {
         target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    function clickExactElement(element) {
+      if (!element || element.disabled || element.getAttribute?.("aria-disabled") === "true") return false;
+      if (typeof EventUtils.simulateClick === "function") {
+        try {
+          if (EventUtils.simulateClick(element, { nativeFallback: true })) return true;
+        } catch {
+        }
+      }
+      try {
+        if (typeof element.click === "function") {
+          element.click();
+          return true;
+        }
+      } catch {
+      }
+      try {
+        element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
         return true;
       } catch {
         return false;
@@ -325,7 +347,7 @@
       for (const token of tokens) {
         if (text.includes(token)) score += 4;
       }
-      if (/\bmenu\b|side\s*nav|sidebar|panel/.test(text)) score += 3;
+      if (/\b(close|collapse|expand|hide|show|tune|menu)\b|side\s*nav|sidebar|panel/.test(text)) score += 3;
       return score;
     }
     function findTopEdgeButton({ side }) {
@@ -333,21 +355,25 @@
       const candidates = getVisibleInteractiveElements(document).filter((element) => {
         try {
           const rect = element.getBoundingClientRect();
+          const text = normalizeText(getElementText(element));
           if (rect.top > 92 || rect.bottom < 0) return false;
           if (rect.width > 96 || rect.height > 72) return false;
           if (side === "left") return rect.left < Math.max(280, viewportWidth * 0.24);
-          return rect.right > viewportWidth - 120;
+          if (rect.left < viewportWidth - 300) return false;
+          if (rect.width > 56 && /\b(get code|run settings)\b/.test(text)) return false;
+          return rect.right > viewportWidth - 300;
         } catch {
           return false;
         }
       });
-      const tokens = side === "left" ? ["menu", "navigation", "sidebar", "side nav", "left panel"] : ["tune", "settings", "right panel", "run settings", "sidebar"];
+      const tokens = side === "left" ? ["menu", "navigation", "sidebar", "side nav", "left panel"] : ["close", "collapse", "expand", "hide", "show", "tune", "right panel", "right sidebar", "run settings"];
       candidates.sort((a, b) => {
         const rectA = a.getBoundingClientRect();
         const rectB = b.getBoundingClientRect();
         const scoreA = scoreIconTextForSidebar(a, tokens);
         const scoreB = scoreIconTextForSidebar(b, tokens);
         if (scoreA !== scoreB) return scoreB - scoreA;
+        if (side === "right" && rectA.width !== rectB.width) return rectA.width - rectB.width;
         if (side === "left") return rectA.left - rectB.left;
         return rectB.right - rectA.right;
       });
@@ -366,14 +392,23 @@
     }
     function toggleRightSidebar() {
       const direct = findFirstInteractiveByText([
-        /(?:run settings|right panel|settings|sidebar).*(?:toggle|collapse|expand)/i,
-        /toggle.*(?:run settings|right panel|settings|sidebar)/i,
+        /(?:right panel|right sidebar|run settings|sidebar).*(?:close|collapse|expand|hide|show|toggle)/i,
+        /(?:close|collapse|expand|hide|show|toggle).*(?:right panel|right sidebar|run settings|sidebar)/i,
+        /^(?:close|collapse|expand|hide|show)$/i,
         "tune"
       ], { maxTop: 120 });
       const target = direct || findTopEdgeButton({ side: "right" });
-      if (!clickElement(target)) {
+      if (!clickElement(target) && !clickRightSidebarEdgeFallback()) {
         console.warn(`${LOG_TAG} right sidebar toggle button not found.`);
       }
+    }
+    function clickRightSidebarEdgeFallback() {
+      const viewportWidth = Math.max(document.documentElement?.clientWidth || 0, window.innerWidth || 0);
+      const yCandidates = [48, 56, 64, 76].filter((value) => value < (window.innerHeight || 0));
+      for (const y of yCandidates) {
+        if (clickPoint(viewportWidth - 24, y)) return true;
+      }
+      return false;
     }
     function resolveToolTarget(data) {
       const raw = data && typeof data === "object" && !Array.isArray(data) ? data : {};
@@ -431,23 +466,75 @@
     }
     function closeActiveToolChip(chip) {
       if (!chip) return false;
-      const closeButton = findFirstInteractiveByText([
-        /^(close|remove|dismiss|cancel)$/i,
-        /(?:close|remove|dismiss|cancel|移除|关闭|删除)/i,
-        "×",
-        "x"
-      ], { root: chip });
-      if (clickElement(closeButton)) return true;
+      const closeTarget = findChipCloseTarget(chip);
+      if (clickExactElement(closeTarget)) return true;
       try {
         const rect = chip.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
-          if (clickPoint(rect.right - Math.min(18, Math.max(8, rect.width * 0.16)), rect.top + rect.height / 2)) {
-            return true;
+          const xOffsets = [14, 18, 24, 30, Math.min(38, Math.max(10, rect.width * 0.22))];
+          for (const offset of xOffsets) {
+            const element = document.elementFromPoint(rect.right - offset, rect.top + rect.height / 2);
+            if (element && element !== chip && chip.contains(element) && clickExactElement(element)) return true;
           }
         }
       } catch {
       }
-      return clickElement(chip);
+      return false;
+    }
+    function findChipCloseTarget(chip) {
+      if (!chip) return null;
+      const selectors = [
+        'button[aria-label*="close" i]',
+        'button[aria-label*="remove" i]',
+        'button[aria-label*="dismiss" i]',
+        'button[aria-label*="cancel" i]',
+        '[role="button"][aria-label*="close" i]',
+        '[role="button"][aria-label*="remove" i]',
+        '[role="button"][aria-label*="dismiss" i]',
+        '[class*="chip-remove"]',
+        '[class*="chip-trailing"]',
+        '[class*="remove"]',
+        '[class*="close"]',
+        '[class*="dismiss"]',
+        'mat-icon[data-mat-icon-name="close"]',
+        'mat-icon[fonticon="close"]',
+        "mat-icon",
+        ".material-icons",
+        ".material-symbols-outlined",
+        "svg",
+        '[aria-hidden="true"]'
+      ];
+      const seen = /* @__PURE__ */ new Set();
+      const candidates = [];
+      for (const selector of selectors) {
+        for (const element of safeQuerySelectorAll(chip, selector)) {
+          if (!element || seen.has(element) || !isVisible(element)) continue;
+          seen.add(element);
+          const score = getChipCloseTargetScore(element);
+          if (score <= 0) continue;
+          candidates.push({ element, score });
+        }
+      }
+      candidates.sort((a, b) => {
+        if (a.score !== b.score) return b.score - a.score;
+        const rectA = a.element.getBoundingClientRect();
+        const rectB = b.element.getBoundingClientRect();
+        return rectB.right - rectA.right;
+      });
+      return candidates[0]?.element || null;
+    }
+    function getChipCloseTargetScore(element) {
+      if (!element) return 0;
+      const text = normalizeText(getElementText(element));
+      const className = normalizeText(element.getAttribute?.("class") || "");
+      const tagName = normalizeText(element.tagName || "");
+      let score = 0;
+      if (/(^|\b)(close|remove|dismiss|cancel|clear|delete)(\b|$)|关闭|移除|删除/.test(text)) score += 8;
+      if (/^(x|×)$/.test(text)) score += 8;
+      if (/chip[-_\s]*(remove|trailing)|remove|close|dismiss/.test(className)) score += 6;
+      if (tagName === "mat-icon" && /close|cancel|clear/.test(text)) score += 6;
+      if (tagName === "svg" || tagName === "mat-icon") score += 1;
+      return score;
     }
     function findToolMenuItem(target) {
       const matchers = getToolMatchers(target);
