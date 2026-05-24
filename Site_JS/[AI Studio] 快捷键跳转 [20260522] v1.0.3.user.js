@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [AI Studio] 快捷键跳转 [20260522] v1.0.2
-// @name:en        [AI Studio] Shortcut Jump [20260522] v1.0.2
+// @name           [AI Studio] 快捷键跳转 [20260522] v1.0.3
+// @name:en        [AI Studio] Shortcut Jump [20260522] v1.0.3
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠、历史与 Dashboard/API keys 跳转，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。
 // @description:en Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles, History and Dashboard/API keys jumps, plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.
 
-// @version        [20260522] v1.0.2
-// @update-log     1.0.2: 新增 History 与 Dashboard/API keys 快捷跳转（CTRL+H / CTRL+K），并修复 Toggle Tool 误匹配右侧设置面板同名工具项的问题。
-// @update-log:en  1.0.2: Added History and Dashboard/API keys shortcuts (CTRL+H / CTRL+K), and fixed Toggle Tool matching same-name tools in the right settings panel.
+// @version        [20260522] v1.0.3
+// @update-log     1.0.3: 重写 Tools 弹窗开关定位，适配独立 switch 控件并避免误匹配右侧设置面板。
+// @update-log:en  1.0.3: Reworked Tools popup switch targeting to support standalone switch controls and avoid matching the right settings panel.
 
 // @match          https://aistudio.google.com/*
 
@@ -454,7 +454,36 @@
     }
     function findToolsButton() {
       const minTop = Math.max(0, (window.innerHeight || 0) * 0.45);
-      return findFirstInteractiveByText(["Tools", "工具"], { minTop, preferBottom: true }) || findFirstInteractiveByText([/tools/i, /工具/], { preferBottom: true });
+      const candidates = getVisibleInteractiveElements(document).filter((element) => {
+        if (!textMatchesAny(element, ["Open tools menu", "Tools", "工具"])) return false;
+        try {
+          const rect = element.getBoundingClientRect();
+          if (rect.top < minTop) return false;
+          if (rect.width > 160 || rect.height > 72) return false;
+        } catch {
+          return false;
+        }
+        return true;
+      });
+      candidates.sort((a, b) => getToolsButtonScore(b) - getToolsButtonScore(a));
+      return candidates[0] || findFirstInteractiveByText([/open tools menu/i, /^tools$/i, /工具/], { preferBottom: true });
+    }
+    function getToolsButtonScore(element) {
+      if (!element) return 0;
+      const text = normalizeText(getElementText(element));
+      let score = 0;
+      if (text.includes("open tools menu")) score += 20;
+      if (/(^|\s)tools(\s|$)|工具/.test(text)) score += 12;
+      if (isInBottomPromptToolbar(element)) score += 20;
+      try {
+        const rect = element.getBoundingClientRect();
+        const viewportWidth = Math.max(document.documentElement?.clientWidth || 0, window.innerWidth || 0);
+        if (rect.left < viewportWidth * 0.72) score += 8;
+        if (rect.width <= 96) score += 4;
+        score += Math.max(0, rect.top / 100);
+      } catch {
+      }
+      return score;
     }
     function isInBottomPromptToolbar(element) {
       if (!element) return false;
@@ -491,8 +520,43 @@
       }
       return null;
     }
-    function closeActiveToolChip(chip) {
+    function findActiveToolRemoveButton(target) {
+      const matchers = getToolMatchers(target);
+      if (matchers.length === 0) return null;
+      const selectors = [
+        'button[aria-label*="remove" i]',
+        'button[aria-label*="close" i]',
+        'button[aria-label*="dismiss" i]',
+        '[role="button"][aria-label*="remove" i]',
+        '[role="button"][aria-label*="close" i]',
+        '[aria-label*="remove" i]',
+        '[aria-label*="close" i]'
+      ];
+      const seen = /* @__PURE__ */ new Set();
+      const candidates = [];
+      for (const selector of selectors) {
+        for (const element of safeQuerySelectorAll(document, selector)) {
+          if (!element || seen.has(element) || !isVisible(element) || !isInBottomPromptToolbar(element)) continue;
+          seen.add(element);
+          if (!textMatchesAny(element, matchers)) continue;
+          candidates.push(element);
+        }
+      }
+      candidates.sort((a, b) => {
+        const rectA = a.getBoundingClientRect();
+        const rectB = b.getBoundingClientRect();
+        const textA = normalizeText(getElementText(a));
+        const textB = normalizeText(getElementText(b));
+        const scoreA = (/remove|移除/.test(textA) ? 10 : 0) + rectA.left / 100;
+        const scoreB = (/remove|移除/.test(textB) ? 10 : 0) + rectB.left / 100;
+        return scoreB - scoreA;
+      });
+      return candidates[0] || null;
+    }
+    function closeActiveToolChip(chip, target = null) {
       if (!chip) return false;
+      const explicitRemove = target ? findActiveToolRemoveButton(target) : null;
+      if (clickExactElement(explicitRemove)) return true;
       const closeTarget = findChipCloseTarget(chip);
       if (clickExactElement(closeTarget)) return true;
       try {
@@ -563,73 +627,193 @@
       if (tagName === "svg" || tagName === "mat-icon") score += 1;
       return score;
     }
-    function findToolMenuItem(target, { toolsButton = null } = {}) {
-      const matchers = getToolMatchers(target);
-      if (matchers.length === 0) return null;
-      const overlaySelectors = [
+    const TOOL_SWITCH_SELECTOR = [
+      '[role="switch"]',
+      "button[aria-checked]",
+      'input[type="checkbox"]',
+      "[aria-checked]"
+    ].join(",");
+    const TOOL_MENU_KNOWN_LABELS = [
+      "structured outputs",
+      "code execution",
+      "function calling",
+      "grounding with google search",
+      "grounding with google maps",
+      "url context"
+    ];
+    function getVisibleToolSwitches(root = document) {
+      return safeQuerySelectorAll(root, TOOL_SWITCH_SELECTOR).filter((element) => element && isVisible(element) && !isDisabled(element));
+    }
+    function countToolMenuKnownLabels(element) {
+      const text = normalizeText(getElementText(element));
+      if (!text) return 0;
+      return TOOL_MENU_KNOWN_LABELS.reduce((count, label) => count + (text.includes(label) ? 1 : 0), 0);
+    }
+    function getToolsMenuRootScore(element, toolsButton) {
+      if (!element || !isVisible(element)) return -1;
+      const labelCount = countToolMenuKnownLabels(element);
+      const switchCount = getVisibleToolSwitches(element).length;
+      if (labelCount < 2 || switchCount < 2) return -1;
+      try {
+        const rect = element.getBoundingClientRect();
+        const viewportHeight = Math.max(document.documentElement?.clientHeight || 0, window.innerHeight || 0);
+        if (rect.height < 120 || rect.width < 180) return -1;
+        if (rect.top < viewportHeight * 0.2 || rect.top > viewportHeight * 0.9) return -1;
+        let score = labelCount * 20 + switchCount * 8;
+        if (toolsButton) {
+          const toolsRect = toolsButton.getBoundingClientRect();
+          if (looksLikeRunSettingsToolsRoot(element, rect, toolsRect)) return -1;
+          if (rect.bottom <= toolsRect.top + 18 && rect.top < toolsRect.top) score += 40;
+          if (rect.left <= toolsRect.right + 420 && rect.right >= toolsRect.left - 180) score += 24;
+          if (rect.left > toolsRect.right + 240) return -1;
+          if (rect.left > toolsRect.left + 320) score -= 80;
+          score -= Math.abs(rect.left - toolsRect.left) / 50;
+          score -= Math.abs(rect.bottom - toolsRect.top) / 60;
+        }
+        score -= rect.width * rect.height / 5e4;
+        return score;
+      } catch {
+        return -1;
+      }
+    }
+    function looksLikeRunSettingsToolsRoot(element, rect, toolsRect) {
+      const text = normalizeText(getElementText(element));
+      if (!text.includes("run settings") && !text.includes("advanced settings")) return false;
+      return rect.left > toolsRect.right + 80 || rect.right > Math.max(toolsRect.right + 360, window.innerWidth * 0.72);
+    }
+    function findToolsMenuRoot({ toolsButton = null } = {}) {
+      const selectors = [
         '[role="menu"]',
         '[role="listbox"]',
         ".cdk-overlay-pane",
         ".mat-mdc-menu-panel",
         ".mat-mdc-select-panel",
-        '[class*="overlay"]'
+        '[class*="overlay"]',
+        "mat-card",
+        "section",
+        "div"
       ];
-      const roots = [];
-      for (const selector of overlaySelectors) {
-        roots.push(...safeQuerySelectorAll(document, selector).filter(isVisible));
-      }
-      for (const root of roots) {
-        const item = findFirstInteractiveByText(matchers, { root });
-        if (item && !isInBottomPromptToolbar(item)) return item;
-      }
-      const bounded = findBottomToolsMenuItem(matchers, { toolsButton });
-      if (bounded) return bounded;
-      return null;
-    }
-    function findBottomToolsMenuItem(matchers, { toolsButton = null } = {}) {
-      const viewportWidth = Math.max(document.documentElement?.clientWidth || 0, window.innerWidth || 0);
-      const viewportHeight = Math.max(document.documentElement?.clientHeight || 0, window.innerHeight || 0);
-      let toolsRect = null;
-      try {
-        toolsRect = toolsButton?.getBoundingClientRect?.() || null;
-      } catch {
-        toolsRect = null;
-      }
-      const candidates = getVisibleInteractiveElements(document).filter((element) => {
-        if (!textMatchesAny(element, matchers)) return false;
-        if (isInBottomPromptToolbar(element)) return false;
-        try {
-          const rect = element.getBoundingClientRect();
-          if (rect.top < viewportHeight * 0.32) return false;
-          if (rect.left > viewportWidth - 320) return false;
-          if (toolsRect) {
-            const leftLimit = Math.max(0, toolsRect.left - 160);
-            const rightLimit = Math.min(viewportWidth - 320, toolsRect.right + 520);
-            if (rect.right < leftLimit || rect.left > rightLimit) return false;
-          }
-        } catch {
-          return false;
+      const seen = /* @__PURE__ */ new Set();
+      const candidates = [];
+      for (const selector of selectors) {
+        for (const element of safeQuerySelectorAll(document, selector)) {
+          if (!element || seen.has(element)) continue;
+          seen.add(element);
+          const score = getToolsMenuRootScore(element, toolsButton);
+          if (score <= 0) continue;
+          candidates.push({ element, score });
         }
-        return true;
-      });
+      }
       candidates.sort((a, b) => {
-        const rectA = a.getBoundingClientRect();
-        const rectB = b.getBoundingClientRect();
-        if (toolsRect) {
-          const distA = Math.abs(rectA.left - toolsRect.left) + Math.abs(rectA.top - toolsRect.top);
-          const distB = Math.abs(rectB.left - toolsRect.left) + Math.abs(rectB.top - toolsRect.top);
-          if (distA !== distB) return distA - distB;
-        }
-        return rectB.top - rectA.top;
+        if (a.score !== b.score) return b.score - a.score;
+        const rectA = a.element.getBoundingClientRect();
+        const rectB = b.element.getBoundingClientRect();
+        return rectA.width * rectA.height - rectB.width * rectB.height;
       });
-      return candidates[0] || null;
+      return candidates[0]?.element || null;
+    }
+    function findToolMenuSwitch(target, { toolsButton = null, root = null } = {}) {
+      const matchers = getToolMatchers(target);
+      if (matchers.length === 0) return null;
+      const rootEl = root || findToolsMenuRoot({ toolsButton });
+      if (!rootEl) return null;
+      const rowInfo = findToolRowInToolsRoot(rootEl, matchers);
+      if (!rowInfo) return null;
+      const switchEl = findSwitchForToolRow(rootEl, rowInfo.row, rowInfo.label);
+      return switchEl ? { root: rootEl, row: rowInfo.row, label: rowInfo.label, switchEl } : null;
+    }
+    function findToolRowInToolsRoot(rootEl, matchers) {
+      const labelSelectors = [
+        "span",
+        "div",
+        "label",
+        "button",
+        '[role="button"]',
+        "[aria-label]",
+        "mat-slide-toggle",
+        "mat-list-item"
+      ];
+      const labels = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const selector of labelSelectors) {
+        for (const element of safeQuerySelectorAll(rootEl, selector)) {
+          if (!element || seen.has(element) || !isVisible(element) || !textMatchesAny(element, matchers)) continue;
+          seen.add(element);
+          labels.push(element);
+        }
+      }
+      let best = null;
+      for (const label of labels) {
+        let node = label;
+        for (let depth = 0; node && node !== rootEl && depth < 8; depth += 1, node = node.parentElement) {
+          if (!toolRowCandidateLooksValid(node, rootEl)) continue;
+          const rect = node.getBoundingClientRect();
+          const switchCount = getVisibleToolSwitches(node).length;
+          const labelCount = countToolMenuKnownLabels(node);
+          const area = rect.width * rect.height;
+          const score = (switchCount ? 80 : 0) - (labelCount > 1 ? 40 : 0) - area / 1e3;
+          if (!best || score > best.score) {
+            best = { row: node, label, score };
+          }
+        }
+      }
+      return best;
+    }
+    function toolRowCandidateLooksValid(row, rootEl) {
+      if (!row || row === rootEl || !isVisible(row)) return false;
+      try {
+        const rect = row.getBoundingClientRect();
+        const rootRect = rootEl.getBoundingClientRect();
+        if (rect.height < 16 || rect.height > 96 || rect.width < 120) return false;
+        if (rect.top < rootRect.top - 2 || rect.bottom > rootRect.bottom + 2) return false;
+        if (isInBottomPromptToolbar(row)) return false;
+        const switchCount = getVisibleToolSwitches(row).length;
+        const labelCount = countToolMenuKnownLabels(row);
+        return switchCount > 0 || labelCount <= 1;
+      } catch {
+        return false;
+      }
+    }
+    function findSwitchForToolRow(rootEl, row, label) {
+      const direct = getVisibleToolSwitches(row);
+      if (direct.length > 0) {
+        direct.sort((a, b) => b.getBoundingClientRect().left - a.getBoundingClientRect().left);
+        return direct[0] || null;
+      }
+      let rowRect = null;
+      let labelRect = null;
+      try {
+        rowRect = row.getBoundingClientRect();
+        labelRect = label?.getBoundingClientRect?.() || rowRect;
+      } catch {
+        return null;
+      }
+      const rowCenterY = rowRect.top + rowRect.height / 2;
+      const switches = getVisibleToolSwitches(rootEl).map((element) => {
+        const rect = element.getBoundingClientRect();
+        let distance = Math.abs(rect.top + rect.height / 2 - rowCenterY);
+        if (rect.left < labelRect.right) distance += 80;
+        return { element, distance };
+      });
+      switches.sort((a, b) => a.distance - b.distance);
+      return switches[0]?.element || null;
+    }
+    async function waitForToolsMenuRoot(toolsButton) {
+      for (let i = 0; i < 8; i += 1) {
+        const root = findToolsMenuRoot({ toolsButton });
+        if (root) return root;
+        await sleep(80);
+      }
+      return null;
     }
     async function openToolsMenu(toolsButton = null) {
       const targetButton = toolsButton || findToolsButton();
-      if (!targetButton) return false;
-      if (!clickElement(targetButton)) return false;
+      if (!targetButton) return { button: null, root: null };
+      const existingRoot = findToolsMenuRoot({ toolsButton: targetButton });
+      if (existingRoot) return { button: targetButton, root: existingRoot };
+      if (!clickElement(targetButton)) return { button: targetButton, root: null };
       await sleep(180);
-      return true;
+      return { button: targetButton, root: await waitForToolsMenuRoot(targetButton) };
     }
     async function toggleToolSwitch({ shortcut } = {}) {
       const target = resolveToolTarget(shortcut?.data || {});
@@ -639,23 +823,24 @@
       }
       const activeChip = findActiveToolChip(target);
       if (activeChip) {
-        const closedByChip = closeActiveToolChip(activeChip);
-        await sleep(180);
+        const closedByChip = closeActiveToolChip(activeChip, target);
+        await sleep(240);
         if (closedByChip && !findActiveToolChip(target)) {
           return;
         }
-        const toolsButton2 = findToolsButton();
-        if (await openToolsMenu(toolsButton2)) {
-          const menuItem = findToolMenuItem(target, { toolsButton: toolsButton2 });
-          if (clickElement(menuItem)) return;
+        const menu2 = await openToolsMenu(findToolsButton());
+        const menuSwitch2 = findToolMenuSwitch(target, { toolsButton: menu2.button, root: menu2.root });
+        if (menuSwitch2 && clickExactElement(menuSwitch2.switchEl)) {
+          await sleep(180);
+          if (!findActiveToolChip(target)) return;
         }
         console.warn(`${LOG_TAG} failed to close active tool chip: ${target.keyword}`);
         return;
       }
-      const toolsButton = findToolsButton();
-      if (await openToolsMenu(toolsButton)) {
-        const menuItem = findToolMenuItem(target, { toolsButton });
-        if (clickElement(menuItem)) return;
+      const menu = await openToolsMenu(findToolsButton());
+      const menuSwitch = findToolMenuSwitch(target, { toolsButton: menu.button, root: menu.root });
+      if (menuSwitch && clickExactElement(menuSwitch.switchEl)) {
+        return;
       }
       console.warn(`${LOG_TAG} tool menu item not found: ${target.keyword}`);
     }
