@@ -265,16 +265,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[AI Studio] 快捷键跳转",
         sourceEntry: "src/sites/aistudio/index.js",
         metadata: {
-            name: "[AI Studio] 快捷键跳转 [20260522] v1.0.2",
+            name: "[AI Studio] 快捷键跳转 [20260522] v1.0.3",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠、历史与 Dashboard/API keys 跳转，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。",
-            version: "[20260522] v1.0.2",
-            updateLog: "1.0.2: 新增 History 与 Dashboard/API keys 快捷跳转（CTRL+H / CTRL+K），并修复 Toggle Tool 误匹配右侧设置面板同名工具项的问题。",
+            version: "[20260522] v1.0.3",
+            updateLog: "1.0.3: 重写 Tools 弹窗开关定位，适配独立 switch 控件并避免误匹配右侧设置面板。",
             localized: {
                 "en-US": {
-                    name: "[AI Studio] Shortcut Jump [20260522] v1.0.2",
+                    name: "[AI Studio] Shortcut Jump [20260522] v1.0.3",
                     description: "Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles, History and Dashboard/API keys jumps, plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.",
-                    updateLog: "1.0.2: Added History and Dashboard/API keys shortcuts (CTRL+H / CTRL+K), and fixed Toggle Tool matching same-name tools in the right settings panel."
+                    updateLog: "1.0.3: Reworked Tools popup switch targeting to support standalone switch controls and avoid matching the right settings panel."
                 }
             },
             match: [
