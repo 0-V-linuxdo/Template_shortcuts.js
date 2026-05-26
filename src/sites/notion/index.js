@@ -20,6 +20,44 @@
     const NOTION_AI_HOME_PATH = "/ai";
     const NOTION_AI_CHAT_PATH = "/chat";
     const NOTION_NEW_CHAT_TARGET_TTL_MS = 15000;
+    const NOTION_QUICK_INPUT_THEME = Object.freeze({
+        dark: {
+            surface: "#191919",
+            surfaceAlt: "#252525",
+            headerBg: "#191919",
+            actionsBg: "#191919",
+            border: "rgba(255,255,255,0.14)",
+            text: "#D4D4D4",
+            textStrong: "#F1F1EF",
+            textMuted: "#9B9B9B",
+            hover: "rgba(255,255,255,0.08)",
+            accent: "#F1F1EF",
+            accentText: "#191919",
+            focusRing: "rgba(241,241,239,0.24)",
+            focusRingStrong: "rgba(241,241,239,0.34)",
+            success: "#4DAB9A",
+            warn: "#FFA344",
+            error: "#FF7369"
+        },
+        light: {
+            surface: "#FFFFFF",
+            surfaceAlt: "#F7F6F3",
+            headerBg: "#FBFBFA",
+            actionsBg: "#FBFBFA",
+            border: "rgba(55,53,47,0.16)",
+            text: "rgba(55,53,47,0.86)",
+            textStrong: "#37352F",
+            textMuted: "#787774",
+            hover: "rgba(55,53,47,0.08)",
+            accent: "#37352F",
+            accentText: "#FFFFFF",
+            focusRing: "rgba(55,53,47,0.22)",
+            focusRingStrong: "rgba(55,53,47,0.32)",
+            success: "#0F7B6C",
+            warn: "#D9730D",
+            error: "#E03E3E"
+        }
+    });
     const LEGACY_NEW_CHAT_SIMULATE_KEYS = "CMD+O";
     const LEGACY_SELECT_AI_MODEL_KEY = "selectAiModel";
     const LEGACY_SELECT_AI_MODEL_SELECTOR = '[data-testid="unified-chat-model-button"][role="button"]';
@@ -3853,6 +3891,7 @@
             title: "Notion - Quick Input",
             titleKey: "quickInputTitle",
             primaryColor: "#2f3437",
+            themeColors: NOTION_QUICK_INPUT_THEME,
             themeMode: "system",
             adapter
         });

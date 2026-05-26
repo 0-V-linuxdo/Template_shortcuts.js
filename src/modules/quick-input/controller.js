@@ -24,6 +24,7 @@ export function createController(userOptions = {}) {
             const storageKey = String(options.storageKey || `${idPrefix}_quick_input_v1`).trim() || `${idPrefix}_quick_input_v1`;
             const draftStorageKey = getDraftStorageKey(storageKey);
             const primaryColor = String(options.primaryColor || "#4285F4").trim() || "#4285F4";
+            const themeColors = options.themeColors && typeof options.themeColors === "object" ? options.themeColors : null;
             const overlayId = `${idPrefix}-quick-input-overlay`;
             const themeMode = normalizeThemeMode(options.themeMode);
             const logTag = "[QuickInput]";
@@ -3957,7 +3958,7 @@ export function createController(userOptions = {}) {
                 }
                 applyOverlayHostBaseStyles();
                 setOverlayVisibility(false);
-                ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, primaryColor });
+                ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, primaryColor, themeColors });
                 refreshTheme();
 
                 backdropEl = globalThis.document.createElement("div");

@@ -465,12 +465,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
             version: "[20260527] v1.0.0",
-            updateLog: "1.0.0: 修复 Quick Input 在 Notion AI 中输入反引号或 Markdown 代码块后文本验证误判失败的问题，并更新为新的 Template core require。",
+            updateLog: "1.0.0: 优化 Notion Quick Input 主题色为黑白暖灰与低饱和状态色，并更新为新的 Template core require。",
             localized: {
                 "en-US": {
                     name: "[Notion] Shortcut Jump [20260527] v1.0.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.0: Fixed false Quick Input text verification failures in Notion AI when prompts contain backticks or Markdown code blocks, and updated the script to require the new Template core."
+                    updateLog: "1.0.0: Optimized Notion Quick Input colors with a black/white warm-gray palette and lower-saturation status colors, and updated the script to require the new Template core."
                 }
             },
             match: [
