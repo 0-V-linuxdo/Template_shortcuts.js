@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260518] v1.0.6
-// @name:en        [Notion] Shortcut Jump [20260518] v1.0.6
+// @name           [Notion] 快捷键跳转 [20260527] v1.0.0
+// @name:en        [Notion] Shortcut Jump [20260527] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260518] v1.0.6
-// @update-log     1.0.6: 新增 Notion AI 删除话题快捷键，优先点击右上角三点菜单并执行 Delete；同时保留原生确认框，不自动确认删除。
-// @update-log:en  1.0.6: Added a Notion AI delete-topic shortcut that opens the conversation menu, clicks Delete, and leaves any native confirmation dialog untouched.
+// @version        [20260527] v1.0.0
+// @update-log     1.0.0: 修复 Quick Input 在 Notion AI 中输入反引号或 Markdown 代码块后文本验证误判失败的问题，并更新为新的 Template core require。
+// @update-log:en  1.0.0: Fixed false Quick Input text verification failures in Notion AI when prompts contain backticks or Markdown code blocks, and updated the script to require the new Template core.
 
 // @match          https://*.notion.so/*
 // @match          https://notion.so/*
@@ -21,7 +21,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22notion-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.notion-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.notion-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Cg%20transform%3D%22translate(14%2C%2011)%20scale(2.4)%22%20fill%3D%22currentColor%22%3E%3Cpath%20d%3D%22M3.25781%203.11684C3.67771%203.45796%203.83523%203.43193%204.62369%203.37933L12.0571%202.93299C12.2147%202.93299%2012.0836%202.77571%2012.0311%202.74957L10.7965%201.85711C10.56%201.67347%2010.2448%201.46315%209.64083%201.51576L2.44308%202.04074C2.18059%202.06677%202.12815%202.19801%202.2327%202.30322L3.25781%203.11684ZM3.7041%204.84917V12.6704C3.7041%2013.0907%203.91415%2013.248%204.38693%2013.222L12.5562%2012.7493C13.0292%2012.7233%2013.0819%2012.4341%2013.0819%2012.0927V4.32397C13.0819%203.98306%2012.9508%203.79921%2012.6612%203.82545L4.12422%204.32397C3.80918%204.35044%203.7041%204.50803%203.7041%204.84917ZM11.7688%205.26872C11.8212%205.50518%2011.7688%205.74142%2011.5319%205.76799L11.1383%205.84641V11.6205C10.7965%2011.8042%2010.4814%2011.9092%2010.2188%2011.9092C9.79835%2011.9092%209.69305%2011.7779%209.37812%2011.3844L6.80345%207.34249V11.2532L7.61816%2011.437C7.61816%2011.437%207.61816%2011.9092%206.96086%2011.9092L5.14879%2012.0143C5.09615%2011.9092%205.14879%2011.647%205.33259%2011.5944L5.80546%2011.4634V6.29276L5.1489%206.24015C5.09625%206.00369%205.22739%205.66278%205.5954%205.63631L7.53935%205.50528L10.2188%209.5998V5.97765L9.53564%205.89924C9.4832%205.61018%209.69305%205.40028%209.95576%205.37425L11.7688%205.26872ZM1.83874%201.33212L9.32557%200.780787C10.245%200.701932%2010.4815%200.754753%2011.0594%201.17452L13.4492%202.85424C13.8436%203.14309%2013.975%203.22173%2013.975%203.53661V12.7493C13.975%2013.3266%2013.7647%2013.6681%2013.0293%2013.7203L4.33492%2014.2454C3.78291%2014.2717%203.52019%2014.193%203.23111%2013.8253L1.47116%2011.5419C1.1558%2011.1216%201.02466%2010.8071%201.02466%2010.4392V2.25041C1.02466%201.77825%201.23504%201.38441%201.83874%201.33212Z%22%3E%3C%2Fpath%3E%3C%2Fg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260519.1.0.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260527.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -2514,10 +2514,97 @@
         fired = dispatchInputFromPaste(composer, dt) || fired;
         return fired;
       }
+      function normalizeNotionCommittedText(value) {
+        return genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines: true });
+      }
+      function stripNotionMarkdownFenceMarkerLines(value) {
+        return String(value ?? "").replace(/\r\n?/g, "\n").split("\n").filter((line) => !/^\s*```/.test(String(line ?? ""))).join("\n");
+      }
+      function stripNotionInlineCodeMarkers(value) {
+        let text = String(value ?? "");
+        let previous = "";
+        const inlineCodeMarkerPattern = /(^|[^`])(`{1,2})([^`\n]+)\2(?=[^`]|$)/g;
+        while (text !== previous) {
+          previous = text;
+          text = text.replace(inlineCodeMarkerPattern, "$1$3");
+        }
+        return text;
+      }
+      function getNotionCodeMarkerTextVariants(value) {
+        const source = normalizeNotionCommittedText(value);
+        const variants = [];
+        const seen = /* @__PURE__ */ new Set([source]);
+        const pushVariant = (nextValue, { requiresRenderedCode = false } = {}) => {
+          const normalized = normalizeNotionCommittedText(nextValue);
+          if (!normalized || seen.has(normalized)) return;
+          seen.add(normalized);
+          variants.push({ text: normalized, requiresRenderedCode: !!requiresRenderedCode });
+        };
+        if (!source.includes("`")) return variants;
+        const withoutFenceMarkers = source.includes("```") ? stripNotionMarkdownFenceMarkerLines(source) : source;
+        pushVariant(withoutFenceMarkers);
+        const withoutInlineMarkers = stripNotionInlineCodeMarkers(withoutFenceMarkers);
+        pushVariant(withoutInlineMarkers);
+        if (withoutInlineMarkers.includes("`")) {
+          pushVariant(withoutInlineMarkers.replace(/`/g, ""), { requiresRenderedCode: true });
+        }
+        return variants;
+      }
+      function hasNotionRenderedCodeMarkup(composerEl) {
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+        if (!composer || typeof composer.querySelector !== "function") return false;
+        try {
+          if (composer.querySelector([
+            "pre",
+            "code",
+            "[data-content-type*='code' i]",
+            "[data-block-type*='code' i]",
+            "[data-node-type*='code' i]",
+            "[data-testid*='code' i]",
+            "[class*='code' i]"
+          ].join(","))) {
+            return true;
+          }
+        } catch {
+        }
+        let elements = [];
+        try {
+          elements = Array.from(composer.querySelectorAll("*")).slice(0, 500);
+        } catch {
+          elements = [];
+        }
+        for (const element of elements) {
+          if (!normalizeNotionCommittedText(element?.textContent || "")) continue;
+          try {
+            const fontFamily = String(globalThis.getComputedStyle?.(element)?.fontFamily || "").toLowerCase();
+            if (fontFamily.includes("monospace") || fontFamily.includes("menlo") || fontFamily.includes("consolas") || fontFamily.includes("sfmono") || fontFamily.includes("monaco")) {
+              return true;
+            }
+          } catch {
+          }
+        }
+        return false;
+      }
+      function isNotionTextCommitMatch({ composer, expectedText, actualText, normalizeText = null } = {}) {
+        const normalize = typeof normalizeText === "function" ? normalizeText : normalizeNotionCommittedText;
+        const expected = normalize(expectedText);
+        const actual = normalize(actualText);
+        if (actual === expected) return true;
+        if (!expected.includes("`")) return false;
+        const renderedCode = hasNotionRenderedCodeMarkup(composer);
+        return getNotionCodeMarkerTextVariants(expected).some((variant) => {
+          if (actual !== variant.text) return false;
+          return !variant.requiresRenderedCode || renderedCode;
+        });
+      }
       function isNotionComposerTextMatch(composer, text) {
-        const expected = genericNormalizeComposerText(String(text ?? ""), { trimTrailingEditorNewlines: true });
-        const actual = genericNormalizeComposerText(getNotionComposerPlainText(composer, { trimTrailingEditorNewlines: true }), { trimTrailingEditorNewlines: true });
-        return actual === expected;
+        const actual = getNotionComposerPlainText(composer, { trimTrailingEditorNewlines: true });
+        return isNotionTextCommitMatch({
+          composer,
+          expectedText: text,
+          actualText: actual,
+          normalizeText: normalizeNotionCommittedText
+        });
       }
       async function waitForNotionTextMutationSettle(composer, text) {
         if (isNotionComposerTextMatch(composer, text)) return true;
@@ -3255,6 +3342,7 @@
         setInputValue: setNotionInputValue,
         clearComposerValue: clearNotionInputValue,
         getComposerText: getNotionComposerPlainText,
+        isTextCommitMatch: isNotionTextCommitMatch,
         getTextObservationRoots: getNotionTextObservationRoots,
         attachImages: attachNotionImages,
         clearAttachments: clearNotionAttachments,

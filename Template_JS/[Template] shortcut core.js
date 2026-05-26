@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260519] v1.0.0
-// @name:en        [Template] Shortcut Core [20260519] v1.0.0
+// @name           [Template] 快捷键跳转 [20260527] v1.0.0
+// @name:en        [Template] Shortcut Core [20260527] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260519] v1.0.0
-// @update-log     1.0.0: 支持 selector 候选数组并优先点击可见元素，提升新旧网页 UI 自适应快捷键的稳定性。
-// @update-log:en  1.0.0: Added selector candidate arrays and visible-element preference for more reliable adaptive shortcuts across old and new web UIs.
+// @version        [20260527] v1.0.0
+// @update-log     1.0.0: 新增 Quick Input 文本提交匹配钩子，允许站点适配富文本编辑器渲染后的等价文本验证。
+// @update-log:en  1.0.0: Added a Quick Input text-commit matching hook so site adapters can validate equivalent text after rich-editor rendering.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260519";
+  var TEMPLATE_VERSION = "20260527";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -11917,6 +11917,7 @@ ${displayTargetText}`;
       setInputValue: typeof rawAdapter.setInputValue === "function" ? rawAdapter.setInputValue : setInputValue,
       clearComposerValue: typeof rawAdapter.clearComposerValue === "function" ? rawAdapter.clearComposerValue : clearInputValue,
       getComposerText: typeof rawAdapter.getComposerText === "function" ? rawAdapter.getComposerText : getComposerText,
+      isTextCommitMatch: typeof rawAdapter.isTextCommitMatch === "function" ? rawAdapter.isTextCommitMatch : null,
       getTextObservationRoots: typeof rawAdapter.getTextObservationRoots === "function" ? rawAdapter.getTextObservationRoots : null,
       attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
       clearAttachments: typeof rawAdapter.clearAttachments === "function" ? rawAdapter.clearAttachments : null,
@@ -12313,6 +12314,20 @@ ${displayTargetText}`;
     }
     function normalizeTextCommitValue(text) {
       return normalizeComposerText(text, { trimTrailingEditorNewlines: true });
+    }
+    function isTextCommitMatch(composer, expectedText, actualText) {
+      if (actualText === expectedText) return true;
+      if (typeof adapter.isTextCommitMatch !== "function") return false;
+      try {
+        return !!adapter.isTextCommitMatch({
+          composer,
+          expectedText,
+          actualText,
+          normalizeText: normalizeTextCommitValue
+        });
+      } catch {
+        return false;
+      }
     }
     function appendRuntimeLog(text, options2 = {}) {
       if (!text) return;
@@ -14887,12 +14902,13 @@ ${displayTargetText}`;
           const resolvedComposer = resolveComposerForTextRead(composerRef);
           if (resolvedComposer) composerRef = resolvedComposer;
           const actualText = normalizeTextCommitValue(readComposerTextForVerification(composerRef));
+          const ok = isTextCommitMatch(composerRef, expectedText, actualText);
           lastState = {
             composer: composerRef,
             actualText,
             expectedText,
-            ok: actualText === expectedText,
-            stateKey: `${actualText.length}:${actualText === expectedText ? 1 : 0}`
+            ok,
+            stateKey: `${actualText.length}:${ok ? 1 : 0}`
           };
           return lastState;
         };
