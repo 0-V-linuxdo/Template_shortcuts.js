@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260520] v1.0.4
-// @name:en        [Gemini] Shortcut Jump [20260520] v1.0.4
+// @name           [Gemini] 快捷键跳转 [20260527] v1.0.0
+// @name:en        [Gemini] Shortcut Jump [20260527] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260520] v1.0.4
-// @update-log     1.0.4: 重构 Gemini 删除快捷键侧栏 fallback 热路径；临时展开侧栏后按当前 URL 精准定位当前话题行，避免动画期间反复全量扫描历史列表。
-// @update-log:en  1.0.4: Refactored the Gemini delete shortcut sidebar fallback hot path; after temporary sidebar expansion it now targets the current URL's topic row directly instead of repeatedly scanning the full history list during animation.
+// @version        [20260527] v1.0.0
+// @update-log     1.0.0: 新增 Gemini 新版模型选择器 Extended 独立快捷键，并更新为新的 Template core require。
+// @update-log:en  1.0.0: Added an independent Extended shortcut for Gemini's new model picker and updated the script to require the new Template core.
 
 // @match          https://gemini.google.com/*
 
@@ -91,6 +91,9 @@
     const LOG_TAG = "[Gemini Shortcut Script]";
     const GEMINI_NATIVE_ICON_URL = "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg";
     const GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY = "gemini_shortcuts_v2";
+    const GEMINI_EXTENDED_MODEL_SHORTCUT_MIGRATION_KEY = "gemini_extended_model_shortcut_added_v1";
+    const GEMINI_EXTENDED_MODEL_SHORTCUT_NAME = "Model: Extended";
+    const GEMINI_EXTENDED_MODEL_DEFAULT_HOTKEY = "CTRL+SHIFT+E";
     const defaultIconURL = GEMINI_NATIVE_ICON_URL;
     const defaultIcons = [
       { name: "Gemini", url: GEMINI_NATIVE_ICON_URL },
@@ -142,6 +145,7 @@
       "Toggle Sidebar": "sidebar",
       "Model: Pro": "model",
       "Model: Thinking": "model",
+      "Model: Extended": "model",
       "Model: Fast": "model",
       "Open Tools": "tools",
       "Canvas": "canvas",
@@ -165,6 +169,7 @@
           "Toggle Sidebar": "切换侧边栏",
           "Model: Pro": "模型：Pro",
           "Model: Thinking": "模型：Thinking",
+          "Model: Extended": "模型：Extended",
           "Model: Fast": "模型：Fast",
           "Open Tools": "打开工具",
           "Canvas": "画布",
@@ -186,7 +191,7 @@
           },
           modelPicker: {
             label: "模型关键词（或粘贴 JSON，高级用法）:",
-            placeholder: "例如: Pro / Thinking / Fast"
+            placeholder: "例如: Pro / Thinking / Extended / Fast"
           }
         },
         quickInput: {
@@ -226,7 +231,7 @@
           },
           modelPicker: {
             label: "Model keyword (or paste JSON, advanced):",
-            placeholder: "Example: Pro / Thinking / Fast"
+            placeholder: "Example: Pro / Thinking / Extended / Fast"
           }
         },
         quickInput: {
@@ -554,6 +559,20 @@
         ],
         textMatch: ["Thinking", "Thinking level"]
       }),
+      extended: Object.freeze({
+        selector: [
+          "button[data-test-id='bard-mode-option-extended']",
+          "button[data-test-id*='extended' i]",
+          "button.bard-mode-list-button[role='menuitemradio']",
+          "button[role='menuitemradio']",
+          "button[role='menuitem']",
+          "button[mat-menu-item]",
+          "button.mat-mdc-menu-item",
+          "[role='menuitemradio']",
+          "[role='menuitem']"
+        ],
+        textMatch: ["Extended thinking", "Extended"]
+      }),
       fast: Object.freeze({
         selector: [
           "button[data-test-id='bard-mode-option-fast']",
@@ -577,12 +596,15 @@
     function inferModelKeyFromText(text) {
       const token = normalizeModelToken(text);
       if (!token) return "";
+      if (/(^|[^a-z0-9])extended\s+thinking([^a-z0-9]|$)/.test(token)) return "extended";
+      if (/(^|[^a-z0-9])extended([^a-z0-9]|$)/.test(token)) return "extended";
       if (/(^|[^a-z0-9])flash[\s-]*lite([^a-z0-9]|$)/.test(token)) return "flashLite";
       if (/(^|[^a-z0-9])3\s*\.?\s*1\s*pro([^a-z0-9]|$)/.test(token)) return "pro";
       if (/(^|[^a-z0-9])thinking\s+level([^a-z0-9]|$)/.test(token)) return "thinking";
       if (/(^|[^a-z0-9])3\s*flash([^a-z0-9]|$)/.test(token)) return "fast";
       if (token === "pro") return "pro";
       if (token === "thinking") return "thinking";
+      if (token === "extended") return "extended";
       if (token === "fast") return "fast";
       if (token === "flash") return "fast";
       if (/(^|[^a-z0-9])pro([^a-z0-9]|$)/.test(token)) return "pro";
@@ -883,6 +905,13 @@
         data: { menu: MODEL_PICKER_OPTION_TARGETS.thinking }
       }, "model"),
       createShortcut({
+        name: GEMINI_EXTENDED_MODEL_SHORTCUT_NAME,
+        actionType: "custom",
+        customAction: "modelPicker",
+        hotkey: GEMINI_EXTENDED_MODEL_DEFAULT_HOTKEY,
+        data: { menu: MODEL_PICKER_OPTION_TARGETS.extended }
+      }, "model"),
+      createShortcut({
         name: "Model: Fast",
         actionType: "custom",
         customAction: "modelPicker",
@@ -1001,6 +1030,44 @@
       });
       if (!changed) return;
       gmSetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
+    }
+    function normalizeGeminiShortcutHotkey(value) {
+      return String(value || "").replace(/\s+/g, "").trim().toUpperCase();
+    }
+    function shortcutTargetsGeminiExtendedModel(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
+      if (String(shortcut.name || "").trim() === GEMINI_EXTENDED_MODEL_SHORTCUT_NAME) return true;
+      return String(shortcut.customAction || "").trim() === "modelPicker" && getTargetModelKey(shortcut) === "extended";
+    }
+    function createGeminiExtendedModelShortcut({ hotkey = GEMINI_EXTENDED_MODEL_DEFAULT_HOTKEY } = {}) {
+      return createShortcut({
+        name: GEMINI_EXTENDED_MODEL_SHORTCUT_NAME,
+        actionType: "custom",
+        customAction: "modelPicker",
+        hotkey,
+        data: { menu: MODEL_PICKER_OPTION_TARGETS.extended }
+      }, "model");
+    }
+    function migrateGeminiExtendedModelShortcut() {
+      const migratedRaw = gmGetValueLocal(GEMINI_EXTENDED_MODEL_SHORTCUT_MIGRATION_KEY, false);
+      const migrated = migratedRaw === true || migratedRaw === "true";
+      const stored = gmGetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
+      if (!Array.isArray(stored)) {
+        if (!migrated) gmSetValueLocal(GEMINI_EXTENDED_MODEL_SHORTCUT_MIGRATION_KEY, true);
+        return;
+      }
+      if (stored.some(shortcutTargetsGeminiExtendedModel)) {
+        if (!migrated) gmSetValueLocal(GEMINI_EXTENDED_MODEL_SHORTCUT_MIGRATION_KEY, true);
+        return;
+      }
+      if (migrated) return;
+      const defaultHotkey = normalizeGeminiShortcutHotkey(GEMINI_EXTENDED_MODEL_DEFAULT_HOTKEY);
+      const hotkeyInUse = stored.some((shortcut) => normalizeGeminiShortcutHotkey(shortcut?.hotkey) === defaultHotkey);
+      const extendedShortcut = createGeminiExtendedModelShortcut({
+        hotkey: hotkeyInUse ? "" : GEMINI_EXTENDED_MODEL_DEFAULT_HOTKEY
+      });
+      gmSetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, [...stored, extendedShortcut]);
+      gmSetValueLocal(GEMINI_EXTENDED_MODEL_SHORTCUT_MIGRATION_KEY, true);
     }
     const TemplateUtils = ShortcutTemplate.utils;
     if (!TemplateUtils?.menu?.createMenuController) {
@@ -3279,12 +3346,28 @@
       "button[aria-label*='Share' i]"
     ].join(", ");
     const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio'], button[role='menuitemradio'], button[role='menuitem'], button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitemradio'], [role='menuitem']";
+    const MODEL_PICKER_EXTENDED_TEXT_MATCH = MODEL_PICKER_OPTION_TARGETS.extended.textMatch;
+    function isGeminiThinkingLevelSubmenuTrigger(rawText, element) {
+      const text = getGeminiUiElementText(element) || rawText;
+      if (geminiMenuTextMatches(text, "Thinking level", element)) return true;
+      if (!geminiMenuTextMatches(text, "Thinking", element)) return false;
+      let node = element;
+      let guard = 0;
+      while (node && node.nodeType === 1 && guard < 4) {
+        const hasPopup = String(node.getAttribute?.("aria-haspopup") || "").trim().toLowerCase();
+        if (hasPopup === "menu" || hasPopup === "true") return true;
+        node = node.parentElement || null;
+        guard += 1;
+      }
+      return false;
+    }
     function inferModelKeyFromSelectorSpec(selectorSpec) {
       const fromString = (value) => {
         const token = normalizeModelToken(value);
         if (!token) return "";
         if (token.includes("bard-mode-option-pro")) return "pro";
         if (token.includes("bard-mode-option-thinking")) return "thinking";
+        if (token.includes("bard-mode-option-extended")) return "extended";
         if (token.includes("bard-mode-option-fast")) return "fast";
         return inferModelKeyFromText(token);
       };
@@ -3791,10 +3874,32 @@
       menuController: modelPickerMenu,
       defaultItemSelector: MODEL_PICKER_ITEM_SELECTOR
     });
+    async function clickGeminiExtendedModelViaThinkingLevel({ engine: engine2 }) {
+      const ctx = { engine: engine2 };
+      if (!await modelPickerMenu.ensureOpen(ctx)) return false;
+      const openedThinkingLevel = await modelPickerMenu.clickInOpenMenus(ctx, {
+        selector: MODEL_PICKER_ITEM_SELECTOR,
+        textMatch: isGeminiThinkingLevelSubmenuTrigger,
+        waitForItem: true
+      });
+      if (!openedThinkingLevel) return false;
+      const openDelayMs = Math.max(0, Number(MENU_TIMING.openDelayMs) || 0);
+      if (openDelayMs > 0) await sleep(openDelayMs);
+      return await modelPickerMenu.clickInOpenMenus(ctx, {
+        selector: MODEL_PICKER_ITEM_SELECTOR,
+        textMatch: MODEL_PICKER_EXTENDED_TEXT_MATCH,
+        waitForItem: true
+      });
+    }
+    async function extendedModelPickerAction({ shortcut, engine: engine2 }) {
+      if (await modelPickerMenuAction({ shortcut, engine: engine2 })) return true;
+      return await clickGeminiExtendedModelViaThinkingLevel({ engine: engine2 });
+    }
     async function modelPickerAction({ shortcut, engine: engine2 }) {
       const target = getTargetModelKey(shortcut);
       const current = getCurrentModelKey();
       if (target && current && target === current) return true;
+      if (target === "extended") return await extendedModelPickerAction({ shortcut, engine: engine2 });
       return await modelPickerMenuAction({ shortcut, engine: engine2 });
     }
     function createGeminiQuickInputAdapter({ idPrefix = "gemini", engine: engine2 = null } = {}) {
@@ -6456,6 +6561,7 @@
       registerSidebarVisibilityMenuCommand(engine2);
     }
     migrateGeminiShortcutIcons();
+    migrateGeminiExtendedModelShortcut();
     const engine = ShortcutTemplate.createShortcutEngine({
       menuCommandLabel: "Gemini - 设置快捷键",
       panelTitle: "Gemini - 自定义快捷键",
@@ -6486,7 +6592,7 @@
         }),
         modelPicker: createMenuDataAdapter({
           label: siteText("dataAdapters.modelPicker.label", "Model keyword (or paste JSON, advanced):"),
-          placeholder: siteText("dataAdapters.modelPicker.placeholder", "Example: Pro / Thinking / Fast")
+          placeholder: siteText("dataAdapters.modelPicker.placeholder", "Example: Pro / Thinking / Extended / Fast")
         })
       },
       colors: {
