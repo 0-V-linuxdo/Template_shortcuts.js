@@ -6,8 +6,8 @@
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
 // @version        [20260527] v1.0.0
-// @update-log     1.0.0: 修复 Quick Input 在 Notion AI 中输入反引号或 Markdown 代码块后文本验证误判失败的问题，并更新为新的 Template core require。
-// @update-log:en  1.0.0: Fixed false Quick Input text verification failures in Notion AI when prompts contain backticks or Markdown code blocks, and updated the script to require the new Template core.
+// @update-log     1.0.0: 优化 Notion Quick Input 主题色为黑白暖灰与低饱和状态色，并更新为新的 Template core require。
+// @update-log:en  1.0.0: Optimized Notion Quick Input colors with a black/white warm-gray palette and lower-saturation status colors, and updated the script to require the new Template core.
 
 // @match          https://*.notion.so/*
 // @match          https://notion.so/*
@@ -59,6 +59,44 @@
     const NOTION_AI_HOME_PATH = "/ai";
     const NOTION_AI_CHAT_PATH = "/chat";
     const NOTION_NEW_CHAT_TARGET_TTL_MS = 15e3;
+    const NOTION_QUICK_INPUT_THEME = Object.freeze({
+      dark: {
+        surface: "#191919",
+        surfaceAlt: "#252525",
+        headerBg: "#191919",
+        actionsBg: "#191919",
+        border: "rgba(255,255,255,0.14)",
+        text: "#D4D4D4",
+        textStrong: "#F1F1EF",
+        textMuted: "#9B9B9B",
+        hover: "rgba(255,255,255,0.08)",
+        accent: "#F1F1EF",
+        accentText: "#191919",
+        focusRing: "rgba(241,241,239,0.24)",
+        focusRingStrong: "rgba(241,241,239,0.34)",
+        success: "#4DAB9A",
+        warn: "#FFA344",
+        error: "#FF7369"
+      },
+      light: {
+        surface: "#FFFFFF",
+        surfaceAlt: "#F7F6F3",
+        headerBg: "#FBFBFA",
+        actionsBg: "#FBFBFA",
+        border: "rgba(55,53,47,0.16)",
+        text: "rgba(55,53,47,0.86)",
+        textStrong: "#37352F",
+        textMuted: "#787774",
+        hover: "rgba(55,53,47,0.08)",
+        accent: "#37352F",
+        accentText: "#FFFFFF",
+        focusRing: "rgba(55,53,47,0.22)",
+        focusRingStrong: "rgba(55,53,47,0.32)",
+        success: "#0F7B6C",
+        warn: "#D9730D",
+        error: "#E03E3E"
+      }
+    });
     const LEGACY_NEW_CHAT_SIMULATE_KEYS = "CMD+O";
     const LEGACY_SELECT_AI_MODEL_KEY = "selectAiModel";
     const LEGACY_SELECT_AI_MODEL_SELECTOR = '[data-testid="unified-chat-model-button"][role="button"]';
@@ -3649,6 +3687,7 @@
         title: "Notion - Quick Input",
         titleKey: "quickInputTitle",
         primaryColor: "#2f3437",
+        themeColors: NOTION_QUICK_INPUT_THEME,
         themeMode: "system",
         adapter
       });

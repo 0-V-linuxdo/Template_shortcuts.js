@@ -3,8 +3,8 @@
 // @name:en        [Template] Shortcut Core [20260527] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @version        [20260527] v1.0.0
-// @update-log     1.0.0: 新增 Quick Input 文本提交匹配钩子，允许站点适配富文本编辑器渲染后的等价文本验证。
-// @update-log:en  1.0.0: Added a Quick Input text-commit matching hook so site adapters can validate equivalent text after rich-editor rendering.
+// @update-log     1.0.0: 新增 Quick Input 站点级主题色覆写，并保留文本提交匹配钩子以适配富文本编辑器验证。
+// @update-log:en  1.0.0: Added site-level Quick Input theme color overrides while keeping the text-commit matching hook for rich-editor validation.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -10601,7 +10601,105 @@ ${displayTargetText}`;
   }
 
   // src/modules/quick-input/style.js
-  function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, primaryColor } = {}) {
+  function createDefaultQuickInputThemeColors(primaryColor = "#4285F4") {
+    const accent = String(primaryColor || "#4285F4").trim() || "#4285F4";
+    return {
+      dark: {
+        surface: "#1a1a1a",
+        surfaceAlt: "#2d2d2d",
+        headerBg: "#1a1a1a",
+        actionsBg: "#1a1a1a",
+        border: "#404040",
+        text: "rgba(255,255,255,0.85)",
+        textStrong: "#ffffff",
+        textMuted: "rgba(255,255,255,0.72)",
+        overlay: "rgba(0, 0, 0, 0.7)",
+        hover: "rgba(255,255,255,0.08)",
+        accent,
+        accentText: "#fff",
+        focusRing: `${accent}33`,
+        focusRingStrong: `${accent}55`,
+        error: "#fca5a5",
+        success: "#86efac",
+        warn: "#fdba74",
+        dangerBg: "rgba(239, 68, 68, 0.92)",
+        dangerBorder: "rgba(255,255,255,0.18)",
+        iconBtnBg: "rgba(255,255,255,0.08)",
+        iconBtnHover: "rgba(255,255,255,0.16)",
+        iconBtnBorder: "rgba(255,255,255,0.16)",
+        iconBtnColor: "rgba(255,255,255,0.76)",
+        iconBtnDangerBg: "rgba(239,68,68,0.18)",
+        iconBtnDangerHover: "rgba(239,68,68,0.26)",
+        iconBtnDangerBorder: "rgba(248,113,113,0.34)",
+        iconBtnDangerColor: "#fecaca",
+        playerStopBg: "color-mix(in srgb, var(--qi-accent) 18%, var(--qi-surface-alt))",
+        playerStopBorder: "color-mix(in srgb, var(--qi-accent) 26%, var(--qi-border))",
+        playerStopColor: "color-mix(in srgb, var(--qi-accent) 82%, white 18%)",
+        playerStopHoverBg: "color-mix(in srgb, var(--qi-accent) 24%, var(--qi-surface-alt))",
+        playerStopHoverBorder: "color-mix(in srgb, var(--qi-accent) 34%, var(--qi-border))",
+        playerStopHoverColor: "color-mix(in srgb, var(--qi-accent) 88%, white 12%)",
+        playerBtnShadow: "0 10px 22px rgba(0,0,0,0.28)",
+        playerBtnHoverShadow: "0 14px 30px rgba(0,0,0,0.34)"
+      },
+      light: {
+        surface: "#ffffff",
+        surfaceAlt: "rgba(17, 24, 39, 0.06)",
+        headerBg: "rgba(17, 24, 39, 0.03)",
+        actionsBg: "rgba(17, 24, 39, 0.03)",
+        border: "rgba(17, 24, 39, 0.16)",
+        text: "rgba(17, 24, 39, 0.78)",
+        textStrong: "rgba(17, 24, 39, 0.85)",
+        textMuted: "rgba(17, 24, 39, 0.65)",
+        overlay: "rgba(0, 0, 0, 0.32)",
+        hover: "rgba(17, 24, 39, 0.08)",
+        accent,
+        accentText: "#fff",
+        focusRing: `${accent}33`,
+        focusRingStrong: `${accent}55`,
+        error: "#b91c1c",
+        success: "#15803d",
+        warn: "#c2410c",
+        dangerBg: "rgba(239, 68, 68, 0.92)",
+        dangerBorder: "rgba(185, 28, 28, 0.35)",
+        iconBtnBg: "rgba(17,24,39,0.08)",
+        iconBtnHover: "rgba(17,24,39,0.14)",
+        iconBtnBorder: "rgba(17,24,39,0.14)",
+        iconBtnColor: "rgba(17,24,39,0.72)",
+        iconBtnDangerBg: "rgba(220,38,38,0.08)",
+        iconBtnDangerHover: "rgba(220,38,38,0.14)",
+        iconBtnDangerBorder: "rgba(220,38,38,0.2)",
+        iconBtnDangerColor: "#b91c1c",
+        playerStopBg: "color-mix(in srgb, var(--qi-accent) 12%, white)",
+        playerStopBorder: "color-mix(in srgb, var(--qi-accent) 22%, var(--qi-border))",
+        playerStopColor: "color-mix(in srgb, var(--qi-accent) 88%, black 12%)",
+        playerStopHoverBg: "color-mix(in srgb, var(--qi-accent) 18%, white)",
+        playerStopHoverBorder: "color-mix(in srgb, var(--qi-accent) 30%, var(--qi-border))",
+        playerStopHoverColor: "color-mix(in srgb, var(--qi-accent) 92%, black 8%)",
+        playerBtnShadow: "0 10px 22px rgba(15,23,42,0.12)",
+        playerBtnHoverShadow: "0 14px 28px rgba(15,23,42,0.18)"
+      }
+    };
+  }
+  function mergeQuickInputThemeColors(defaultColors, overrideColors) {
+    const out = { ...defaultColors };
+    if (!overrideColors || typeof overrideColors !== "object" || Array.isArray(overrideColors)) return out;
+    for (const key of Object.keys(defaultColors)) {
+      const value = overrideColors[key];
+      if (value === null || value === void 0) continue;
+      const token = String(value).trim();
+      if (token) out[key] = token;
+    }
+    return out;
+  }
+  function resolveQuickInputThemeColors(primaryColor, themeColors) {
+    const defaults = createDefaultQuickInputThemeColors(primaryColor);
+    const overrides = themeColors && typeof themeColors === "object" && !Array.isArray(themeColors) ? themeColors : {};
+    return {
+      dark: mergeQuickInputThemeColors(defaults.dark, overrides.dark),
+      light: mergeQuickInputThemeColors(defaults.light, overrides.light)
+    };
+  }
+  function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, primaryColor, themeColors } = {}) {
     if (!overlayRootEl) return;
     let style = overlayRootEl.querySelector?.("style[data-quick-input-style='1']") || null;
     if (!style) {
@@ -10612,39 +10710,46 @@ ${displayTargetText}`;
     }
     const hostSelector = usesShadowUi ? ":host" : `#${overlayId}`;
     const lightSelector = usesShadowUi ? ":host([data-theme='light'])" : `#${overlayId}[data-theme='light']`;
+    const resolvedThemeColors = resolveQuickInputThemeColors(primaryColor, themeColors);
+    const darkColors = resolvedThemeColors.dark;
+    const lightColors = resolvedThemeColors.light;
     style.textContent = `
                 ${hostSelector} {
-                    --qi-surface: #1a1a1a;
-                    --qi-surface-alt: #2d2d2d;
-                    --qi-header-bg: #1a1a1a;
-                    --qi-actions-bg: #1a1a1a;
-                    --qi-border: #404040;
-                    --qi-text: rgba(255,255,255,0.85);
-                    --qi-text-strong: #ffffff;
-                    --qi-text-muted: rgba(255,255,255,0.72);
-                    --qi-overlay: rgba(0, 0, 0, 0.7);
-                    --qi-hover: rgba(255,255,255,0.08);
-                    --qi-error: #fca5a5;
-                    --qi-success: #86efac;
-                    --qi-warn: #fdba74;
-                    --qi-danger-bg: rgba(239, 68, 68, 0.92);
-                    --qi-danger-border: rgba(255,255,255,0.18);
-                    --qi-icon-btn-bg: rgba(255,255,255,0.08);
-                    --qi-icon-btn-hover: rgba(255,255,255,0.16);
-                    --qi-icon-btn-border: rgba(255,255,255,0.16);
-                    --qi-icon-btn-color: rgba(255,255,255,0.76);
-                    --qi-icon-btn-danger-bg: rgba(239,68,68,0.18);
-                    --qi-icon-btn-danger-hover: rgba(239,68,68,0.26);
-                    --qi-icon-btn-danger-border: rgba(248,113,113,0.34);
-                    --qi-icon-btn-danger-color: #fecaca;
-                    --qi-player-stop-bg: color-mix(in srgb, ${primaryColor} 18%, var(--qi-surface-alt));
-                    --qi-player-stop-border: color-mix(in srgb, ${primaryColor} 26%, var(--qi-border));
-                    --qi-player-stop-color: color-mix(in srgb, ${primaryColor} 82%, white 18%);
-                    --qi-player-stop-hover-bg: color-mix(in srgb, ${primaryColor} 24%, var(--qi-surface-alt));
-                    --qi-player-stop-hover-border: color-mix(in srgb, ${primaryColor} 34%, var(--qi-border));
-                    --qi-player-stop-hover-color: color-mix(in srgb, ${primaryColor} 88%, white 12%);
-                    --qi-player-btn-shadow: 0 10px 22px rgba(0,0,0,0.28);
-                    --qi-player-btn-hover-shadow: 0 14px 30px rgba(0,0,0,0.34);
+                    --qi-surface: ${darkColors.surface};
+                    --qi-surface-alt: ${darkColors.surfaceAlt};
+                    --qi-header-bg: ${darkColors.headerBg};
+                    --qi-actions-bg: ${darkColors.actionsBg};
+                    --qi-border: ${darkColors.border};
+                    --qi-text: ${darkColors.text};
+                    --qi-text-strong: ${darkColors.textStrong};
+                    --qi-text-muted: ${darkColors.textMuted};
+                    --qi-overlay: ${darkColors.overlay};
+                    --qi-hover: ${darkColors.hover};
+                    --qi-accent: ${darkColors.accent};
+                    --qi-accent-text: ${darkColors.accentText};
+                    --qi-focus-ring: ${darkColors.focusRing};
+                    --qi-focus-ring-strong: ${darkColors.focusRingStrong};
+                    --qi-error: ${darkColors.error};
+                    --qi-success: ${darkColors.success};
+                    --qi-warn: ${darkColors.warn};
+                    --qi-danger-bg: ${darkColors.dangerBg};
+                    --qi-danger-border: ${darkColors.dangerBorder};
+                    --qi-icon-btn-bg: ${darkColors.iconBtnBg};
+                    --qi-icon-btn-hover: ${darkColors.iconBtnHover};
+                    --qi-icon-btn-border: ${darkColors.iconBtnBorder};
+                    --qi-icon-btn-color: ${darkColors.iconBtnColor};
+                    --qi-icon-btn-danger-bg: ${darkColors.iconBtnDangerBg};
+                    --qi-icon-btn-danger-hover: ${darkColors.iconBtnDangerHover};
+                    --qi-icon-btn-danger-border: ${darkColors.iconBtnDangerBorder};
+                    --qi-icon-btn-danger-color: ${darkColors.iconBtnDangerColor};
+                    --qi-player-stop-bg: ${darkColors.playerStopBg};
+                    --qi-player-stop-border: ${darkColors.playerStopBorder};
+                    --qi-player-stop-color: ${darkColors.playerStopColor};
+                    --qi-player-stop-hover-bg: ${darkColors.playerStopHoverBg};
+                    --qi-player-stop-hover-border: ${darkColors.playerStopHoverBorder};
+                    --qi-player-stop-hover-color: ${darkColors.playerStopHoverColor};
+                    --qi-player-btn-shadow: ${darkColors.playerBtnShadow};
+                    --qi-player-btn-hover-shadow: ${darkColors.playerBtnHoverShadow};
                     box-sizing: border-box;
                     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
                     font-size: 13px;
@@ -10655,36 +10760,41 @@ ${displayTargetText}`;
                     text-size-adjust: 100%;
                 }
                 ${lightSelector} {
-                    --qi-surface: #ffffff;
-                    --qi-surface-alt: rgba(17, 24, 39, 0.06);
-                    --qi-header-bg: rgba(17, 24, 39, 0.03);
-                    --qi-actions-bg: rgba(17, 24, 39, 0.03);
-                    --qi-border: rgba(17, 24, 39, 0.16);
-                    --qi-text: rgba(17, 24, 39, 0.78);
-                    --qi-text-strong: rgba(17, 24, 39, 0.85);
-                    --qi-text-muted: rgba(17, 24, 39, 0.65);
-                    --qi-overlay: rgba(0, 0, 0, 0.32);
-                    --qi-hover: rgba(17, 24, 39, 0.08);
-                    --qi-error: #b91c1c;
-                    --qi-success: #15803d;
-                    --qi-warn: #c2410c;
-                    --qi-danger-border: rgba(185, 28, 28, 0.35);
-                    --qi-icon-btn-bg: rgba(17,24,39,0.08);
-                    --qi-icon-btn-hover: rgba(17,24,39,0.14);
-                    --qi-icon-btn-border: rgba(17,24,39,0.14);
-                    --qi-icon-btn-color: rgba(17,24,39,0.72);
-                    --qi-icon-btn-danger-bg: rgba(220,38,38,0.08);
-                    --qi-icon-btn-danger-hover: rgba(220,38,38,0.14);
-                    --qi-icon-btn-danger-border: rgba(220,38,38,0.2);
-                    --qi-icon-btn-danger-color: #b91c1c;
-                    --qi-player-stop-bg: color-mix(in srgb, ${primaryColor} 12%, white);
-                    --qi-player-stop-border: color-mix(in srgb, ${primaryColor} 22%, var(--qi-border));
-                    --qi-player-stop-color: color-mix(in srgb, ${primaryColor} 88%, black 12%);
-                    --qi-player-stop-hover-bg: color-mix(in srgb, ${primaryColor} 18%, white);
-                    --qi-player-stop-hover-border: color-mix(in srgb, ${primaryColor} 30%, var(--qi-border));
-                    --qi-player-stop-hover-color: color-mix(in srgb, ${primaryColor} 92%, black 8%);
-                    --qi-player-btn-shadow: 0 10px 22px rgba(15,23,42,0.12);
-                    --qi-player-btn-hover-shadow: 0 14px 28px rgba(15,23,42,0.18);
+                    --qi-surface: ${lightColors.surface};
+                    --qi-surface-alt: ${lightColors.surfaceAlt};
+                    --qi-header-bg: ${lightColors.headerBg};
+                    --qi-actions-bg: ${lightColors.actionsBg};
+                    --qi-border: ${lightColors.border};
+                    --qi-text: ${lightColors.text};
+                    --qi-text-strong: ${lightColors.textStrong};
+                    --qi-text-muted: ${lightColors.textMuted};
+                    --qi-overlay: ${lightColors.overlay};
+                    --qi-hover: ${lightColors.hover};
+                    --qi-accent: ${lightColors.accent};
+                    --qi-accent-text: ${lightColors.accentText};
+                    --qi-focus-ring: ${lightColors.focusRing};
+                    --qi-focus-ring-strong: ${lightColors.focusRingStrong};
+                    --qi-error: ${lightColors.error};
+                    --qi-success: ${lightColors.success};
+                    --qi-warn: ${lightColors.warn};
+                    --qi-danger-bg: ${lightColors.dangerBg};
+                    --qi-danger-border: ${lightColors.dangerBorder};
+                    --qi-icon-btn-bg: ${lightColors.iconBtnBg};
+                    --qi-icon-btn-hover: ${lightColors.iconBtnHover};
+                    --qi-icon-btn-border: ${lightColors.iconBtnBorder};
+                    --qi-icon-btn-color: ${lightColors.iconBtnColor};
+                    --qi-icon-btn-danger-bg: ${lightColors.iconBtnDangerBg};
+                    --qi-icon-btn-danger-hover: ${lightColors.iconBtnDangerHover};
+                    --qi-icon-btn-danger-border: ${lightColors.iconBtnDangerBorder};
+                    --qi-icon-btn-danger-color: ${lightColors.iconBtnDangerColor};
+                    --qi-player-stop-bg: ${lightColors.playerStopBg};
+                    --qi-player-stop-border: ${lightColors.playerStopBorder};
+                    --qi-player-stop-color: ${lightColors.playerStopColor};
+                    --qi-player-stop-hover-bg: ${lightColors.playerStopHoverBg};
+                    --qi-player-stop-hover-border: ${lightColors.playerStopHoverBorder};
+                    --qi-player-stop-hover-color: ${lightColors.playerStopHoverColor};
+                    --qi-player-btn-shadow: ${lightColors.playerBtnShadow};
+                    --qi-player-btn-hover-shadow: ${lightColors.playerBtnHoverShadow};
                     color-scheme: light;
                 }
                 ${hostSelector},
@@ -10804,11 +10914,11 @@ ${displayTargetText}`;
                     font-size: 12px;
                     font-weight: 650;
                 }
-                ${hostSelector} .qi-tab:hover { border-color: ${primaryColor}; }
-                ${hostSelector} .qi-tab[data-active="1"] {
-                    background: ${primaryColor};
-                    border-color: ${primaryColor};
-                    color: #fff;
+                    ${hostSelector} .qi-tab:hover { border-color: var(--qi-accent); }
+                    ${hostSelector} .qi-tab[data-active="1"] {
+                        background: var(--qi-accent);
+                        border-color: var(--qi-accent);
+                        color: var(--qi-accent-text);
                 }
                 ${hostSelector} .qi-content {
                     flex: 1;
@@ -10904,10 +11014,10 @@ ${displayTargetText}`;
                     position: relative;
                     z-index: 1;
                 }
-                ${hostSelector} .qi-actions .qi-player-btn:focus-visible {
-                    outline: none;
-                    border-color: ${primaryColor};
-                    box-shadow: 0 0 0 2px ${primaryColor}33, var(--qi-player-btn-hover-shadow);
+                    ${hostSelector} .qi-actions .qi-player-btn:focus-visible {
+                        outline: none;
+                        border-color: var(--qi-accent);
+                        box-shadow: 0 0 0 2px var(--qi-focus-ring), var(--qi-player-btn-hover-shadow);
                 }
                 ${hostSelector} .qi-body {
                     padding: 14px;
@@ -10974,9 +11084,9 @@ ${displayTargetText}`;
                 ${hostSelector} .qi-form-collapsible-summary:hover {
                     color: var(--qi-text-strong);
                 }
-                ${hostSelector} .qi-form-collapsible-summary:focus-visible {
-                    outline: none;
-                    box-shadow: 0 0 0 2px ${primaryColor}55;
+                    ${hostSelector} .qi-form-collapsible-summary:focus-visible {
+                        outline: none;
+                        box-shadow: 0 0 0 2px var(--qi-focus-ring-strong);
                 }
                 ${hostSelector} .qi-form-collapsible-label {
                     min-width: 0;
@@ -11180,9 +11290,9 @@ ${displayTargetText}`;
                 ${hostSelector} input[type="text"]:focus,
                 ${hostSelector} input[type="number"]:focus,
                 ${hostSelector} textarea:focus,
-                ${hostSelector} select:focus {
-                    border-color: ${primaryColor};
-                    box-shadow: 0 0 0 1px ${primaryColor};
+                    ${hostSelector} select:focus {
+                        border-color: var(--qi-accent);
+                        box-shadow: 0 0 0 1px var(--qi-accent);
                 }
                 ${hostSelector} textarea {
                     min-height: calc(4.05em + 18px);
@@ -11218,11 +11328,11 @@ ${displayTargetText}`;
                         transform 140ms ease,
                         opacity 140ms ease;
                 }
-                ${hostSelector} .qi-drop:hover,
-                ${hostSelector} .qi-drop[data-drag-over="1"] {
-                    border-color: ${primaryColor};
-                    background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
-                    box-shadow: 0 0 0 1px ${primaryColor}33;
+                    ${hostSelector} .qi-drop:hover,
+                    ${hostSelector} .qi-drop[data-drag-over="1"] {
+                        border-color: var(--qi-accent);
+                        background: color-mix(in srgb, var(--qi-accent) 8%, var(--qi-surface-alt));
+                        box-shadow: 0 0 0 1px var(--qi-focus-ring);
                 }
                 ${hostSelector} .qi-drop[data-disabled="1"] {
                     opacity: 0.68;
@@ -11278,21 +11388,21 @@ ${displayTargetText}`;
                     line-height: 1.2;
                     color: var(--qi-text-muted);
                 }
-                ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-drop:hover,
-                ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-drop[data-drag-over="1"] {
+                    ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-drop:hover,
+                    ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-drop[data-drag-over="1"] {
                     background: transparent;
                     box-shadow: none;
                     transform: none;
                     border-color: transparent;
-                    color: ${primaryColor};
+                        color: var(--qi-accent);
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"] .qi-preview-list {
                     cursor: default;
                 }
-                ${hostSelector} .qi-preview-shell[data-drag-over="1"] {
-                    border-color: ${primaryColor};
-                    background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
-                    box-shadow: 0 0 0 1px ${primaryColor}33;
+                    ${hostSelector} .qi-preview-shell[data-drag-over="1"] {
+                        border-color: var(--qi-accent);
+                        background: color-mix(in srgb, var(--qi-accent) 8%, var(--qi-surface-alt));
+                        box-shadow: 0 0 0 1px var(--qi-focus-ring);
                 }
                 ${hostSelector} .qi-preview-shell[data-has-items="1"][data-drag-over="1"] {
                     border-style: dashed;
@@ -11308,8 +11418,8 @@ ${displayTargetText}`;
 
                     border: none;
                     border-radius: inherit;
-                    background: color-mix(in srgb, ${primaryColor} 12%, var(--qi-surface-alt));
-                    color: ${primaryColor};
+                        background: color-mix(in srgb, var(--qi-accent) 12%, var(--qi-surface-alt));
+                        color: var(--qi-accent);
                     font-size: 12px;
                     font-weight: 700;
                     line-height: 1.35;
@@ -11438,10 +11548,10 @@ ${displayTargetText}`;
                     font-weight: 650;
                 }
                 ${hostSelector} .qi-btn:not(.qi-btn-primary):not(.qi-btn-danger):hover { background: var(--qi-hover); }
-                ${hostSelector} .qi-btn-primary {
-                    background: ${primaryColor};
-                    border-color: ${primaryColor};
-                    color: #fff;
+                    ${hostSelector} .qi-btn-primary {
+                        background: var(--qi-accent);
+                        border-color: var(--qi-accent);
+                        color: var(--qi-accent-text);
                 }
                 ${hostSelector} .qi-btn-danger {
                     background: var(--qi-icon-btn-danger-bg);
@@ -11485,14 +11595,14 @@ ${displayTargetText}`;
                     line-height: 1.25;
                     color: var(--qi-text);
                 }
-                ${hostSelector} .qi-option-check input[type="checkbox"] {
+                    ${hostSelector} .qi-option-check input[type="checkbox"] {
                     width: 16px;
                     height: 16px;
                     margin: 0;
                     flex: 0 0 auto;
                     display: block;
                     vertical-align: middle;
-                    accent-color: ${primaryColor};
+                        accent-color: var(--qi-accent);
                 }
                 ${hostSelector} .qi-option-check span {
                     display: block;
@@ -11513,7 +11623,7 @@ ${displayTargetText}`;
                     gap: 10px;
                     scrollbar-gutter: auto;
                     scrollbar-width: thin;
-                    scrollbar-color: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border)) transparent;
+                        scrollbar-color: color-mix(in srgb, var(--qi-accent) 40%, var(--qi-border)) transparent;
                 }
                 ${hostSelector} .qi-log > * {
                     display: block;
@@ -11530,10 +11640,10 @@ ${displayTargetText}`;
                 }
                 ${hostSelector} .qi-log::-webkit-scrollbar-thumb {
                     border-radius: 999px;
-                    background: color-mix(in srgb, ${primaryColor} 40%, var(--qi-border));
+                        background: color-mix(in srgb, var(--qi-accent) 40%, var(--qi-border));
                 }
                 ${hostSelector} .qi-log::-webkit-scrollbar-thumb:hover {
-                    background: color-mix(in srgb, ${primaryColor} 54%, var(--qi-border));
+                        background: color-mix(in srgb, var(--qi-accent) 54%, var(--qi-border));
                 }
                 ${hostSelector} .qi-log-line {
                     display: grid;
@@ -11562,13 +11672,13 @@ ${displayTargetText}`;
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-config {
                     border-color: var(--qi-border);
-                    border-color: color-mix(in srgb, ${primaryColor} 32%, var(--qi-border));
+                        border-color: color-mix(in srgb, var(--qi-accent) 32%, var(--qi-border));
                     background: var(--qi-surface-alt);
-                    background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
+                        background: color-mix(in srgb, var(--qi-accent) 8%, var(--qi-surface-alt));
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-info {
-                    border-color: color-mix(in srgb, ${primaryColor} 32%, var(--qi-border));
-                    background: color-mix(in srgb, ${primaryColor} 8%, var(--qi-surface-alt));
+                        border-color: color-mix(in srgb, var(--qi-accent) 32%, var(--qi-border));
+                        background: color-mix(in srgb, var(--qi-accent) 8%, var(--qi-surface-alt));
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-ok {
                     border-color: color-mix(in srgb, var(--qi-success) 32%, var(--qi-border));
@@ -11601,10 +11711,10 @@ ${displayTargetText}`;
                     transition: background 120ms ease;
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-summary {
-                    color: ${primaryColor};
+                        color: var(--qi-accent);
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-summary {
-                    color: ${primaryColor};
+                        color: var(--qi-accent);
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-summary {
                     color: var(--qi-success);
@@ -11620,10 +11730,10 @@ ${displayTargetText}`;
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-summary:hover {
                     background: var(--qi-hover);
-                    background: color-mix(in srgb, ${primaryColor} 10%, var(--qi-hover));
+                        background: color-mix(in srgb, var(--qi-accent) 10%, var(--qi-hover));
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-summary:hover {
-                    background: color-mix(in srgb, ${primaryColor} 10%, var(--qi-hover));
+                        background: color-mix(in srgb, var(--qi-accent) 10%, var(--qi-hover));
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-summary:hover {
                     background: color-mix(in srgb, var(--qi-success) 10%, var(--qi-hover));
@@ -11667,10 +11777,10 @@ ${displayTargetText}`;
                     border-bottom: 1px solid var(--qi-border);
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-config[data-open="1"] .qi-log-group-summary {
-                    border-bottom-color: color-mix(in srgb, ${primaryColor} 28%, var(--qi-border));
+                        border-bottom-color: color-mix(in srgb, var(--qi-accent) 28%, var(--qi-border));
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-info[data-open="1"] .qi-log-group-summary {
-                    border-bottom-color: color-mix(in srgb, ${primaryColor} 28%, var(--qi-border));
+                        border-bottom-color: color-mix(in srgb, var(--qi-accent) 28%, var(--qi-border));
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-ok[data-open="1"] .qi-log-group-summary {
                     border-bottom-color: color-mix(in srgb, var(--qi-success) 28%, var(--qi-border));
@@ -11693,10 +11803,10 @@ ${displayTargetText}`;
                 ${hostSelector} .qi-log-group.qi-log-group-config .qi-log-group-body {
                     padding: 8px 10px 10px;
                     background: var(--qi-surface);
-                    background: color-mix(in srgb, ${primaryColor} 4%, var(--qi-surface));
+                        background: color-mix(in srgb, var(--qi-accent) 4%, var(--qi-surface));
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-info .qi-log-group-body {
-                    background: color-mix(in srgb, ${primaryColor} 4%, var(--qi-surface));
+                        background: color-mix(in srgb, var(--qi-accent) 4%, var(--qi-surface));
                 }
                 ${hostSelector} .qi-log-group.qi-log-group-status-ok .qi-log-group-body {
                     background: color-mix(in srgb, var(--qi-success) 4%, var(--qi-surface));
@@ -11872,6 +11982,7 @@ ${displayTargetText}`;
     const storageKey = String(options.storageKey || `${idPrefix}_quick_input_v1`).trim() || `${idPrefix}_quick_input_v1`;
     const draftStorageKey = getDraftStorageKey(storageKey);
     const primaryColor = String(options.primaryColor || "#4285F4").trim() || "#4285F4";
+    const themeColors = options.themeColors && typeof options.themeColors === "object" ? options.themeColors : null;
     const overlayId = `${idPrefix}-quick-input-overlay`;
     const themeMode = normalizeThemeMode(options.themeMode);
     const logTag = "[QuickInput]";
@@ -15384,7 +15495,7 @@ ${displayTargetText}`;
       }
       applyOverlayHostBaseStyles();
       setOverlayVisibility(false);
-      ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, primaryColor });
+      ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, primaryColor, themeColors });
       refreshTheme();
       backdropEl = globalThis.document.createElement("div");
       backdropEl.className = "qi-backdrop";
