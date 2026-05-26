@@ -76,6 +76,7 @@ export function createController(userOptions = {}) {
                 setInputValue: typeof rawAdapter.setInputValue === "function" ? rawAdapter.setInputValue : setInputValue,
                 clearComposerValue: typeof rawAdapter.clearComposerValue === "function" ? rawAdapter.clearComposerValue : clearInputValue,
                 getComposerText: typeof rawAdapter.getComposerText === "function" ? rawAdapter.getComposerText : getComposerText,
+                isTextCommitMatch: typeof rawAdapter.isTextCommitMatch === "function" ? rawAdapter.isTextCommitMatch : null,
                 getTextObservationRoots: typeof rawAdapter.getTextObservationRoots === "function" ? rawAdapter.getTextObservationRoots : null,
                 attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
                 clearAttachments: typeof rawAdapter.clearAttachments === "function" ? rawAdapter.clearAttachments : null,
@@ -502,6 +503,21 @@ export function createController(userOptions = {}) {
 
             function normalizeTextCommitValue(text) {
                 return normalizeComposerText(text, { trimTrailingEditorNewlines: true });
+            }
+
+            function isTextCommitMatch(composer, expectedText, actualText) {
+                if (actualText === expectedText) return true;
+                if (typeof adapter.isTextCommitMatch !== "function") return false;
+                try {
+                    return !!adapter.isTextCommitMatch({
+                        composer,
+                        expectedText,
+                        actualText,
+                        normalizeText: normalizeTextCommitValue
+                    });
+                } catch {
+                    return false;
+                }
             }
 
             function appendRuntimeLog(text, options = {}) {
@@ -3357,12 +3373,13 @@ export function createController(userOptions = {}) {
                         const resolvedComposer = resolveComposerForTextRead(composerRef);
                         if (resolvedComposer) composerRef = resolvedComposer;
                         const actualText = normalizeTextCommitValue(readComposerTextForVerification(composerRef));
+                        const ok = isTextCommitMatch(composerRef, expectedText, actualText);
                         lastState = {
                             composer: composerRef,
                             actualText,
                             expectedText,
-                            ok: actualText === expectedText,
-                            stateKey: `${actualText.length}:${actualText === expectedText ? 1 : 0}`
+                            ok,
+                            stateKey: `${actualText.length}:${ok ? 1 : 0}`
                         };
                         return lastState;
                     };
