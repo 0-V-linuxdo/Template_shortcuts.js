@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260527] v1.0.0
-// @name:en        [Gemini] Shortcut Jump [20260527] v1.0.0
+// @name           [Gemini] 快捷键跳转 [20260528] v1.0.0
+// @name:en        [Gemini] Shortcut Jump [20260528] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260527] v1.0.0
-// @update-log     1.0.0: 新增 Gemini 新版模型选择器 Extended 独立快捷键，并更新为新的 Template core require。
-// @update-log:en  1.0.0: Added an independent Extended shortcut for Gemini's new model picker and updated the script to require the new Template core.
+// @version        [20260528] v1.0.0
+// @update-log     1.0.0: 优化 Gemini Extended 快捷键选择路径，避免模型选择器长时间停留，并更新为新的 Template core require。
+// @update-log:en  1.0.0: Optimized the Gemini Extended shortcut selection path to avoid the model picker lingering and updated the script to require the new Template core.
 
 // @match          https://gemini.google.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22gemini-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.gemini-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.gemini-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Csvg%20x%3D%2213%22%20y%3D%2211%22%20width%3D%2238%22%20height%3D%2238%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cdefs%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-0%22%20x1%3D%227%22%20x2%3D%2211%22%20y1%3D%2215.5%22%20y2%3D%2212%22%3E%3Cstop%20stop-color%3D%22%2308B962%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2308B962%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-1%22%20x1%3D%228%22%20x2%3D%2211.5%22%20y1%3D%225.5%22%20y2%3D%2211%22%3E%3Cstop%20stop-color%3D%22%23F94543%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23F94543%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-2%22%20x1%3D%223.5%22%20x2%3D%2217.5%22%20y1%3D%2213.5%22%20y2%3D%2212%22%3E%3Cstop%20stop-color%3D%22%23FABC12%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%22.46%22%20stop-color%3D%22%23FABC12%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22%233186FF%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-0)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-1)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-2)%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260527.1.0.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260528.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -3347,6 +3347,8 @@
     ].join(", ");
     const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio'], button[role='menuitemradio'], button[role='menuitem'], button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitemradio'], [role='menuitem']";
     const MODEL_PICKER_EXTENDED_TEXT_MATCH = MODEL_PICKER_OPTION_TARGETS.extended.textMatch;
+    const MODEL_PICKER_FAST_WAIT_TIMEOUT_MS = 600;
+    const MODEL_PICKER_FAST_WAIT_INTERVAL_MS = 60;
     function isGeminiThinkingLevelSubmenuTrigger(rawText, element) {
       const text = getGeminiUiElementText(element) || rawText;
       if (geminiMenuTextMatches(text, "Thinking level", element)) return true;
@@ -3874,25 +3876,55 @@
       menuController: modelPickerMenu,
       defaultItemSelector: MODEL_PICKER_ITEM_SELECTOR
     });
-    async function clickGeminiExtendedModelViaThinkingLevel({ engine: engine2 }) {
+    async function clickGeminiModelPickerItemFast({ engine: engine2, textMatch, timeoutMs = 0, intervalMs = MODEL_PICKER_FAST_WAIT_INTERVAL_MS } = {}) {
       const ctx = { engine: engine2 };
-      if (!await modelPickerMenu.ensureOpen(ctx)) return false;
-      const openedThinkingLevel = await modelPickerMenu.clickInOpenMenus(ctx, {
-        selector: MODEL_PICKER_ITEM_SELECTOR,
+      const timeout = Math.max(0, Number(timeoutMs) || 0);
+      const interval = Math.max(20, Number(intervalMs) || MODEL_PICKER_FAST_WAIT_INTERVAL_MS);
+      const deadline = Date.now() + timeout;
+      while (true) {
+        if (await modelPickerMenu.clickInOpenMenus(ctx, {
+          selector: MODEL_PICKER_ITEM_SELECTOR,
+          textMatch,
+          waitForItem: false
+        })) {
+          return true;
+        }
+        if (Date.now() >= deadline) return false;
+        await sleep(interval);
+      }
+    }
+    async function clickGeminiExtendedModelInOpenMenus({ engine: engine2, timeoutMs = 0 } = {}) {
+      return await clickGeminiModelPickerItemFast({
+        engine: engine2,
+        textMatch: MODEL_PICKER_EXTENDED_TEXT_MATCH,
+        timeoutMs
+      });
+    }
+    async function clickGeminiExtendedModelViaThinkingLevel({ engine: engine2 }) {
+      const openedThinkingLevel = await clickGeminiModelPickerItemFast({
+        engine: engine2,
         textMatch: isGeminiThinkingLevelSubmenuTrigger,
-        waitForItem: true
+        timeoutMs: MODEL_PICKER_FAST_WAIT_TIMEOUT_MS
       });
       if (!openedThinkingLevel) return false;
       const openDelayMs = Math.max(0, Number(MENU_TIMING.openDelayMs) || 0);
       if (openDelayMs > 0) await sleep(openDelayMs);
-      return await modelPickerMenu.clickInOpenMenus(ctx, {
-        selector: MODEL_PICKER_ITEM_SELECTOR,
-        textMatch: MODEL_PICKER_EXTENDED_TEXT_MATCH,
-        waitForItem: true
+      return await clickGeminiExtendedModelInOpenMenus({
+        engine: engine2,
+        timeoutMs: MODEL_PICKER_FAST_WAIT_TIMEOUT_MS
       });
     }
-    async function extendedModelPickerAction({ shortcut, engine: engine2 }) {
-      if (await modelPickerMenuAction({ shortcut, engine: engine2 })) return true;
+    async function extendedModelPickerAction({ engine: engine2 }) {
+      if (getCurrentModelKey() === "extended") return true;
+      if (await clickGeminiExtendedModelInOpenMenus({ engine: engine2 })) return true;
+      const ctx = { engine: engine2 };
+      if (!await modelPickerMenu.ensureOpen(ctx)) return false;
+      if (await clickGeminiExtendedModelInOpenMenus({
+        engine: engine2,
+        timeoutMs: MODEL_PICKER_FAST_WAIT_TIMEOUT_MS
+      })) {
+        return true;
+      }
       return await clickGeminiExtendedModelViaThinkingLevel({ engine: engine2 });
     }
     async function modelPickerAction({ shortcut, engine: engine2 }) {
