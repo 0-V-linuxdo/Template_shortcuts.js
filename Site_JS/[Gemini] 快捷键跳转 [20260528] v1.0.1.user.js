@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260528] v1.0.0
-// @name:en        [Gemini] Shortcut Jump [20260528] v1.0.0
+// @name           [Gemini] 快捷键跳转 [20260528] v1.0.1
+// @name:en        [Gemini] Shortcut Jump [20260528] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260528] v1.0.0
-// @update-log     1.0.0: 优化 Gemini Extended 快捷键选择路径，避免模型选择器长时间停留，并更新为新的 Template core require。
-// @update-log:en  1.0.0: Optimized the Gemini Extended shortcut selection path to avoid the model picker lingering and updated the script to require the new Template core.
+// @version        [20260528] v1.0.1
+// @update-log     1.0.1: 进一步优化 Gemini Extended 快捷键选择路径，减少模型选择器停留时间。
+// @update-log:en  1.0.1: Further optimized the Gemini Extended shortcut selection path to reduce model picker linger time.
 
 // @match          https://gemini.google.com/*
 
@@ -3347,7 +3347,8 @@
     ].join(", ");
     const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio'], button[role='menuitemradio'], button[role='menuitem'], button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitemradio'], [role='menuitem']";
     const MODEL_PICKER_EXTENDED_TEXT_MATCH = MODEL_PICKER_OPTION_TARGETS.extended.textMatch;
-    const MODEL_PICKER_FAST_WAIT_TIMEOUT_MS = 600;
+    const MODEL_PICKER_TARGET_DISCOVERY_TIMEOUT_MS = 600;
+    const MODEL_PICKER_SUBMENU_EXTENDED_TIMEOUT_MS = 600;
     const MODEL_PICKER_FAST_WAIT_INTERVAL_MS = 60;
     function isGeminiThinkingLevelSubmenuTrigger(rawText, element) {
       const text = getGeminiUiElementText(element) || rawText;
@@ -3900,18 +3901,29 @@
         timeoutMs
       });
     }
-    async function clickGeminiExtendedModelViaThinkingLevel({ engine: engine2 }) {
-      const openedThinkingLevel = await clickGeminiModelPickerItemFast({
-        engine: engine2,
-        textMatch: isGeminiThinkingLevelSubmenuTrigger,
-        timeoutMs: MODEL_PICKER_FAST_WAIT_TIMEOUT_MS
-      });
-      if (!openedThinkingLevel) return false;
-      const openDelayMs = Math.max(0, Number(MENU_TIMING.openDelayMs) || 0);
-      if (openDelayMs > 0) await sleep(openDelayMs);
+    async function clickGeminiExtendedOrThinkingLevelInOpenMenus({ engine: engine2, timeoutMs = 0, intervalMs = MODEL_PICKER_FAST_WAIT_INTERVAL_MS } = {}) {
+      const timeout = Math.max(0, Number(timeoutMs) || 0);
+      const interval = Math.max(20, Number(intervalMs) || MODEL_PICKER_FAST_WAIT_INTERVAL_MS);
+      const deadline = Date.now() + timeout;
+      while (true) {
+        if (await clickGeminiExtendedModelInOpenMenus({ engine: engine2 })) return "extended";
+        if (await clickGeminiModelPickerItemFast({
+          engine: engine2,
+          textMatch: isGeminiThinkingLevelSubmenuTrigger
+        })) {
+          return "thinkingLevel";
+        }
+        if (Date.now() >= deadline) return "";
+        await sleep(interval);
+      }
+    }
+    async function clickGeminiExtendedModelViaThinkingLevel({ engine: engine2, timeoutMs = MODEL_PICKER_TARGET_DISCOVERY_TIMEOUT_MS } = {}) {
+      const target = await clickGeminiExtendedOrThinkingLevelInOpenMenus({ engine: engine2, timeoutMs });
+      if (target === "extended") return true;
+      if (target !== "thinkingLevel") return false;
       return await clickGeminiExtendedModelInOpenMenus({
         engine: engine2,
-        timeoutMs: MODEL_PICKER_FAST_WAIT_TIMEOUT_MS
+        timeoutMs: MODEL_PICKER_SUBMENU_EXTENDED_TIMEOUT_MS
       });
     }
     async function extendedModelPickerAction({ engine: engine2 }) {
@@ -3919,12 +3931,6 @@
       if (await clickGeminiExtendedModelInOpenMenus({ engine: engine2 })) return true;
       const ctx = { engine: engine2 };
       if (!await modelPickerMenu.ensureOpen(ctx)) return false;
-      if (await clickGeminiExtendedModelInOpenMenus({
-        engine: engine2,
-        timeoutMs: MODEL_PICKER_FAST_WAIT_TIMEOUT_MS
-      })) {
-        return true;
-      }
       return await clickGeminiExtendedModelViaThinkingLevel({ engine: engine2 });
     }
     async function modelPickerAction({ shortcut, engine: engine2 }) {
