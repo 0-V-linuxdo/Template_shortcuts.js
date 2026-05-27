@@ -461,16 +461,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260527] v1.0.0",
+            name: "[Notion] 快捷键跳转 [20260528] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260527] v1.0.0",
-            updateLog: "1.0.0: 优化 Notion Quick Input 主题色为黑白暖灰与低饱和状态色，并更新为新的 Template core require。",
+            version: "[20260528] v1.0.0",
+            updateLog: "1.0.0: 修复 Notion QuickInput 重试时 URL 主页误判，只以 /ai 作为新聊天入口，并更新为新的 Template core require。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260527] v1.0.0",
+                    name: "[Notion] Shortcut Jump [20260528] v1.0.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.0: Optimized Notion Quick Input colors with a black/white warm-gray palette and lower-saturation status colors, and updated the script to require the new Template core."
+                    updateLog: "1.0.0: Fixed the Notion QuickInput retry URL home-route false positive, uses /ai as the only new-chat entry, and updated the script to require the new Template core."
                 }
             },
             match: [
