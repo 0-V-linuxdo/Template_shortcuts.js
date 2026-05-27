@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260527] v1.0.0
-// @name:en        [Notion] Shortcut Jump [20260527] v1.0.0
+// @name           [Notion] 快捷键跳转 [20260528] v1.0.0
+// @name:en        [Notion] Shortcut Jump [20260528] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260527] v1.0.0
-// @update-log     1.0.0: 优化 Notion Quick Input 主题色为黑白暖灰与低饱和状态色，并更新为新的 Template core require。
-// @update-log:en  1.0.0: Optimized Notion Quick Input colors with a black/white warm-gray palette and lower-saturation status colors, and updated the script to require the new Template core.
+// @version        [20260528] v1.0.0
+// @update-log     1.0.0: 修复 Notion QuickInput 重试时 URL 主页误判，只以 /ai 作为新聊天入口，并更新为新的 Template core require。
+// @update-log:en  1.0.0: Fixed the Notion QuickInput retry URL home-route false positive, uses /ai as the only new-chat entry, and updated the script to require the new Template core.
 
 // @match          https://*.notion.so/*
 // @match          https://notion.so/*
@@ -57,7 +57,6 @@
     const NOTION_QUICK_INPUT_STORAGE_KEY = "notion_quick_input_v1";
     const NOTION_ORIGIN = "https://www.notion.so";
     const NOTION_AI_HOME_PATH = "/ai";
-    const NOTION_AI_CHAT_PATH = "/chat";
     const NOTION_NEW_CHAT_TARGET_TTL_MS = 15e3;
     const NOTION_QUICK_INPUT_THEME = Object.freeze({
       dark: {
@@ -1655,32 +1654,38 @@
         if (path === "/") return "/";
         return path.replace(/\/+$/g, "") || "/";
       }
-      function parseNotionQuickInputTarget(currentUrl = getCurrentNotionUrl()) {
+      function isNotionQuickInputHost(hostname = "") {
+        const host = String(hostname || "").trim().toLowerCase();
+        return host === "notion.so" || host.endsWith(".notion.so");
+      }
+      function isNotionQuickInputUrl(url) {
+        return !!(url && url.protocol === "https:" && isNotionQuickInputHost(url.hostname));
+      }
+      function parseNotionUrl(currentUrl = getCurrentNotionUrl()) {
         const rawUrl = String(currentUrl || "").trim();
         if (!rawUrl) return null;
-        let url = null;
         try {
-          url = new URL(rawUrl, NOTION_ORIGIN);
+          const url = new URL(rawUrl, NOTION_ORIGIN);
+          return isNotionQuickInputUrl(url) ? url : null;
         } catch {
           return null;
         }
-        if (url.origin !== NOTION_ORIGIN) return null;
+      }
+      function getNotionAiHomeTargetUrl(url = null) {
+        const notionUrl = isNotionQuickInputUrl(url) ? url : parseNotionUrl();
+        const origin = notionUrl?.origin || NOTION_ORIGIN;
+        return `${origin}${NOTION_AI_HOME_PATH}`;
+      }
+      function parseNotionQuickInputTarget(currentUrl = getCurrentNotionUrl()) {
+        const url = parseNotionUrl(currentUrl);
+        if (!url) return null;
         const pathname = normalizeNotionPathname(url.pathname);
         if (pathname === NOTION_AI_HOME_PATH) {
           return {
             kind: "ai",
             ready: true,
             pathname,
-            targetUrl: `${NOTION_ORIGIN}${NOTION_AI_HOME_PATH}`,
-            url: url.href
-          };
-        }
-        if (pathname === NOTION_AI_CHAT_PATH) {
-          return {
-            kind: "chat",
-            ready: true,
-            pathname,
-            targetUrl: `${NOTION_ORIGIN}${NOTION_AI_CHAT_PATH}`,
+            targetUrl: getNotionAiHomeTargetUrl(url),
             url: url.href
           };
         }
@@ -1725,17 +1730,33 @@
         if (currentTarget) return currentTarget;
         const pendingTarget = getPendingNotionNewChatTarget();
         if (pendingTarget) return pendingTarget;
+        const currentUrl = getCurrentNotionUrl();
+        const currentNotionUrl = parseNotionUrl(currentUrl);
         return {
           kind: "ai",
           ready: false,
           pathname: NOTION_AI_HOME_PATH,
-          targetUrl: `${NOTION_ORIGIN}${NOTION_AI_HOME_PATH}`,
-          url: getCurrentNotionUrl()
+          targetUrl: getNotionAiHomeTargetUrl(currentNotionUrl),
+          url: currentUrl
         };
+      }
+      function navigateNotionSpaToTarget(target) {
+        const targetUrl = String(target?.targetUrl || "").trim();
+        if (!targetUrl) return false;
+        try {
+          const url = new URL(targetUrl, NOTION_ORIGIN);
+          if (!isNotionQuickInputUrl(url)) return false;
+          if (normalizeNotionPathname(url.pathname) !== NOTION_AI_HOME_PATH) return false;
+          window.history.pushState({ url: url.href }, document.title, url.pathname + url.search + url.hash);
+          window.dispatchEvent(new PopStateEvent("popstate", { state: { url: url.href } }));
+          return true;
+        } catch {
+          return false;
+        }
       }
       function buildNotionTargetUrlMismatchMessage(currentUrl, { target = null, prefix = "" } = {}) {
         const expectedTarget = target || getNotionNewChatTriggerTarget();
-        const targetUrl = String(expectedTarget?.targetUrl || `${NOTION_ORIGIN}${NOTION_AI_HOME_PATH}`);
+        const targetUrl = String(expectedTarget?.targetUrl || getNotionAiHomeTargetUrl());
         const currentText = currentUrl || "(empty)";
         const base = engine2?.i18n?.t?.(
           "quickInput.rootUrlMismatch",
@@ -3332,6 +3353,11 @@
         const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
         if (cancelFn && cancelFn()) return { ok: false, label: getNotionNewChatLabel() };
         const currentTarget = parseNotionQuickInputTarget();
+        const expectedTarget = getNotionNewChatTriggerTarget();
+        if (!currentTarget && navigateNotionSpaToTarget(expectedTarget)) {
+          clearPendingNotionNewChatTarget();
+          return { ok: true, label: getNotionNewChatLabel() };
+        }
         let ok = false;
         try {
           ok = !!await triggerNewChatAction();
@@ -3465,7 +3491,7 @@
         },
         quickInput: {
           title: "Notion - 快捷输入",
-          rootUrlMismatch: "当前 Notion AI 页面仅支持 /ai 或 /chat 路由，实际是 {currentUrl}",
+          rootUrlMismatch: "当前 Notion AI 页面必须回到 /ai，目标是 {targetUrl}，实际是 {currentUrl}",
           newChatVerifyPrefix: "Notion AI 路由校验失败："
         }
       },
@@ -3491,7 +3517,7 @@
         },
         quickInput: {
           title: "Notion - Quick Input",
-          rootUrlMismatch: "Current Notion AI page only supports /ai or /chat routes; actual URL is {currentUrl}",
+          rootUrlMismatch: "Current Notion AI page must return to /ai. Target: {targetUrl}; actual URL: {currentUrl}",
           newChatVerifyPrefix: "Notion AI route verification failed: "
         }
       }
