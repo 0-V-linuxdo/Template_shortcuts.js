@@ -3751,7 +3751,8 @@
     ].join(", ");
     const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio'], button[role='menuitemradio'], button[role='menuitem'], button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitemradio'], [role='menuitem']";
     const MODEL_PICKER_EXTENDED_TEXT_MATCH = MODEL_PICKER_OPTION_TARGETS.extended.textMatch;
-    const MODEL_PICKER_FAST_WAIT_TIMEOUT_MS = 600;
+    const MODEL_PICKER_TARGET_DISCOVERY_TIMEOUT_MS = 600;
+    const MODEL_PICKER_SUBMENU_EXTENDED_TIMEOUT_MS = 600;
     const MODEL_PICKER_FAST_WAIT_INTERVAL_MS = 60;
 
     function isGeminiThinkingLevelSubmenuTrigger(rawText, element) {
@@ -4379,20 +4380,32 @@
         });
     }
 
-    async function clickGeminiExtendedModelViaThinkingLevel({ engine }) {
-        const openedThinkingLevel = await clickGeminiModelPickerItemFast({
-            engine,
-            textMatch: isGeminiThinkingLevelSubmenuTrigger,
-            timeoutMs: MODEL_PICKER_FAST_WAIT_TIMEOUT_MS
-        });
-        if (!openedThinkingLevel) return false;
+    async function clickGeminiExtendedOrThinkingLevelInOpenMenus({ engine, timeoutMs = 0, intervalMs = MODEL_PICKER_FAST_WAIT_INTERVAL_MS } = {}) {
+        const timeout = Math.max(0, Number(timeoutMs) || 0);
+        const interval = Math.max(20, Number(intervalMs) || MODEL_PICKER_FAST_WAIT_INTERVAL_MS);
+        const deadline = Date.now() + timeout;
 
-        const openDelayMs = Math.max(0, Number(MENU_TIMING.openDelayMs) || 0);
-        if (openDelayMs > 0) await sleep(openDelayMs);
+        while (true) {
+            if (await clickGeminiExtendedModelInOpenMenus({ engine })) return "extended";
+            if (await clickGeminiModelPickerItemFast({
+                engine,
+                textMatch: isGeminiThinkingLevelSubmenuTrigger
+            })) {
+                return "thinkingLevel";
+            }
+            if (Date.now() >= deadline) return "";
+            await sleep(interval);
+        }
+    }
+
+    async function clickGeminiExtendedModelViaThinkingLevel({ engine, timeoutMs = MODEL_PICKER_TARGET_DISCOVERY_TIMEOUT_MS } = {}) {
+        const target = await clickGeminiExtendedOrThinkingLevelInOpenMenus({ engine, timeoutMs });
+        if (target === "extended") return true;
+        if (target !== "thinkingLevel") return false;
 
         return await clickGeminiExtendedModelInOpenMenus({
             engine,
-            timeoutMs: MODEL_PICKER_FAST_WAIT_TIMEOUT_MS
+            timeoutMs: MODEL_PICKER_SUBMENU_EXTENDED_TIMEOUT_MS
         });
     }
 
@@ -4402,13 +4415,6 @@
 
         const ctx = { engine };
         if (!await modelPickerMenu.ensureOpen(ctx)) return false;
-        if (await clickGeminiExtendedModelInOpenMenus({
-            engine,
-            timeoutMs: MODEL_PICKER_FAST_WAIT_TIMEOUT_MS
-        })) {
-            return true;
-        }
-
         return await clickGeminiExtendedModelViaThinkingLevel({ engine });
     }
 
