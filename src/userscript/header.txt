@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260527] v1.0.0
-// @name:en        [Template] Shortcut Core [20260527] v1.0.0
+// @name           [Template] 快捷键跳转 [20260528] v1.0.0
+// @name:en        [Template] Shortcut Core [20260528] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260527] v1.0.0
-// @update-log     1.0.0: 新增 Quick Input 站点级主题色覆写，并保留文本提交匹配钩子以适配富文本编辑器验证。
-// @update-log:en  1.0.0: Added site-level Quick Input theme color overrides while keeping the text-commit matching hook for rich-editor validation.
+// @version        [20260528] v1.0.0
+// @update-log     1.0.0: 更新 Template core require 版本参数，以配合 Gemini Extended 快捷键体验优化发布。
+// @update-log:en  1.0.0: Updated the Template core require version token for the Gemini Extended shortcut experience fix release.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
