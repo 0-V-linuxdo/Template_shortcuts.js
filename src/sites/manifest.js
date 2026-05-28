@@ -135,7 +135,31 @@ const GEMINI_KEYCAP_ICON = themeAdaptiveKeycapIcon(
 
 const AISTUDIO_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     "aistudio-keycap-icon",
-    `<g transform="translate(12 11)" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"><path d="M11 7.5 14.5 4 18 7.5 14.5 11z"></path><path d="M27 7.5 30.5 4 34 7.5 30.5 11z"></path><path d="M19 30.5 22.5 27 26 30.5 22.5 34z"></path><path d="M13 20h19"></path><path d="M22.5 12v19"></path><path d="M16 16.5 29 29.5"></path><path d="M29 16.5 16 29.5"></path></g>`
+    `<svg x="11.5" y="10" width="41" height="41" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+<!-- SVG created with Arrow, by QuiverAI (https://quiver.ai) -->
+  <style type="text/css">.cls-0 {fill:#FFFFFF;}
+.cls-1 {fill:url(#SVGID_1_);}
+.cls-2 {fill:url(#SVGID_2_);}
+.cls-3 {fill:url(#SVGID_3_);}</style>
+  <linearGradient id="SVGID_1_" x1="2.294" x2="21.56" y1="6.602" y2="6.602" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#00AB4E" offset=".2"/>
+    <stop stop-color="#2C84F8" offset=".6"/>
+    <stop stop-color="#0075FF" offset="1"/>
+  </linearGradient>
+  <path class="cls-1" d="m19.4 2.6h-11.9c-2.5 0-5.2 2.4-5.2 5 0 2.4 2.2 5.4 4.7 5.4 1.6 0 4.2-1.3 13-6 1.8-0.9 2.1-4.2-0.6-4.4z"/>
+  <linearGradient id="SVGID_2_" x1="2.299" x2="21.56" y1="16.41" y2="16.41" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#0075FF" offset=".2"/>
+    <stop stop-color="#2C84F8" offset=".55"/>
+    <stop stop-color="#F6B823" offset=".8"/>
+    <stop stop-color="#FC2B21" offset="1"/>
+  </linearGradient>
+  <path class="cls-2" d="m16.5 11c-1.6 0-3.6 0.8-12.5 6-1.7 0.9-2 4.3 0.7 4.5h11.4c2.9 0 5.5-2.5 5.5-5.1-0.1-2.3-2.4-5.4-5.1-5.4z"/>
+  <linearGradient id="SVGID_3_" x1="2.294" x2="21.56" y1="5.94" y2="5.94" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#00AB4E" stop-opacity="0" offset=".2"/>
+    <stop stop-color="#2C84F8" stop-opacity=".5" offset=".6"/>
+  </linearGradient>
+  <path class="cls-3" d="m19.4 3.8h-11.9c-1.5 0-4 1.8-4 3.8 0 2.1 2 4.2 3.5 4.2 1.6 0 5.1-1.8 13-6.2 0.7-0.4 0.6-1.7-0.6-1.8z"/>
+</svg>`
 );
 
 const KAGI_KEYCAP_ICON = themeAdaptiveKeycapIcon(
