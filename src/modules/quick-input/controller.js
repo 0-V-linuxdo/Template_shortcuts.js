@@ -3738,6 +3738,8 @@ export function createController(userOptions = {}) {
                         break;
                     }
 
+                    let imagesReadyConfirmed = false;
+
                     if (images.length) {
                         const beforeImagesReady = await verifyInputUrlReady(getStageLabel("beforeImages"));
                         if (beforeImagesReady !== true) {
@@ -3771,6 +3773,30 @@ export function createController(userOptions = {}) {
                             : DEFAULT_LABELS.messages.imagesInserted(images.length);
                         appendLoopLog(insertedMsg, { level: "ok" });
                         if (!(await waitStep(cfg.stepDelayMs))) {
+                            markRunCancelled();
+                            break;
+                        }
+
+                        const readyResult = await waitForImagesReadyWithReset(composer, images.length);
+                        if (readyResult?.composer) composer = readyResult.composer;
+                        if (readyResult?.cancelled) {
+                            markRunCancelled();
+                            break;
+                        }
+                        if (!readyResult?.ok) {
+                            markRunFailed();
+                            cancelRun = true;
+                            appendLoopLog(labels.messages?.uploadNotReady || DEFAULT_LABELS.messages.uploadNotReady, { level: "error" });
+                            const detail = (readyResult && typeof readyResult === "object" && typeof readyResult.message === "string" && readyResult.message.trim())
+                                ? readyResult.message.trim()
+                                : buildImageReadyFailureDetail(readyResult?.ready, images.length);
+                            if (detail) appendLoopLog(detail, { level: "error" });
+                            break;
+                        }
+
+                        imagesReadyConfirmed = true;
+                        appendLoopLog(labels.messages?.imageReady || DEFAULT_LABELS.messages.imageReady, { level: "ok" });
+                        if (!(await waitStep(Math.min(300, cfg.stepDelayMs), 80))) {
                             markRunCancelled();
                             break;
                         }
@@ -3828,7 +3854,7 @@ export function createController(userOptions = {}) {
                         if (cancelRun) break;
                     }
 
-                    if (images.length) {
+                    if (images.length && !imagesReadyConfirmed) {
                         const readyResult = await waitForImagesReadyWithReset(composer, images.length);
                         if (readyResult?.composer) composer = readyResult.composer;
                         if (readyResult?.cancelled) {
