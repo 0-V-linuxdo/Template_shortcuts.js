@@ -2986,6 +2986,51 @@
             }
         }
 
+        function scoreNotionComposerContainerCandidate(element, composerEl, index = 0) {
+            if (!element || element === document || element === document.body || element.nodeType !== 1) return -Infinity;
+            if (isInsideQuickInputOverlay(element) || isInsideShortcutUi(element) || !isVisibleElement(element)) return -Infinity;
+            const rect = getElementRect(element);
+            if (!rect || rect.width < 260 || rect.height < 36) return -Infinity;
+
+            const composerRect = getElementRect(composerEl);
+            if (composerRect) {
+                const containsComposer = rect.left <= composerRect.left + 4 &&
+                    rect.right >= composerRect.right - 4 &&
+                    rect.top <= composerRect.top + 4 &&
+                    rect.bottom >= composerRect.bottom - 4;
+                if (!containsComposer) return -Infinity;
+                if (rect.width + 8 < composerRect.width || rect.height + 8 < composerRect.height) return -Infinity;
+            }
+
+            const tag = String(element.tagName || "").toLowerCase();
+            const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+            const text = normalizeNotionText(getElementSearchText(element));
+            const viewport = getViewportSize();
+            let score = 0;
+
+            if (tag === "form") score += 220;
+            if (dataTestId.includes("composer") || dataTestId.includes("prompt")) score += 220;
+            if (dataTestId.includes("unified-chat")) score += 140;
+            if (dataTestId.includes("chat")) score += 80;
+            if (textLooksLikeComposerPrompt(text)) score += 180;
+            if (text.includes("do anything with ai")) score += 120;
+            if (composerEl && element.contains?.(composerEl)) score += 100;
+            if (safeQueryAll(element, "button, [role='button']").length > 0) score += 45;
+
+            if (composerRect) {
+                const extraHeight = rect.height - composerRect.height;
+                if (extraHeight >= 24) score += 140 + Math.min(140, extraHeight);
+                else score += 35;
+            }
+            if (rect.width >= 320) score += 60;
+            if (rect.height >= 80 && rect.height <= 560) score += 170;
+            else if (rect.height > 560) score -= Math.min(700, rect.height - 560);
+
+            if (viewport.height > 0 && rect.height > viewport.height * 0.72) score -= 420;
+            if (viewport.width > 0 && viewport.height > 0 && rect.width > viewport.width * 0.96 && rect.height > viewport.height * 0.55) score -= 420;
+            return score - Math.max(0, Number(index) || 0) * 3;
+        }
+
         function findNotionComposerContainer(composerEl) {
             const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
             const scopes = [];
@@ -2994,7 +3039,13 @@
             };
             try { push(composer?.closest?.("form") || null); } catch { }
             try { push(composer?.closest?.('[data-testid*="chat" i], [data-testid*="composer" i], [data-testid*="prompt" i], [data-testid*="unified-chat" i]') || null); } catch { }
-            try { push(composer?.parentElement || null); } catch { }
+            try {
+                let node = composer?.parentElement || null;
+                for (let depth = 0; node && depth < 8; depth += 1) {
+                    push(node);
+                    node = node.parentElement || null;
+                }
+            } catch { }
             try {
                 const root = composer?.getRootNode?.();
                 push(root || null);
@@ -3004,7 +3055,15 @@
             } catch { }
             push(findComposerRootElement());
             push(composer);
-            return scopes.find(Boolean) || document.body || document;
+
+            const ranked = scopes
+                .map((scope, index) => ({
+                    scope,
+                    score: scoreNotionComposerContainerCandidate(scope, composer, index)
+                }))
+                .filter(item => Number.isFinite(item.score))
+                .sort((a, b) => b.score - a.score);
+            return ranked[0]?.scope || scopes.find(Boolean) || document.body || document;
         }
 
         function getNotionAttachmentScope(containerEl) {
@@ -3285,7 +3344,7 @@
             return false;
         }
 
-        async function waitForNotionImageAttachAccepted(containerEl, previousSnapshot, { timeoutMs = 12000, intervalMs = 120, shouldCancel = null, runtime = null } = {}) {
+        async function waitForNotionImageAttachAccepted(containerEl, previousSnapshot, { timeoutMs = 30000, intervalMs = 120, shouldCancel = null, runtime = null } = {}) {
             const previousCount = Number(previousSnapshot?.attachmentCount || 0);
             const previousFingerprint = getNotionAttachmentFingerprint(previousSnapshot);
             const computeState = () => {
@@ -3372,7 +3431,7 @@
                 const fired = plan.run();
                 if (!fired) continue;
                 const accepted = await waitForNotionImageAttachAccepted(container, previousSnapshot, {
-                    timeoutMs: 12000,
+                    timeoutMs: 30000,
                     intervalMs: 120,
                     shouldCancel: cancelFn,
                     runtime

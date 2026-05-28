@@ -485,16 +485,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260529] v1.1.0",
+            name: "[Notion] 快捷键跳转 [20260529] v1.1.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260529] v1.1.0",
-            updateLog: "1.1.0: 将 Notion AI 主入口更新为 app.notion.com，修复 QuickInput 图片上传 fallback 重复触发导致的单图重复上传，并更新 Template core require。",
+            version: "[20260529] v1.1.1",
+            updateLog: "1.1.1: 修复 Notion QuickInput 图片已显示缩略图但被误判为上传失败的问题；继续避免同一张图触发 fallback 重复上传。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260529] v1.1.0",
+                    name: "[Notion] Shortcut Jump [20260529] v1.1.1",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.1.0: Updated the Notion AI main entry to app.notion.com, fixed duplicate single-image uploads caused by repeated QuickInput upload fallbacks, and updated the Template core require."
+                    updateLog: "1.1.1: Fixed false upload failures when Notion QuickInput had already rendered an image thumbnail, while still preventing duplicate fallback uploads for the same image."
                 }
             },
             match: [
