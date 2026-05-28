@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [AI Studio] 快捷键跳转 [20260522] v1.0.3
-// @name:en        [AI Studio] Shortcut Jump [20260522] v1.0.3
+// @name           [AI Studio] 快捷键跳转 [20260529] v1.0.0
+// @name:en        [AI Studio] Shortcut Jump [20260529] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Google AI Studio Playground 提供基础快捷键：左侧/右侧边栏展开折叠、历史与 Dashboard/API keys 跳转，以及底部 Tools 工具栏中的 Google Search、Code execution、URL context 开关。
 // @description:en Basic shortcuts for Google AI Studio Playground: left/right sidebar toggles, History and Dashboard/API keys jumps, plus bottom Tools toolbar switches for Google Search, Code execution, and URL context.
 
-// @version        [20260522] v1.0.3
-// @update-log     1.0.3: 重写 Tools 弹窗开关定位，适配独立 switch 控件并避免误匹配右侧设置面板。
-// @update-log:en  1.0.3: Reworked Tools popup switch targeting to support standalone switch controls and avoid matching the right settings panel.
+// @version        [20260529] v1.0.0
+// @update-log     1.0.0: 更新 AI Studio 脚本版本与 Template core require，并使用修正后的彩色键帽图标。
+// @update-log:en  1.0.0: Updated the AI Studio script version and Template core require, and used the corrected colored keycap icon.
 
 // @match          https://aistudio.google.com/*
 
