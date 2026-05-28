@@ -81,6 +81,7 @@ export function createController(userOptions = {}) {
                 getTextObservationRoots: typeof rawAdapter.getTextObservationRoots === "function" ? rawAdapter.getTextObservationRoots : null,
                 attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
                 clearAttachments: typeof rawAdapter.clearAttachments === "function" ? rawAdapter.clearAttachments : null,
+                waitForImagesReady: typeof rawAdapter.waitForImagesReady === "function" ? rawAdapter.waitForImagesReady : null,
                 waitForReadyToSend: typeof rawAdapter.waitForReadyToSend === "function" ? rawAdapter.waitForReadyToSend : null,
                 waitForNewChatReady: typeof rawAdapter.waitForNewChatReady === "function" ? rawAdapter.waitForNewChatReady : null,
                 triggerNewChat: typeof rawAdapter.triggerNewChat === "function"
@@ -3527,14 +3528,15 @@ export function createController(userOptions = {}) {
                             : DEFAULT_LABELS.messages.waitingUploads(expected);
                         appendLoopLog(waitingMsg);
 
-                        if (!adapter.waitForReadyToSend) {
+                        const waitForImageReadiness = adapter.waitForImagesReady || adapter.waitForReadyToSend;
+                        if (!waitForImageReadiness) {
                             const fallbackWaitOk = await waitStep(Math.max(800, cfg.stepDelayMs));
                             return fallbackWaitOk
                                 ? { ok: true, composer: composerRef }
                                 : { ok: false, cancelled: true, composer: composerRef };
                         }
 
-                        const ready = await adapter.waitForReadyToSend(composerRef, {
+                        const ready = await waitForImageReadiness(composerRef, {
                             requireImage: true,
                             minAttachments: expected,
                             timeoutMs: 45000,
@@ -3547,9 +3549,10 @@ export function createController(userOptions = {}) {
                         if (ready?.ok) return { ok: true, composer: composerRef, ready };
 
                         const reason = String(ready?.reason || "").trim().toLowerCase();
-                        if (reason === "timeout" && resetAttempt < maxResetAttempts && adapter.clearAttachments && adapter.attachImages) {
+                        const currentCount = getReadyAttachmentCount(ready);
+                        const missingCount = Math.max(0, expected - currentCount);
+                        if (reason === "timeout" && missingCount > 0 && resetAttempt < maxResetAttempts && adapter.clearAttachments && adapter.attachImages) {
                             resetAttempt += 1;
-                            const currentCount = getReadyAttachmentCount(ready);
                             const resetMsg = labels.messages?.resettingImages
                                 ? labels.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts)
                                 : DEFAULT_LABELS.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts);
@@ -3620,8 +3623,6 @@ export function createController(userOptions = {}) {
                             continue;
                         }
 
-                        const currentCount = getReadyAttachmentCount(ready);
-                        const missingCount = Math.max(0, expected - currentCount);
                         if (!(missingCount > 0 && repairAttempt < maxRepairAttempts && !adapter.clearAttachments && adapter.attachImages)) {
                             return { ok: false, cancelled: false, composer: composerRef, ready };
                         }

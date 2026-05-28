@@ -3002,25 +3002,98 @@
             return container;
         }
 
-        function isNotionAttachmentMarker(element) {
-            if (!element || isInsideQuickInputOverlay(element) || isInsideShortcutUi(element) || !isVisibleElement(element)) return false;
+        function isLikelyNotionAttachmentPreviewElement(element) {
+            if (!element) return false;
+            const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+            const className = String(element.getAttribute?.("class") || "").toLowerCase();
+            return dataTestId.includes("attachment") ||
+                dataTestId.includes("file-preview") ||
+                dataTestId.includes("upload-preview") ||
+                className.includes("attachment") ||
+                className.includes("file-preview") ||
+                className.includes("upload-preview");
+        }
+
+        function isLikelyNotionAttachmentImage(element) {
+            if (!element || String(element.tagName || "").toLowerCase() !== "img") return false;
+            const src = String(element.getAttribute?.("src") || "").trim();
+            if (!src) return false;
+            if (/^blob:|^data:image\//i.test(src)) return true;
+            if (!/^(?:https?:)?\/\//i.test(src)) return false;
+
+            const rect = getElementRect(element);
+            if (!rect) return false;
+            const minSide = Math.min(rect.width, rect.height);
+            const maxSide = Math.max(rect.width, rect.height);
+            if (minSide < 32 || maxSide > 360 || rect.width * rect.height < 1200) return false;
+
+            const label = normalizeNotionText(getElementSearchText(element));
+            if (/\b(?:avatar|favicon|logo|icon)\b/.test(label) && maxSide <= 72) return false;
+            return true;
+        }
+
+        function isNotionAttachmentActionElement(element) {
+            if (!element) return false;
             const tag = String(element.tagName || "").toLowerCase();
+            const role = String(element.getAttribute?.("role") || "").toLowerCase();
+            const isActionElement = tag === "button" || role === "button";
             const text = normalizeNotionText(getElementSearchText(element));
             const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
             const className = String(element.getAttribute?.("class") || "").toLowerCase();
-            if (tag === "img") {
-                const src = String(element.getAttribute?.("src") || "").trim();
-                return /^blob:|^data:image\//i.test(src);
+            const haystack = `${text} ${dataTestId} ${className}`;
+
+            if (haystack.includes("remove attachment") || haystack.includes("remove file") || haystack.includes("remove image")) return true;
+            if (haystack.includes("delete attachment") || haystack.includes("delete file") || haystack.includes("delete image")) return true;
+            if (haystack.includes("dismiss attachment") || haystack.includes("dismiss file") || haystack.includes("dismiss image")) return true;
+            if (haystack.includes("cancel upload") || haystack.includes("remove upload") || haystack.includes("delete upload")) return true;
+            if (haystack.includes("移除") || haystack.includes("删除") || haystack.includes("取消") || haystack.includes("关闭")) return true;
+            if (!isActionElement) return false;
+            return /\b(?:remove|delete|dismiss|cancel|close)\b/.test(haystack) &&
+                /\b(?:attachment|file|image|upload|preview)\b/.test(haystack);
+        }
+
+        function isLikelyNotionAttachmentCard(element, scope) {
+            if (!element || element === scope || element === document || element === document.body) return false;
+            if (isInsideQuickInputOverlay(element) || isInsideShortcutUi(element) || !isVisibleElement(element)) return false;
+            const images = safeQueryAll(element, "img").filter(isLikelyNotionAttachmentImage);
+            if (isLikelyNotionAttachmentPreviewElement(element)) return images.length <= 1;
+
+            const rect = getElementRect(element);
+            if (!rect || rect.width > 520 || rect.height > 320) return false;
+            if (images.length !== 1) return false;
+            const actions = safeQueryAll(element, "button, [role='button']").filter(isNotionAttachmentActionElement);
+            if (actions.length > 0) return true;
+            return Math.min(rect.width, rect.height) >= 36 && Math.max(rect.width, rect.height) <= 380;
+        }
+
+        function findNotionAttachmentCardElement(element, scope) {
+            if (!element) return null;
+            let node = element;
+            let depth = 0;
+            while (node && node.nodeType === 1 && depth < 8) {
+                if (isLikelyNotionAttachmentCard(node, scope)) return node;
+                if (node === scope || node === document.body) break;
+                node = node.parentElement;
+                depth += 1;
             }
-            if (text.includes("remove attachment") || text.includes("remove file") || text.includes("remove image") || text.includes("移除") || text.includes("删除") || text.includes("取消")) return true;
-            if (dataTestId.includes("attachment") || dataTestId.includes("file-preview") || dataTestId.includes("upload-preview")) return true;
-            if (className.includes("attachment") || className.includes("file-preview") || className.includes("upload-preview")) return true;
+            return isLikelyNotionAttachmentImage(element) ? element : null;
+        }
+
+        function isNotionAttachmentMarker(element) {
+            if (!element || isInsideQuickInputOverlay(element) || isInsideShortcutUi(element) || !isVisibleElement(element)) return false;
+            const tag = String(element.tagName || "").toLowerCase();
+            if (tag === "img") {
+                return isLikelyNotionAttachmentImage(element);
+            }
+            if (isNotionAttachmentActionElement(element)) return true;
+            if (isLikelyNotionAttachmentPreviewElement(element)) return true;
             return false;
         }
 
         function getNotionAttachmentSnapshot(containerEl = null) {
             const scope = getNotionAttachmentScope(containerEl);
             const selectors = [
+                "img",
                 "img[src^='blob:']",
                 "img[src^='data:image/']",
                 "[data-testid*='attachment' i]",
@@ -3032,6 +3105,30 @@
                 "button[aria-label*='remove attachment' i]",
                 "button[aria-label*='remove file' i]",
                 "button[aria-label*='remove image' i]",
+                "button[aria-label*='delete attachment' i]",
+                "button[aria-label*='delete file' i]",
+                "button[aria-label*='delete image' i]",
+                "button[aria-label*='dismiss' i]",
+                "button[aria-label*='cancel upload' i]",
+                "button[aria-label*='close' i]",
+                "button[title*='remove attachment' i]",
+                "button[title*='remove file' i]",
+                "button[title*='remove image' i]",
+                "button[title*='delete attachment' i]",
+                "button[title*='delete file' i]",
+                "button[title*='delete image' i]",
+                "button[title*='dismiss' i]",
+                "button[title*='cancel upload' i]",
+                "button[title*='close' i]",
+                "[role='button'][aria-label*='remove attachment' i]",
+                "[role='button'][aria-label*='remove file' i]",
+                "[role='button'][aria-label*='remove image' i]",
+                "[role='button'][aria-label*='delete attachment' i]",
+                "[role='button'][aria-label*='delete file' i]",
+                "[role='button'][aria-label*='delete image' i]",
+                "[role='button'][aria-label*='dismiss' i]",
+                "[role='button'][aria-label*='cancel upload' i]",
+                "[role='button'][aria-label*='close' i]",
                 "button[aria-label*='移除' i]",
                 "button[aria-label*='删除' i]",
                 "button[aria-label*='取消' i]"
@@ -3039,26 +3136,54 @@
             const markers = collectNotionElementsAcrossOpenShadows(scope, selectors, {
                 shouldIgnore: element => isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)
             }).filter(isNotionAttachmentMarker);
-            const seen = new Set();
-            const unique = [];
+
+            const groups = new Map();
             for (const marker of markers) {
-                if (!marker || seen.has(marker)) continue;
-                seen.add(marker);
-                unique.push(marker);
+                if (!marker) continue;
+                const card = findNotionAttachmentCardElement(marker, scope);
+                const markerTag = String(marker.tagName || "").toLowerCase();
+                const markerSrc = markerTag === "img" ? String(marker.getAttribute?.("src") || "").trim() : "";
+                const key = card || (markerSrc ? `img:${markerSrc}` : marker);
+                const existing = groups.get(key) || {
+                    root: card || marker,
+                    elements: [],
+                    hasImage: false,
+                    hasRemove: false,
+                    hasPreview: false
+                };
+                existing.elements.push(marker);
+                if (isLikelyNotionAttachmentImage(marker)) existing.hasImage = true;
+                if (isNotionAttachmentActionElement(marker)) existing.hasRemove = true;
+                if (isLikelyNotionAttachmentPreviewElement(marker)) existing.hasPreview = true;
+                if (card && card !== marker) {
+                    if (!existing.hasImage && safeQueryAll(card, "img").some(isLikelyNotionAttachmentImage)) existing.hasImage = true;
+                    if (!existing.hasRemove && safeQueryAll(card, "button, [role='button']").some(isNotionAttachmentActionElement)) existing.hasRemove = true;
+                    if (!existing.hasPreview && isLikelyNotionAttachmentPreviewElement(card)) existing.hasPreview = true;
+                }
+                groups.set(key, existing);
             }
-            const imageCount = unique.filter(element => String(element.tagName || "").toLowerCase() === "img").length;
-            const removeCount = unique.filter(element => normalizeNotionText(getElementSearchText(element)).includes("remove")).length;
+
+            const unique = Array.from(groups.values());
+            const imageCount = unique.filter(group => group.hasImage).length;
+            const removeCount = unique.filter(group => group.hasRemove).length;
             const previewCount = unique.length;
             const attachmentCount = Math.max(imageCount, removeCount, previewCount);
             const fingerprint = unique
                 .slice(0, 12)
-                .map(element => [
-                    String(element.tagName || "").toLowerCase(),
-                    String(element.getAttribute?.("data-testid") || ""),
-                    String(element.getAttribute?.("aria-label") || ""),
-                    String(element.getAttribute?.("src") || "").slice(0, 80),
-                    normalizeNotionText(getElementText(element)).slice(0, 80)
-                ].join(":"))
+                .map(group => {
+                    const root = group.root || group.elements[0] || null;
+                    const image = group.elements.find(isLikelyNotionAttachmentImage) ||
+                        (root ? safeQueryAll(root, "img").find(isLikelyNotionAttachmentImage) : null);
+                    const rect = getElementRect(root);
+                    return [
+                        String(root?.tagName || "").toLowerCase(),
+                        String(root?.getAttribute?.("data-testid") || ""),
+                        String(root?.getAttribute?.("aria-label") || ""),
+                        String(image?.getAttribute?.("src") || "").slice(0, 80),
+                        normalizeNotionText(getElementText(root)).slice(0, 80),
+                        rect ? `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}` : ""
+                    ].join(":");
+                })
                 .join("|");
             return {
                 attachmentCount,
@@ -3260,28 +3385,51 @@
                 "button[aria-label*='remove attachment' i]",
                 "button[aria-label*='remove file' i]",
                 "button[aria-label*='remove image' i]",
+                "button[aria-label*='delete attachment' i]",
+                "button[aria-label*='delete file' i]",
+                "button[aria-label*='delete image' i]",
+                "button[aria-label*='dismiss' i]",
+                "button[aria-label*='cancel upload' i]",
+                "button[aria-label*='close' i]",
                 "button[title*='remove attachment' i]",
                 "button[title*='remove file' i]",
                 "button[title*='remove image' i]",
+                "button[title*='delete attachment' i]",
+                "button[title*='delete file' i]",
+                "button[title*='delete image' i]",
+                "button[title*='dismiss' i]",
+                "button[title*='cancel upload' i]",
+                "button[title*='close' i]",
                 "button[title*='移除' i]",
                 "button[title*='删除' i]",
                 "button[title*='取消' i]",
                 "[role='button'][aria-label*='remove attachment' i]",
                 "[role='button'][aria-label*='remove file' i]",
                 "[role='button'][aria-label*='remove image' i]",
+                "[role='button'][aria-label*='delete attachment' i]",
+                "[role='button'][aria-label*='delete file' i]",
+                "[role='button'][aria-label*='delete image' i]",
+                "[role='button'][aria-label*='dismiss' i]",
+                "[role='button'][aria-label*='cancel upload' i]",
+                "[role='button'][aria-label*='close' i]",
                 "[role='button'][aria-label*='移除' i]",
                 "[role='button'][aria-label*='删除' i]",
                 "[role='button'][aria-label*='取消' i]",
                 "[data-testid*='remove' i]",
                 "[data-testid*='delete' i]",
                 "[data-testid*='dismiss' i]",
-                "[data-testid*='cancel' i]"
+                "[data-testid*='cancel' i]",
+                "[data-testid*='close' i]"
             ].join(", ");
             return collectNotionElementsAcrossOpenShadows(scope, selectors, {
                 shouldIgnore: element => isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)
             })
                 .map(element => getClickableActionElement(element, scope))
-                .filter(element => element && isVisibleElement(element) && !isElementDisabled(element) && !isInsideQuickInputOverlay(element));
+                .filter(element => element &&
+                    isVisibleElement(element) &&
+                    !isElementDisabled(element) &&
+                    !isInsideQuickInputOverlay(element) &&
+                    (isNotionAttachmentActionElement(element) || !!findNotionAttachmentCardElement(element, scope)));
         }
 
         async function clearNotionAttachments(composerEl, { shouldCancel = null, runtime = null } = {}) {
@@ -3407,6 +3555,59 @@
             return collectNotionElementsAcrossOpenShadows(scope, selectors, {
                 shouldIgnore: element => isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)
             }).some(element => element && isVisibleElement(element));
+        }
+
+        function getNotionImagesReadyState(composerEl, { requireImage = true, minAttachments = 0 } = {}) {
+            const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || findNotionComposerElement({ requireVisible: true });
+            const container = findNotionComposerContainer(composer);
+            const snapshot = getNotionAttachmentSnapshot(container);
+            const requiredAttachments = Math.max(0, Number(minAttachments) || 0);
+            const attachmentCount = Number(snapshot?.attachmentCount || 0);
+            const hasRequiredAttachments = !requireImage || (attachmentCount > 0 && attachmentCount >= requiredAttachments);
+            const uploadBusy = requireImage && hasNotionUploadInProgress(container);
+            return {
+                composer,
+                container,
+                snapshot,
+                attachmentCount,
+                requiredAttachments,
+                uploadBusy,
+                ok: !!(composer && hasRequiredAttachments && !uploadBusy),
+                stateKey: `${getNotionAttachmentFingerprint(snapshot)};busy=${uploadBusy ? 1 : 0};min=${requiredAttachments}`
+            };
+        }
+
+        async function waitForNotionImagesReady(composerEl, { requireImage = true, minAttachments = 0, timeoutMs = 45000, intervalMs = 160, settleMs = 600, shouldCancel = null, runtime = null } = {}) {
+            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            let composerRef = resolveNotionComposerElement(composerEl, { requireVisible: true }) || await focusNotionComposer({ timeoutMs: 4000, shouldCancel: cancelFn, runtime });
+            if (!composerRef) return { ok: false, reason: "no-composer", cancelled: !!(cancelFn && cancelFn()) };
+            let lastState = null;
+            const computeState = () => {
+                const resolved = resolveNotionComposerElement(composerRef, { requireVisible: false }) || composerRef;
+                if (resolved) composerRef = resolved;
+                lastState = getNotionImagesReadyState(composerRef, { requireImage, minAttachments });
+                return lastState;
+            };
+            const observed = await waitForObservedState({
+                resolveRoots: () => [lastState?.container || findNotionComposerContainer(composerRef), composerRef, document.body || document],
+                computeState,
+                isSatisfied: (state) => !!state?.ok,
+                timeoutMs,
+                settleMs,
+                pollFallbackMs: Math.max(160, Number(intervalMs) || 160),
+                attributeFilter: NOTION_READY_OBSERVED_ATTRIBUTES,
+                shouldCancel: cancelFn,
+                runtime
+            });
+            const state = observed?.state || computeState();
+            if (observed?.cancelled) return { ok: false, reason: "cancelled", cancelled: true, snapshot: state?.snapshot || null };
+            return {
+                ok: !!observed?.ok,
+                snapshot: state?.snapshot || null,
+                reason: observed?.ok ? "ok" : "timeout",
+                cancelled: false,
+                message: observed?.ok ? "" : `Notion images not ready: attachment=${state?.attachmentCount || 0}, busy=${state?.uploadBusy ? 1 : 0}`
+            };
         }
 
         function getNotionReadyToSendState(composerEl, { requireImage = false, minAttachments = 0 } = {}) {
@@ -3578,6 +3779,7 @@
             getTextObservationRoots: getNotionTextObservationRoots,
             attachImages: attachNotionImages,
             clearAttachments: clearNotionAttachments,
+            waitForImagesReady: waitForNotionImagesReady,
             waitForReadyToSend: waitForNotionReadyToSend,
             waitForNewChatReady: waitForNotionNewChatReady,
             triggerNewChat: triggerNotionNewChat,
