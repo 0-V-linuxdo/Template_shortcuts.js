@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260529] v1.1.2
-// @name:en        [Notion] Shortcut Jump [20260529] v1.1.2
+// @name           [Notion] 快捷键跳转 [20260529] v1.1.3
+// @name:en        [Notion] Shortcut Jump [20260529] v1.1.3
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260529] v1.1.2
-// @update-log     1.1.2: 更新 QuickInput 执行顺序，图片上传就绪检查必须在文本输入、工具快捷键和发送前完成。
-// @update-log:en  1.1.2: Updated the QuickInput execution order so image upload readiness is confirmed before text input, tool shortcuts, or sending.
+// @version        [20260529] v1.1.3
+// @update-log     1.1.3: 适配 Notion AI 新模型选择器，更新 Opus 4.8 模型项，并兼容旧 Opus 4.6 快捷键配置。
+// @update-log:en  1.1.3: Adapted the Notion AI model picker update, added the Opus 4.8 target, and mapped legacy Opus 4.6 shortcut configs to the new model.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -199,13 +199,13 @@
         labelKey: "shortcuts.modelSonnet46",
         aliases: Object.freeze(["Sonnet 4.6", "Claude Sonnet 4.6"])
       }),
-      opus46: Object.freeze({
-        id: "opus46",
-        label: "Claude Opus 4.6",
-        menuLabel: "Opus 4.6",
+      opus48: Object.freeze({
+        id: "opus48",
+        label: "Claude Opus 4.8",
+        menuLabel: "Opus 4.8",
         hotkey: "CTRL+SHIFT+3",
-        labelKey: "shortcuts.modelOpus46",
-        aliases: Object.freeze(["Opus 4.6", "Claude Opus 4.6"])
+        labelKey: "shortcuts.modelOpus48",
+        aliases: Object.freeze(["Opus 4.8", "Claude Opus 4.8", "Opus 4.6", "Claude Opus 4.6"])
       }),
       opus47: Object.freeze({
         id: "opus47",
@@ -259,6 +259,9 @@
       })
     });
     const NOTION_MODEL_TARGET_LIST = Object.freeze(Object.values(NOTION_MODEL_TARGETS));
+    const NOTION_MODEL_LEGACY_TARGET_IDS = Object.freeze({
+      opus46: "opus48"
+    });
     const NOTION_MODEL_SHORTCUT_KEYS = Object.freeze(NOTION_MODEL_TARGET_LIST.map((target) => `model-${target.id}`));
     const NOTION_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
       "newChat",
@@ -280,21 +283,37 @@
     const NOTION_MODEL_TRIGGER_SELECTORS = [
       LEGACY_SELECT_AI_MODEL_SELECTOR,
       '[data-testid="unified-chat-model-button"]',
+      '[data-testid*="model" i]',
+      '[aria-label*="model" i]',
+      '[aria-label*="模型" i]',
       'button[aria-label*="model" i]',
       'button[aria-label*="模型" i]',
       'button[aria-haspopup="menu"]',
+      'button[aria-haspopup="listbox"]',
+      '[role="button"][aria-label*="model" i]',
+      '[role="button"][aria-label*="模型" i]',
+      '[role="button"][aria-haspopup="menu"]',
+      '[role="button"][aria-haspopup="listbox"]',
+      '[role="combobox"]',
       "button"
     ].join(", ");
     const NOTION_MODEL_MENU_ROOT_SELECTOR = [
       '[role="menu"]',
       '[role="listbox"]',
+      '[role="dialog"]',
       "[data-radix-menu-content]",
+      "[data-radix-popper-content-wrapper]",
+      "[data-radix-portal]",
+      "[data-floating-ui-portal]",
       '[data-floating-ui-portal] [role="menu"]'
     ].join(", ");
     const NOTION_MODEL_MENU_ITEM_SELECTOR = [
       '[role="menuitem"]',
       '[role="menuitemradio"]',
       '[role="option"]',
+      '[role="button"]',
+      "[data-model]",
+      "[data-value]",
       "button",
       '[tabindex]:not([tabindex="-1"])'
     ].join(", ");
@@ -611,7 +630,7 @@
       const labels = getTargetComparableLabels(target);
       if (labels.some((label) => normalized === label || normalized.includes(label))) return true;
       if (target.id === "gemini31pro") return normalized.includes("gemini") && normalized.includes("pro");
-      if (target.id === "opus46") return normalized.includes("opus") && normalized.includes("4.6");
+      if (target.id === "opus48") return normalized.includes("opus") && normalized.includes("4.8");
       if (target.id === "opus47") return normalized.includes("opus") && normalized.includes("4.7");
       if (target.id === "sonnet46") return normalized.includes("sonnet") && normalized.includes("4.6");
       if (target.id === "deepseekV4Pro") return normalized.includes("deepseek") && normalized.includes("v4") && normalized.includes("pro");
@@ -628,8 +647,11 @@
         if (target.menuLabel && key === normalizeNotionTargetKey(target.menuLabel)) return target;
         if ((target.aliases || []).some((alias) => key === normalizeNotionTargetKey(alias))) return target;
       }
+      const legacyTargetId = NOTION_MODEL_LEGACY_TARGET_IDS[key];
+      if (legacyTargetId && NOTION_MODEL_TARGETS[legacyTargetId]) return NOTION_MODEL_TARGETS[legacyTargetId];
       if (text.includes("gemini") && text.includes("pro")) return NOTION_MODEL_TARGETS.gemini31pro;
-      if (text.includes("opus") && text.includes("4.6")) return NOTION_MODEL_TARGETS.opus46;
+      if (text.includes("opus") && text.includes("4.6")) return NOTION_MODEL_TARGETS.opus48;
+      if (text.includes("opus") && text.includes("4.8")) return NOTION_MODEL_TARGETS.opus48;
       if (text.includes("opus") && text.includes("4.7")) return NOTION_MODEL_TARGETS.opus47;
       if (text.includes("claude") && text.includes("opus")) return NOTION_MODEL_TARGETS.opus47;
       if (text === "opus") return NOTION_MODEL_TARGETS.opus47;
@@ -3738,7 +3760,7 @@
           selectAiModel: "选择 AI 模型",
           modelAuto: "模型：Auto",
           modelSonnet46: "模型：Claude Sonnet 4.6",
-          modelOpus46: "模型：Claude Opus 4.6",
+          modelOpus48: "模型：Claude Opus 4.8",
           modelOpus47: "模型：Claude Opus 4.7",
           modelGemini31Pro: "模型：Gemini 3.1 Pro",
           modelGpt52: "模型：GPT-5.2",
@@ -3757,7 +3779,7 @@
         dataAdapters: {
           modelPicker: {
             label: "模型 ID / 关键词（或粘贴 JSON，高级用法）:",
-            placeholder: '例如: gemini pro / opus 4.7 / {"menu":{"id":"opus47"}}'
+            placeholder: '例如: gemini pro / opus 4.8 / {"menu":{"id":"opus48"}}'
           },
           conversationMenu: {
             label: "会话菜单项 ID / 关键词（或粘贴 JSON，高级用法）:",
@@ -3783,7 +3805,7 @@
         dataAdapters: {
           modelPicker: {
             label: "Model ID / keyword (or paste JSON, advanced):",
-            placeholder: 'Example: gemini pro / opus 4.7 / {"menu":{"id":"opus47"}}'
+            placeholder: 'Example: gemini pro / opus 4.8 / {"menu":{"id":"opus48"}}'
           },
           conversationMenu: {
             label: "Conversation menu item ID / keyword (or paste JSON, advanced):",
@@ -3919,11 +3941,22 @@
       const data = isPlainObject(shortcut.data) ? shortcut.data : {};
       return (key === LEGACY_SELECT_AI_MODEL_KEY || name === "Select AI Model") && (!actionType || actionType === "selector") && selector === LEGACY_SELECT_AI_MODEL_SELECTOR && !customAction && hotkey === "CTRL+M" && Object.keys(data).length === 0;
     }
+    function isLegacyOpus46ModelShortcut(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
+      const key = String(shortcut.key || "").trim();
+      const actionType = String(shortcut.actionType || "").trim().toLowerCase();
+      const customAction = String(shortcut.customAction || "").trim();
+      const data = isPlainObject(shortcut.data) ? shortcut.data : {};
+      const menu = isPlainObject(data.menu) ? data.menu : data;
+      const target = inferModelTargetFromText(menu.id ?? menu.textMatch ?? menu.keyword ?? shortcut.name);
+      return (key === "model-opus46" || normalizeNotionTargetKey(menu.id) === "opus46") && (!actionType || actionType === "custom") && (!customAction || customAction === "modelPicker") && target?.id === "opus48";
+    }
     function migrateNotionManagedModelShortcuts() {
       const stored = gmGetValueLocal(NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
       if (!Array.isArray(stored)) return;
       let changed = false;
       const next = [];
+      const originalKeys = new Set(stored.map((shortcut) => String(shortcut?.key || "").trim()).filter(Boolean));
       for (const shortcut of stored) {
         if (isLegacySelectAiModelShortcut(shortcut)) {
           changed = true;
@@ -3931,6 +3964,22 @@
         }
         if (isLegacyNewChatShortcut(shortcut)) {
           const replacement = createDefaultShortcutByKey("newChat");
+          if (replacement) {
+            next.push({
+              ...replacement,
+              id: String(shortcut.id || replacement.id || "").trim() || replacement.id,
+              hotkey: String(shortcut.hotkey || replacement.hotkey || "").trim() || replacement.hotkey
+            });
+            changed = true;
+            continue;
+          }
+        }
+        if (isLegacyOpus46ModelShortcut(shortcut)) {
+          if (originalKeys.has("model-opus48")) {
+            changed = true;
+            continue;
+          }
+          const replacement = createDefaultShortcutByKey("model-opus48");
           if (replacement) {
             next.push({
               ...replacement,
