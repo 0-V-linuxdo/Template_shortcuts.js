@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260529] v1.1.0
-// @name:en        [Template] Shortcut Core [20260529] v1.1.0
+// @name           [Template] 快捷键跳转 [20260529] v1.1.1
+// @name:en        [Template] Shortcut Core [20260529] v1.1.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260529] v1.1.0
-// @update-log     1.1.0: 更新 Template core require 版本参数，以发布 Notion app.notion.com 迁移与 QuickInput 图片上传去重修复。
-// @update-log:en  1.1.0: Updated the Template core require version token for the Notion app.notion.com migration and QuickInput image upload dedupe fix.
+// @version        [20260529] v1.1.1
+// @update-log     1.1.1: 调整 Quick Input 图片流程，图片上传就绪检查必须在插入文本、触发工具快捷键和发送之前完成。
+// @update-log:en  1.1.1: Reordered Quick Input image handling so upload readiness is confirmed before inserting text, triggering tool shortcuts, or sending.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -15305,6 +15305,7 @@ ${displayTargetText}`;
           markRunCancelled();
           break;
         }
+        let imagesReadyConfirmed = false;
         if (images.length) {
           const beforeImagesReady = await verifyInputUrlReady(getStageLabel("beforeImages"));
           if (beforeImagesReady !== true) {
@@ -15332,6 +15333,26 @@ ${displayTargetText}`;
           const insertedMsg = labels.messages?.imagesInserted ? labels.messages.imagesInserted(images.length) : DEFAULT_LABELS.messages.imagesInserted(images.length);
           appendLoopLog(insertedMsg, { level: "ok" });
           if (!await waitStep(cfg.stepDelayMs)) {
+            markRunCancelled();
+            break;
+          }
+          const readyResult = await waitForImagesReadyWithReset(composer, images.length);
+          if (readyResult?.composer) composer = readyResult.composer;
+          if (readyResult?.cancelled) {
+            markRunCancelled();
+            break;
+          }
+          if (!readyResult?.ok) {
+            markRunFailed();
+            cancelRun = true;
+            appendLoopLog(labels.messages?.uploadNotReady || DEFAULT_LABELS.messages.uploadNotReady, { level: "error" });
+            const detail = readyResult && typeof readyResult === "object" && typeof readyResult.message === "string" && readyResult.message.trim() ? readyResult.message.trim() : buildImageReadyFailureDetail(readyResult?.ready, images.length);
+            if (detail) appendLoopLog(detail, { level: "error" });
+            break;
+          }
+          imagesReadyConfirmed = true;
+          appendLoopLog(labels.messages?.imageReady || DEFAULT_LABELS.messages.imageReady, { level: "ok" });
+          if (!await waitStep(Math.min(300, cfg.stepDelayMs), 80)) {
             markRunCancelled();
             break;
           }
@@ -15381,7 +15402,7 @@ ${displayTargetText}`;
           }
           if (cancelRun) break;
         }
-        if (images.length) {
+        if (images.length && !imagesReadyConfirmed) {
           const readyResult = await waitForImagesReadyWithReset(composer, images.length);
           if (readyResult?.composer) composer = readyResult.composer;
           if (readyResult?.cancelled) {
