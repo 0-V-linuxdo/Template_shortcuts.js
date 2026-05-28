@@ -16,7 +16,8 @@
     const LOG_TAG = "[Notion Shortcut Script]";
     const NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY = "notion_shortcuts_v1";
     const NOTION_QUICK_INPUT_STORAGE_KEY = "notion_quick_input_v1";
-    const NOTION_ORIGIN = "https://www.notion.so";
+    const NOTION_ORIGIN = "https://app.notion.com";
+    const NOTION_LEGACY_ORIGIN = "https://www.notion.so";
     const NOTION_AI_HOME_PATH = "/ai";
     const NOTION_NEW_CHAT_TARGET_TTL_MS = 15000;
     const NOTION_QUICK_INPUT_THEME = Object.freeze({
@@ -1847,11 +1848,15 @@
 
         function isNotionQuickInputHost(hostname = "") {
             const host = String(hostname || "").trim().toLowerCase();
-            return host === "notion.so" || host.endsWith(".notion.so");
+            return host === "app.notion.com" || host === "notion.so" || host.endsWith(".notion.so");
         }
 
         function isNotionQuickInputUrl(url) {
             return !!(url && url.protocol === "https:" && isNotionQuickInputHost(url.hostname));
+        }
+
+        function isCanonicalNotionQuickInputUrl(url) {
+            return !!(url && url.protocol === "https:" && String(url.hostname || "").toLowerCase() === "app.notion.com");
         }
 
         function parseNotionUrl(currentUrl = getCurrentNotionUrl()) {
@@ -1867,7 +1872,7 @@
 
         function getNotionAiHomeTargetUrl(url = null) {
             const notionUrl = isNotionQuickInputUrl(url) ? url : parseNotionUrl();
-            const origin = notionUrl?.origin || NOTION_ORIGIN;
+            const origin = notionUrl?.hostname === "app.notion.com" ? notionUrl.origin : NOTION_ORIGIN;
             return `${origin}${NOTION_AI_HOME_PATH}`;
         }
 
@@ -1877,9 +1882,10 @@
 
             const pathname = normalizeNotionPathname(url.pathname);
             if (pathname === NOTION_AI_HOME_PATH) {
+                const ready = isCanonicalNotionQuickInputUrl(url);
                 return {
                     kind: "ai",
-                    ready: true,
+                    ready,
                     pathname,
                     targetUrl: getNotionAiHomeTargetUrl(url),
                     url: url.href
@@ -1951,6 +1957,11 @@
                 const url = new URL(targetUrl, NOTION_ORIGIN);
                 if (!isNotionQuickInputUrl(url)) return false;
                 if (normalizeNotionPathname(url.pathname) !== NOTION_AI_HOME_PATH) return false;
+                const currentUrl = parseNotionUrl();
+                if (!currentUrl || currentUrl.origin !== url.origin) {
+                    window.location.assign(url.href);
+                    return true;
+                }
                 window.history.pushState({ url: url.href }, document.title, url.pathname + url.search + url.hash);
                 window.dispatchEvent(new PopStateEvent("popstate", { state: { url: url.href } }));
                 return true;
@@ -3238,11 +3249,9 @@
             const dt = createNotionDataTransfer({ files: [file] });
             if (!dt || !composerEl) return false;
             const container = findNotionComposerContainer(composerEl);
-            const targets = [];
-            if (container) targets.push(container);
-            targets.push(composerEl, document, window);
+            const targets = [container || composerEl, composerEl, document, window];
             let fired = false;
-            for (const target of Array.from(new Set(targets.filter(Boolean)))) {
+            for (const target of Array.from(new Set(targets.filter(Boolean))).slice(0, 1)) {
                 if (isInsideQuickInputOverlay(target)) continue;
                 fired = dispatchDragEvent(target, "dragenter", dt) || fired;
                 fired = dispatchDragEvent(target, "dragover", dt) || fired;
@@ -3276,19 +3285,55 @@
             return false;
         }
 
+        async function waitForNotionImageAttachAccepted(containerEl, previousSnapshot, { timeoutMs = 12000, intervalMs = 120, shouldCancel = null, runtime = null } = {}) {
+            const previousCount = Number(previousSnapshot?.attachmentCount || 0);
+            const previousFingerprint = getNotionAttachmentFingerprint(previousSnapshot);
+            const computeState = () => {
+                const snapshot = getNotionAttachmentSnapshot(containerEl);
+                const busy = hasNotionUploadInProgress(containerEl);
+                return {
+                    snapshot,
+                    busy,
+                    stateKey: `${getNotionAttachmentFingerprint(snapshot)};busy=${busy ? 1 : 0}`
+                };
+            };
+            const observed = await waitForObservedState({
+                resolveRoots: () => [containerEl || findNotionComposerContainer(), document.body || document],
+                computeState,
+                isSatisfied: (state) => {
+                    if (state?.busy) return true;
+                    const snapshot = state?.snapshot || null;
+                    const count = Number(snapshot?.attachmentCount || 0);
+                    return count > previousCount || (count > 0 && getNotionAttachmentFingerprint(snapshot) !== previousFingerprint);
+                },
+                timeoutMs,
+                settleMs: 240,
+                pollFallbackMs: Math.max(160, Number(intervalMs) || 120),
+                attributeFilter: NOTION_READY_OBSERVED_ATTRIBUTES,
+                shouldCancel,
+                runtime
+            });
+            const state = observed?.state || computeState();
+            return {
+                ok: !!observed?.ok,
+                cancelled: !!observed?.cancelled,
+                snapshot: state?.snapshot || getNotionAttachmentSnapshot(containerEl),
+                busy: !!state?.busy
+            };
+        }
+
         async function attachNotionImage(file, composerEl, { onDiagnostics = null, shouldCancel = null, runtime = null } = {}) {
             const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
             if (!file || !(file instanceof File) || !String(file.type || "").startsWith("image/")) return { ok: false, cancelled: false };
             const composer = resolveNotionComposerElement(composerEl, { requireVisible: true }) || await focusNotionComposer({ timeoutMs: 4000, shouldCancel: cancelFn, runtime });
             if (!composer) return { ok: false, cancelled: !!(cancelFn && cancelFn()) };
             const container = findNotionComposerContainer(composer);
-            let previousSnapshot = getNotionAttachmentSnapshot(container);
-            const diagnostics = { attempts: { paste: 0, drop: 0, fileInput: 0 }, fired: { paste: 0, drop: 0, fileInput: 0 }, fileInputCandidates: 0 };
+            const previousSnapshot = getNotionAttachmentSnapshot(container);
+            const diagnostics = { attempts: { paste: 0, drop: 0, fileInput: 0 }, fired: { paste: 0, drop: 0, fileInput: 0 }, fileInputCandidates: 0, accepted: "" };
 
             const tryPlan = [
                 {
                     name: "paste",
-                    attempts: 3,
                     run: () => {
                         diagnostics.attempts.paste += 1;
                         const fired = tryAttachNotionImageViaPaste(file, composer);
@@ -3298,7 +3343,6 @@
                 },
                 {
                     name: "drop",
-                    attempts: 2,
                     run: () => {
                         diagnostics.attempts.drop += 1;
                         const fired = tryAttachNotionImageViaDrop(file, composer);
@@ -3308,7 +3352,6 @@
                 },
                 {
                     name: "fileInput",
-                    attempts: 2,
                     run: () => {
                         diagnostics.attempts.fileInput += 1;
                         const fired = tryAttachNotionImageViaFileInput(file, composer, diagnostics);
@@ -3319,26 +3362,36 @@
             ];
 
             for (const plan of tryPlan) {
-                for (let attempt = 0; attempt < plan.attempts; attempt += 1) {
-                    if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
-                    try { composer.focus?.({ preventScroll: true }); } catch {
-                        try { composer.focus?.(); } catch { }
-                    }
-                    try { simulateClickElement(composer, { nativeFallback: true }); } catch { }
-                    if (!(await runtimeSleep(runtime, attempt > 0 ? 180 : 30, { shouldCancel: cancelFn }))) return { ok: false, cancelled: true };
-
-                    const fired = plan.run();
-                    if (!fired) continue;
-                    const changed = await waitForNotionAttachmentChange(container, previousSnapshot, {
-                        timeoutMs: 9000,
-                        intervalMs: 120,
-                        shouldCancel: cancelFn,
-                        runtime
-                    });
-                    if (changed.cancelled) return { ok: false, cancelled: true };
-                    if (changed.ok) return { ok: true, cancelled: false };
-                    previousSnapshot = changed.snapshot;
+                if (cancelFn && cancelFn()) return { ok: false, cancelled: true };
+                try { composer.focus?.({ preventScroll: true }); } catch {
+                    try { composer.focus?.(); } catch { }
                 }
+                try { simulateClickElement(composer, { nativeFallback: true }); } catch { }
+                if (!(await runtimeSleep(runtime, 30, { shouldCancel: cancelFn }))) return { ok: false, cancelled: true };
+
+                const fired = plan.run();
+                if (!fired) continue;
+                const accepted = await waitForNotionImageAttachAccepted(container, previousSnapshot, {
+                    timeoutMs: 12000,
+                    intervalMs: 120,
+                    shouldCancel: cancelFn,
+                    runtime
+                });
+                if (accepted.cancelled) return { ok: false, cancelled: true };
+                if (accepted.ok) {
+                    diagnostics.accepted = plan.name;
+                    return { ok: true, cancelled: false };
+                }
+                if (typeof onDiagnostics === "function") {
+                    try {
+                        onDiagnostics({
+                            ...diagnostics,
+                            level: "error",
+                            message: `Image upload event fired via ${plan.name}, but Notion did not expose an upload indicator or attachment preview before timeout; skipped fallback upload to avoid duplicates.`
+                        });
+                    } catch { }
+                }
+                return { ok: false, cancelled: false };
             }
 
             if (typeof onDiagnostics === "function") {
@@ -3730,7 +3783,7 @@
             if (cancelFn && cancelFn()) return { ok: false, label: getNotionNewChatLabel() };
             const currentTarget = parseNotionQuickInputTarget();
             const expectedTarget = getNotionNewChatTriggerTarget();
-            if (!currentTarget && navigateNotionSpaToTarget(expectedTarget)) {
+            if ((!currentTarget || !currentTarget.ready) && navigateNotionSpaToTarget(expectedTarget)) {
                 clearPendingNotionNewChatTarget();
                 return { ok: true, label: getNotionNewChatLabel() };
             }
@@ -3869,7 +3922,7 @@
             },
             quickInput: {
                 title: "Notion - 快捷输入",
-                rootUrlMismatch: "当前 Notion AI 页面必须回到 /ai，目标是 {targetUrl}，实际是 {currentUrl}",
+                rootUrlMismatch: "当前 Notion AI 页面必须回到 app.notion.com/ai，目标是 {targetUrl}，实际是 {currentUrl}",
                 newChatVerifyPrefix: "Notion AI 路由校验失败："
             }
         },
@@ -3895,7 +3948,7 @@
             },
             quickInput: {
                 title: "Notion - Quick Input",
-                rootUrlMismatch: "Current Notion AI page must return to /ai. Target: {targetUrl}; actual URL: {currentUrl}",
+                rootUrlMismatch: "Current Notion AI page must return to app.notion.com/ai. Target: {targetUrl}; actual URL: {currentUrl}",
                 newChatVerifyPrefix: "Notion AI route verification failed: "
             }
         }
@@ -4173,7 +4226,8 @@
             primary: "#2f3437"
         },
         shouldBypassIconCache: (url) => {
-            return String(url || '').startsWith('https://www.notion.so/');
+            const value = String(url || "");
+            return value.startsWith(`${NOTION_LEGACY_ORIGIN}/`) || value.startsWith(`${NOTION_ORIGIN}/`);
         },
         text: {
             menuLabelFallback: "打开快捷键设置"
