@@ -485,16 +485,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260529] v1.1.2",
+            name: "[Notion] 快捷键跳转 [20260529] v1.1.3",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260529] v1.1.2",
-            updateLog: "1.1.2: 更新 QuickInput 执行顺序，图片上传就绪检查必须在文本输入、工具快捷键和发送前完成。",
+            version: "[20260529] v1.1.3",
+            updateLog: "1.1.3: 适配 Notion AI 新模型选择器，更新 Opus 4.8 模型项，并兼容旧 Opus 4.6 快捷键配置。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260529] v1.1.2",
+                    name: "[Notion] Shortcut Jump [20260529] v1.1.3",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.1.2: Updated the QuickInput execution order so image upload readiness is confirmed before text input, tool shortcuts, or sending."
+                    updateLog: "1.1.3: Adapted the Notion AI model picker update, added the Opus 4.8 target, and mapped legacy Opus 4.6 shortcut configs to the new model."
                 }
             },
             match: [
