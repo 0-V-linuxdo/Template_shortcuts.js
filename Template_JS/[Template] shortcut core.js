@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260528] v1.0.0
-// @name:en        [Template] Shortcut Core [20260528] v1.0.0
+// @name           [Template] 快捷键跳转 [20260529] v1.0.0
+// @name:en        [Template] Shortcut Core [20260529] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260528] v1.0.0
-// @update-log     1.0.0: 更新 Template core require 版本参数，以配合 Gemini Extended 快捷键体验优化发布。
-// @update-log:en  1.0.0: Updated the Template core require version token for the Gemini Extended shortcut experience fix release.
+// @version        [20260529] v1.0.0
+// @update-log     1.0.0: 更新 Template core require 版本参数，以发布 Notion QuickInput 图片上传去重修复。
+// @update-log:en  1.0.0: Updated the Template core require version token for the Notion QuickInput image upload dedupe fix.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260528";
+  var TEMPLATE_VERSION = "20260529";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -12032,6 +12032,7 @@ ${displayTargetText}`;
       getTextObservationRoots: typeof rawAdapter.getTextObservationRoots === "function" ? rawAdapter.getTextObservationRoots : null,
       attachImages: typeof rawAdapter.attachImages === "function" ? rawAdapter.attachImages : null,
       clearAttachments: typeof rawAdapter.clearAttachments === "function" ? rawAdapter.clearAttachments : null,
+      waitForImagesReady: typeof rawAdapter.waitForImagesReady === "function" ? rawAdapter.waitForImagesReady : null,
       waitForReadyToSend: typeof rawAdapter.waitForReadyToSend === "function" ? rawAdapter.waitForReadyToSend : null,
       waitForNewChatReady: typeof rawAdapter.waitForNewChatReady === "function" ? rawAdapter.waitForNewChatReady : null,
       triggerNewChat: typeof rawAdapter.triggerNewChat === "function" ? rawAdapter.triggerNewChat : typeof rawAdapter.triggerNewChatRetry === "function" ? rawAdapter.triggerNewChatRetry : async ({ hotkey }) => executeEngineShortcutByHotkey(engine, hotkey),
@@ -15135,11 +15136,12 @@ ${displayTargetText}`;
         while (true) {
           const waitingMsg = labels.messages?.waitingUploads ? labels.messages.waitingUploads(expected) : DEFAULT_LABELS.messages.waitingUploads(expected);
           appendLoopLog(waitingMsg);
-          if (!adapter.waitForReadyToSend) {
+          const waitForImageReadiness = adapter.waitForImagesReady || adapter.waitForReadyToSend;
+          if (!waitForImageReadiness) {
             const fallbackWaitOk = await waitStep(Math.max(800, cfg.stepDelayMs));
             return fallbackWaitOk ? { ok: true, composer: composerRef } : { ok: false, cancelled: true, composer: composerRef };
           }
-          const ready = await adapter.waitForReadyToSend(composerRef, {
+          const ready = await waitForImageReadiness(composerRef, {
             requireImage: true,
             minAttachments: expected,
             timeoutMs: 45e3,
@@ -15151,10 +15153,11 @@ ${displayTargetText}`;
           if (ready?.cancelled) return { ok: false, cancelled: true, composer: composerRef, ready };
           if (ready?.ok) return { ok: true, composer: composerRef, ready };
           const reason = String(ready?.reason || "").trim().toLowerCase();
-          if (reason === "timeout" && resetAttempt < maxResetAttempts && adapter.clearAttachments && adapter.attachImages) {
+          const currentCount = getReadyAttachmentCount(ready);
+          const missingCount = Math.max(0, expected - currentCount);
+          if (reason === "timeout" && missingCount > 0 && resetAttempt < maxResetAttempts && adapter.clearAttachments && adapter.attachImages) {
             resetAttempt += 1;
-            const currentCount2 = getReadyAttachmentCount(ready);
-            const resetMsg = labels.messages?.resettingImages ? labels.messages.resettingImages(currentCount2, expected, resetAttempt, maxResetAttempts) : DEFAULT_LABELS.messages.resettingImages(currentCount2, expected, resetAttempt, maxResetAttempts);
+            const resetMsg = labels.messages?.resettingImages ? labels.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts) : DEFAULT_LABELS.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts);
             appendLoopLog(resetMsg, { level: "error" });
             const beforeResetReady = await verifyInputUrlReady(getStageLabel("beforeReset", `#${resetAttempt}`));
             if (beforeResetReady === "cancelled") {
@@ -15209,8 +15212,6 @@ ${displayTargetText}`;
             if (!reuploadWaitOk) return { ok: false, cancelled: true, composer: composerRef, ready: reuploadResult };
             continue;
           }
-          const currentCount = getReadyAttachmentCount(ready);
-          const missingCount = Math.max(0, expected - currentCount);
           if (!(missingCount > 0 && repairAttempt < maxRepairAttempts && !adapter.clearAttachments && adapter.attachImages)) {
             return { ok: false, cancelled: false, composer: composerRef, ready };
           }
