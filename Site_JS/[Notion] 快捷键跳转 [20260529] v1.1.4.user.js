@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260529] v1.1.3
-// @name:en        [Notion] Shortcut Jump [20260529] v1.1.3
+// @name           [Notion] 快捷键跳转 [20260529] v1.1.4
+// @name:en        [Notion] Shortcut Jump [20260529] v1.1.4
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260529] v1.1.3
-// @update-log     1.1.3: 适配 Notion AI 新模型选择器，更新 Opus 4.8 模型项，并兼容旧 Opus 4.6 快捷键配置。
-// @update-log:en  1.1.3: Adapted the Notion AI model picker update, added the Opus 4.8 target, and mapped legacy Opus 4.6 shortcut configs to the new model.
+// @version        [20260529] v1.1.4
+// @update-log     1.1.4: 重新适配 Notion AI 新模型菜单的行级点击目标，恢复 CTRL+M 打开模型选择器，并保留直接模型切换快捷键。
+// @update-log:en  1.1.4: Re-adapted Notion AI's new model menu with row-level click targets, restored CTRL+M to open the model picker, and kept direct model switching shortcuts.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -265,6 +265,7 @@
     const NOTION_MODEL_SHORTCUT_KEYS = Object.freeze(NOTION_MODEL_TARGET_LIST.map((target) => `model-${target.id}`));
     const NOTION_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
       "newChat",
+      LEGACY_SELECT_AI_MODEL_KEY,
       ...NOTION_MODEL_SHORTCUT_KEYS,
       "toggleWebAccess",
       "quickInput",
@@ -462,6 +463,48 @@
       }
       return dispatched;
     }
+    function simulatePointerActivationAt(target, x, y) {
+      if (!target || typeof target.dispatchEvent !== "function") return false;
+      const view = document?.defaultView || window;
+      const clientX = Number.isFinite(Number(x)) ? Number(x) : 1;
+      const clientY = Number.isFinite(Number(y)) ? Number(y) : 1;
+      const common = {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: view || null,
+        clientX,
+        clientY,
+        screenX: clientX,
+        screenY: clientY,
+        button: 0
+      };
+      const PointerEventCtor = getEventConstructor("PointerEvent");
+      const MouseEventCtor = getEventConstructor("MouseEvent");
+      const pointerOpts = { pointerId: 1, pointerType: "mouse", isPrimary: true };
+      const plans = [
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointerover", opts: { ...common, ...pointerOpts, buttons: 0 } },
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointerenter", opts: { ...common, ...pointerOpts, buttons: 0 } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mouseover", opts: { ...common, buttons: 0 } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mouseenter", opts: { ...common, buttons: 0 } },
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointermove", opts: { ...common, ...pointerOpts, buttons: 0 } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mousemove", opts: { ...common, buttons: 0 } },
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointerdown", opts: { ...common, ...pointerOpts, buttons: 1 } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mousedown", opts: { ...common, buttons: 1 } },
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointerup", opts: { ...common, ...pointerOpts, buttons: 0 } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mouseup", opts: { ...common, buttons: 0 } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "click", opts: { ...common, buttons: 0, detail: 1 } }
+      ].filter(Boolean);
+      let dispatched = false;
+      for (const plan of plans) {
+        try {
+          target.dispatchEvent(new plan.ctor(plan.type, plan.opts));
+          dispatched = true;
+        } catch {
+        }
+      }
+      return dispatched;
+    }
     function getElementFromPointSafe(x, y) {
       try {
         return document?.elementFromPoint?.(x, y) || null;
@@ -477,6 +520,25 @@
       } catch {
         return false;
       }
+    }
+    function clickModelElement(element) {
+      if (!element || !isVisibleElement(element) || isElementDisabled(element)) return false;
+      const rect = getElementRect(element);
+      const x = rect ? rect.left + rect.width / 2 : 1;
+      const y = rect ? rect.top + rect.height / 2 : 1;
+      try {
+        element.focus?.({ preventScroll: true });
+      } catch {
+        try {
+          element.focus?.();
+        } catch {
+        }
+      }
+      let clicked = false;
+      clicked = simulatePointerActivationAt(element, x, y) || clicked;
+      clicked = forceNativeClickElement(element) || clicked;
+      clicked = simulateClickElement(element, { nativeFallback: true }) || clicked;
+      return clicked;
     }
     function clickElementAtPointForClose(element, menuRoot) {
       if (!element) return false;
@@ -1485,7 +1547,7 @@
       const existing = findModelMenuRoot(triggerEl);
       if (existing) return existing;
       if (!triggerEl) return null;
-      if (!simulateClickElement(triggerEl, { nativeFallback: true })) return null;
+      if (!clickModelElement(triggerEl)) return null;
       if (MODEL_MENU_TIMING.openDelayMs > 0) await sleep(MODEL_MENU_TIMING.openDelayMs);
       const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
       while (Date.now() <= deadline) {
@@ -1574,6 +1636,18 @@
         waitForItem
       };
     }
+    async function waitForModelSelection(target, { timeoutMs = MODEL_MENU_TIMING.waitTimeoutMs, intervalMs = MODEL_MENU_TIMING.pollIntervalMs } = {}) {
+      if (!target) return true;
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+      while (Date.now() <= deadline) {
+        const trigger = findModelTriggerElement();
+        const currentTarget = inferModelTargetFromText(getElementText(trigger));
+        if (currentTarget?.id === target.id) return true;
+        await sleep(Math.max(30, Number(intervalMs) || 30));
+      }
+      const finalTrigger = findModelTriggerElement();
+      return inferModelTargetFromText(getElementText(finalTrigger))?.id === target.id;
+    }
     async function clickModelPickerItem({ shortcut, engine: engine2 }) {
       const spec = getModelPickerSpec(shortcut);
       if (!spec) return false;
@@ -1586,11 +1660,18 @@
       do {
         const currentRoot = findModelMenuRoot(trigger) || menuRoot;
         const target = findModelMenuItem(currentRoot, spec);
-        if (target && simulateClickElement(target, { nativeFallback: true })) return true;
+        if (target && clickModelElement(target)) {
+          if (!spec.target || await waitForModelSelection(spec.target)) return true;
+        }
         if (!spec.waitForItem || Date.now() >= deadline) break;
         await sleep(MODEL_MENU_TIMING.pollIntervalMs);
       } while (true);
       return false;
+    }
+    async function openModelPickerAction() {
+      const trigger = findModelTriggerElement();
+      if (!trigger) return false;
+      return !!await ensureModelMenuOpen(trigger);
     }
     function createNotionQuickInputAdapter({ idPrefix = "notion", engine: engine2 = null } = {}) {
       const QuickInput = ShortcutTemplate?.quickInput;
@@ -3798,6 +3879,7 @@
         quickInputTitle: "Notion - Quick Input",
         shortcuts: {
           newChat: "New Chat",
+          selectAiModel: "Select AI Model",
           toggleWebAccess: "Toggle Web Access",
           deleteTopic: "Delete Topic",
           quickInput: "Quick Input"
@@ -3853,6 +3935,15 @@
         customAction: "newChat",
         hotkey: "CTRL+N",
         icon: NEW_CHAT_ICON
+      }),
+      createShortcut({
+        key: LEGACY_SELECT_AI_MODEL_KEY,
+        name: "Select AI Model",
+        labelKey: "shortcuts.selectAiModel",
+        actionType: "custom",
+        customAction: "openModelPicker",
+        hotkey: "CTRL+M",
+        icon: NOTION_AI_ICON
       }),
       ...defaultModelShortcuts,
       createShortcut({
@@ -3959,6 +4050,14 @@
       const originalKeys = new Set(stored.map((shortcut) => String(shortcut?.key || "").trim()).filter(Boolean));
       for (const shortcut of stored) {
         if (isLegacySelectAiModelShortcut(shortcut)) {
+          const replacement = createDefaultShortcutByKey(LEGACY_SELECT_AI_MODEL_KEY);
+          if (replacement) {
+            next.push({
+              ...replacement,
+              id: String(shortcut.id || replacement.id || "").trim() || replacement.id,
+              hotkey: String(shortcut.hotkey || replacement.hotkey || "").trim() || replacement.hotkey
+            });
+          }
           changed = true;
           continue;
         }
@@ -4065,6 +4164,7 @@
       defaultShortcuts,
       customActions: {
         newChat: triggerNewChatAction,
+        openModelPicker: openModelPickerAction,
         modelPicker: clickModelPickerItem,
         toggleWebAccess: toggleWebAccessAction,
         conversationMenu: clickConversationMenuItem,
