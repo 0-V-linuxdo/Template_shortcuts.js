@@ -485,16 +485,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260529] v1.1.3",
+            name: "[Notion] 快捷键跳转 [20260529] v1.1.4",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260529] v1.1.3",
-            updateLog: "1.1.3: 适配 Notion AI 新模型选择器，更新 Opus 4.8 模型项，并兼容旧 Opus 4.6 快捷键配置。",
+            version: "[20260529] v1.1.4",
+            updateLog: "1.1.4: 重新适配 Notion AI 新模型菜单的行级点击目标，恢复 CTRL+M 打开模型选择器，并保留直接模型切换快捷键。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260529] v1.1.3",
+                    name: "[Notion] Shortcut Jump [20260529] v1.1.4",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.1.3: Adapted the Notion AI model picker update, added the Opus 4.8 target, and mapped legacy Opus 4.6 shortcut configs to the new model."
+                    updateLog: "1.1.4: Re-adapted Notion AI's new model menu with row-level click targets, restored CTRL+M to open the model picker, and kept direct model switching shortcuts."
                 }
             },
             match: [
