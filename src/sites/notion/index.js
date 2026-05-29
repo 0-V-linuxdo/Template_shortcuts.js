@@ -1035,23 +1035,99 @@
         return false;
     }
 
-    function scoreModelTriggerCandidate(element) {
+    function textLooksLikeCustomAgentSettings(value) {
+        const text = normalizeNotionText(value);
+        if (!text) return false;
+        const agentContext = text.includes("agent") || text.includes("代理");
+        const directSettingsHints = (
+            text.includes("agent settings") ||
+            text.includes("when should this agent run") ||
+            text.includes("what can the agent use") ||
+            text.includes("tools and access") ||
+            text.includes("trusted urls") ||
+            text.includes("run agent") ||
+            text.includes("agent instructions")
+        );
+        if (directSettingsHints) return true;
+        if (text.includes("custom agent") && (
+            text.includes("instructions") ||
+            text.includes("knowledge") ||
+            text.includes("tools and access") ||
+            text.includes("trusted urls") ||
+            text.includes("triggers")
+        )) return true;
+        return agentContext && (
+            text.includes("instructions") ||
+            text.includes("knowledge") ||
+            text.includes("sources") ||
+            text.includes("tools") ||
+            text.includes("access") ||
+            text.includes("triggers") ||
+            text.includes("设置")
+        );
+    }
+
+    function isInsideCustomAgentSettingsSurface(element) {
+        if (!element) return false;
+        let node = element;
+        while (node && node.nodeType === 1 && node !== document.body) {
+            const rect = getElementRect(node);
+            const viewport = getViewportSize();
+            const role = String(node.getAttribute?.("role") || "").toLowerCase();
+            const dataTestId = String(node.getAttribute?.("data-testid") || "").toLowerCase();
+            const panelSized = rect &&
+                rect.width >= 320 &&
+                rect.height >= 160 &&
+                (!viewport.width || rect.width <= viewport.width * 0.82) &&
+                (!viewport.height || rect.height <= viewport.height * 0.96);
+            const surfaceLike = role === "dialog" ||
+                role === "region" ||
+                dataTestId.includes("side-peek") ||
+                dataTestId.includes("side_peek") ||
+                dataTestId.includes("agent") ||
+                panelSized;
+            if (surfaceLike && textLooksLikeCustomAgentSettings([getElementSearchText(node), node.textContent || ""].join(" "))) return true;
+            node = node.parentElement || null;
+        }
+        return false;
+    }
+
+    function isModelTriggerNearMainComposer(element, composerRoot = null, composerRect = null) {
+        if (!element) return false;
+        if (composerRoot?.contains?.(element)) return true;
+        const rect = getElementRect(element);
+        if (!rect || !composerRect || !isLikelyMainComposerRect(composerRect)) return false;
+        const inComposerY = rect.top >= composerRect.top - 12 && rect.bottom <= composerRect.bottom + 12;
+        const inComposerX = rect.left >= composerRect.left - 12 && rect.right <= composerRect.right + 12;
+        const controlSized = rect.width >= 24 && rect.width <= 180 && rect.height >= 20 && rect.height <= 76;
+        return inComposerY && inComposerX && controlSized;
+    }
+
+    function scoreModelTriggerCandidate(element, { composerRoot = null, composerRect = null } = {}) {
         if (!element || !isVisibleElement(element)) return -1;
         if (element.closest?.(NOTION_MODEL_MENU_ROOT_SELECTOR)) return -1;
+        if (isInsideShortcutUi(element) || isElementDisabled(element)) return -1;
+        if (isInsideCustomAgentSettingsSurface(element)) return -1;
 
         const text = getElementText(element);
         const normalizedText = normalizeNotionText(text);
         const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
         const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+        const title = String(element.getAttribute?.("title") || "");
         const hasMenu = String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "menu";
+        const hasListbox = String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "listbox";
+        const nearMainComposer = isModelTriggerNearMainComposer(element, composerRoot, composerRect);
 
         let score = 0;
+        if (nearMainComposer) score += 900;
+        if (composerRoot && !nearMainComposer) score -= 420;
         if (dataTestId === "unified-chat-model-button") score += 1000;
         if (dataTestId.includes("model")) score += 500;
         if (/\bmodel\b|模型/i.test(ariaLabel)) score += 420;
-        if (inferModelTargetFromText(text)) score += 360;
-        if (hasMenu) score += 80;
-        if (normalizedText === "auto") score += 80;
+        if (/\bmodel\b|模型/i.test(title)) score += 320;
+        if (NOTION_MODEL_TARGET_LIST.some(target => textLooksLikeTarget(text, target))) score += 360;
+        if (hasMenu || hasListbox) score += 80;
+        if (normalizedText === "auto" || textLooksLikeTarget(text, NOTION_MODEL_TARGETS.auto)) score += 80;
         return score > 0 ? score : -1;
     }
 
@@ -1645,10 +1721,12 @@
     function findModelTriggerElement() {
         const candidates = [];
         const seen = new Set();
+        const composerRoot = findComposerRootElement();
+        const composerRect = getElementRect(composerRoot);
         for (const element of safeQueryAll(document, NOTION_MODEL_TRIGGER_SELECTORS)) {
             if (!element || seen.has(element)) continue;
             seen.add(element);
-            const score = scoreModelTriggerCandidate(element);
+            const score = scoreModelTriggerCandidate(element, { composerRoot, composerRect });
             if (score < 0) continue;
             let bottom = 0;
             try { bottom = Number(element.getBoundingClientRect?.().bottom || 0); } catch { }
@@ -1727,41 +1805,181 @@
         return element;
     }
 
+    function countModelTargetsInText(value) {
+        const text = normalizeNotionText(value);
+        if (!text) return 0;
+        return NOTION_MODEL_TARGET_LIST.reduce((count, target) => count + (textLooksLikeTarget(text, target) ? 1 : 0), 0);
+    }
+
+    function modelElementShowsTarget(element, target) {
+        if (!target) return true;
+        return textLooksLikeTarget(getElementText(element), target);
+    }
+
+    function modelMenuItemMatchesSpec(element, { target = null, textMatch = null } = {}) {
+        const text = getElementText(element);
+        if (target) return textLooksLikeTarget(text, target);
+        if (typeof textMatch === "function") {
+            try { return !!textMatch(text, element); } catch { return false; }
+        }
+        if (textMatch instanceof RegExp) {
+            try {
+                textMatch.lastIndex = 0;
+                return textMatch.test(text);
+            } catch {
+                return false;
+            }
+        }
+        if (Array.isArray(textMatch)) {
+            const normalizedText = normalizeNotionText(text);
+            return textMatch.some(item => {
+                const needle = normalizeNotionText(item);
+                return needle ? normalizedText.includes(needle) : false;
+            });
+        }
+        const needle = normalizeNotionText(textMatch);
+        return needle ? normalizeNotionText(text).includes(needle) : true;
+    }
+
+    function getModelMenuItemRow(element, root, matchesSpec = null) {
+        if (!element) return null;
+        const rootArea = getElementArea(root);
+        const rootRect = getElementRect(root);
+        let bestRoleRow = null;
+        let bestAction = null;
+        let bestRowLike = null;
+        let fallback = null;
+        let node = element;
+        while (node && node.nodeType === 1) {
+            if (root && node === root) break;
+            if (root && !root.contains?.(node)) break;
+            if (!isVisibleElement(node) || isElementDisabled(node)) {
+                node = node.parentElement || null;
+                continue;
+            }
+            if (typeof matchesSpec === "function" && !matchesSpec(node)) {
+                node = node.parentElement || null;
+                continue;
+            }
+
+            const text = getElementText(node);
+            const targetCount = countModelTargetsInText(text);
+            const area = getElementArea(node);
+            if (rootArea > 0 && area >= rootArea * 0.85) break;
+            if (targetCount > 1) {
+                node = node.parentElement || null;
+                continue;
+            }
+
+            const rect = getElementRect(node);
+            const tag = String(node.tagName || "").toLowerCase();
+            const role = String(node.getAttribute?.("role") || "").toLowerCase();
+            const tabIndex = String(node.getAttribute?.("tabindex") || "").trim();
+            const roleRowLike = role === "menuitem" || role === "menuitemradio" || role === "option";
+            const actionLike = roleRowLike || tag === "button" || role === "button" || (tabIndex && tabIndex !== "-1");
+            const rowLike = rect && rootRect &&
+                rect.height >= 22 &&
+                rect.height <= 88 &&
+                rect.width >= Math.min(120, rootRect.width * 0.38) &&
+                rect.width <= rootRect.width + 32;
+
+            if (roleRowLike && !bestRoleRow) bestRoleRow = node;
+            if (actionLike && !bestAction) bestAction = node;
+            if (rowLike && !bestRowLike) bestRowLike = node;
+            if (!fallback) fallback = node;
+            node = node.parentElement || null;
+        }
+        return bestRoleRow || bestAction || bestRowLike || fallback || getClickableMenuItem(element, root);
+    }
+
+    function getTextMatchComparableLabels(textMatch) {
+        if (typeof textMatch === "string") return [normalizeNotionText(textMatch)].filter(Boolean);
+        if (Array.isArray(textMatch)) return Array.from(new Set(textMatch.map(normalizeNotionText).filter(Boolean)));
+        return [];
+    }
+
+    function scoreModelMenuItemRow(element, spec) {
+        if (!element || !isVisibleElement(element) || isElementDisabled(element)) return Number.NEGATIVE_INFINITY;
+        const text = getElementText(element);
+        const normalizedText = normalizeNotionText(text);
+        const role = String(element.getAttribute?.("role") || "").toLowerCase();
+        const tag = String(element.tagName || "").toLowerCase();
+        const tabIndex = String(element.getAttribute?.("tabindex") || "").trim();
+        const targetCount = countModelTargetsInText(text);
+        const rect = getElementRect(element);
+
+        let score = 0;
+        if (role === "menuitem" || role === "menuitemradio" || role === "option") score += 900;
+        if (tag === "button" || role === "button") score += 360;
+        if (tabIndex && tabIndex !== "-1") score += 120;
+        if (targetCount === 1) score += 260;
+        if (targetCount > 1) score -= 700;
+        if (modelMenuItemMatchesSpec(element, spec)) score += 420;
+        if (spec?.target && textLooksLikeTarget(text, spec.target)) score += 240;
+
+        const comparableLabels = spec?.target ? getTargetComparableLabels(spec.target) : getTextMatchComparableLabels(spec?.textMatch);
+        if (comparableLabels.includes(normalizedText)) score += 260;
+        if (rect && rect.height >= 24 && rect.height <= 72) score += 100;
+        if (rect && rect.width >= 120) score += 40;
+        score -= Math.min(160, getElementArea(element) / 6000);
+        return score;
+    }
+
     function findModelMenuItem(root, { target = null, textMatch = null, selector = NOTION_MODEL_MENU_ITEM_SELECTOR, fallbackToFirst = false } = {}) {
         if (!root) return null;
-        const matchesTarget = (element) => {
-            const text = getElementText(element);
-            if (target) return textLooksLikeTarget(text, target);
-            if (typeof textMatch === "function") {
-                try { return !!textMatch(text, element); } catch { return false; }
-            }
-            if (textMatch instanceof RegExp) {
-                try { return textMatch.test(text); } catch { return false; }
-            }
-            if (Array.isArray(textMatch)) return textMatch.some(item => matchesTarget({ textContent: item }));
-            const needle = normalizeNotionText(textMatch);
-            return needle ? normalizeNotionText(text).includes(needle) : true;
+        const spec = { target, textMatch };
+        const matchesTarget = element => modelMenuItemMatchesSpec(element, spec);
+
+        const rows = [];
+        const seen = new Set();
+        const seenRows = new Set();
+        let firstRow = null;
+        const addMatchedRow = (element) => {
+            const row = getModelMenuItemRow(element, root, matchesTarget);
+            if (!row || seenRows.has(row)) return;
+            seenRows.add(row);
+            rows.push(row);
+        };
+        const rememberFirstRow = (element) => {
+            if (firstRow) return;
+            firstRow = getModelMenuItemRow(element, root);
         };
 
-        const candidates = [];
-        const seen = new Set();
         for (const element of safeQueryAll(root, selector || NOTION_MODEL_MENU_ITEM_SELECTOR)) {
             if (!element || seen.has(element) || !isVisibleElement(element)) continue;
             seen.add(element);
-            candidates.push(element);
-        }
-
-        for (const element of candidates) {
-            if (matchesTarget(element)) return getClickableMenuItem(element, root);
+            rememberFirstRow(element);
+            if (matchesTarget(element)) addMatchedRow(element);
         }
 
         const fallbackCandidates = safeQueryAll(root, "div, span, button")
             .filter(element => element && !seen.has(element) && isVisibleElement(element));
         for (const element of fallbackCandidates) {
-            if (matchesTarget(element)) return getClickableMenuItem(element, root);
+            rememberFirstRow(element);
+            if (matchesTarget(element)) addMatchedRow(element);
         }
 
-        return fallbackToFirst ? (candidates[0] || null) : null;
+        if (rows.length) {
+            rows.sort((a, b) => scoreModelMenuItemRow(b, spec) - scoreModelMenuItemRow(a, spec));
+            return rows[0] || null;
+        }
+
+        return fallbackToFirst ? firstRow : null;
+    }
+
+    function findModelMenuItemPointTarget(element, root, spec) {
+        const rect = getElementRect(element);
+        if (!rect) return null;
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const pointElement = getElementFromPointSafe(x, y);
+        if (!pointElement || !root?.contains?.(pointElement)) return null;
+        const matchesTarget = candidate => modelMenuItemMatchesSpec(candidate, spec);
+        const row = getModelMenuItemRow(pointElement, root, matchesTarget);
+        if (row && root.contains?.(row) && modelMenuItemMatchesSpec(row, spec)) return row;
+        const clickable = getClickableMenuItem(pointElement, root);
+        if (clickable && root.contains?.(clickable) && modelMenuItemMatchesSpec(clickable, spec)) return clickable;
+        return null;
     }
 
     function getShortcutDataObject(shortcut) {
@@ -1800,17 +2018,22 @@
         };
     }
 
-    async function waitForModelSelection(target, { timeoutMs = MODEL_MENU_TIMING.waitTimeoutMs, intervalMs = MODEL_MENU_TIMING.pollIntervalMs } = {}) {
-        if (!target) return true;
+    async function waitForModelSelection(target, {
+        triggerEl = null,
+        timeoutMs = MODEL_MENU_TIMING.waitTimeoutMs,
+        intervalMs = MODEL_MENU_TIMING.pollIntervalMs,
+        requireMenuClose = true
+    } = {}) {
         const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
         while (Date.now() <= deadline) {
-            const trigger = findModelTriggerElement();
-            const currentTarget = inferModelTargetFromText(getElementText(trigger));
-            if (currentTarget?.id === target.id) return true;
+            const trigger = triggerEl && isVisibleElement(triggerEl) ? triggerEl : findModelTriggerElement();
+            const selected = modelElementShowsTarget(trigger, target);
+            const menuClosed = !requireMenuClose || !findModelMenuRoot(trigger);
+            if (selected && menuClosed) return true;
             await sleep(Math.max(30, Number(intervalMs) || 30));
         }
-        const finalTrigger = findModelTriggerElement();
-        return inferModelTargetFromText(getElementText(finalTrigger))?.id === target.id;
+        const finalTrigger = triggerEl && isVisibleElement(triggerEl) ? triggerEl : findModelTriggerElement();
+        return modelElementShowsTarget(finalTrigger, target) && (!requireMenuClose || !findModelMenuRoot(finalTrigger));
     }
 
     async function clickModelPickerItem({ shortcut, engine }) {
@@ -1818,23 +2041,40 @@
         if (!spec) return false;
 
         const trigger = findModelTriggerElement();
-        const currentTarget = inferModelTargetFromText(getElementText(trigger));
-        if (spec.target && currentTarget && spec.target.id === currentTarget.id) return true;
+        if (!trigger) {
+            console.warn(`${LOG_TAG} modelPicker: main composer model trigger not found.`);
+            return false;
+        }
+        if (spec.target && modelElementShowsTarget(trigger, spec.target) && !findModelMenuRoot(trigger)) return true;
 
         const menuRoot = await ensureModelMenuOpen(trigger);
-        if (!menuRoot) return false;
+        if (!menuRoot) {
+            console.warn(`${LOG_TAG} modelPicker: model menu root not found after opening trigger.`);
+            return false;
+        }
 
         const deadline = Date.now() + MODEL_MENU_TIMING.waitTimeoutMs;
+        let retriedPointTarget = false;
         do {
             const currentRoot = findModelMenuRoot(trigger) || menuRoot;
             const target = findModelMenuItem(currentRoot, spec);
             if (target && clickModelElement(target)) {
-                if (!spec.target || await waitForModelSelection(spec.target)) return true;
+                if (await waitForModelSelection(spec.target, { triggerEl: trigger, requireMenuClose: true })) return true;
+            }
+            if (target && !retriedPointTarget) {
+                retriedPointTarget = true;
+                const retryRoot = findModelMenuRoot(trigger) || currentRoot;
+                const pointTarget = retryRoot ? findModelMenuItemPointTarget(target, retryRoot, spec) : null;
+                if (pointTarget && clickModelElement(pointTarget)) {
+                    if (await waitForModelSelection(spec.target, { triggerEl: trigger, requireMenuClose: true })) return true;
+                }
             }
             if (!spec.waitForItem || Date.now() >= deadline) break;
             await sleep(MODEL_MENU_TIMING.pollIntervalMs);
         } while (true);
 
+        const label = spec.target?.menuLabel || spec.target?.label || String(spec.textMatch || "matched item");
+        console.warn(`${LOG_TAG} modelPicker: selection did not settle for ${label}; trigger text did not update or the model menu stayed open.`);
         return false;
     }
 
