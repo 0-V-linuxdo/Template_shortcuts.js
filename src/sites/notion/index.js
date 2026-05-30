@@ -4352,6 +4352,69 @@
             };
         }
 
+        function getNotionNewChatZeroStateText(composerEl = null, containerEl = null) {
+            const parts = [];
+            const push = (value, maxLength = 32000) => {
+                const text = String(value ?? "").trim();
+                if (!text) return;
+                parts.push(text.slice(0, Math.max(120, Number(maxLength) || 32000)));
+            };
+
+            push(getNotionComposerSearchText(composerEl), 1800);
+            push(getElementSearchText(containerEl), 4800);
+            try { push(document.body?.innerText, 42000); } catch { }
+            if (parts.length === 0) {
+                try { push(document.body?.textContent, 42000); } catch { }
+            }
+            return normalizeNotionText(parts.join(" "));
+        }
+
+        function getNotionNewChatZeroStateSignals(composerEl = null, containerEl = null) {
+            const text = getNotionNewChatZeroStateText(composerEl, containerEl);
+            const hasWelcome = text.includes("how can i help you today");
+            const hasRecentChats = text.includes("recent chats");
+            const hasSuggested = text.includes("suggested");
+            const hasComposerPrompt = text.includes("do anything with ai");
+            const hasSuggestedAction = (
+                text.includes("create custom agent") ||
+                text.includes("write meeting agenda") ||
+                text.includes("analyze pdfs or images")
+            );
+            const score = (hasWelcome ? 3 : 0) +
+                (hasRecentChats ? 1 : 0) +
+                (hasSuggested ? 1 : 0) +
+                (hasComposerPrompt ? 1 : 0) +
+                (hasSuggestedAction ? 1 : 0);
+            return {
+                hasWelcome,
+                hasRecentChats,
+                hasSuggested,
+                hasComposerPrompt,
+                hasSuggestedAction,
+                ready: (hasWelcome && score >= 4) || (hasRecentChats && hasSuggested && hasComposerPrompt)
+            };
+        }
+
+        function getNotionNewChatZeroStateReadiness(composerEl, containerEl, snapshot) {
+            const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+            const composerTextLength = composer
+                ? getNotionComposerPlainText(composer, { trimTrailingEditorNewlines: true }).trim().length
+                : 0;
+            const composerBlank = !!(composer && composerTextLength === 0);
+            const attachmentCount = Number(snapshot?.attachmentCount || 0);
+            const uploadBusy = hasNotionUploadInProgress(containerEl);
+            const signals = getNotionNewChatZeroStateSignals(composer, containerEl);
+            return {
+                composerTextLength,
+                composerBlank,
+                attachmentCount,
+                uploadBusy,
+                zeroStateTextReady: !!signals.ready,
+                zeroStateReady: !!(composerBlank && attachmentCount === 0 && !uploadBusy && signals.ready),
+                zeroStateSignals: signals
+            };
+        }
+
         function getNotionNewChatReadyState() {
             const currentUrl = getCurrentNotionUrl();
             const currentTarget = parseNotionQuickInputTarget(currentUrl);
@@ -4361,6 +4424,7 @@
             const snapshot = getNotionAttachmentSnapshot(container);
             const routeReady = !!currentTarget?.ready;
             const pendingRouteChanged = !pendingTarget || String(currentUrl || "").trim() !== String(pendingTarget.url || "").trim();
+            const zeroState = getNotionNewChatZeroStateReadiness(composer, container, snapshot);
             return {
                 composer,
                 container,
@@ -4369,8 +4433,14 @@
                 pendingTarget,
                 routeReady,
                 pendingRouteChanged,
-                attachmentCount: Number(snapshot?.attachmentCount || 0),
-                ok: !!(composer && routeReady && pendingRouteChanged)
+                attachmentCount: zeroState.attachmentCount,
+                composerBlank: zeroState.composerBlank,
+                composerTextLength: zeroState.composerTextLength,
+                uploadBusy: zeroState.uploadBusy,
+                zeroStateReady: zeroState.zeroStateReady,
+                zeroStateTextReady: zeroState.zeroStateTextReady,
+                zeroStateSignals: zeroState.zeroStateSignals,
+                ok: !!(composer && routeReady && (pendingRouteChanged || zeroState.zeroStateReady))
             };
         }
 
@@ -4396,7 +4466,7 @@
                         prefix: engine?.i18n?.t?.("quickInput.newChatVerifyPrefix", {}, "Notion AI route verification failed: ") || "Notion AI route verification failed: "
                     });
                 }
-                return `Notion new chat not ready: url=${state?.currentUrl || ""}, route=${state?.currentTarget?.kind || "unknown"}, composer=${state?.composer ? 1 : 0}, attachment=${state?.attachmentCount || 0}`;
+                return `Notion new chat not ready: url=${state?.currentUrl || ""}, route=${state?.currentTarget?.kind || "unknown"}, routeChanged=${state?.pendingRouteChanged ? 1 : 0}, composer=${state?.composer ? 1 : 0}, composerBlank=${state?.composerBlank ? 1 : 0}, zeroState=${state?.zeroStateReady ? 1 : 0}, zeroText=${state?.zeroStateTextReady ? 1 : 0}, attachment=${state?.attachmentCount || 0}, busy=${state?.uploadBusy ? 1 : 0}`;
             })();
             return {
                 ok: !!observed?.ok,
