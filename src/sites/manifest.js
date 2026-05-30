@@ -485,16 +485,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260529] v1.2.0",
+            name: "[Notion] 快捷键跳转 [20260530] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260529] v1.2.0",
-            updateLog: "1.2.0: 修复 Notion AI 主输入框模型选择器定位、菜单行级点击与关闭验收，提升直接模型快捷键可靠性。",
+            version: "[20260530] v1.0.0",
+            updateLog: "1.0.0: 修复 Notion AI Quick Input 图片上传卡住后的恢复流程，失败时会清空当前附件并整组重试，避免未就绪时发送。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260529] v1.2.0",
+                    name: "[Notion] Shortcut Jump [20260530] v1.0.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.2.0: Fixed Notion AI main composer model picker targeting, row-level menu clicks, and close verification to make direct model shortcuts more reliable."
+                    updateLog: "1.0.0: Fixed Notion AI Quick Input image upload recovery so failed or stuck uploads clear current attachments and retry the whole image group before sending."
                 }
             },
             match: [

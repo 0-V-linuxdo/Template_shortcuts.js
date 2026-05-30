@@ -3614,16 +3614,21 @@
             return `${snapshot.attachmentCount || 0};${snapshot.imageCount || 0};${snapshot.removeCount || 0};${snapshot.previewCount || 0};${snapshot.fingerprint || ""}`;
         }
 
-        async function waitForNotionAttachmentChange(containerEl, previousSnapshot, { timeoutMs = 9000, intervalMs = 120, shouldCancel = null, runtime = null } = {}) {
+        function hasNotionAttachmentSnapshotChange(previousSnapshot, nextSnapshot) {
             const previousCount = Number(previousSnapshot?.attachmentCount || 0);
-            const previousFingerprint = getNotionAttachmentFingerprint(previousSnapshot);
+            const nextCount = Number(nextSnapshot?.attachmentCount || 0);
+            if (nextCount > previousCount) return true;
+            if (Number(nextSnapshot?.imageCount || 0) > Number(previousSnapshot?.imageCount || 0)) return true;
+            if (Number(nextSnapshot?.removeCount || 0) > Number(previousSnapshot?.removeCount || 0)) return true;
+            if (Number(nextSnapshot?.previewCount || 0) > Number(previousSnapshot?.previewCount || 0)) return true;
+            return nextCount > 0 && getNotionAttachmentFingerprint(nextSnapshot) !== getNotionAttachmentFingerprint(previousSnapshot);
+        }
+
+        async function waitForNotionAttachmentChange(containerEl, previousSnapshot, { timeoutMs = 9000, intervalMs = 120, shouldCancel = null, runtime = null } = {}) {
             const observed = await waitForObservedState({
                 resolveRoots: () => [containerEl || findNotionComposerContainer(), document.body || document],
                 computeState: () => getNotionAttachmentSnapshot(containerEl),
-                isSatisfied: (state) => {
-                    const count = Number(state?.attachmentCount || 0);
-                    return count > previousCount || (count > 0 && getNotionAttachmentFingerprint(state) !== previousFingerprint);
-                },
+                isSatisfied: (state) => hasNotionAttachmentSnapshotChange(previousSnapshot, state),
                 timeoutMs,
                 settleMs: 280,
                 pollFallbackMs: Math.max(250, Number(intervalMs) || 120),
@@ -3663,8 +3668,22 @@
             return fired;
         }
 
-        function tryAttachNotionImageViaFileInput(file, composerEl, diagnostics) {
-            const container = findNotionComposerContainer(composerEl);
+        function isNotionImageFileInputCandidate(input) {
+            if (!input || String(input.type || "").toLowerCase() !== "file") return false;
+            if (input.disabled) return false;
+            const accept = String(input.getAttribute?.("accept") || input.accept || "").toLowerCase();
+            return !accept ||
+                accept.includes("image") ||
+                accept.includes(".png") ||
+                accept.includes(".jpg") ||
+                accept.includes(".jpeg") ||
+                accept.includes(".webp") ||
+                accept.includes(".gif") ||
+                accept.includes(".heic");
+        }
+
+        function collectNotionImageFileInputs(containerEl = null) {
+            const container = containerEl || findNotionComposerContainer();
             const candidates = [];
             if (container) candidates.push(...collectFileInputs(container, { shouldIgnore: isInsideQuickInputOverlay }));
             candidates.push(...collectFileInputs(document, { shouldIgnore: isInsideQuickInputOverlay }));
@@ -3672,25 +3691,122 @@
                 if (container) candidates.push(...collectFileInputsFromOpenShadows(container, { maxHosts: 1200, shouldIgnore: isInsideQuickInputOverlay }));
                 candidates.push(...collectFileInputsFromOpenShadows(document, { maxHosts: 3500, shouldIgnore: isInsideQuickInputOverlay }));
             }
+            return Array.from(new Set(candidates.filter(input => input && !isInsideQuickInputOverlay(input) && isNotionImageFileInputCandidate(input))))
+                .sort((a, b) => {
+                    const aAccept = String(a.getAttribute?.("accept") || a.accept || "").toLowerCase();
+                    const bAccept = String(b.getAttribute?.("accept") || b.accept || "").toLowerCase();
+                    const aSpecificImage = aAccept.includes("image");
+                    const bSpecificImage = bAccept.includes("image");
+                    return Number(bSpecificImage) - Number(aSpecificImage);
+                });
+        }
 
-            const uniq = Array.from(new Set(candidates.filter(input => input && !isInsideQuickInputOverlay(input))));
-            if (diagnostics && typeof diagnostics === "object") diagnostics.fileInputCandidates = uniq.length;
-            const sorted = uniq.sort((a, b) => {
-                const aAccept = String(a.getAttribute?.("accept") || a.accept || "").toLowerCase();
-                const bAccept = String(b.getAttribute?.("accept") || b.accept || "").toLowerCase();
-                const aImage = !aAccept || aAccept.includes("image") || aAccept.includes(".png") || aAccept.includes(".jpg") || aAccept.includes(".jpeg") || aAccept.includes(".webp");
-                const bImage = !bAccept || bAccept.includes("image") || bAccept.includes(".png") || bAccept.includes(".jpg") || bAccept.includes(".jpeg") || bAccept.includes(".webp");
-                return Number(bImage) - Number(aImage);
-            });
-            for (const input of sorted) {
+        function findNotionFileUploadMenuTrigger(composerEl) {
+            const container = findNotionComposerContainer(composerEl);
+            const selectors = [
+                '[data-testid="unified-chat-plus-menu-button"]',
+                '[data-testid*="plus-menu" i]',
+                '[data-testid*="context" i][role="button"]',
+                '[role="button"][aria-label*="give context" i]',
+                '[role="button"][aria-label*="add context" i]',
+                'button[aria-label*="give context" i]',
+                'button[aria-label*="add context" i]'
+            ].join(", ");
+            const candidates = [];
+            for (const scope of [container, document].filter(Boolean)) {
+                candidates.push(...collectNotionElementsAcrossOpenShadows(scope, selectors, {
+                    shouldIgnore: element => isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)
+                }));
+            }
+            return Array.from(new Set(candidates))
+                .filter(element => element && isVisibleElement(element) && !isElementDisabled(element))
+                .map(element => getClickableActionElement(element, container) || element)
+                .find(Boolean) || null;
+        }
+
+        function findNotionFileUploadMenuItem() {
+            const selectors = [
+                '[role="menuitem"]',
+                '[role="option"]',
+                '[role="button"]',
+                "button",
+                '[tabindex]:not([tabindex="-1"])'
+            ].join(", ");
+            const roots = collectNotionElementsAcrossOpenShadows(document, [
+                '[role="menu"]',
+                '[role="dialog"]',
+                '[data-radix-menu-content]',
+                '[data-floating-ui-portal]'
+            ], {
+                shouldIgnore: element => isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)
+            }).filter(isVisibleElement);
+            const candidates = [];
+            for (const root of roots.length ? roots : [document]) {
+                candidates.push(...collectNotionElementsAcrossOpenShadows(root, selectors, {
+                    shouldIgnore: element => isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)
+                }));
+            }
+            return Array.from(new Set(candidates))
+                .filter(element => element && isVisibleElement(element) && !isElementDisabled(element))
+                .find(element => {
+                    const text = normalizeNotionText(getElementSearchText(element));
+                    if (!text) return false;
+                    if (text.includes("create image") || text.includes("generate image")) return false;
+                    if (text.includes("add images") || text.includes("add image")) return true;
+                    if (text.includes("pdfs or csvs") && text.includes("image")) return true;
+                    if (text.includes("upload") && (text.includes("image") || text.includes("file"))) return true;
+                    return /添加|上传/.test(text) && /图片|图像|文件|附件/.test(text);
+                }) || null;
+        }
+
+        async function openNotionFileUploadInput(composerEl, { shouldCancel = null, runtime = null, diagnostics = null } = {}) {
+            const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
+            const beforeInputs = collectNotionImageFileInputs(findNotionComposerContainer(composerEl));
+            if (beforeInputs.length > 0) return beforeInputs[0];
+
+            const trigger = findNotionFileUploadMenuTrigger(composerEl);
+            if (!trigger) return null;
+            if (diagnostics && typeof diagnostics === "object") diagnostics.fileInputMenuOpened = true;
+            simulateClickElement(trigger, { nativeFallback: true });
+            if (!(await runtimeSleep(runtime, 180, { shouldCancel: cancelFn }))) return null;
+
+            let item = null;
+            const itemDeadline = getRuntimeNow(runtime) + 2500;
+            while (!(cancelFn && cancelFn()) && getRuntimeNow(runtime) < itemDeadline) {
+                item = findNotionFileUploadMenuItem();
+                if (item) break;
+                if (!(await runtimeSleep(runtime, 120, { shouldCancel: cancelFn }))) return null;
+            }
+            if (!item) return null;
+            simulateClickElement(item, { nativeFallback: true });
+
+            const inputDeadline = getRuntimeNow(runtime) + 3000;
+            let inputs = [];
+            while (!(cancelFn && cancelFn()) && getRuntimeNow(runtime) < inputDeadline) {
+                inputs = collectNotionImageFileInputs(findNotionComposerContainer(composerEl));
+                if (inputs.length > 0) return inputs[0];
+                if (!(await runtimeSleep(runtime, 120, { shouldCancel: cancelFn }))) return null;
+            }
+            return inputs[0] || null;
+        }
+
+        async function tryAttachNotionImageViaFileInput(file, composerEl, diagnostics, { shouldCancel = null, runtime = null } = {}) {
+            const container = findNotionComposerContainer(composerEl);
+            let inputs = collectNotionImageFileInputs(container);
+            if (diagnostics && typeof diagnostics === "object") diagnostics.fileInputCandidates = inputs.length;
+            if (inputs.length === 0) {
+                const openedInput = await openNotionFileUploadInput(composerEl, { shouldCancel, runtime, diagnostics });
+                if (openedInput) inputs = [openedInput, ...collectNotionImageFileInputs(container)];
+                inputs = Array.from(new Set(inputs.filter(Boolean)));
+                if (diagnostics && typeof diagnostics === "object") diagnostics.fileInputCandidates = inputs.length;
+            }
+            for (const input of inputs) {
                 if (trySetFileInputFiles(input, file)) return true;
             }
             return false;
         }
 
         async function waitForNotionImageAttachAccepted(containerEl, previousSnapshot, { timeoutMs = 30000, intervalMs = 120, shouldCancel = null, runtime = null } = {}) {
-            const previousCount = Number(previousSnapshot?.attachmentCount || 0);
-            const previousFingerprint = getNotionAttachmentFingerprint(previousSnapshot);
             const computeState = () => {
                 const snapshot = getNotionAttachmentSnapshot(containerEl);
                 const busy = hasNotionUploadInProgress(containerEl);
@@ -3705,9 +3821,7 @@
                 computeState,
                 isSatisfied: (state) => {
                     if (state?.busy) return true;
-                    const snapshot = state?.snapshot || null;
-                    const count = Number(snapshot?.attachmentCount || 0);
-                    return count > previousCount || (count > 0 && getNotionAttachmentFingerprint(snapshot) !== previousFingerprint);
+                    return hasNotionAttachmentSnapshotChange(previousSnapshot, state?.snapshot || null);
                 },
                 timeoutMs,
                 settleMs: 240,
@@ -3755,9 +3869,12 @@
                 },
                 {
                     name: "fileInput",
-                    run: () => {
+                    run: async () => {
                         diagnostics.attempts.fileInput += 1;
-                        const fired = tryAttachNotionImageViaFileInput(file, composer, diagnostics);
+                        const fired = await tryAttachNotionImageViaFileInput(file, composer, diagnostics, {
+                            shouldCancel: cancelFn,
+                            runtime
+                        });
                         if (fired) diagnostics.fired.fileInput += 1;
                         return fired;
                     }
@@ -3772,7 +3889,7 @@
                 try { simulateClickElement(composer, { nativeFallback: true }); } catch { }
                 if (!(await runtimeSleep(runtime, 30, { shouldCancel: cancelFn }))) return { ok: false, cancelled: true };
 
-                const fired = plan.run();
+                const fired = await plan.run();
                 if (!fired) continue;
                 const accepted = await waitForNotionImageAttachAccepted(container, previousSnapshot, {
                     timeoutMs: 30000,
@@ -3783,24 +3900,67 @@
                 if (accepted.cancelled) return { ok: false, cancelled: true };
                 if (accepted.ok) {
                     diagnostics.accepted = plan.name;
-                    return { ok: true, cancelled: false };
+                    return {
+                        ok: true,
+                        cancelled: false,
+                        snapshot: accepted.snapshot || null,
+                        uploadBusy: !!accepted.busy,
+                        acceptedStrategy: plan.name
+                    };
                 }
+
+                const failedSnapshot = accepted.snapshot || getNotionAttachmentSnapshot(container);
+                const uploadBusy = !!accepted.busy || hasNotionUploadInProgress(container);
+                const recoverableResidue = uploadBusy || hasNotionAttachmentSnapshotChange(previousSnapshot, failedSnapshot);
+                if (recoverableResidue) {
+                    if (typeof onDiagnostics === "function") {
+                        try {
+                            onDiagnostics({
+                                ...diagnostics,
+                                level: "error",
+                                message: `Image upload event fired via ${plan.name}, but Notion left a partial attachment or upload-busy state; clearing attachments before retry.`
+                            });
+                        } catch { }
+                    }
+                    return {
+                        ok: false,
+                        cancelled: false,
+                        recoverable: true,
+                        snapshot: failedSnapshot,
+                        uploadBusy,
+                        failedStrategy: plan.name
+                    };
+                }
+
                 if (typeof onDiagnostics === "function") {
                     try {
                         onDiagnostics({
                             ...diagnostics,
-                            level: "error",
-                            message: `Image upload event fired via ${plan.name}, but Notion did not expose an upload indicator or attachment preview before timeout; skipped fallback upload to avoid duplicates.`
+                            level: "warn",
+                            message: `Image upload event fired via ${plan.name}, but Notion did not expose an upload indicator or attachment preview before timeout; trying the next upload strategy.`
                         });
                     } catch { }
                 }
-                return { ok: false, cancelled: false };
             }
 
+            const finalSnapshot = getNotionAttachmentSnapshot(container);
+            const uploadBusy = hasNotionUploadInProgress(container);
             if (typeof onDiagnostics === "function") {
-                try { onDiagnostics(diagnostics); } catch { }
+                try {
+                    onDiagnostics({
+                        ...diagnostics,
+                        level: "error",
+                        message: "Image upload strategies did not produce a confirmed Notion attachment."
+                    });
+                } catch { }
             }
-            return { ok: false, cancelled: false };
+            return {
+                ok: false,
+                cancelled: false,
+                recoverable: true,
+                snapshot: finalSnapshot,
+                uploadBusy
+            };
         }
 
         async function attachNotionImages(files, composerEl, { onDiagnostics = null, shouldCancel = null, runtime = null } = {}) {
@@ -3827,7 +3987,11 @@
                     return {
                         ok: false,
                         cancelled: false,
-                        message: qiText("attachFailed", {}, "Image paste failed: no image preview was detected in the input box.")
+                        recoverable: result.recoverable !== false,
+                        snapshot: result.snapshot || null,
+                        attachmentCount: Number(result.snapshot?.attachmentCount || 0),
+                        uploadBusy: !!result.uploadBusy,
+                        message: result.message || qiText("attachFailed", {}, "Image paste failed: no image preview was detected in the input box.")
                     };
                 }
                 if (!(await runtimeSleep(runtime, 120, { shouldCancel: cancelFn }))) return { ok: false, cancelled: true };
@@ -4004,13 +4168,40 @@
                 "[role='progressbar']",
                 "progress",
                 "[data-testid*='uploading' i]",
+                "[data-testid*='upload' i]",
                 "[class*='uploading' i]",
-                "[class*='spinner' i]",
-                "[class*='progress' i]"
+                "[class*='spinner' i]"
             ].join(", ");
             return collectNotionElementsAcrossOpenShadows(scope, selectors, {
                 shouldIgnore: element => isInsideQuickInputOverlay(element) || isInsideShortcutUi(element)
-            }).some(element => element && isVisibleElement(element));
+            }).some(element => {
+                if (!element || !isVisibleElement(element)) return false;
+                if (findNotionAttachmentCardElement(element, scope)) return true;
+                if (isLikelyNotionAttachmentPreviewElement(element)) return true;
+                const tag = String(element.tagName || "").toLowerCase();
+                const role = String(element.getAttribute?.("role") || "").toLowerCase();
+                const ariaBusy = String(element.getAttribute?.("aria-busy") || "").toLowerCase() === "true";
+                const text = normalizeNotionText(getElementSearchText(element));
+                const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+                const className = String(element.getAttribute?.("class") || "").toLowerCase();
+                const ariaLabel = String(element.getAttribute?.("aria-label") || "").toLowerCase();
+                const title = String(element.getAttribute?.("title") || "").toLowerCase();
+                const haystack = `${text} ${dataTestId} ${className} ${ariaLabel} ${title}`;
+                const uploadContext = /\b(?:upload|uploading|attachment|file-preview|upload-preview|file|image|preview)\b/.test(haystack) ||
+                    /上传|附件|图片|图像|文件|预览/.test(haystack);
+                if (uploadContext) return true;
+                if (!(ariaBusy || role === "progressbar" || tag === "progress")) return false;
+
+                let node = element.parentElement || null;
+                for (let depth = 0; node && depth < 4; depth += 1) {
+                    if (node === scope || node === document.body) break;
+                    if (findNotionAttachmentCardElement(node, scope) || isLikelyNotionAttachmentPreviewElement(node)) return true;
+                    const parentHaystack = `${normalizeNotionText(getElementSearchText(node))} ${String(node.getAttribute?.("data-testid") || "").toLowerCase()} ${String(node.getAttribute?.("class") || "").toLowerCase()} ${String(node.getAttribute?.("aria-label") || "").toLowerCase()}`;
+                    if (/\b(?:upload|uploading|attachment|file-preview|upload-preview|file|image|preview)\b/.test(parentHaystack) || /上传|附件|图片|图像|文件|预览/.test(parentHaystack)) return true;
+                    node = node.parentElement || null;
+                }
+                return false;
+            });
         }
 
         function getNotionImagesReadyState(composerEl, { requireImage = true, minAttachments = 0 } = {}) {
@@ -4056,10 +4247,25 @@
                 runtime
             });
             const state = observed?.state || computeState();
-            if (observed?.cancelled) return { ok: false, reason: "cancelled", cancelled: true, snapshot: state?.snapshot || null };
+            if (observed?.cancelled) {
+                return {
+                    ok: false,
+                    reason: "cancelled",
+                    cancelled: true,
+                    composer: state?.composer || composerRef,
+                    snapshot: state?.snapshot || null,
+                    attachmentCount: Number(state?.attachmentCount || 0),
+                    requiredAttachments: Number(state?.requiredAttachments || 0),
+                    uploadBusy: !!state?.uploadBusy
+                };
+            }
             return {
                 ok: !!observed?.ok,
+                composer: state?.composer || composerRef,
                 snapshot: state?.snapshot || null,
+                attachmentCount: Number(state?.attachmentCount || 0),
+                requiredAttachments: Number(state?.requiredAttachments || 0),
+                uploadBusy: !!state?.uploadBusy,
                 reason: observed?.ok ? "ok" : "timeout",
                 cancelled: false,
                 message: observed?.ok ? "" : `Notion images not ready: attachment=${state?.attachmentCount || 0}, busy=${state?.uploadBusy ? 1 : 0}`
@@ -4117,11 +4323,29 @@
                 runtime
             });
             const state = observed?.state || computeState();
-            if (observed?.cancelled) return { ok: false, reason: "cancelled", cancelled: true, snapshot: state?.snapshot || null };
+            if (observed?.cancelled) {
+                return {
+                    ok: false,
+                    reason: "cancelled",
+                    cancelled: true,
+                    composer: state?.composer || composerRef,
+                    button: state?.sendButton || null,
+                    snapshot: state?.snapshot || null,
+                    attachmentCount: Number(state?.attachmentCount || 0),
+                    requiredAttachments: Number(state?.requiredAttachments || 0),
+                    uploadBusy: !!state?.uploadBusy,
+                    sendReady: !!state?.sendReady
+                };
+            }
             return {
                 ok: !!observed?.ok,
+                composer: state?.composer || composerRef,
                 button: state?.sendButton || null,
                 snapshot: state?.snapshot || null,
+                attachmentCount: Number(state?.attachmentCount || 0),
+                requiredAttachments: Number(state?.requiredAttachments || 0),
+                uploadBusy: !!state?.uploadBusy,
+                sendReady: !!state?.sendReady,
                 reason: observed?.ok ? "ok" : "timeout",
                 cancelled: false,
                 message: observed?.ok ? "" : `Notion composer not ready: attachment=${state?.attachmentCount || 0}, text=${state?.textLength || 0}, busy=${state?.uploadBusy ? 1 : 0}, sendReady=${state?.sendReady ? 1 : 0}`

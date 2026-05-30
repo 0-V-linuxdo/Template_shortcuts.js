@@ -3241,7 +3241,8 @@ export function createController(userOptions = {}) {
                         return;
                     }
                     if (diag && typeof diag === "object") {
-                        const level = String(diag.level || "").toLowerCase() === "ok" ? "ok" : "error";
+                        const rawLevel = String(diag.level || "").toLowerCase();
+                        const level = rawLevel === "ok" || rawLevel === "warn" ? rawLevel : "error";
                         if (typeof diag.message === "string" && diag.message.trim()) {
                             appendLoopLog(diag.message, { level });
                             return;
@@ -3251,7 +3252,7 @@ export function createController(userOptions = {}) {
                             const diagMsg = labels.messages?.diagnostics
                                 ? labels.messages.diagnostics(json)
                                 : DEFAULT_LABELS.messages.diagnostics(json);
-                            appendLoopLog(diagMsg, { level: "error" });
+                            appendLoopLog(diagMsg, { level });
                         } catch {}
                     }
                 }
@@ -3272,8 +3273,28 @@ export function createController(userOptions = {}) {
                 }
 
                 function getReadyAttachmentCount(readyState) {
-                    const count = Number(readyState?.snapshot?.attachmentCount);
-                    return Number.isFinite(count) && count > 0 ? count : 0;
+                    const candidates = [
+                        readyState?.attachmentCount,
+                        readyState?.snapshot?.attachmentCount,
+                        readyState?.state?.attachmentCount,
+                        readyState?.ready?.attachmentCount,
+                        readyState?.ready?.snapshot?.attachmentCount
+                    ];
+                    for (const candidate of candidates) {
+                        const count = Number(candidate);
+                        if (Number.isFinite(count) && count > 0) return count;
+                    }
+                    return 0;
+                }
+
+                function isImageReadyStateUploadBusy(readyState) {
+                    return !!(
+                        readyState?.uploadBusy ||
+                        readyState?.busy ||
+                        readyState?.state?.uploadBusy ||
+                        readyState?.ready?.uploadBusy ||
+                        readyState?.ready?.busy
+                    );
                 }
 
                 function buildImageReadyFailureDetail(readyState, expectedCount) {
@@ -3513,6 +3534,114 @@ export function createController(userOptions = {}) {
                     return list.slice(0, need);
                 }
 
+                async function resetImageAttachmentsAndReupload(composerEl, fileList, {
+                    currentCount = 0,
+                    expectedCount = 0,
+                    resetAttempt = 1,
+                    maxResetAttempts = 1,
+                    stageName = "beforeReset"
+                } = {}) {
+                    let composerRef = composerEl;
+                    const expected = Math.max(0, Number(expectedCount) || 0);
+                    const resetMsg = labels.messages?.resettingImages
+                        ? labels.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts)
+                        : DEFAULT_LABELS.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts);
+                    appendLoopLog(resetMsg, { level: "error" });
+
+                    const beforeResetReady = await verifyInputUrlReady(getStageLabel(stageName, `#${resetAttempt}`));
+                    if (beforeResetReady === "cancelled") {
+                        return { ok: false, cancelled: true, composer: composerRef };
+                    }
+                    if (beforeResetReady !== true) {
+                        return { ok: false, cancelled: false, composer: composerRef };
+                    }
+
+                    composerRef = await adapter.focusComposer({ timeoutMs: 6000, intervalMs: 120, shouldCancel, runtime }) || composerRef;
+                    if (!composerRef) {
+                        return {
+                            ok: false,
+                            cancelled: !!cancelRun,
+                            composer: composerEl,
+                            message: labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound
+                        };
+                    }
+
+                    const clearResult = await clearImageAttachments(composerRef);
+                    if (clearResult?.cancelled) {
+                        return { ok: false, cancelled: true, composer: composerRef, ready: clearResult };
+                    }
+                    if (!clearResult?.ok) {
+                        const clearFailedMsg = labels.messages?.clearAttachmentsFailed || DEFAULT_LABELS.messages.clearAttachmentsFailed;
+                        if (clearFailedMsg) appendLoopLog(clearFailedMsg, { level: "error" });
+                        return {
+                            ok: false,
+                            cancelled: false,
+                            composer: composerRef,
+                            ready: clearResult,
+                            message: (typeof clearResult?.message === "string" && clearResult.message.trim())
+                                ? clearResult.message.trim()
+                                : clearFailedMsg
+                        };
+                    }
+
+                    const clearWaitOk = await waitStep(cfg.stepDelayMs);
+                    if (!clearWaitOk) return { ok: false, cancelled: true, composer: composerRef, ready: clearResult };
+
+                    const reuploadResult = await attachImageFiles(fileList, composerRef);
+                    if (reuploadResult?.cancelled) {
+                        return { ok: false, cancelled: true, composer: composerRef, ready: reuploadResult };
+                    }
+                    if (!reuploadResult?.ok) {
+                        return {
+                            ok: false,
+                            cancelled: false,
+                            composer: composerRef,
+                            ready: reuploadResult,
+                            message: (typeof reuploadResult?.message === "string" && reuploadResult.message.trim())
+                                ? reuploadResult.message.trim()
+                                : (labels.messages?.imageReuploadFailed || DEFAULT_LABELS.messages.imageReuploadFailed)
+                        };
+                    }
+
+                    const reuploadedMsg = labels.messages?.reuploadedImages
+                        ? labels.messages.reuploadedImages(fileList.length, expected)
+                        : DEFAULT_LABELS.messages.reuploadedImages(fileList.length, expected);
+                    appendLoopLog(reuploadedMsg, { level: "ok" });
+                    return { ok: true, cancelled: false, composer: composerRef, ready: reuploadResult };
+                }
+
+                async function attachImageFilesWithReset(fileList, composerEl, expectedCount) {
+                    const expected = Math.max(0, Number(expectedCount) || 0);
+                    const imageRecovery = normalizeImageRecovery(defaults?.imageRecovery);
+                    const maxResetAttempts = imageRecovery.maxResetAttempts;
+                    let composerRef = composerEl;
+                    let resetAttempt = 0;
+                    let result = await attachImageFiles(fileList, composerRef);
+
+                    if (result?.cancelled) return { ok: false, cancelled: true, composer: composerRef, ready: result };
+                    if (result?.ok) return { ...result, ok: true, cancelled: false, composer: composerRef };
+                    if (!(adapter.clearAttachments && adapter.attachImages)) {
+                        return { ...result, ok: false, cancelled: false, composer: composerRef, ready: result };
+                    }
+
+                    while (resetAttempt < maxResetAttempts) {
+                        resetAttempt += 1;
+                        const resetResult = await resetImageAttachmentsAndReupload(composerRef, fileList, {
+                            currentCount: getReadyAttachmentCount(result),
+                            expectedCount: expected,
+                            resetAttempt,
+                            maxResetAttempts,
+                            stageName: "beforeAttachReset"
+                        });
+                        if (resetResult?.composer) composerRef = resetResult.composer;
+                        if (resetResult?.cancelled) return resetResult;
+                        if (resetResult?.ok) return resetResult;
+                        result = resetResult.ready || resetResult;
+                    }
+
+                    return { ...result, ok: false, cancelled: false, composer: composerRef, ready: result };
+                }
+
                 async function waitForImagesReadyWithReset(composerEl, expectedCount) {
                     const expected = Math.max(0, Number(expectedCount) || 0);
                     const imageRecovery = normalizeImageRecovery(defaults?.imageRecovery);
@@ -3551,73 +3680,20 @@ export function createController(userOptions = {}) {
                         const reason = String(ready?.reason || "").trim().toLowerCase();
                         const currentCount = getReadyAttachmentCount(ready);
                         const missingCount = Math.max(0, expected - currentCount);
-                        if (reason === "timeout" && missingCount > 0 && resetAttempt < maxResetAttempts && adapter.clearAttachments && adapter.attachImages) {
+                        const uploadBusy = isImageReadyStateUploadBusy(ready);
+                        if (reason === "timeout" && (missingCount > 0 || uploadBusy) && resetAttempt < maxResetAttempts && adapter.clearAttachments && adapter.attachImages) {
                             resetAttempt += 1;
-                            const resetMsg = labels.messages?.resettingImages
-                                ? labels.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts)
-                                : DEFAULT_LABELS.messages.resettingImages(currentCount, expected, resetAttempt, maxResetAttempts);
-                            appendLoopLog(resetMsg, { level: "error" });
+                            const reuploadResult = await resetImageAttachmentsAndReupload(composerRef, images, {
+                                currentCount,
+                                expectedCount: expected,
+                                resetAttempt,
+                                maxResetAttempts,
+                                stageName: "beforeReset"
+                            });
+                            if (reuploadResult?.composer) composerRef = reuploadResult.composer;
+                            if (reuploadResult?.cancelled) return { ...reuploadResult, ready: reuploadResult.ready || ready };
+                            if (!reuploadResult?.ok) return { ...reuploadResult, ready: reuploadResult.ready || ready };
 
-                            const beforeResetReady = await verifyInputUrlReady(getStageLabel("beforeReset", `#${resetAttempt}`));
-                            if (beforeResetReady === "cancelled") {
-                                return { ok: false, cancelled: true, composer: composerRef, ready };
-                            }
-                            if (beforeResetReady !== true) {
-                                return { ok: false, cancelled: false, composer: composerRef, ready };
-                            }
-
-                            composerRef = await adapter.focusComposer({ timeoutMs: 6000, intervalMs: 120, shouldCancel, runtime }) || composerRef;
-                            if (!composerRef) {
-                                return {
-                                    ok: false,
-                                    cancelled: !!cancelRun,
-                                    composer: composerEl,
-                                    ready,
-                                    message: labels.messages?.composerNotFound || DEFAULT_LABELS.messages.composerNotFound
-                                };
-                            }
-
-                            const clearResult = await clearImageAttachments(composerRef);
-                            if (clearResult?.cancelled) {
-                                return { ok: false, cancelled: true, composer: composerRef, ready: clearResult };
-                            }
-                            if (!clearResult?.ok) {
-                                const clearFailedMsg = labels.messages?.clearAttachmentsFailed || DEFAULT_LABELS.messages.clearAttachmentsFailed;
-                                if (clearFailedMsg) appendLoopLog(clearFailedMsg, { level: "error" });
-                                return {
-                                    ok: false,
-                                    cancelled: false,
-                                    composer: composerRef,
-                                    ready: clearResult,
-                                    message: (typeof clearResult?.message === "string" && clearResult.message.trim())
-                                        ? clearResult.message.trim()
-                                        : clearFailedMsg
-                                };
-                            }
-
-                            const clearWaitOk = await waitStep(cfg.stepDelayMs);
-                            if (!clearWaitOk) return { ok: false, cancelled: true, composer: composerRef, ready: clearResult };
-
-                            const reuploadResult = await attachImageFiles(images, composerRef);
-                            if (reuploadResult?.cancelled) {
-                                return { ok: false, cancelled: true, composer: composerRef, ready: reuploadResult };
-                            }
-                            if (!reuploadResult?.ok) {
-                                return {
-                                    ok: false,
-                                    cancelled: false,
-                                    composer: composerRef,
-                                    ready: reuploadResult,
-                                    message: (typeof reuploadResult?.message === "string" && reuploadResult.message.trim())
-                                        ? reuploadResult.message.trim()
-                                        : (labels.messages?.imageReuploadFailed || DEFAULT_LABELS.messages.imageReuploadFailed)
-                                };
-                            }
-
-                            const reuploadedMsg = labels.messages?.reuploadedImages
-                                ? labels.messages.reuploadedImages(images.length, expected)
-                                : DEFAULT_LABELS.messages.reuploadedImages(images.length, expected);
-                            appendLoopLog(reuploadedMsg, { level: "ok" });
                             const reuploadWaitOk = await waitStep(cfg.stepDelayMs);
                             if (!reuploadWaitOk) return { ok: false, cancelled: true, composer: composerRef, ready: reuploadResult };
                             continue;
@@ -3754,7 +3830,8 @@ export function createController(userOptions = {}) {
                             break;
                         }
 
-                        const result = await attachImageFiles(images, composer);
+                        const result = await attachImageFilesWithReset(images, composer, images.length);
+                        if (result?.composer) composer = result.composer;
                         if (result?.cancelled) {
                             markRunCancelled();
                             break;
