@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260530] v1.0.0
-// @name:en        [Notion] Shortcut Jump [20260530] v1.0.0
+// @name           [Notion] 快捷键跳转 [20260530] v1.0.1
+// @name:en        [Notion] Shortcut Jump [20260530] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260530] v1.0.0
-// @update-log     1.0.0: 修复 Notion AI Quick Input 图片上传卡住后的恢复流程，失败时会清空当前附件并整组重试，避免未就绪时发送。
-// @update-log:en  1.0.0: Fixed Notion AI Quick Input image upload recovery so failed or stuck uploads clear current attachments and retry the whole image group before sending.
+// @version        [20260530] v1.0.1
+// @update-log     1.0.1: 修复 Notion AI Quick Input 在 /ai 空白 New Chat 页因 URL 不变化而校验失败的问题，新增空白新聊天页特征识别。
+// @update-log:en  1.0.1: Fixed Notion AI Quick Input new-chat verification on the blank /ai page when the URL does not change by recognizing the blank new-chat zero state.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -22,7 +22,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22notion-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.notion-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.notion-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Cg%20transform%3D%22translate(14%2C%2011)%20scale(2.4)%22%20fill%3D%22currentColor%22%3E%3Cpath%20d%3D%22M3.25781%203.11684C3.67771%203.45796%203.83523%203.43193%204.62369%203.37933L12.0571%202.93299C12.2147%202.93299%2012.0836%202.77571%2012.0311%202.74957L10.7965%201.85711C10.56%201.67347%2010.2448%201.46315%209.64083%201.51576L2.44308%202.04074C2.18059%202.06677%202.12815%202.19801%202.2327%202.30322L3.25781%203.11684ZM3.7041%204.84917V12.6704C3.7041%2013.0907%203.91415%2013.248%204.38693%2013.222L12.5562%2012.7493C13.0292%2012.7233%2013.0819%2012.4341%2013.0819%2012.0927V4.32397C13.0819%203.98306%2012.9508%203.79921%2012.6612%203.82545L4.12422%204.32397C3.80918%204.35044%203.7041%204.50803%203.7041%204.84917ZM11.7688%205.26872C11.8212%205.50518%2011.7688%205.74142%2011.5319%205.76799L11.1383%205.84641V11.6205C10.7965%2011.8042%2010.4814%2011.9092%2010.2188%2011.9092C9.79835%2011.9092%209.69305%2011.7779%209.37812%2011.3844L6.80345%207.34249V11.2532L7.61816%2011.437C7.61816%2011.437%207.61816%2011.9092%206.96086%2011.9092L5.14879%2012.0143C5.09615%2011.9092%205.14879%2011.647%205.33259%2011.5944L5.80546%2011.4634V6.29276L5.1489%206.24015C5.09625%206.00369%205.22739%205.66278%205.5954%205.63631L7.53935%205.50528L10.2188%209.5998V5.97765L9.53564%205.89924C9.4832%205.61018%209.69305%205.40028%209.95576%205.37425L11.7688%205.26872ZM1.83874%201.33212L9.32557%200.780787C10.245%200.701932%2010.4815%200.754753%2011.0594%201.17452L13.4492%202.85424C13.8436%203.14309%2013.975%203.22173%2013.975%203.53661V12.7493C13.975%2013.3266%2013.7647%2013.6681%2013.0293%2013.7203L4.33492%2014.2454C3.78291%2014.2717%203.52019%2014.193%203.23111%2013.8253L1.47116%2011.5419C1.1558%2011.1216%201.02466%2010.8071%201.02466%2010.4392V2.25041C1.02466%201.77825%201.23504%201.38441%201.83874%201.33212Z%22%3E%3C%2Fpath%3E%3C%2Fg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260530.1.0.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260530.1.0.1
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -4058,6 +4058,61 @@
           message: observed?.ok ? "" : `Notion composer not ready: attachment=${state?.attachmentCount || 0}, text=${state?.textLength || 0}, busy=${state?.uploadBusy ? 1 : 0}, sendReady=${state?.sendReady ? 1 : 0}`
         };
       }
+      function getNotionNewChatZeroStateText(composerEl = null, containerEl = null) {
+        const parts = [];
+        const push = (value, maxLength = 32e3) => {
+          const text = String(value ?? "").trim();
+          if (!text) return;
+          parts.push(text.slice(0, Math.max(120, Number(maxLength) || 32e3)));
+        };
+        push(getNotionComposerSearchText(composerEl), 1800);
+        push(getElementSearchText(containerEl), 4800);
+        try {
+          push(document.body?.innerText, 42e3);
+        } catch {
+        }
+        if (parts.length === 0) {
+          try {
+            push(document.body?.textContent, 42e3);
+          } catch {
+          }
+        }
+        return normalizeNotionText(parts.join(" "));
+      }
+      function getNotionNewChatZeroStateSignals(composerEl = null, containerEl = null) {
+        const text = getNotionNewChatZeroStateText(composerEl, containerEl);
+        const hasWelcome = text.includes("how can i help you today");
+        const hasRecentChats = text.includes("recent chats");
+        const hasSuggested = text.includes("suggested");
+        const hasComposerPrompt = text.includes("do anything with ai");
+        const hasSuggestedAction = text.includes("create custom agent") || text.includes("write meeting agenda") || text.includes("analyze pdfs or images");
+        const score = (hasWelcome ? 3 : 0) + (hasRecentChats ? 1 : 0) + (hasSuggested ? 1 : 0) + (hasComposerPrompt ? 1 : 0) + (hasSuggestedAction ? 1 : 0);
+        return {
+          hasWelcome,
+          hasRecentChats,
+          hasSuggested,
+          hasComposerPrompt,
+          hasSuggestedAction,
+          ready: hasWelcome && score >= 4 || hasRecentChats && hasSuggested && hasComposerPrompt
+        };
+      }
+      function getNotionNewChatZeroStateReadiness(composerEl, containerEl, snapshot) {
+        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+        const composerTextLength = composer ? getNotionComposerPlainText(composer, { trimTrailingEditorNewlines: true }).trim().length : 0;
+        const composerBlank = !!(composer && composerTextLength === 0);
+        const attachmentCount = Number(snapshot?.attachmentCount || 0);
+        const uploadBusy = hasNotionUploadInProgress(containerEl);
+        const signals = getNotionNewChatZeroStateSignals(composer, containerEl);
+        return {
+          composerTextLength,
+          composerBlank,
+          attachmentCount,
+          uploadBusy,
+          zeroStateTextReady: !!signals.ready,
+          zeroStateReady: !!(composerBlank && attachmentCount === 0 && !uploadBusy && signals.ready),
+          zeroStateSignals: signals
+        };
+      }
       function getNotionNewChatReadyState() {
         const currentUrl = getCurrentNotionUrl();
         const currentTarget = parseNotionQuickInputTarget(currentUrl);
@@ -4067,6 +4122,7 @@
         const snapshot = getNotionAttachmentSnapshot(container);
         const routeReady = !!currentTarget?.ready;
         const pendingRouteChanged = !pendingTarget || String(currentUrl || "").trim() !== String(pendingTarget.url || "").trim();
+        const zeroState = getNotionNewChatZeroStateReadiness(composer, container, snapshot);
         return {
           composer,
           container,
@@ -4075,8 +4131,14 @@
           pendingTarget,
           routeReady,
           pendingRouteChanged,
-          attachmentCount: Number(snapshot?.attachmentCount || 0),
-          ok: !!(composer && routeReady && pendingRouteChanged)
+          attachmentCount: zeroState.attachmentCount,
+          composerBlank: zeroState.composerBlank,
+          composerTextLength: zeroState.composerTextLength,
+          uploadBusy: zeroState.uploadBusy,
+          zeroStateReady: zeroState.zeroStateReady,
+          zeroStateTextReady: zeroState.zeroStateTextReady,
+          zeroStateSignals: zeroState.zeroStateSignals,
+          ok: !!(composer && routeReady && (pendingRouteChanged || zeroState.zeroStateReady))
         };
       }
       async function waitForNotionNewChatReady({ timeoutMs = 12e3, intervalMs = 160, settleMs = 300, shouldCancel = null, runtime = null } = {}) {
@@ -4101,7 +4163,7 @@
               prefix: engine2?.i18n?.t?.("quickInput.newChatVerifyPrefix", {}, "Notion AI route verification failed: ") || "Notion AI route verification failed: "
             });
           }
-          return `Notion new chat not ready: url=${state?.currentUrl || ""}, route=${state?.currentTarget?.kind || "unknown"}, composer=${state?.composer ? 1 : 0}, attachment=${state?.attachmentCount || 0}`;
+          return `Notion new chat not ready: url=${state?.currentUrl || ""}, route=${state?.currentTarget?.kind || "unknown"}, routeChanged=${state?.pendingRouteChanged ? 1 : 0}, composer=${state?.composer ? 1 : 0}, composerBlank=${state?.composerBlank ? 1 : 0}, zeroState=${state?.zeroStateReady ? 1 : 0}, zeroText=${state?.zeroStateTextReady ? 1 : 0}, attachment=${state?.attachmentCount || 0}, busy=${state?.uploadBusy ? 1 : 0}`;
         })();
         return {
           ok: !!observed?.ok,
