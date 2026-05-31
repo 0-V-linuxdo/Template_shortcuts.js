@@ -111,13 +111,11 @@
         pin: createGeminiNativeShortcutIconSet("push_pin")
     });
 
-    const GEMINI_LEGACY_SHORTCUT_ICON_SETS = Object.freeze({
+    const GEMINI_PREVIOUS_SHORTCUT_ICON_SETS = Object.freeze({
         model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
         tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")]),
         quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")])
     });
-
-    const GEMINI_NATIVE_ICON_RETRY_DELAY_MS = 1200;
 
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
         "New Chat": "newChat",
@@ -238,125 +236,8 @@
     const siteText = (key, fallback) => ({ ctx } = {}) => ctx?.i18n?.t?.(key, {}, fallback) || fallback;
     const siteMessage = (engine, key, vars = {}, fallback = "") => engine?.i18n?.t?.(key, vars, fallback) || fallback;
 
-    const GEMINI_UI_VARIANTS = Object.freeze({
-        legacy: "legacy",
-        modern: "new",
-        unknown: "unknown"
-    });
-    let geminiUiVariantCache = GEMINI_UI_VARIANTS.unknown;
-    let geminiUiVariantCacheReady = false;
-
-    function detectGeminiUiVariant() {
-        try {
-            const modernSignals = [
-                "bard-sidenav .sidenav-with-history-container.expanded",
-                "side-navigation-content .sidenav-with-history-container.expanded",
-                "top-bar-actions.side-nav-expanded",
-                "side-nav-action-button[data-test-id='new-chat-button']",
-                "div[contenteditable='true'][aria-label='Enter a prompt for Gemini']",
-                "div[contenteditable='true'][data-placeholder='Ask Gemini']",
-                "button[aria-label='Open upload file menu']"
-            ];
-            for (const selector of modernSignals) {
-                if (getFirstVisibleBySelector(selector, { fallbackToFirst: true })) {
-                    return GEMINI_UI_VARIANTS.modern;
-                }
-            }
-
-            const modernSidebarRoots = [
-                "bard-sidenav",
-                "side-navigation-content"
-            ];
-            const modernSidebarTokens = [
-                "new chat",
-                "search chats",
-                "images",
-                "videos",
-                "library",
-                "notebooks",
-                "recents"
-            ];
-            for (const selector of modernSidebarRoots) {
-                const root = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
-                if (!root) continue;
-                let sidebarNodes = [];
-                try {
-                    sidebarNodes = Array.from(root.querySelectorAll("button, a, [role='button'], [role='menuitem'], [role='tab']"));
-                } catch {
-                    sidebarNodes = [];
-                }
-                for (const node of sidebarNodes) {
-                    if (!isElementVisible(node)) continue;
-                    const text = normalizeGeminiUiText([
-                        node.textContent,
-                        node.getAttribute?.("aria-label"),
-                        node.getAttribute?.("title")
-                    ].filter(Boolean).join(" "));
-                    if (modernSidebarTokens.some(token => text.includes(token))) {
-                        return GEMINI_UI_VARIANTS.modern;
-                    }
-                }
-            }
-
-            const modernModelButton = getFirstVisibleBySelector([
-                "button[aria-label='Open mode picker']",
-                "bard-mode-switcher button",
-                "[data-test-id='bard-mode-menu-button']"
-            ], { fallbackToFirst: true });
-            const modernModelText = String(modernModelButton?.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
-            if (/\bflash\b/.test(modernModelText) || /\bthinking level\b/.test(modernModelText) || /\b3\s*\.?\s*1\s*pro\b/.test(modernModelText)) {
-                return GEMINI_UI_VARIANTS.modern;
-            }
-
-            const legacySignals = [
-                "toolbox-drawer button.toolbox-drawer-button",
-                "button[data-test-id='bard-mode-option-pro']",
-                "button[data-test-id='bard-mode-option-thinking']",
-                "button[data-test-id='bard-mode-option-fast']",
-                "rich-textarea .ql-editor",
-                ".text-input-field .ql-editor",
-                "button[data-test-id='side-nav-menu-button']"
-            ];
-            for (const selector of legacySignals) {
-                if (getFirstVisibleBySelector(selector, { fallbackToFirst: true })) {
-                    return GEMINI_UI_VARIANTS.legacy;
-                }
-            }
-        } catch { }
-        return GEMINI_UI_VARIANTS.unknown;
-    }
-
-    function getGeminiUiVariant() {
-        if (geminiUiVariantCacheReady) return geminiUiVariantCache;
-        geminiUiVariantCache = detectGeminiUiVariant();
-        geminiUiVariantCacheReady = true;
-        return geminiUiVariantCache;
-    }
-
-    function getGeminiSelectorOrder(legacySelectors, modernSelectors) {
-        const legacy = Array.isArray(legacySelectors) ? legacySelectors.filter(Boolean) : [legacySelectors].filter(Boolean);
-        const modern = Array.isArray(modernSelectors) ? modernSelectors.filter(Boolean) : [modernSelectors].filter(Boolean);
-        const variant = getGeminiUiVariant();
-        if (variant === GEMINI_UI_VARIANTS.modern) return [...modern, ...legacy];
-        return [...legacy, ...modern];
-    }
-
-    getGeminiUiVariant();
-
     const SELECTORS = {
-        sidebarToggle: getGeminiSelectorOrder([
-            "button[data-test-id='side-nav-menu-button']",
-            "side-nav-menu-button button[data-test-id='side-nav-menu-button']",
-            "button[data-test-id='side-nav-menu-button'][jslog^='204298']",
-            "side-nav-menu-button button[jslog^='204298']",
-            "side-nav-menu-button button:has(mat-icon[fonticon='menu'])",
-            "side-nav-menu-button button:has(mat-icon[data-mat-icon-name='menu'])",
-            "side-nav-menu-button button[aria-label='Main menu']",
-            "side-nav-menu-button button",
-            "button[aria-label='Main menu']",
-            "button[aria-label='Open main menu']",
-            "button[aria-label='Open navigation menu']"
-        ], [
+        sidebarToggle: [
             "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Toggle Sidebar']",
             "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Open sidebar']",
             "top-bar-actions button:not([aria-haspopup='menu'])[aria-label='Close sidebar']",
@@ -436,33 +317,23 @@
             "button:not([aria-haspopup='menu'])[aria-label*='侧栏']",
             "button:not([aria-haspopup='menu'])[aria-label*='侧边栏']",
             "button:not([aria-haspopup='menu'])[aria-label*='边栏']"
-        ]),
-        modelPickerButton: getGeminiSelectorOrder([
-            "[data-test-id='bard-mode-menu-button'] button",
-            "[data-test-id='bard-mode-menu-button']"
-        ], [
+        ],
+        modelPickerButton: [
             "button[aria-label='Open mode picker']",
             "bard-mode-switcher button[aria-label='Open mode picker']",
             "bard-mode-switcher button",
             "button[aria-label*='mode picker' i]",
             "button[aria-label*='model' i]"
-        ]),
-        modelPickerMenuRoot: getGeminiSelectorOrder([
-            ".gds-mode-switch-menu.mat-mdc-menu-panel",
-            ".gds-mode-switch-menu[role='menu']"
-        ], [
+        ],
+        modelPickerMenuRoot: [
             ".cdk-overlay-pane .gds-mode-switch-menu.mat-mdc-menu-panel",
             ".cdk-overlay-pane .mat-mdc-menu-panel[role='menu']",
             ".cdk-overlay-pane .mat-menu-panel[role='menu']",
             ".cdk-overlay-pane [role='menu']",
             ".mat-mdc-menu-panel[role='menu']",
             ".mat-menu-panel[role='menu']"
-        ]),
-        toolsButton: getGeminiSelectorOrder([
-            "toolbox-drawer button.toolbox-drawer-button[aria-haspopup='menu']",
-            "button.toolbox-drawer-button[aria-haspopup='menu']",
-            "button.toolbox-drawer-button"
-        ], [
+        ],
+        toolsButton: [
             "[data-node-type='input-area'] button[aria-label='Upload & tools']",
             "input-area-v2 button[aria-label='Upload & tools']",
             "button[aria-label='Upload & tools']",
@@ -477,11 +348,8 @@
             "button[aria-controls='upload-file-menu']",
             "button.upload-card-button.open",
             "button.upload-card-button"
-        ]),
-        toolsMenuRoot: getGeminiSelectorOrder([
-            "mat-action-list#toolbox-drawer-menu[role='menu']",
-            "mat-card.toolbox-drawer-card"
-        ], [
+        ],
+        toolsMenuRoot: [
             ".cdk-overlay-pane #upload-file-menu",
             "#upload-file-menu",
             ".cdk-overlay-pane [id*='upload-file-menu']",
@@ -493,11 +361,8 @@
             ".cdk-overlay-pane",
             ".mat-mdc-menu-panel[role='menu']",
             ".mat-menu-panel[role='menu']"
-        ]),
-        topBarConversationActionsButton: getGeminiSelectorOrder([
-            "top-bar-actions conversation-actions-icon button[data-test-id='conversation-actions-menu-icon-button']",
-            "top-bar-actions button[data-test-id='conversation-actions-menu-icon-button']"
-        ], [
+        ],
+        topBarConversationActionsButton: [
             "top-bar-actions conversation-actions-icon button[data-test-id='conversation-actions-menu-icon-button']",
             "top-bar-actions button[data-test-id='conversation-actions-menu-icon-button']",
             "top-bar-actions button.conversation-actions-menu-button",
@@ -508,7 +373,7 @@
             "button[aria-label*='conversation actions' i]",
             "button[data-test-id='actions-menu-button']",
             "button.conversation-actions-menu-button"
-        ]),
+        ],
         topBarConversationMenuRoot: [
             ".cdk-overlay-pane .mat-mdc-menu-panel[role='menu']",
             ".cdk-overlay-pane .mat-menu-panel[role='menu']",
@@ -524,7 +389,6 @@
     const MODEL_PICKER_OPTION_TARGETS = Object.freeze({
         pro: Object.freeze({
             selector: [
-                "button[data-test-id='bard-mode-option-pro']",
                 "button.bard-mode-list-button[role='menuitemradio']",
                 "button[role='menuitemradio']",
                 "button[role='menuitem']",
@@ -537,7 +401,6 @@
         }),
         thinking: Object.freeze({
             selector: [
-                "button[data-test-id='bard-mode-option-thinking']",
                 "button.bard-mode-list-button[role='menuitemradio']",
                 "button[role='menuitemradio']",
                 "button[role='menuitem']",
@@ -551,8 +414,6 @@
         }),
         extended: Object.freeze({
             selector: [
-                "button[data-test-id='bard-mode-option-extended']",
-                "button[data-test-id*='extended' i]",
                 "button.bard-mode-list-button[role='menuitemradio']",
                 "button[role='menuitemradio']",
                 "button[role='menuitem']",
@@ -565,7 +426,6 @@
         }),
         fast: Object.freeze({
             selector: [
-                "button[data-test-id='bard-mode-option-fast']",
                 "button.bard-mode-list-button[role='menuitemradio']",
                 "button[role='menuitemradio']",
                 "button[role='menuitem']",
@@ -815,14 +675,6 @@
                 if (parts.length > 0) return parts.join(" ");
             }
 
-            const span = document.querySelector("[data-test-id='bard-mode-menu-button'] [data-test-id='logo-pill-label-container'] span");
-            if (span) return span.textContent || "";
-
-            const container = document.querySelector("[data-test-id='bard-mode-menu-button'] [data-test-id='logo-pill-label-container']");
-            if (container) return container.textContent || "";
-
-            const button = document.querySelector("[data-test-id='bard-mode-menu-button']");
-            if (button) return button.textContent || "";
             return "";
         };
         return inferModelKeyFromText(readText());
@@ -880,51 +732,6 @@
         icon: defaultIconURL
     });
 
-    const GEMINI_NEW_CHAT_NATIVE_ICON_SELECTORS = Object.freeze([
-        "side-nav-action-button[data-test-id='new-chat-button']",
-        "side-nav-action-button[data-test-id='new-chat-button'] button",
-        "[data-test-id='new-chat-button']"
-    ]);
-
-    const GEMINI_QUICK_INPUT_NATIVE_ICON_SELECTORS = Object.freeze([
-        "[data-node-type='input-area'] button[aria-label='Send message']",
-        "input-area-v2 button[aria-label='Send message']",
-        "[data-node-type='input-area'] button[aria-label*='send' i]",
-        "input-area-v2 button[aria-label*='send' i]",
-        "button[aria-label='Send message']",
-        "button[aria-label*='send' i]"
-    ]);
-
-    const GEMINI_SHORTCUT_TOOLS_MENU_TARGET_IDS = Object.freeze({
-        canvas: "canvas",
-        createImage: "createImage",
-        learn: "learn",
-        deepResearch: "deepResearch"
-    });
-
-    const GEMINI_SHORTCUT_CONVERSATION_MENU_TARGET_IDS = Object.freeze({
-        delete: "delete",
-        pin: "pin"
-    });
-
-    const GEMINI_SHORTCUT_VISIBLE_MENU_ITEM_SELECTOR = [
-        "button:not([disabled])",
-        "a[href]",
-        "label",
-        "[role='menuitem']",
-        "[role='menuitemradio']",
-        "[role='menuitemcheckbox']",
-        "[role='button']",
-        "[mat-menu-item]",
-        ".mat-mdc-menu-item",
-        ".mat-mdc-list-item",
-        "[jslog]",
-        "[data-test-id]",
-        "[tabindex]",
-        "[aria-label]",
-        "[title]"
-    ].join(", ");
-
     function deriveShortcutKeyFromName(name) {
         const raw = String(name ?? "").trim();
         if (!raw) return "";
@@ -944,217 +751,9 @@
         return head + tail;
     }
 
-    function normalizeGeminiNativeIconName(value) {
-        const token = String(value ?? "").replace(/\s+/g, " ").trim();
-        if (!token || token.length > 80) return "";
-        if (!/^[a-z][a-z0-9_]*$/i.test(token)) return "";
-        return token.toLowerCase();
-    }
-
-    function createGeminiShortcutIconSetFromSource(source) {
-        const normalizedSource = String(source || "").trim();
-        if (!normalizedSource) return null;
-        return {
-            icon: normalizedSource,
-            iconDark: normalizedSource,
-            iconAdaptive: false
-        };
-    }
-
-    function serializeGeminiSvgIcon(svgEl) {
-        if (!svgEl || String(svgEl.tagName || "").toLowerCase() !== "svg") return "";
-        const XMLSerializerCtor = globalThis.XMLSerializer;
-        if (typeof XMLSerializerCtor !== "function") return "";
-
-        let clone = null;
-        try {
-            clone = svgEl.cloneNode(true);
-        } catch {
-            clone = null;
-        }
-        if (!clone) return "";
-
-        try {
-            if (!clone.getAttribute("xmlns")) {
-                clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-            }
-            clone.setAttribute("aria-hidden", "true");
-            clone.removeAttribute("id");
-            clone.removeAttribute("class");
-            clone.removeAttribute("style");
-        } catch { }
-
-        let markup = "";
-        try {
-            markup = new XMLSerializerCtor().serializeToString(clone);
-        } catch {
-            markup = "";
-        }
-        return markup ? `data:image/svg+xml,${encodeURIComponent(markup)}` : "";
-    }
-
-    function getGeminiNativeIconSourceFromElement(element) {
-        if (!element) return "";
-
-        const iconNames = [];
-        try {
-            iconNames.push(...getGeminiElementIconNames(element));
-        } catch { }
-
-        try {
-            const nodes = [];
-            if (element.matches?.("[fonticon], [data-mat-icon-name], mat-icon, .google-symbols, .material-symbols-rounded, .material-symbols-outlined, .material-icons")) {
-                nodes.push(element);
-            }
-            nodes.push(...Array.from(element.querySelectorAll("[fonticon], [data-mat-icon-name], mat-icon, .google-symbols, .material-symbols-rounded, .material-symbols-outlined, .material-icons")));
-            for (const node of nodes) {
-                iconNames.push(
-                    node.getAttribute?.("fonticon"),
-                    node.getAttribute?.("data-mat-icon-name"),
-                    node.textContent
-                );
-            }
-        } catch { }
-
-        for (const rawName of iconNames) {
-            const iconName = normalizeGeminiNativeIconName(rawName);
-            if (iconName) return `font-icon:${iconName}`;
-        }
-
-        try {
-            const img = element.matches?.("img[src]") ? element : element.querySelector?.("img[src]");
-            const src = String(img?.currentSrc || img?.src || img?.getAttribute?.("src") || "").trim();
-            if (/^(?:https?:|data:image\/|blob:)/i.test(src)) return src;
-        } catch { }
-
-        try {
-            const svg = element.matches?.("svg") ? element : element.querySelector?.("svg");
-            const serialized = serializeGeminiSvgIcon(svg);
-            if (serialized) return serialized;
-        } catch { }
-
-        return "";
-    }
-
-    function getGeminiMenuItemIconResolverCandidates(rootEl) {
-        if (!rootEl) return [];
-
-        let nodes = [];
-        try {
-            nodes = Array.from(rootEl.querySelectorAll(GEMINI_SHORTCUT_VISIBLE_MENU_ITEM_SELECTOR));
-        } catch {
-            nodes = [];
-        }
-
-        return nodes.filter(node => node && node !== rootEl && isElementVisible(node));
-    }
-
-    function geminiVisibleMenuItemMatchesTarget(item, target) {
-        if (!item || !target) return false;
-
-        const aliases = Array.isArray(target.aliases) ? target.aliases : [];
-        const uiText = getGeminiUiElementText(item);
-        if (aliases.length && geminiMenuTextExactlyMatches(uiText, aliases, item)) return true;
-
-        const dataTestIds = normalizeGeminiToolStringIds(target.dataTestIds || []);
-        if (dataTestIds.length && getGeminiElementDataTestIds(item).some(id => dataTestIds.includes(id))) return true;
-
-        const jslogIds = normalizeGeminiToolStringIds(target.jslogIds || []);
-        if (jslogIds.length && jslogIds.includes(getGeminiElementJslogId(item))) return true;
-
-        const featureIds = normalizeGeminiToolStringIds(target.featureIds || []);
-        if (featureIds.length && featureIds.includes(getGeminiElementFeatureId(item))) return true;
-
-        const iconNames = normalizeGeminiToolIconNames(target.iconNames || []);
-        if (iconNames.length && getGeminiElementIconNames(item).some(name => iconNames.includes(name))) return true;
-
-        return false;
-    }
-
-    function findGeminiVisibleMenuItemIconSource(roots, target) {
-        const rootList = Array.isArray(roots) ? roots.filter(Boolean) : [];
-        if (rootList.length === 0 || !target) return "";
-
-        for (const rootEl of rootList) {
-            for (const item of getGeminiMenuItemIconResolverCandidates(rootEl)) {
-                if (!geminiVisibleMenuItemMatchesTarget(item, target)) continue;
-                const source = getGeminiNativeIconSourceFromElement(item);
-                if (source) return source;
-            }
-        }
-
-        return "";
-    }
-
-    function getGeminiOpenToolsMenuRootsForIconResolver() {
-        try {
-            return getGeminiToolsMenuRootElements(null, { includeSubmenus: true });
-        } catch {
-            return [];
-        }
-    }
-
-    function getGeminiOpenConversationMenuRootsForIconResolver() {
-        const roots = [];
-        const seen = new Set();
-        const selectors = [
-            ...(SELECTORS.topBarConversationMenuRoot || []),
-            "[role='menu']"
-        ];
-        for (const selector of selectors) {
-            let list = [];
-            try {
-                list = Array.from(document.querySelectorAll(selector));
-            } catch {
-                list = [];
-            }
-            for (const root of list) {
-                if (!root || seen.has(root) || !isElementVisible(root)) continue;
-                seen.add(root);
-                roots.push(root);
-            }
-        }
-        return roots;
-    }
-
-    function resolveGeminiVisibleToolsMenuShortcutIconSource(iconKey) {
-        const targetId = GEMINI_SHORTCUT_TOOLS_MENU_TARGET_IDS[String(iconKey || "").trim()] || "";
-        const target = targetId ? GEMINI_TOOL_TARGETS[targetId] : null;
-        return findGeminiVisibleMenuItemIconSource(getGeminiOpenToolsMenuRootsForIconResolver(), target);
-    }
-
-    function resolveGeminiVisibleConversationMenuShortcutIconSource(iconKey) {
-        const targetId = GEMINI_SHORTCUT_CONVERSATION_MENU_TARGET_IDS[String(iconKey || "").trim()] || "";
-        const target = targetId ? GEMINI_CONVERSATION_MENU_TARGETS[targetId] : null;
-        return findGeminiVisibleMenuItemIconSource(getGeminiOpenConversationMenuRootsForIconResolver(), target);
-    }
-
-    function resolveGeminiNativeShortcutIconSource(iconKey) {
-        const key = String(iconKey || "").trim();
-        let selector = null;
-        if (key === "newChat") selector = GEMINI_NEW_CHAT_NATIVE_ICON_SELECTORS;
-        else if (key === "sidebar") selector = SELECTORS.sidebarToggle;
-        else if (key === "model") selector = SELECTORS.modelPickerButton;
-        else if (key === "tools") selector = SELECTORS.toolsButton;
-        else if (key === "quickInput") selector = GEMINI_QUICK_INPUT_NATIVE_ICON_SELECTORS;
-        else {
-            const menuSource = resolveGeminiVisibleToolsMenuShortcutIconSource(key) || resolveGeminiVisibleConversationMenuShortcutIconSource(key);
-            if (menuSource) return menuSource;
-        }
-
-        if (!selector) return "";
-        const element = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
-        return getGeminiNativeIconSourceFromElement(element);
-    }
-
-    function resolveGeminiNativeShortcutIconSet(iconKey) {
-        const source = resolveGeminiNativeShortcutIconSource(iconKey);
-        return createGeminiShortcutIconSetFromSource(source);
-    }
-
     function getGeminiShortcutIconDefaults(iconKey) {
         const key = String(iconKey || "");
-        const iconSet = GEMINI_SHORTCUT_ICON_SETS[key] || resolveGeminiNativeShortcutIconSet(key) || null;
+        const iconSet = GEMINI_SHORTCUT_ICON_SETS[key] || null;
         return iconSet ? { ...iconSet } : {};
     }
 
@@ -1253,6 +852,39 @@
         }, "pin")
     ];
 
+    const GEMINI_DEFAULT_SHORTCUTS_BY_NAME = Object.freeze(defaultShortcuts.reduce((acc, shortcut) => {
+        const name = String(shortcut?.name || "").trim();
+        if (name) acc[name] = shortcut;
+        return acc;
+    }, {}));
+
+    function cloneGeminiShortcutValue(value) {
+        if (value === undefined) return undefined;
+        if (typeof structuredClone === "function") {
+            try { return structuredClone(value); } catch { }
+        }
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch {
+            return value;
+        }
+    }
+
+    function getGeminiDefaultShortcutByName(name) {
+        const key = String(name || "").trim();
+        return key ? (GEMINI_DEFAULT_SHORTCUTS_BY_NAME[key] || null) : null;
+    }
+
+    function valueContainsGeminiLegacyUiAdapter(value) {
+        let text = "";
+        try {
+            text = typeof value === "string" ? value : JSON.stringify(value);
+        } catch {
+            text = String(value ?? "");
+        }
+        return /(toolbox-drawer|toolbox-drawer-menu|side-nav-menu-button|bard-mode-menu-button|bard-mode-option|rich-textarea|text-input-field|ql-editor)/i.test(text);
+    }
+
     function getGeminiDefaultShortcutIconKey(shortcut) {
         const name = String(shortcut?.name || "").trim();
         if (name && GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME[name]) {
@@ -1285,12 +917,12 @@
         if (/gemini_sparkle_(?:aurora|v002)_/i.test(icon)) return true;
         if (/(?:^|\/)gemini_keycap\.svg(?:[?#].*)?$/i.test(icon)) return true;
 
+        const iconSet = GEMINI_SHORTCUT_ICON_SETS[iconKey] || null;
         const iconSets = [
-            GEMINI_SHORTCUT_ICON_SETS[iconKey] || null,
-            ...(GEMINI_LEGACY_SHORTCUT_ICON_SETS[iconKey] || []),
-            resolveGeminiNativeShortcutIconSet(iconKey)
+            iconSet,
+            ...(GEMINI_PREVIOUS_SHORTCUT_ICON_SETS[iconKey] || [])
         ].filter(Boolean);
-        return iconSets.some(iconSet => icon === iconSet.icon || icon === iconSet.iconDark);
+        return iconSets.some(set => icon === set.icon || icon === set.iconDark);
     }
 
     function buildGeminiShortcutIconMigration(shortcuts) {
@@ -1326,6 +958,62 @@
         return changed ? next : null;
     }
 
+    function buildGeminiLegacyUiAdapterMigration(shortcuts) {
+        if (!Array.isArray(shortcuts)) return null;
+        let changed = false;
+        const next = shortcuts.map((shortcut) => {
+            if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return shortcut;
+
+            const defaultShortcut = getGeminiDefaultShortcutByName(shortcut.name);
+            if (!defaultShortcut) return shortcut;
+
+            let updated = shortcut;
+            const ensureUpdated = () => {
+                if (updated === shortcut) updated = { ...shortcut };
+                return updated;
+            };
+
+            const actionType = String(shortcut.actionType || "").trim();
+            const customAction = String(shortcut.customAction || "").trim();
+            const name = String(shortcut.name || "").trim();
+
+            if (
+                (name === "Toggle Sidebar" || name === "Open Tools") &&
+                actionType === "selector" &&
+                valueContainsGeminiLegacyUiAdapter(shortcut.selector)
+            ) {
+                ensureUpdated().selector = cloneGeminiShortcutValue(defaultShortcut.selector);
+                changed = true;
+            }
+
+            if (
+                customAction === "modelPicker" &&
+                valueContainsGeminiLegacyUiAdapter(shortcut.data) &&
+                defaultShortcut.data
+            ) {
+                ensureUpdated().data = cloneGeminiShortcutValue(defaultShortcut.data);
+                changed = true;
+            }
+
+            return updated;
+        });
+
+        return changed ? next : null;
+    }
+
+    function buildGeminiManagedShortcutMigration(shortcuts) {
+        let next = Array.isArray(shortcuts) ? shortcuts : null;
+        if (!next) return null;
+
+        const iconMigrated = buildGeminiShortcutIconMigration(next);
+        if (iconMigrated) next = iconMigrated;
+
+        const legacyUiMigrated = buildGeminiLegacyUiAdapterMigration(next);
+        if (legacyUiMigrated) next = legacyUiMigrated;
+
+        return next !== shortcuts ? next : null;
+    }
+
     function getGeminiEngineShortcuts(engine) {
         if (!engine) return null;
         try {
@@ -1335,12 +1023,12 @@
         return null;
     }
 
-    function migrateGeminiShortcutIcons(engine = null, { refreshPanel = false } = {}) {
+    function migrateGeminiManagedShortcuts(engine = null, { refreshPanel = false } = {}) {
         const stored = gmGetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
         const source = Array.isArray(stored) ? stored : getGeminiEngineShortcuts(engine);
         if (!Array.isArray(source)) return false;
 
-        const next = buildGeminiShortcutIconMigration(source);
+        const next = buildGeminiManagedShortcutMigration(source);
         if (!next) return false;
 
         if (engine && typeof engine.setShortcuts === "function") {
@@ -1352,21 +1040,6 @@
             gmSetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
         }
         return true;
-    }
-
-    function scheduleGeminiShortcutIconMigrationRetry(engine) {
-        const run = () => {
-            setTimeout(() => {
-                migrateGeminiShortcutIcons(engine, { refreshPanel: true });
-            }, GEMINI_NATIVE_ICON_RETRY_DELAY_MS);
-        };
-
-        if (document.readyState === "complete") {
-            run();
-            return;
-        }
-
-        window.addEventListener("load", run, { once: true });
     }
 
     function normalizeGeminiShortcutHotkey(value) {
@@ -1621,7 +1294,7 @@
         if (/(打开|展开|显示|开启).*(侧栏|侧边栏|边栏|导航|菜单)/.test(ariaLabel)) return false;
         if (/(关闭|收起|折叠|隐藏).*(侧栏|侧边栏|边栏|导航|菜单)/.test(ariaLabel)) return true;
 
-        const host = button.closest?.("side-nav-menu-button, [class*='side-nav'], [class*='sidebar'], [class*='sidenav']");
+        const host = button.closest?.("[class*='side-nav'], [class*='sidebar'], [class*='sidenav']");
         const byHostClass = inferSidebarStateFromClassName(host?.className || "");
         if (byHostClass !== null) return byHostClass;
 
@@ -1815,7 +1488,7 @@
             return true;
         }
 
-        const inGeminiSidebarChrome = !!element.closest?.("top-bar-actions, bard-sidenav, side-navigation-content, side-nav-menu-button");
+        const inGeminiSidebarChrome = !!element.closest?.("top-bar-actions, bard-sidenav, side-navigation-content");
         if (!inGeminiSidebarChrome) return false;
 
         let iconText = "";
@@ -3077,8 +2750,8 @@
     function isGeminiConversationActionButtonExcluded(button) {
         if (!button) return true;
         if (!isElementVisible(button)) return true;
-        if (button.closest?.("bard-sidenav, side-navigation-content, .sidenav-with-history-container, .conversation-items-container, side-nav-menu-button, side-nav-action-button")) return true;
-        if (button.closest?.("rich-textarea, input-area-v2, [data-node-type='input-area'], [contenteditable='true'], .prompt-input, .composer, .prompt-composer")) return true;
+        if (button.closest?.("bard-sidenav, side-navigation-content, .sidenav-with-history-container, .conversation-items-container, side-nav-action-button")) return true;
+        if (button.closest?.("input-area-v2, [data-node-type='input-area'], [contenteditable='true'], .prompt-input, .composer, .prompt-composer")) return true;
         if (button.closest?.([
             "user-query",
             "user-query-content",
@@ -3483,17 +3156,8 @@
         }
     }
 
-    function isGeminiLegacyToolsMenuRoot(element) {
-        if (!element) return false;
-        const id = String(element.getAttribute?.("id") || "");
-        if (id === "toolbox-drawer-menu") return true;
-        const className = String(element.getAttribute?.("class") || "");
-        return /\btoolbox-drawer-card\b/.test(className);
-    }
-
     function isGeminiToolsPrimaryMenuRoot(element) {
         if (!element || !isElementVisible(element)) return false;
-        if (isGeminiLegacyToolsMenuRoot(element)) return true;
 
         const text = getGeminiNormalizedElementSearchText(element);
         if (!text) return false;
@@ -4055,7 +3719,7 @@
         "button[aria-label*='Pin' i]",
         "button[aria-label*='Share' i]"
     ].join(", ");
-    const MODEL_PICKER_ITEM_SELECTOR = "button[data-test-id^='bard-mode-option-'], button.bard-mode-list-button[role='menuitemradio'], button[role='menuitemradio'], button[role='menuitem'], button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitemradio'], [role='menuitem']";
+    const MODEL_PICKER_ITEM_SELECTOR = "button.bard-mode-list-button[role='menuitemradio'], button[role='menuitemradio'], button[role='menuitem'], button[mat-menu-item], button.mat-mdc-menu-item, [role='menuitemradio'], [role='menuitem']";
     const MODEL_PICKER_EXTENDED_TEXT_MATCH = MODEL_PICKER_OPTION_TARGETS.extended.textMatch;
     const MODEL_PICKER_TARGET_DISCOVERY_TIMEOUT_MS = 600;
     const MODEL_PICKER_SUBMENU_EXTENDED_TIMEOUT_MS = 600;
@@ -4081,10 +3745,6 @@
         const fromString = (value) => {
             const token = normalizeModelToken(value);
             if (!token) return "";
-            if (token.includes("bard-mode-option-pro")) return "pro";
-            if (token.includes("bard-mode-option-thinking")) return "thinking";
-            if (token.includes("bard-mode-option-extended")) return "extended";
-            if (token.includes("bard-mode-option-fast")) return "fast";
             return inferModelKeyFromText(token);
         };
 
@@ -5416,19 +5076,13 @@
                 const near = composerEl?.closest?.("input-area-v2");
                 if (near) return near;
             } catch { }
-            try {
-                const near = composerEl?.closest?.(".text-input-field");
-                if (near) return near;
-            } catch { }
-
             let zones = [];
             try {
                 zones = Array.from(document.querySelectorAll([
                     "[xapfileselectordropzone]",
                     ".input-area-container",
                     "[data-node-type='input-area']",
-                    "input-area-v2",
-                    ".text-input-field"
+                    "input-area-v2"
                 ].join(", ")));
             } catch { zones = []; }
             if (!zones.length) return null;
@@ -5467,10 +5121,6 @@
             } catch { }
             try {
                 const field = composerEl.closest?.("input-area-v2");
-                if (field) return field;
-            } catch { }
-            try {
-                const field = composerEl.closest?.(".text-input-field");
                 if (field) return field;
             } catch { }
             try {
@@ -5676,10 +5326,6 @@
             "[contenteditable='true'][data-placeholder='Ask Gemini']",
             "[contenteditable='true'][aria-label='Ask Gemini']",
             "[contenteditable='true'][aria-label='Enter a prompt for Gemini']",
-            ".text-input-field [contenteditable='true'][role='textbox']",
-            ".text-input-field [contenteditable='true']",
-            "rich-textarea [contenteditable='true'][role='textbox']",
-            "rich-textarea [contenteditable='true']",
             "[contenteditable='true'][aria-label*='Gemini']",
             "[contenteditable='true'][role='textbox']",
             "textarea[placeholder='Ask Gemini']",
@@ -5746,9 +5392,6 @@
                 if (el.disabled || el.hidden) return false;
                 if (el.getAttribute?.("aria-hidden") === "true") return false;
             } catch { }
-            try {
-                if (el.closest?.(".ql-clipboard")) return false;
-            } catch { }
             if (isGeminiAttachmentOrPreviewElement(el)) return false;
             return true;
         }
@@ -5758,9 +5401,6 @@
             try { if (el.closest?.(".input-area-container")) score += 130; } catch { }
             try { if (el.closest?.("[data-node-type='input-area']")) score += 130; } catch { }
             try { if (el.closest?.("input-area-v2")) score += 130; } catch { }
-            try { if (el.closest?.(".text-input-field")) score += 120; } catch { }
-            try { if (el.closest?.("rich-textarea")) score += 90; } catch { }
-            try { if (el.classList?.contains?.("ql-editor")) score += 60; } catch { }
             try {
                 const role = String(el.getAttribute?.("role") || "").toLowerCase();
                 if (role === "textbox") score += 40;
@@ -5818,8 +5458,6 @@
                 scopes.push(scope);
             };
 
-            try { pushScope(el.closest?.(".text-input-field") || null); } catch { }
-            try { pushScope(el.closest?.("rich-textarea") || null); } catch { }
             try { pushScope(el.closest?.(".input-area-container") || null); } catch { }
             try { pushScope(el.closest?.("[data-node-type='input-area']") || null); } catch { }
             try { pushScope(el.closest?.("input-area-v2") || null); } catch { }
@@ -6381,8 +6019,6 @@
             try { pushRoot(composer?.closest?.(".input-area-container") || null); } catch { }
             try { pushRoot(composer?.closest?.("[data-node-type='input-area']") || null); } catch { }
             try { pushRoot(composer?.closest?.("input-area-v2") || null); } catch { }
-            try { pushRoot(composer?.closest?.(".text-input-field") || null); } catch { }
-            try { pushRoot(composer?.closest?.("rich-textarea") || null); } catch { }
             try { pushRoot(composer?.closest?.("form") || null); } catch { }
 
             const observedRoots = getGeminiObservationRoots({
@@ -6401,7 +6037,6 @@
                 ".uploader-file-preview-container",
                 "uploader-file-preview-container",
                 ".file-preview-wrapper",
-                ".text-input-field.with-file-preview",
                 ".input-area-container",
                 "[data-node-type='input-area']",
                 "input-area-v2"
@@ -6730,20 +6365,6 @@
             if (dropzone) targets.push(dropzone);
             targets.push(composerEl);
             try {
-                const rich = composerEl.closest?.("rich-textarea");
-                if (rich) {
-                    targets.push(rich);
-                    try {
-                        const clipboard = rich.querySelector?.(".ql-clipboard");
-                        if (clipboard) targets.push(clipboard);
-                    } catch { }
-                }
-            } catch { }
-            try {
-                const field = composerEl.closest?.(".text-input-field");
-                if (field) targets.push(field);
-            } catch { }
-            try {
                 if (document.activeElement) targets.push(document.activeElement);
             } catch { }
             targets.push(document);
@@ -6784,10 +6405,6 @@
             const targets = [];
             const dropzone = findGeminiDropzone(composerEl);
             if (dropzone) targets.push(dropzone);
-            try {
-                const field = composerEl.closest?.(".text-input-field");
-                if (field) targets.push(field);
-            } catch { }
             targets.push(composerEl);
             targets.push(document);
             targets.push(window);
@@ -7100,7 +6717,6 @@
             try { pushScope(composerEl?.closest?.(".input-area-container") || null); } catch { }
             try { pushScope(composerEl?.closest?.("[data-node-type='input-area']") || null); } catch { }
             try { pushScope(composerEl?.closest?.("input-area-v2") || null); } catch { }
-            try { pushScope(composerEl?.closest?.(".text-input-field") || null); } catch { }
             pushScope(document);
 
             const selectors = [
@@ -7412,7 +7028,7 @@
         registerSidebarVisibilityMenuCommand(engine);
     }
 
-    migrateGeminiShortcutIcons();
+    migrateGeminiManagedShortcuts();
     migrateGeminiExtendedModelShortcut();
 
     const engine = ShortcutTemplate.createShortcutEngine({
@@ -7458,7 +7074,7 @@
     });
 
     engine.init();
-    scheduleGeminiShortcutIconMigrationRetry(engine);
+    migrateGeminiManagedShortcuts(engine, { refreshPanel: true });
     setupKeepSidebarVisible();
     registerGeminiMenuCommands(engine);
     engine.i18n?.addLocaleChangeListener?.(() => registerGeminiMenuCommands(engine));
