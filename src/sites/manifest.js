@@ -485,16 +485,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260530] v1.0.1",
+            name: "[Notion] 快捷键跳转 [20260531] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
-            description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260530] v1.0.1",
-            updateLog: "1.0.1: 修复 Notion AI Quick Input 在 /ai 空白 New Chat 页因 URL 不变化而校验失败的问题，新增空白新聊天页特征识别。",
+            description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
+            version: "[20260531] v1.0.0",
+            updateLog: "1.0.0: 新增 Notion AI 图片生成模式切换快捷动作，默认快捷键为 Ctrl+I。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260530] v1.0.1",
-                    description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.1: Fixed Notion AI Quick Input new-chat verification on the blank /ai page when the URL does not change by recognizing the blank new-chat zero state."
+                    name: "[Notion] Shortcut Jump [20260531] v1.0.0",
+                    description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
+                    updateLog: "1.0.0: Added a Notion AI image-generation mode toggle shortcut with Ctrl+I as the default hotkey."
                 }
             },
             match: [

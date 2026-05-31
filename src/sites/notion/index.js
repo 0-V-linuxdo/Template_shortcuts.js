@@ -70,6 +70,7 @@
     const ATTACH_FILE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath d='M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z'/%3E%3C/svg%3E";
     const NEW_CHAT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14'/%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E";
     const WEB_ACCESS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 0 20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E";
+    const IMAGE_GENERATION_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/%3E%3C/svg%3E";
     const QUICK_INPUT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M7 9h.01'/%3E%3Cpath d='M11 9h.01'/%3E%3Cpath d='M15 9h.01'/%3E%3Cpath d='M17 15H7'/%3E%3C/svg%3E";
     const DELETE_TOPIC_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M8 6V4h8v2'/%3E%3Cpath d='M19 6l-1 14H6L5 6'/%3E%3Cpath d='M10 11v5'/%3E%3Cpath d='M14 11v5'/%3E%3C/svg%3E";
 
@@ -81,6 +82,7 @@
         { name: 'Research', url: RESEARCH_ICON },
         { name: 'New Chat', url: NEW_CHAT_ICON },
         { name: 'Web Access', url: WEB_ACCESS_ICON },
+        { name: 'Image Generation', url: IMAGE_GENERATION_ICON },
         { name: 'Quick Input', url: QUICK_INPUT_ICON },
         { name: 'Delete Topic', url: DELETE_TOPIC_ICON },
         { name: 'Google', url: 'https://www.google.com/favicon.ico' },
@@ -241,6 +243,7 @@
         LEGACY_SELECT_AI_MODEL_KEY,
         ...NOTION_MODEL_SHORTCUT_KEYS,
         "toggleWebAccess",
+        "toggleImageGeneration",
         "quickInput",
         "deleteTopic"
     ]);
@@ -325,6 +328,27 @@
         '[tabindex]:not([tabindex="-1"])'
     ].join(", ");
     const SETTINGS_MENU_TIMING = Object.freeze({
+        pollIntervalMs: 120,
+        waitTimeoutMs: 3000,
+        openDelayMs: 120
+    });
+    const NOTION_IMAGE_MODE_CLOSE_SELECTOR = '[data-testid="unified-chat-image-mode-pill-close"]';
+    const NOTION_CONTEXT_MENU_TRIGGER_SELECTORS = [
+        '[data-testid="unified-chat-plus-menu-button"]',
+        '[data-testid*="plus-menu" i]',
+        '[role="button"][aria-label*="give context" i]',
+        '[role="button"][aria-label*="add context" i]',
+        'button[aria-label*="give context" i]',
+        'button[aria-label*="add context" i]'
+    ].join(", ");
+    const NOTION_CONTEXT_MENU_ROOT_SELECTOR = [
+        '[role="menu"]',
+        '[role="dialog"]',
+        '[data-radix-menu-content]',
+        '[data-floating-ui-portal]'
+    ].join(", ");
+    const NOTION_CONTEXT_MENU_ITEM_SELECTOR = '[role="menuitem"]';
+    const CONTEXT_MENU_TIMING = Object.freeze({
         pollIntervalMs: 120,
         waitTimeoutMs: 3000,
         openDelayMs: 120
@@ -1716,6 +1740,127 @@
             await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
         } while (true);
         return false;
+    }
+
+    function textLooksLikeCreateImageMenuItem(value) {
+        const text = normalizeNotionText(value);
+        return (
+            text === "create image" ||
+            text === "create image new" ||
+            text === "create imagenew" ||
+            text === "generate image" ||
+            text === "generate imagenew" ||
+            text === "创建图片" ||
+            text === "生成图片" ||
+            text === "创建图像" ||
+            text === "生成图像"
+        );
+    }
+
+    function findImageModeCloseElement() {
+        return safeQueryAll(document, NOTION_IMAGE_MODE_CLOSE_SELECTOR)
+            .find(element => element && isVisibleElement(element) && !isElementDisabled(element)) || null;
+    }
+
+    function findContextMenuTriggerElement() {
+        const candidates = [];
+        const seen = new Set();
+        for (const element of safeQueryAll(document, NOTION_CONTEXT_MENU_TRIGGER_SELECTORS)) {
+            if (!element || seen.has(element)) continue;
+            seen.add(element);
+            if (!isVisibleElement(element) || isInsideShortcutUi(element) || isElementDisabled(element)) continue;
+
+            const clickable = getClickableActionElement(element) || element;
+            const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+            const text = normalizeNotionText(getElementSearchText(element));
+            let score = 0;
+            if (dataTestId === "unified-chat-plus-menu-button") score += 1000;
+            if (dataTestId.includes("plus-menu")) score += 700;
+            if (text.includes("give context") || text.includes("add context")) score += 420;
+            if (isLikelyComposerToolbarControl(clickable)) score += 120;
+            candidates.push({ element: clickable, score });
+        }
+        candidates.sort((a, b) => b.score - a.score);
+        return candidates[0]?.element || null;
+    }
+
+    function findCreateImageMenuItem(root) {
+        if (!root) return null;
+        return safeQueryAll(root, NOTION_CONTEXT_MENU_ITEM_SELECTOR)
+            .find(element => (
+                element &&
+                isVisibleElement(element) &&
+                !isElementDisabled(element) &&
+                textLooksLikeCreateImageMenuItem(getElementText(element))
+            )) || null;
+    }
+
+    function findContextMenuRoot(triggerEl = null) {
+        if (triggerEl) {
+            const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+            if (controlsId) {
+                const controlled = document.getElementById(controlsId);
+                if (findCreateImageMenuItem(controlled)) return controlled;
+            }
+        }
+
+        return safeQueryAll(document, NOTION_CONTEXT_MENU_ROOT_SELECTOR)
+            .find(element => element && isVisibleElement(element) && findCreateImageMenuItem(element)) || null;
+    }
+
+    async function ensureContextMenuOpen(triggerEl) {
+        const existing = findContextMenuRoot(triggerEl);
+        if (existing) return existing;
+        if (!triggerEl || !simulateClickElement(triggerEl, { nativeFallback: true })) return null;
+        if (CONTEXT_MENU_TIMING.openDelayMs > 0) await sleep(CONTEXT_MENU_TIMING.openDelayMs);
+
+        const deadline = Date.now() + CONTEXT_MENU_TIMING.waitTimeoutMs;
+        while (Date.now() <= deadline) {
+            const root = findContextMenuRoot(triggerEl);
+            if (root) return root;
+            await sleep(CONTEXT_MENU_TIMING.pollIntervalMs);
+        }
+        return findContextMenuRoot(triggerEl);
+    }
+
+    async function waitForImageModeState(expectedState) {
+        const deadline = Date.now() + CONTEXT_MENU_TIMING.waitTimeoutMs;
+        while (Date.now() <= deadline) {
+            if (!!findImageModeCloseElement() === !!expectedState) return true;
+            await sleep(CONTEXT_MENU_TIMING.pollIntervalMs);
+        }
+        return !!findImageModeCloseElement() === !!expectedState;
+    }
+
+    async function toggleImageGenerationAction() {
+        const closeElement = findImageModeCloseElement();
+        if (closeElement) {
+            if (!simulateClickElement(closeElement, { nativeFallback: true })) return false;
+            const disabled = await waitForImageModeState(false);
+            if (!disabled) console.warn(`${LOG_TAG} toggleImageGeneration: image mode did not turn off.`);
+            return disabled;
+        }
+
+        const trigger = findContextMenuTriggerElement();
+        if (!trigger) {
+            console.warn(`${LOG_TAG} toggleImageGeneration: Give context trigger not found.`);
+            return false;
+        }
+        const root = await ensureContextMenuOpen(trigger);
+        if (!root) {
+            console.warn(`${LOG_TAG} toggleImageGeneration: Give context menu not found.`);
+            return false;
+        }
+        const item = findCreateImageMenuItem(root);
+        if (!item) {
+            console.warn(`${LOG_TAG} toggleImageGeneration: Create image menu item not found.`);
+            return false;
+        }
+        if (!simulateClickElement(item, { nativeFallback: true })) return false;
+
+        const enabled = await waitForImageModeState(true);
+        if (!enabled) console.warn(`${LOG_TAG} toggleImageGeneration: image mode did not turn on.`);
+        return enabled;
     }
 
     function findModelTriggerElement() {
@@ -4602,6 +4747,7 @@
                 toggleResearchMode: "切换研究模式",
                 selectSearchScope: "选择搜索范围",
                 toggleWebAccess: "切换联网",
+                toggleImageGeneration: "切换图片生成",
                 deleteTopic: "删除话题",
                 addContext: "添加上下文",
                 attachFile: "附加文件",
@@ -4631,6 +4777,7 @@
                 newChat: "New Chat",
                 selectAiModel: "Select AI Model",
                 toggleWebAccess: "Toggle Web Access",
+                toggleImageGeneration: "Toggle Image Generation",
                 deleteTopic: "Delete Topic",
                 quickInput: "Quick Input"
             },
@@ -4723,6 +4870,15 @@
             customAction: 'toggleWebAccess',
             hotkey: 'CTRL+W',
             icon: WEB_ACCESS_ICON
+        }),
+        createShortcut({
+            key: 'toggleImageGeneration',
+            name: 'Toggle Image Generation',
+            labelKey: 'shortcuts.toggleImageGeneration',
+            actionType: 'custom',
+            customAction: 'toggleImageGeneration',
+            hotkey: 'CTRL+I',
+            icon: IMAGE_GENERATION_ICON
         }),
         createShortcut({
             key: 'quickInput',
@@ -4955,6 +5111,7 @@
             openModelPicker: openModelPickerAction,
             modelPicker: clickModelPickerItem,
             toggleWebAccess: toggleWebAccessAction,
+            toggleImageGeneration: toggleImageGenerationAction,
             conversationMenu: clickConversationMenuItem,
             quickInput: ({ engine }) => {
                 ensureQuickInputController(engine)?.toggle?.();
