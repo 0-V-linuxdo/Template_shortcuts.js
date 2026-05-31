@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260601] v1.0.3
-// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.3
+// @name           [Gemini] 快捷键跳转 [20260601] v1.0.4
+// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.4
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260601] v1.0.3
-// @update-log     1.0.3: 修正 Gemini Canvas、图片与研究快捷键图标，按页面图标别名解析后的实际 Google Symbols glyph 渲染，并迁移 1.0.2 的语义图标默认值。
-// @update-log:en  1.0.3: Fixed Gemini Canvas, image, and research shortcut icons by rendering the actual Google Symbols glyphs resolved from the page icon aliases, and migrated the 1.0.2 semantic defaults.
+// @version        [20260601] v1.0.4
+// @update-log     1.0.4: 修正 Gemini 保持侧边栏显示过于激进的问题；用户手动折叠侧边栏后会抑制后台自动展开，脚本内部临时展开仍可正常工作。
+// @update-log:en  1.0.4: Fixed Gemini Keep sidebar visible being too aggressive; manual sidebar collapse now suppresses background auto-expansion while internal temporary expansion still works.
 
 // @match          https://gemini.google.com/*
 
@@ -729,6 +729,7 @@
     const SIDEBAR_OPEN_LAYOUT_MIN_WIDTH = 160;
     const SIDEBAR_CLOSED_LAYOUT_MAX_WIDTH = 96;
     const SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS = 1200;
+    const SIDEBAR_AUTO_TOGGLE_EVENT_IGNORE_MS = 1200;
     const SIDEBAR_TOGGLE_SETTLE_MS = 700;
     const SIDEBAR_TEMPORARY_EXPAND_WAIT_MS = 1e3;
     const SIDEBAR_STATE_POLL_INTERVAL_MS = 120;
@@ -754,6 +755,8 @@
     let sidebarWarmupRequestTimer = null;
     let sidebarLastWarmupRequestAt = 0;
     let sidebarTogglePendingUntil = 0;
+    let sidebarAutomationToggleUntil = 0;
+    let sidebarAutoExpandSuppressedByManualCollapse = false;
     const baseShortcut = Object.freeze({
       url: "",
       urlMethod: "current",
@@ -1294,11 +1297,31 @@
     function markSidebarTogglePending(settleMs = SIDEBAR_TOGGLE_SETTLE_MS) {
       sidebarTogglePendingUntil = Date.now() + Math.max(150, Number(settleMs) || SIDEBAR_TOGGLE_SETTLE_MS);
     }
+    function markSidebarAutomationToggle() {
+      sidebarAutomationToggleUntil = Date.now() + SIDEBAR_AUTO_TOGGLE_EVENT_IGNORE_MS;
+    }
+    function isSidebarAutomationToggleEventActive() {
+      return sidebarAutomationToggleUntil > Date.now();
+    }
+    function suppressSidebarAutoExpandForManualCollapse() {
+      sidebarAutoExpandSuppressedByManualCollapse = true;
+      cancelSidebarWarmupRequest();
+      stopSidebarWarmup();
+      clearSidebarTogglePending();
+    }
+    function clearSidebarAutoExpandManualSuppression({ restartWarmup = false } = {}) {
+      const wasSuppressed = sidebarAutoExpandSuppressedByManualCollapse;
+      sidebarAutoExpandSuppressedByManualCollapse = false;
+      if (restartWarmup && wasSuppressed && shouldWarmupSidebarInBackground()) {
+        requestSidebarWarmup({ attempts: 8, intervalMs: 350, delayMs: 250 });
+      }
+    }
     function clickSidebarToggleButton({ settleMs = SIDEBAR_TOGGLE_SETTLE_MS } = {}) {
       if (isSidebarTogglePending()) return true;
       const button = getSidebarToggleButton();
       if (!button) return false;
       try {
+        markSidebarAutomationToggle();
         const clicked = TemplateUtils?.events?.simulateClick?.(button, { nativeFallback: true });
         if (clicked) {
           markSidebarTogglePending(settleMs);
@@ -1307,6 +1330,7 @@
       } catch {
       }
       try {
+        markSidebarAutomationToggle();
         button.click();
         markSidebarTogglePending(settleMs);
         return true;
@@ -1323,10 +1347,11 @@
       return width > 0 && width <= SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH;
     }
     function shouldWarmupSidebarInBackground() {
-      return keepSidebarVisible && !isSidebarAutoExpandSuppressedByViewport();
+      return keepSidebarVisible && !sidebarAutoExpandSuppressedByManualCollapse && !isSidebarAutoExpandSuppressedByViewport();
     }
-    function ensureSidebarVisible({ ignorePreference = false } = {}) {
+    function ensureSidebarVisible({ ignorePreference = false, ignoreManualSuppression = false } = {}) {
       if (!ignorePreference && !keepSidebarVisible) return false;
+      if (!ignorePreference && !ignoreManualSuppression && sidebarAutoExpandSuppressedByManualCollapse) return false;
       const open = isSidebarOpen();
       if (open === true) {
         clearSidebarTogglePending();
@@ -1339,6 +1364,7 @@
     function setSidebarVisibilityPreference(nextValue, engine2 = null) {
       keepSidebarVisible = !!nextValue;
       setKeepSidebarVisibleSetting(keepSidebarVisible);
+      clearSidebarAutoExpandManualSuppression();
       if (keepSidebarVisible) {
         if (shouldWarmupSidebarInBackground()) {
           startSidebarWarmup();
@@ -1436,6 +1462,26 @@
       const normalizedIconText = normalizeGeminiUiText(iconText);
       return /(?:^|\s)(menu|menu_open|left_panel_open|left_panel_close|side_navigation|side_nav|side_nav_collapse|side_nav_expand)(?:\s|$)/.test(normalizedIconText);
     }
+    function handleSidebarToggleUserIntent() {
+      if (isSidebarAutomationToggleEventActive()) return;
+      const beforeOpen = isSidebarOpen();
+      if (beforeOpen === true) {
+        suppressSidebarAutoExpandForManualCollapse();
+        return;
+      }
+      if (beforeOpen === false) {
+        clearSidebarAutoExpandManualSuppression({ restartWarmup: false });
+        return;
+      }
+      window.setTimeout(() => {
+        const afterOpen = isSidebarOpen();
+        if (afterOpen === false) {
+          suppressSidebarAutoExpandForManualCollapse();
+        } else if (afterOpen === true) {
+          clearSidebarAutoExpandManualSuppression({ restartWarmup: false });
+        }
+      }, Math.min(300, SIDEBAR_TOGGLE_SETTLE_MS));
+    }
     function setupKeepSidebarVisible() {
       let wasSidebarAutoExpandSuppressed = isSidebarAutoExpandSuppressedByViewport();
       window.addEventListener("load", () => {
@@ -1472,7 +1518,7 @@
       window.addEventListener("hashchange", handlePossibleRouteChange);
       document.addEventListener("click", (event) => {
         if (!isSidebarToggleEventTarget(event.target)) return;
-        requestSidebarWarmup({ attempts: 5, intervalMs: 300, delayMs: 500 });
+        handleSidebarToggleUserIntent();
       }, true);
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") requestSidebarWarmup({ attempts: 8, intervalMs: 350, delayMs: 250 });
