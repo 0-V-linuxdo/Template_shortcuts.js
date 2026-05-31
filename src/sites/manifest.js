@@ -369,16 +369,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260601] v1.0.0",
+            name: "[Gemini] 快捷键跳转 [20260601] v1.0.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260601] v1.0.0",
-            updateLog: "1.0.0: 对齐 Gemini 新 UI 工具菜单快捷键图标，使用真实 mat-icon/fontSet 渲染页面的 lumi-symbols 字体集，并修正 Canvas、图片、Deep research 与 Learning 的默认图标迁移。",
+            version: "[20260601] v1.0.1",
+            updateLog: "1.0.1: 修复 Canvas、图片、Deep research 与 Learning 快捷键图标异常，改用 Gemini 当前 Luminous Symbols 原始 SVG 并迁移旧的 lumi-symbols 字体图标默认值。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260601] v1.0.0",
+                    name: "[Gemini] Shortcut Jump [20260601] v1.0.1",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.0: Aligned Gemini new-UI tools shortcut icons by rendering the page's lumi-symbols font set through real mat-icon/fontSet attributes and fixing default icon migration for Canvas, image, Deep research, and Learning."
+                    updateLog: "1.0.1: Fixed broken Canvas, image, Deep research, and Learning shortcut icons by using Gemini's current original Luminous Symbols SVGs and migrating the old lumi-symbols font-icon defaults."
                 }
             },
             match: [
