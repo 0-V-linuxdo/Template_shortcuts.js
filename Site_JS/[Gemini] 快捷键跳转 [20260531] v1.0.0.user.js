@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22gemini-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.gemini-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.gemini-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Csvg%20x%3D%2213%22%20y%3D%2211%22%20width%3D%2238%22%20height%3D%2238%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cdefs%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-0%22%20x1%3D%227%22%20x2%3D%2211%22%20y1%3D%2215.5%22%20y2%3D%2212%22%3E%3Cstop%20stop-color%3D%22%2308B962%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2308B962%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-1%22%20x1%3D%228%22%20x2%3D%2211.5%22%20y1%3D%225.5%22%20y2%3D%2211%22%3E%3Cstop%20stop-color%3D%22%23F94543%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23F94543%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-2%22%20x1%3D%223.5%22%20x2%3D%2217.5%22%20y1%3D%2213.5%22%20y2%3D%2212%22%3E%3Cstop%20stop-color%3D%22%23FABC12%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%22.46%22%20stop-color%3D%22%23FABC12%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22%233186FF%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-0)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-1)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-2)%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260531.1.0.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260531.1.1.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -130,8 +130,8 @@
     const GEMINI_SHORTCUT_ICON_SETS = Object.freeze({
       newChat: createGeminiNativeShortcutIconSet("edit_square"),
       sidebar: createGeminiNativeShortcutIconSet("menu"),
-      model: createGeminiNativeShortcutIconSet("spark"),
-      tools: createGeminiNativeShortcutIconSet("page_info"),
+      model: createGeminiNativeShortcutIconSet("keyboard_arrow_down"),
+      tools: createGeminiNativeShortcutIconSet("add_2"),
       canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
       createImage: createGeminiNativeShortcutIconSet("photo_prints"),
       quickInput: createGeminiNativeShortcutIconSet("send"),
@@ -139,6 +139,10 @@
       deepResearch: createGeminiNativeShortcutIconSet("travel_explore"),
       delete: createGeminiNativeShortcutIconSet("delete"),
       pin: createGeminiNativeShortcutIconSet("push_pin")
+    });
+    const GEMINI_LEGACY_SHORTCUT_ICON_SETS = Object.freeze({
+      model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
+      tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")])
     });
     const GEMINI_NATIVE_ICON_RETRY_DELAY_MS = 1200;
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
@@ -757,7 +761,7 @@
         dataTestIds: Object.freeze(["pin-button"]),
         iconNames: Object.freeze(["push_pin"]),
         jslogIds: Object.freeze(["186001"]),
-        aliases: Object.freeze(["Pin", "固定", "置顶"])
+        aliases: Object.freeze(["Pin", "Unpin", "固定", "置顶", "取消固定"])
       }),
       rename: Object.freeze({
         id: "rename",
@@ -869,6 +873,41 @@
       "side-nav-action-button[data-test-id='new-chat-button'] button",
       "[data-test-id='new-chat-button']"
     ]);
+    const GEMINI_QUICK_INPUT_NATIVE_ICON_SELECTORS = Object.freeze([
+      "[data-node-type='input-area'] button[aria-label='Send message']",
+      "input-area-v2 button[aria-label='Send message']",
+      "[data-node-type='input-area'] button[aria-label*='send' i]",
+      "input-area-v2 button[aria-label*='send' i]",
+      "button[aria-label='Send message']",
+      "button[aria-label*='send' i]"
+    ]);
+    const GEMINI_SHORTCUT_TOOLS_MENU_TARGET_IDS = Object.freeze({
+      canvas: "canvas",
+      createImage: "createImage",
+      learn: "learn",
+      deepResearch: "deepResearch"
+    });
+    const GEMINI_SHORTCUT_CONVERSATION_MENU_TARGET_IDS = Object.freeze({
+      delete: "delete",
+      pin: "pin"
+    });
+    const GEMINI_SHORTCUT_VISIBLE_MENU_ITEM_SELECTOR = [
+      "button:not([disabled])",
+      "a[href]",
+      "label",
+      "[role='menuitem']",
+      "[role='menuitemradio']",
+      "[role='menuitemcheckbox']",
+      "[role='button']",
+      "[mat-menu-item]",
+      ".mat-mdc-menu-item",
+      ".mat-mdc-list-item",
+      "[jslog]",
+      "[data-test-id]",
+      "[tabindex]",
+      "[aria-label]",
+      "[title]"
+    ].join(", ");
     function deriveShortcutKeyFromName(name) {
       const raw = String(name ?? "").trim();
       if (!raw) return "";
@@ -964,6 +1003,82 @@
       }
       return "";
     }
+    function getGeminiMenuItemIconResolverCandidates(rootEl) {
+      if (!rootEl) return [];
+      let nodes = [];
+      try {
+        nodes = Array.from(rootEl.querySelectorAll(GEMINI_SHORTCUT_VISIBLE_MENU_ITEM_SELECTOR));
+      } catch {
+        nodes = [];
+      }
+      return nodes.filter((node) => node && node !== rootEl && isElementVisible(node));
+    }
+    function geminiVisibleMenuItemMatchesTarget(item, target) {
+      if (!item || !target) return false;
+      const aliases = Array.isArray(target.aliases) ? target.aliases : [];
+      const uiText = getGeminiUiElementText(item);
+      if (aliases.length && geminiMenuTextExactlyMatches(uiText, aliases, item)) return true;
+      const dataTestIds = normalizeGeminiToolStringIds(target.dataTestIds || []);
+      if (dataTestIds.length && getGeminiElementDataTestIds(item).some((id) => dataTestIds.includes(id))) return true;
+      const jslogIds = normalizeGeminiToolStringIds(target.jslogIds || []);
+      if (jslogIds.length && jslogIds.includes(getGeminiElementJslogId(item))) return true;
+      const featureIds = normalizeGeminiToolStringIds(target.featureIds || []);
+      if (featureIds.length && featureIds.includes(getGeminiElementFeatureId(item))) return true;
+      const iconNames = normalizeGeminiToolIconNames(target.iconNames || []);
+      if (iconNames.length && getGeminiElementIconNames(item).some((name) => iconNames.includes(name))) return true;
+      return false;
+    }
+    function findGeminiVisibleMenuItemIconSource(roots, target) {
+      const rootList = Array.isArray(roots) ? roots.filter(Boolean) : [];
+      if (rootList.length === 0 || !target) return "";
+      for (const rootEl of rootList) {
+        for (const item of getGeminiMenuItemIconResolverCandidates(rootEl)) {
+          if (!geminiVisibleMenuItemMatchesTarget(item, target)) continue;
+          const source = getGeminiNativeIconSourceFromElement(item);
+          if (source) return source;
+        }
+      }
+      return "";
+    }
+    function getGeminiOpenToolsMenuRootsForIconResolver() {
+      try {
+        return getGeminiToolsMenuRootElements(null, { includeSubmenus: true });
+      } catch {
+        return [];
+      }
+    }
+    function getGeminiOpenConversationMenuRootsForIconResolver() {
+      const roots = [];
+      const seen = /* @__PURE__ */ new Set();
+      const selectors = [
+        ...SELECTORS.topBarConversationMenuRoot || [],
+        "[role='menu']"
+      ];
+      for (const selector of selectors) {
+        let list = [];
+        try {
+          list = Array.from(document.querySelectorAll(selector));
+        } catch {
+          list = [];
+        }
+        for (const root of list) {
+          if (!root || seen.has(root) || !isElementVisible(root)) continue;
+          seen.add(root);
+          roots.push(root);
+        }
+      }
+      return roots;
+    }
+    function resolveGeminiVisibleToolsMenuShortcutIconSource(iconKey) {
+      const targetId = GEMINI_SHORTCUT_TOOLS_MENU_TARGET_IDS[String(iconKey || "").trim()] || "";
+      const target = targetId ? GEMINI_TOOL_TARGETS[targetId] : null;
+      return findGeminiVisibleMenuItemIconSource(getGeminiOpenToolsMenuRootsForIconResolver(), target);
+    }
+    function resolveGeminiVisibleConversationMenuShortcutIconSource(iconKey) {
+      const targetId = GEMINI_SHORTCUT_CONVERSATION_MENU_TARGET_IDS[String(iconKey || "").trim()] || "";
+      const target = targetId ? GEMINI_CONVERSATION_MENU_TARGETS[targetId] : null;
+      return findGeminiVisibleMenuItemIconSource(getGeminiOpenConversationMenuRootsForIconResolver(), target);
+    }
     function resolveGeminiNativeShortcutIconSource(iconKey) {
       const key = String(iconKey || "").trim();
       let selector = null;
@@ -971,6 +1086,11 @@
       else if (key === "sidebar") selector = SELECTORS.sidebarToggle;
       else if (key === "model") selector = SELECTORS.modelPickerButton;
       else if (key === "tools") selector = SELECTORS.toolsButton;
+      else if (key === "quickInput") selector = GEMINI_QUICK_INPUT_NATIVE_ICON_SELECTORS;
+      else {
+        const menuSource = resolveGeminiVisibleToolsMenuShortcutIconSource(key) || resolveGeminiVisibleConversationMenuShortcutIconSource(key);
+        if (menuSource) return menuSource;
+      }
       if (!selector) return "";
       const element = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
       return getGeminiNativeIconSourceFromElement(element);
@@ -1105,6 +1225,7 @@
       if (/(?:^|\/)gemini_keycap\.svg(?:[?#].*)?$/i.test(icon)) return true;
       const iconSets = [
         GEMINI_SHORTCUT_ICON_SETS[iconKey] || null,
+        ...GEMINI_LEGACY_SHORTCUT_ICON_SETS[iconKey] || [],
         resolveGeminiNativeShortcutIconSet(iconKey)
       ].filter(Boolean);
       return iconSets.some((iconSet) => icon === iconSet.icon || icon === iconSet.iconDark);
