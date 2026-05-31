@@ -98,29 +98,35 @@
     }
 
     const GEMINI_SHORTCUT_ICON_SETS = Object.freeze({
-        newChat: createGeminiNativeShortcutIconSet("edit_square"),
-        sidebar: createGeminiNativeShortcutIconSet("left_panel_close"),
+        newChat: createGeminiNativeShortcutIconSet("gemini_chat"),
+        sidebar: createGeminiNativeShortcutIconSet("side_navigation"),
         model: createGeminiNativeShortcutIconSet("keyboard_arrow_down"),
         tools: createGeminiNativeShortcutIconSet("add_2"),
-        canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
-        createImage: createGeminiNativeShortcutIconSet("photo_prints"),
+        canvas: createGeminiNativeShortcutIconSet("canvas"),
+        createImage: createGeminiNativeShortcutIconSet("image_create"),
         quickInput: createGeminiNativeShortcutIconSet("arrow_upward"),
-        learn: createGeminiNativeShortcutIconSet("auto_stories"),
-        deepResearch: createGeminiNativeShortcutIconSet("travel_explore"),
+        learn: createGeminiNativeShortcutIconSet("guided_learning"),
+        deepResearch: createGeminiNativeShortcutIconSet("deep_research"),
         delete: createGeminiNativeShortcutIconSet("delete"),
         pin: createGeminiNativeShortcutIconSet("push_pin")
     });
 
     const GEMINI_PREVIOUS_SHORTCUT_ICON_SETS = Object.freeze({
+        newChat: Object.freeze([createGeminiNativeShortcutIconSet("edit_square")]),
         sidebar: Object.freeze([
             createGeminiNativeShortcutIconSet("menu"),
             createGeminiNativeShortcutIconSet("menu_open"),
             createGeminiNativeShortcutIconSet("left_panel_open"),
+            createGeminiNativeShortcutIconSet("left_panel_close"),
             createGeminiNativeShortcutIconSet("side_navigation")
         ]),
         model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
         tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")]),
-        quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")])
+        canvas: Object.freeze([createGeminiNativeShortcutIconSet("note_stack_add")]),
+        createImage: Object.freeze([createGeminiNativeShortcutIconSet("photo_prints")]),
+        quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")]),
+        learn: Object.freeze([createGeminiNativeShortcutIconSet("auto_stories")]),
+        deepResearch: Object.freeze([createGeminiNativeShortcutIconSet("travel_explore")])
     });
 
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
@@ -270,6 +276,12 @@
             "top-bar-actions button:has(mat-icon[data-mat-icon-name='left_panel_close'])",
             "top-bar-actions button:has(mat-icon[fonticon='side_navigation'])",
             "top-bar-actions button:has(mat-icon[data-mat-icon-name='side_navigation'])",
+            "top-bar-actions button:has(mat-icon[fonticon='side_nav'])",
+            "top-bar-actions button:has(mat-icon[data-mat-icon-name='side_nav'])",
+            "top-bar-actions button:has(mat-icon[fonticon='side_nav_collapse'])",
+            "top-bar-actions button:has(mat-icon[data-mat-icon-name='side_nav_collapse'])",
+            "top-bar-actions button:has(mat-icon[fonticon='side_nav_expand'])",
+            "top-bar-actions button:has(mat-icon[data-mat-icon-name='side_nav_expand'])",
             "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='sidebar' i]",
             "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='sidebar' i]",
             "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='side bar' i]",
@@ -310,6 +322,18 @@
             "side-navigation-content button:has(mat-icon[fonticon='side_navigation'])",
             "bard-sidenav button:has(mat-icon[data-mat-icon-name='side_navigation'])",
             "side-navigation-content button:has(mat-icon[data-mat-icon-name='side_navigation'])",
+            "bard-sidenav button:has(mat-icon[fonticon='side_nav'])",
+            "side-navigation-content button:has(mat-icon[fonticon='side_nav'])",
+            "bard-sidenav button:has(mat-icon[data-mat-icon-name='side_nav'])",
+            "side-navigation-content button:has(mat-icon[data-mat-icon-name='side_nav'])",
+            "bard-sidenav button:has(mat-icon[fonticon='side_nav_collapse'])",
+            "side-navigation-content button:has(mat-icon[fonticon='side_nav_collapse'])",
+            "bard-sidenav button:has(mat-icon[data-mat-icon-name='side_nav_collapse'])",
+            "side-navigation-content button:has(mat-icon[data-mat-icon-name='side_nav_collapse'])",
+            "bard-sidenav button:has(mat-icon[fonticon='side_nav_expand'])",
+            "side-navigation-content button:has(mat-icon[fonticon='side_nav_expand'])",
+            "bard-sidenav button:has(mat-icon[data-mat-icon-name='side_nav_expand'])",
+            "side-navigation-content button:has(mat-icon[data-mat-icon-name='side_nav_expand'])",
             "button[aria-label='Close sidebar']",
             "button[aria-label='Open sidebar']",
             "button[aria-label='Close side bar']",
@@ -514,7 +538,7 @@
         createImage: Object.freeze({
             id: "createImage",
             matchIds: Object.freeze(["createimage", "image"]),
-            iconNames: Object.freeze(["photo_prints"]),
+            iconNames: Object.freeze(["image_create", "image", "photo_prints"]),
             jslogIds: Object.freeze(["271906"]),
             featureIds: Object.freeze(["14"]),
             aliases: Object.freeze(["Create image", "Image", "创建图片", "生成图片"])
@@ -522,7 +546,7 @@
         canvas: Object.freeze({
             id: "canvas",
             matchIds: Object.freeze(["canvas"]),
-            iconNames: Object.freeze(["note_stack_add"]),
+            iconNames: Object.freeze(["canvas", "note_stack_add"]),
             jslogIds: Object.freeze(["251249"]),
             featureIds: Object.freeze(["2"]),
             aliases: Object.freeze(["Canvas", "画布"])
@@ -530,7 +554,7 @@
         deepResearch: Object.freeze({
             id: "deepResearch",
             matchIds: Object.freeze(["deepresearch", "research"]),
-            iconNames: Object.freeze(["travel_explore"]),
+            iconNames: Object.freeze(["deep_research", "travel_explore"]),
             jslogIds: Object.freeze(["251250"]),
             featureIds: Object.freeze(["1"]),
             aliases: Object.freeze(["Deep research", "Research", "深度研究"])
@@ -554,10 +578,10 @@
         learn: Object.freeze({
             id: "learn",
             matchIds: Object.freeze(["learn", "learning"]),
-            iconNames: Object.freeze(["auto_stories"]),
+            iconNames: Object.freeze(["guided_learning", "auto_stories"]),
             jslogIds: Object.freeze(["272446"]),
             featureIds: Object.freeze(["24"]),
-            aliases: Object.freeze(["Learn", "Learning", "学习"])
+            aliases: Object.freeze(["Guided learning", "Learn", "Learning", "引导学习", "学习"])
         })
     });
 
@@ -1510,7 +1534,7 @@
             iconText = "";
         }
         const normalizedIconText = normalizeGeminiUiText(iconText);
-        return /(?:^|\s)(menu|menu_open|left_panel_open|left_panel_close|side_navigation)(?:\s|$)/.test(normalizedIconText);
+        return /(?:^|\s)(menu|menu_open|left_panel_open|left_panel_close|side_navigation|side_nav|side_nav_collapse|side_nav_expand)(?:\s|$)/.test(normalizedIconText);
     }
 
     function setupKeepSidebarVisible() {
@@ -4943,7 +4967,8 @@
             const dataTestIds = getGeminiElementDataTestIds(el).join(" ");
             const looksLikeNewChat = GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE.test(text)
                 || GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE.test(dataTestIds)
-                || iconNames.includes("edit_square");
+                || iconNames.includes("edit_square")
+                || iconNames.includes("gemini_chat");
             if (!looksLikeNewChat) return false;
             if (/temporary|临时/i.test(text) || /temp-chat/i.test(dataTestIds)) return false;
 
@@ -4973,7 +4998,7 @@
             const dataTestIds = getGeminiElementDataTestIds(el).join(" ");
             if (/notebook/i.test(dataTestIds)) score += 40;
             if (/new.*chat|chat.*new/i.test(dataTestIds)) score += 30;
-            if (getGeminiElementIconNames(el).includes("edit_square")) score += 20;
+            if (getGeminiElementIconNames(el).some(name => name === "edit_square" || name === "gemini_chat")) score += 20;
             try { if (el.closest?.("[data-test-id*='notebook' i], [class*='notebook' i]")) score += 30; } catch { }
             try {
                 const rect = el.getBoundingClientRect();

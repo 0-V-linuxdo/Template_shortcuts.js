@@ -369,16 +369,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260601] v1.0.1",
+            name: "[Gemini] 快捷键跳转 [20260601] v1.0.2",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260601] v1.0.1",
-            updateLog: "1.0.1: 对齐 Gemini 新侧栏折叠按钮图标，并扩充默认快捷键托管图标迁移清单以保留用户自定义图标。",
+            version: "[20260601] v1.0.2",
+            updateLog: "1.0.2: 修正 Gemini 新 UI 默认快捷键图标，改用新建聊天、侧栏、Canvas、图片、学习与研究的页面语义图标，并迁移旧默认图标。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260601] v1.0.1",
+                    name: "[Gemini] Shortcut Jump [20260601] v1.0.2",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.1: Aligned the Gemini new-sidebar collapse icon and expanded managed default-icon migration while preserving user-customized icons."
+                    updateLog: "1.0.2: Fixed Gemini new-UI default shortcut icons by using the page semantic icons for new chat, sidebar, Canvas, image, learning, and research, with migration for old defaults."
                 }
             },
             match: [
