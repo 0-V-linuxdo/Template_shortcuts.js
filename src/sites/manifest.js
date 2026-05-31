@@ -194,7 +194,7 @@ const LE_CHAT_KEYCAP_ICON = themeAdaptiveKeycapIcon(
 
 const NOTION_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     "notion-keycap-icon",
-    `<svg x="10" y="8" width="44" height="44" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="m135.3 29.9c-5.2-9.6-15.2-17.5-28.3-17.9-14.6-0.5-27.7 9.2-35.3 23.1-6.6 11.8-42.6 81.3-50.5 97.9-1.8 3.7 0.2 7 3.8 7.5l45.4 5 1.5-12.4-37.6-3.9 45.2-89.5c5-9.3 14.4-17.9 25.2-18 6.6-0.1 16.1 3.6 21.6 12.4 1.3 2.3 4.2 3.5 6.7 2.3 2.4-1 3.6-4.1 2.3-6.5z"/><path d="m23.5 27.6c4.2-4.8 10.7-12.4 24.2-13.6 8.7-0.6 15 4.1 18.9 10.2 1.4 2.4 4.1 4.1 6.8 2.6 2.5-1.2 3.2-4.2 1.6-6.9-2.8-5.2-11.6-14.9-23.8-15.4-8.9-0.4-24.3 2.9-35.4 17.1-1.7 2.1-1.7 5 0.4 6.8 1.9 1.9 5.4 1.6 7.3-0.8z"/><path d="m47.8 36.2c-5.7 0.1-10.5 4.9-10.5 10.7-0.2 6 4.1 11.6 10.5 11.7 6.1-0.1 10.5-5.2 10.6-12-0.2-5.7-4.5-10.4-10.6-10.4z"/><path d="m94.7 42.9c-5.6 0.1-10.6 4.8-10.7 11.3 0 6.3 4.2 11.9 10.7 11.8 5.9 0 10.3-5.1 10.4-11.8 0-5.7-3.9-11.2-10.4-11.3z"/></svg>`
+    `<svg x="18" y="16" width="28" height="28" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="m135.3 29.9c-5.2-9.6-15.2-17.5-28.3-17.9-14.6-0.5-27.7 9.2-35.3 23.1-6.6 11.8-42.6 81.3-50.5 97.9-1.8 3.7 0.2 7 3.8 7.5l45.4 5 1.5-12.4-37.6-3.9 45.2-89.5c5-9.3 14.4-17.9 25.2-18 6.6-0.1 16.1 3.6 21.6 12.4 1.3 2.3 4.2 3.5 6.7 2.3 2.4-1 3.6-4.1 2.3-6.5z"/><path d="m23.5 27.6c4.2-4.8 10.7-12.4 24.2-13.6 8.7-0.6 15 4.1 18.9 10.2 1.4 2.4 4.1 4.1 6.8 2.6 2.5-1.2 3.2-4.2 1.6-6.9-2.8-5.2-11.6-14.9-23.8-15.4-8.9-0.4-24.3 2.9-35.4 17.1-1.7 2.1-1.7 5 0.4 6.8 1.9 1.9 5.4 1.6 7.3-0.8z"/><path d="m47.8 36.2c-5.7 0.1-10.5 4.9-10.5 10.7-0.2 6 4.1 11.6 10.5 11.7 6.1-0.1 10.5-5.2 10.6-12-0.2-5.7-4.5-10.4-10.6-10.4z"/><path d="m94.7 42.9c-5.6 0.1-10.6 4.8-10.7 11.3 0 6.3 4.2 11.9 10.7 11.8 5.9 0 10.3-5.1 10.4-11.8 0-5.7-3.9-11.2-10.4-11.3z"/></svg>`
 );
 
 const TELEGRAM_KEYCAP_ICON = themeAdaptiveKeycapIcon(
@@ -532,16 +532,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion AI] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion AI] 快捷键跳转 [20260531] v1.1.0",
+            name: "[Notion AI] 快捷键跳转 [20260531] v1.1.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260531] v1.1.0",
-            updateLog: "1.1.0: 将 Notion AI 脚本图标改为自适应键帽与 Notion AI logo，普通模式黑色、黑暗模式白色。",
+            version: "[20260531] v1.1.1",
+            updateLog: "1.1.1: 缩小并居中 Notion AI 脚本头键帽内的 logo。",
             localized: {
                 "en-US": {
-                    name: "[Notion AI] Shortcut Jump [20260531] v1.1.0",
+                    name: "[Notion AI] Shortcut Jump [20260531] v1.1.1",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.1.0: Updated the Notion AI script icon to an adaptive keycap with the Notion AI logo, using black in light mode and white in dark mode."
+                    updateLog: "1.1.1: Shrunk and centered the Notion AI logo inside the keycap header icon."
                 }
             },
             match: [
