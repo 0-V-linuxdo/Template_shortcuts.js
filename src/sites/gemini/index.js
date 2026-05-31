@@ -100,15 +100,29 @@
         });
     }
 
-    function createGeminiSvgDataUrl(svgText) {
-        const source = String(svgText || "").trim();
+    const GEMINI_LIGHT_ICON_FILL = "#111827";
+    const GEMINI_DARK_ICON_FILL = "#F8FAFC";
+
+    function createGeminiSvgDataUrl(svgText, fillColor = "") {
+        let source = String(svgText || "").trim();
+        const color = String(fillColor || "").trim();
+        if (source && color) {
+            source = source.replace(/<path\b(?![^>]*\sfill=)/g, `<path fill="${color}"`);
+        }
         return source ? `data:image/svg+xml,${encodeURIComponent(source)}` : "";
     }
 
     function createGeminiSvgShortcutIconSet(svgText) {
-        const source = createGeminiSvgDataUrl(svgText);
         return Object.freeze({
-            icon: source,
+            icon: createGeminiSvgDataUrl(svgText, GEMINI_LIGHT_ICON_FILL),
+            iconDark: createGeminiSvgDataUrl(svgText, GEMINI_DARK_ICON_FILL),
+            iconAdaptive: false
+        });
+    }
+
+    function createGeminiAdaptiveSvgShortcutIconSet(svgText) {
+        return Object.freeze({
+            icon: createGeminiSvgDataUrl(svgText),
             iconDark: "",
             iconAdaptive: true
         });
@@ -155,11 +169,13 @@
         model: Object.freeze([createGeminiGoogleShortcutIconSet("spark")]),
         tools: Object.freeze([createGeminiGoogleShortcutIconSet("page_info")]),
         canvas: Object.freeze([
+            createGeminiAdaptiveSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.canvas),
             createGeminiNativeShortcutIconSet("canvas"),
             createGeminiGoogleShortcutIconSet("canvas"),
             createGeminiGoogleShortcutIconSet("note_stack_add")
         ]),
         createImage: Object.freeze([
+            createGeminiAdaptiveSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.imageCreate),
             createGeminiNativeShortcutIconSet("image_create"),
             createGeminiGoogleShortcutIconSet("photo_prints"),
             createGeminiGoogleShortcutIconSet("image_create"),
@@ -167,11 +183,13 @@
         ]),
         quickInput: Object.freeze([createGeminiGoogleShortcutIconSet("send")]),
         learn: Object.freeze([
+            createGeminiAdaptiveSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.guidedLearning),
             createGeminiNativeShortcutIconSet("guided_learning"),
             createGeminiGoogleShortcutIconSet("auto_stories"),
             createGeminiGoogleShortcutIconSet("guided_learning")
         ]),
         deepResearch: Object.freeze([
+            createGeminiAdaptiveSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.deepResearch),
             createGeminiNativeShortcutIconSet("deep_research"),
             createGeminiGoogleShortcutIconSet("deep_research"),
             createGeminiGoogleShortcutIconSet("travel_explore")
