@@ -318,6 +318,38 @@ export const SITE_MANIFEST = Object.freeze([
         }
     },
     {
+        siteId: "quiver",
+        displayName: "[QuiverAI] 快捷键跳转",
+        sourceEntry: "src/sites/quiver/index.js",
+        metadata: {
+            name: "[QuiverAI] 快捷键跳转 [20260531] v1.0.0",
+            namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
+            description: "为 QuiverAI 提供基础快捷键：侧边栏展开/折叠、Creations 跳转与 Gallery 跳转。",
+            version: "[20260531] v1.0.0",
+            updateLog: "1.0.0: 新增 QuiverAI 脚本，内置侧边栏展开/折叠、Creations 与 Gallery 快捷键。",
+            localized: {
+                "en-US": {
+                    name: "[QuiverAI] Shortcut Jump [20260531] v1.0.0",
+                    description: "Basic shortcuts for QuiverAI: sidebar toggle plus Creations and Gallery jumps.",
+                    updateLog: "1.0.0: Added the QuiverAI script with sidebar toggle, Creations, and Gallery shortcuts."
+                }
+            },
+            match: [
+                "https://app.quiver.ai/*"
+            ],
+            grant: [
+                "GM_registerMenuCommand",
+                "GM_getValue",
+                "GM_setValue",
+                "GM_xmlhttpRequest"
+            ],
+            connect: [
+                "*"
+            ],
+            icon: "https://app.quiver.ai/favicon.ico"
+        }
+    },
+    {
         siteId: "gemini",
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
@@ -482,17 +514,17 @@ export const SITE_MANIFEST = Object.freeze([
     },
     {
         siteId: "notion",
-        displayName: "[Notion] 快捷键跳转",
+        displayName: "[Notion AI] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion] 快捷键跳转 [20260531] v1.0.0",
+            name: "[Notion AI] 快捷键跳转 [20260531] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
             version: "[20260531] v1.0.0",
             updateLog: "1.0.0: 新增 Notion AI 图片生成模式切换快捷动作，默认快捷键为 Ctrl+I。",
             localized: {
                 "en-US": {
-                    name: "[Notion] Shortcut Jump [20260531] v1.0.0",
+                    name: "[Notion AI] Shortcut Jump [20260531] v1.0.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
                     updateLog: "1.0.0: Added a Notion AI image-generation mode toggle shortcut with Ctrl+I as the default hotkey."
                 }
