@@ -746,11 +746,11 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
 
                 let iconEl = null;
                 try { iconEl = imgEl.__stFontIcon || null; } catch {}
-                if (!iconEl || iconEl.parentNode !== parent) {
+                if (!iconEl || iconEl.parentNode !== parent || String(iconEl.localName || "").toLowerCase() !== "mat-icon") {
                     if (iconEl && iconEl.parentNode) {
                         try { iconEl.parentNode.removeChild(iconEl); } catch {}
                     }
-                    iconEl = document.createElement("span");
+                    iconEl = document.createElement("mat-icon");
                     try { imgEl.__stFontIcon = iconEl; } catch {}
                     try { parent.insertBefore(iconEl, imgEl.nextSibling); } catch { parent.appendChild(iconEl); }
                 }
@@ -762,9 +762,19 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 iconEl.className = `mat-icon notranslate gds-icon-l ${fontSetClasses} mat-icon-no-color`;
                 iconEl.setAttribute("aria-hidden", "true");
                 iconEl.setAttribute("data-st-icon-font", "true");
-                if (fontSet) iconEl.setAttribute("data-st-icon-font-set", fontSet);
-                else iconEl.removeAttribute("data-st-icon-font-set");
-                iconEl.textContent = name;
+                iconEl.setAttribute("data-mat-icon-type", "font");
+                iconEl.setAttribute("data-mat-icon-name", name);
+                iconEl.setAttribute("fontIcon", name);
+                if (fontSet) {
+                    iconEl.setAttribute("data-st-icon-font-set", fontSet);
+                    iconEl.setAttribute("data-mat-icon-namespace", fontSet);
+                    iconEl.setAttribute("fontSet", fontSet);
+                } else {
+                    iconEl.removeAttribute("data-st-icon-font-set");
+                    iconEl.removeAttribute("data-mat-icon-namespace");
+                    iconEl.removeAttribute("fontSet");
+                }
+                iconEl.textContent = "";
                 copyIconImageBoxStyle(imgEl, iconEl);
                 const fontSize = iconEl.style.height || "24px";
                 Object.assign(iconEl.style, {
