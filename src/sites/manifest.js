@@ -322,16 +322,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[QuiverAI] 快捷键跳转",
         sourceEntry: "src/sites/quiver/index.js",
         metadata: {
-            name: "[QuiverAI] 快捷键跳转 [20260531] v1.0.0",
+            name: "[QuiverAI] 快捷键跳转 [20260531] v1.0.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 QuiverAI 提供基础快捷键：侧边栏展开/折叠、Creations 跳转与 Gallery 跳转。",
-            version: "[20260531] v1.0.0",
-            updateLog: "1.0.0: 新增 QuiverAI 脚本，内置侧边栏展开/折叠、Creations 与 Gallery 快捷键。",
+            version: "[20260531] v1.0.1",
+            updateLog: "1.0.1: 将默认快捷键图标改为 QuiverAI 页面原生 lucide 图标，并自动迁移旧默认图标。",
             localized: {
                 "en-US": {
-                    name: "[QuiverAI] Shortcut Jump [20260531] v1.0.0",
+                    name: "[QuiverAI] Shortcut Jump [20260531] v1.0.1",
                     description: "Basic shortcuts for QuiverAI: sidebar toggle plus Creations and Gallery jumps.",
-                    updateLog: "1.0.0: Added the QuiverAI script with sidebar toggle, Creations, and Gallery shortcuts."
+                    updateLog: "1.0.1: Changed the default shortcut icons to QuiverAI's native lucide icons and automatically migrates the old default icons."
                 }
             },
             match: [

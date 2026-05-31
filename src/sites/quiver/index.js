@@ -40,6 +40,7 @@
         };
 
     const defaultIconURL = 'https://app.quiver.ai/favicon.ico';
+    const QUIVER_DEFAULT_SHORTCUTS_STORAGE_KEY = 'quiver_shortcuts_v1';
 
     const SITE_MESSAGES = Object.freeze({
         'zh-CN': {
@@ -62,23 +63,35 @@
         }
     });
 
-    function createSvgIconDataUrl(body, { color = '#111827' } = {}) {
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+    function createSvgIconDataUrl(body, { color = '#111827', strokeWidth = '2' } = {}) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
         return `data:image/svg+xml,${encodeURIComponent(svg)}`;
     }
 
-    function createShortcutIconSet(body) {
+    function createShortcutIconSet(body, options = {}) {
         return Object.freeze({
-            icon: createSvgIconDataUrl(body, { color: '#111827' }),
-            iconDark: createSvgIconDataUrl(body, { color: '#F8FAFC' }),
+            icon: createSvgIconDataUrl(body, { color: '#111827', ...options }),
+            iconDark: createSvgIconDataUrl(body, { color: '#F8FAFC', ...options }),
             iconAdaptive: false
         });
     }
 
     const SHORTCUT_ICON_SETS = Object.freeze({
-        sidebar: createShortcutIconSet('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M6.5 9h.01"/><path d="M6.5 12h.01"/><path d="M6.5 15h.01"/>'),
-        creations: createShortcutIconSet('<path d="M12 5v14"/><path d="M5 12h14"/><rect x="4" y="4" width="16" height="16" rx="3"/>'),
-        gallery: createShortcutIconSet('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="m21 15-4.5-4.5L11 16l-2-2-4 5"/>')
+        sidebar: createShortcutIconSet('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>'),
+        creations: createShortcutIconSet('<path d="M16 5h6"/><path d="M19 2v6"/><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/><circle cx="9" cy="9" r="2"/>'),
+        gallery: createShortcutIconSet('<path d="M2 7v10"/><path d="M6 5v14"/><rect width="12" height="18" x="10" y="3" rx="2"/>')
+    });
+
+    const LEGACY_SHORTCUT_ICON_SETS = Object.freeze({
+        sidebar: createShortcutIconSet('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M6.5 9h.01"/><path d="M6.5 12h.01"/><path d="M6.5 15h.01"/>', { strokeWidth: '1.9' }),
+        creations: createShortcutIconSet('<path d="M12 5v14"/><path d="M5 12h14"/><rect x="4" y="4" width="16" height="16" rx="3"/>', { strokeWidth: '1.9' }),
+        gallery: createShortcutIconSet('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="m21 15-4.5-4.5L11 16l-2-2-4 5"/>', { strokeWidth: '1.9' })
+    });
+
+    const SHORTCUT_ICON_KEYS = Object.freeze({
+        'quiver.toggleSidebar': 'sidebar',
+        'quiver.creations': 'creations',
+        'quiver.gallery': 'gallery'
     });
 
     const defaultIcons = [
@@ -107,6 +120,70 @@
     function createShortcut(overrides, iconKey = '') {
         const iconSet = SHORTCUT_ICON_SETS[String(iconKey || '')] || {};
         return { ...baseShortcut, ...iconSet, ...(overrides || {}) };
+    }
+
+    function getDefaultShortcutIconKey(shortcut) {
+        const key = String(shortcut?.key || '').trim();
+        if (SHORTCUT_ICON_KEYS[key]) return SHORTCUT_ICON_KEYS[key];
+
+        const name = String(shortcut?.name || '').trim().toLowerCase();
+        if (name === 'toggle sidebar') return 'sidebar';
+        if (name === 'creations' || name === 'create') return 'creations';
+        if (name === 'gallery') return 'gallery';
+        return '';
+    }
+
+    function isManagedShortcutIcon(value, iconKey) {
+        const icon = String(value || '').trim();
+        if (!icon) return true;
+        if (icon === defaultIconURL) return true;
+        const currentIconSet = SHORTCUT_ICON_SETS[iconKey] || null;
+        if (currentIconSet && (icon === currentIconSet.icon || icon === currentIconSet.iconDark)) return true;
+        const legacyIconSet = LEGACY_SHORTCUT_ICON_SETS[iconKey] || null;
+        return !!legacyIconSet && (icon === legacyIconSet.icon || icon === legacyIconSet.iconDark);
+    }
+
+    function migrateDefaultShortcutIcons() {
+        if (typeof GM_getValue !== 'function' || typeof GM_setValue !== 'function') return;
+        let stored = null;
+        try {
+            stored = GM_getValue(QUIVER_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
+        } catch {
+            stored = null;
+        }
+        if (!Array.isArray(stored)) return;
+
+        let changed = false;
+        const next = stored.map((shortcut) => {
+            if (!shortcut || typeof shortcut !== 'object' || Array.isArray(shortcut)) return shortcut;
+            const iconKey = getDefaultShortcutIconKey(shortcut);
+            const iconSet = SHORTCUT_ICON_SETS[iconKey] || null;
+            if (!iconSet) return shortcut;
+
+            const replaceLightIcon = isManagedShortcutIcon(shortcut.icon, iconKey);
+            const replaceDarkIcon = replaceLightIcon && isManagedShortcutIcon(shortcut.iconDark, iconKey);
+            if (!replaceLightIcon && !replaceDarkIcon) return shortcut;
+
+            const updated = { ...shortcut };
+            if (replaceLightIcon && updated.icon !== iconSet.icon) {
+                updated.icon = iconSet.icon;
+                changed = true;
+            }
+            if (replaceDarkIcon && updated.iconDark !== iconSet.iconDark) {
+                updated.iconDark = iconSet.iconDark;
+                changed = true;
+            }
+            if ((replaceLightIcon || replaceDarkIcon) && updated.iconAdaptive) {
+                updated.iconAdaptive = false;
+                changed = true;
+            }
+            return updated;
+        });
+
+        if (!changed) return;
+        try {
+            GM_setValue(QUIVER_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
+        } catch {}
     }
 
     const defaultShortcuts = [
@@ -370,11 +447,13 @@
         toggleSidebar
     });
 
+    migrateDefaultShortcutIcons();
+
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: 'QuiverAI - 设置快捷键',
         panelTitle: 'QuiverAI - 自定义快捷键',
         storageKeys: {
-            shortcuts: 'quiver_shortcuts_v1',
+            shortcuts: QUIVER_DEFAULT_SHORTCUTS_STORAGE_KEY,
             iconCachePrefix: 'quiver_icon_cache_v1::',
             userIcons: 'quiver_user_icons_v1'
         },
