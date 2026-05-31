@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [QuiverAI] 快捷键跳转 [20260531] v1.0.4
-// @name:en        [QuiverAI] Shortcut Jump [20260531] v1.0.4
+// @name           [QuiverAI] 快捷键跳转 [20260601] v1.0.0
+// @name:en        [QuiverAI] Shortcut Jump [20260601] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 QuiverAI 提供基础快捷键：侧边栏展开/折叠、Creations 跳转与 Gallery 跳转。
 // @description:en Basic shortcuts for QuiverAI: sidebar toggle plus Creations and Gallery jumps.
 
-// @version        [20260531] v1.0.4
-// @update-log     1.0.4: 略微放大并上移 QuiverAI 脚本头键帽内的 logo。
-// @update-log:en  1.0.4: Slightly enlarged and raised the QuiverAI logo inside the keycap header icon.
+// @version        [20260601] v1.0.0
+// @update-log     1.0.0: 将 Creations 与 Gallery 快捷键改为 SPA route + history.pushState 跳转配置，避免整页刷新。
+// @update-log:en  1.0.0: Changed Creations and Gallery shortcuts to SPA route + history.pushState navigation to avoid full-page reloads.
 
 // @match          https://app.quiver.ai/*
 
@@ -118,6 +118,18 @@
       "quiver.creations": "creations",
       "quiver.gallery": "gallery"
     });
+    const QUIVER_SPA_NAVIGATION_SHORTCUTS = Object.freeze({
+      "/creations": Object.freeze({
+        url: "https://app.quiver.ai/creations",
+        urlMethod: "spa",
+        urlAdvanced: "pushState"
+      }),
+      "/gallery": Object.freeze({
+        url: "https://app.quiver.ai/gallery",
+        urlMethod: "spa",
+        urlAdvanced: "pushState"
+      })
+    });
     const defaultIcons = [
       { name: "QuiverAI", url: defaultIconURL },
       { name: "ChatGPT", url: "https://chatgpt.com/favicon.ico" },
@@ -160,7 +172,21 @@
       const legacyIconSet = LEGACY_SHORTCUT_ICON_SETS[iconKey] || null;
       return !!legacyIconSet && (icon === legacyIconSet.icon || icon === legacyIconSet.iconDark);
     }
-    function migrateDefaultShortcutIcons() {
+    function getQuiverSpaNavigationConfig(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return null;
+      const actionType = String(shortcut.actionType || "").trim();
+      if (actionType && actionType !== "url") return null;
+      const url = String(shortcut.url || "").trim();
+      if (!url) return null;
+      try {
+        const target = new URL(url, location.origin);
+        if (target.hostname !== "app.quiver.ai") return null;
+        return QUIVER_SPA_NAVIGATION_SHORTCUTS[target.pathname.replace(/\/+$/, "")] || null;
+      } catch {
+        return QUIVER_SPA_NAVIGATION_SHORTCUTS[url.replace(/^https:\/\/app\.quiver\.ai/i, "").replace(/\/+$/, "")] || null;
+      }
+    }
+    function migrateDefaultShortcuts() {
       if (typeof GM_getValue !== "function" || typeof GM_setValue !== "function") return;
       let stored = null;
       try {
@@ -174,22 +200,33 @@
         if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return shortcut;
         const iconKey = getDefaultShortcutIconKey(shortcut);
         const iconSet = SHORTCUT_ICON_SETS[iconKey] || null;
-        if (!iconSet) return shortcut;
-        const replaceLightIcon = isManagedShortcutIcon(shortcut.icon, iconKey);
+        let updated = shortcut;
+        const ensureUpdated = () => {
+          if (updated === shortcut) updated = { ...shortcut };
+          return updated;
+        };
+        const replaceLightIcon = iconSet && isManagedShortcutIcon(shortcut.icon, iconKey);
         const replaceDarkIcon = replaceLightIcon && isManagedShortcutIcon(shortcut.iconDark, iconKey);
-        if (!replaceLightIcon && !replaceDarkIcon) return shortcut;
-        const updated = { ...shortcut };
-        if (replaceLightIcon && updated.icon !== iconSet.icon) {
-          updated.icon = iconSet.icon;
+        if (replaceLightIcon && shortcut.icon !== iconSet.icon) {
+          ensureUpdated().icon = iconSet.icon;
           changed = true;
         }
-        if (replaceDarkIcon && updated.iconDark !== iconSet.iconDark) {
-          updated.iconDark = iconSet.iconDark;
+        if (replaceDarkIcon && shortcut.iconDark !== iconSet.iconDark) {
+          ensureUpdated().iconDark = iconSet.iconDark;
           changed = true;
         }
-        if ((replaceLightIcon || replaceDarkIcon) && updated.iconAdaptive) {
-          updated.iconAdaptive = false;
+        if ((replaceLightIcon || replaceDarkIcon) && shortcut.iconAdaptive) {
+          ensureUpdated().iconAdaptive = false;
           changed = true;
+        }
+        const spaConfig = getQuiverSpaNavigationConfig(updated);
+        if (spaConfig) {
+          for (const field of ["url", "urlMethod", "urlAdvanced"]) {
+            if (updated[field] !== spaConfig[field]) {
+              ensureUpdated()[field] = spaConfig[field];
+              changed = true;
+            }
+          }
         }
         return updated;
       });
@@ -213,7 +250,7 @@
         name: "Creations",
         labelKey: "shortcuts.creations",
         actionType: "url",
-        url: "https://app.quiver.ai/creations",
+        ...QUIVER_SPA_NAVIGATION_SHORTCUTS["/creations"],
         hotkey: "CTRL+C"
       }, "creations"),
       createShortcut({
@@ -221,7 +258,7 @@
         name: "Gallery",
         labelKey: "shortcuts.gallery",
         actionType: "url",
-        url: "https://app.quiver.ai/gallery",
+        ...QUIVER_SPA_NAVIGATION_SHORTCUTS["/gallery"],
         hotkey: "CTRL+G"
       }, "gallery")
     ];
@@ -432,7 +469,7 @@
     const CUSTOM_ACTIONS = Object.freeze({
       toggleSidebar
     });
-    migrateDefaultShortcutIcons();
+    migrateDefaultShortcuts();
     const engine = ShortcutTemplate.createShortcutEngine({
       menuCommandLabel: "QuiverAI - 设置快捷键",
       panelTitle: "QuiverAI - 自定义快捷键",
