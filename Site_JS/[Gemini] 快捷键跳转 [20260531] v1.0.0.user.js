@@ -6,8 +6,8 @@
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
 // @version        [20260531] v1.0.0
-// @update-log     1.0.0: 将默认快捷键图标同步为 Gemini 新页面原生图标，并保留旧默认图标自动迁移。
-// @update-log:en  1.0.0: Synced default shortcut icons with Gemini's native new-page icons and keeps migrating old managed defaults.
+// @update-log     1.0.0: 将默认快捷键图标内置为 Gemini 新页面 UI 图标，修正 Quick Input 上箭头，并保留旧默认图标自动迁移。
+// @update-log:en  1.0.0: Built the default shortcut icons into the script to match Gemini's new UI, fixed Quick Input to the up-arrow icon, and keeps migrating old managed defaults.
 
 // @match          https://gemini.google.com/*
 
@@ -134,7 +134,7 @@
       tools: createGeminiNativeShortcutIconSet("add_2"),
       canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
       createImage: createGeminiNativeShortcutIconSet("photo_prints"),
-      quickInput: createGeminiNativeShortcutIconSet("send"),
+      quickInput: createGeminiNativeShortcutIconSet("arrow_upward"),
       learn: createGeminiNativeShortcutIconSet("auto_stories"),
       deepResearch: createGeminiNativeShortcutIconSet("travel_explore"),
       delete: createGeminiNativeShortcutIconSet("delete"),
@@ -142,7 +142,8 @@
     });
     const GEMINI_LEGACY_SHORTCUT_ICON_SETS = Object.freeze({
       model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
-      tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")])
+      tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")]),
+      quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")])
     });
     const GEMINI_NATIVE_ICON_RETRY_DELAY_MS = 1200;
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
@@ -1100,7 +1101,8 @@
       return createGeminiShortcutIconSetFromSource(source);
     }
     function getGeminiShortcutIconDefaults(iconKey) {
-      const iconSet = resolveGeminiNativeShortcutIconSet(iconKey) || GEMINI_SHORTCUT_ICON_SETS[String(iconKey || "")] || null;
+      const key = String(iconKey || "");
+      const iconSet = GEMINI_SHORTCUT_ICON_SETS[key] || resolveGeminiNativeShortcutIconSet(key) || null;
       return iconSet ? { ...iconSet } : {};
     }
     const createShortcut = (overrides, iconKey = "") => {
