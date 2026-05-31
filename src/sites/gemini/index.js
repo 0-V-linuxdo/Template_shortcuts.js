@@ -99,7 +99,7 @@
 
     const GEMINI_SHORTCUT_ICON_SETS = Object.freeze({
         newChat: createGeminiNativeShortcutIconSet("edit_square"),
-        sidebar: createGeminiNativeShortcutIconSet("menu"),
+        sidebar: createGeminiNativeShortcutIconSet("left_panel_close"),
         model: createGeminiNativeShortcutIconSet("keyboard_arrow_down"),
         tools: createGeminiNativeShortcutIconSet("add_2"),
         canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
@@ -112,6 +112,12 @@
     });
 
     const GEMINI_PREVIOUS_SHORTCUT_ICON_SETS = Object.freeze({
+        sidebar: Object.freeze([
+            createGeminiNativeShortcutIconSet("menu"),
+            createGeminiNativeShortcutIconSet("menu_open"),
+            createGeminiNativeShortcutIconSet("left_panel_open"),
+            createGeminiNativeShortcutIconSet("side_navigation")
+        ]),
         model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
         tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")]),
         quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")])
