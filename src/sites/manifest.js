@@ -369,16 +369,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260601] v1.1.0",
+            name: "[Gemini] 快捷键跳转 [20260601] v1.1.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260601] v1.1.0",
-            updateLog: "1.1.0: 新增 Usage limits 快捷键（CTRL+U）跳转到 Gemini 用量限制页面，并使用 Gemini 网页原生 donut_large 图标；已加入现有配置的一次性迁移，遇到热键冲突时自动留空。",
+            version: "[20260601] v1.1.1",
+            updateLog: "1.1.1: 将 Usage limits 快捷键改为 SPA route + history.pushState 跳转配置，避免整页刷新；继续使用 Gemini 网页原生 donut_large 图标，并自动迁移旧配置。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260601] v1.1.0",
+                    name: "[Gemini] Shortcut Jump [20260601] v1.1.1",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.1.0: Added a Usage limits shortcut (CTRL+U) to Gemini's usage page using Gemini's native donut_large web icon; existing configs receive a one-time migration that leaves the hotkey blank if it conflicts."
+                    updateLog: "1.1.1: Changed the Usage limits shortcut to SPA route + history.pushState navigation to avoid a full page reload; it still uses Gemini's native donut_large web icon and automatically migrates old configs."
                 }
             },
             match: [

@@ -62,6 +62,8 @@
     const GEMINI_EXTENDED_MODEL_DEFAULT_HOTKEY = "CTRL+SHIFT+E";
     const GEMINI_USAGE_LIMITS_SHORTCUT_NAME = "Usage limits";
     const GEMINI_USAGE_LIMITS_URL = "https://gemini.google.com/usage";
+    const GEMINI_USAGE_LIMITS_URL_METHOD = "spa";
+    const GEMINI_USAGE_LIMITS_URL_ADVANCED = "pushState";
     const GEMINI_USAGE_LIMITS_DEFAULT_HOTKEY = "CTRL+U";
     const defaultIconURL = GEMINI_NATIVE_ICON_URL;
 
@@ -984,8 +986,8 @@
             name: GEMINI_USAGE_LIMITS_SHORTCUT_NAME,
             actionType: "url",
             url: GEMINI_USAGE_LIMITS_URL,
-            urlMethod: "current",
-            urlAdvanced: "href",
+            urlMethod: GEMINI_USAGE_LIMITS_URL_METHOD,
+            urlAdvanced: GEMINI_USAGE_LIMITS_URL_ADVANCED,
             hotkey: GEMINI_USAGE_LIMITS_DEFAULT_HOTKEY
         }, "usageLimits"),
         createShortcut({
@@ -1147,6 +1149,16 @@
                 changed = true;
             }
 
+            if (name === GEMINI_USAGE_LIMITS_SHORTCUT_NAME && shortcutTargetsGeminiUsageLimits(shortcut)) {
+                const usageLimitsFields = ["actionType", "url", "urlMethod", "urlAdvanced"];
+                for (const field of usageLimitsFields) {
+                    if (shortcut[field] !== defaultShortcut[field]) {
+                        ensureUpdated()[field] = cloneGeminiShortcutValue(defaultShortcut[field]);
+                        changed = true;
+                    }
+                }
+            }
+
             return updated;
         });
 
@@ -1232,8 +1244,8 @@
             name: GEMINI_USAGE_LIMITS_SHORTCUT_NAME,
             actionType: "url",
             url: GEMINI_USAGE_LIMITS_URL,
-            urlMethod: "current",
-            urlAdvanced: "href",
+            urlMethod: GEMINI_USAGE_LIMITS_URL_METHOD,
+            urlAdvanced: GEMINI_USAGE_LIMITS_URL_ADVANCED,
             hotkey
         }, "usageLimits");
     }
