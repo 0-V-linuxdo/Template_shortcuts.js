@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260601] v1.0.1
-// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.1
+// @name           [Gemini] 快捷键跳转 [20260601] v1.0.2
+// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260601] v1.0.1
-// @update-log     1.0.1: 修复 Canvas、图片、Deep research 与 Learning 快捷键图标异常，改用 Gemini 当前 Luminous Symbols 原始 SVG 并迁移旧的 lumi-symbols 字体图标默认值。
-// @update-log:en  1.0.1: Fixed broken Canvas, image, Deep research, and Learning shortcut icons by using Gemini's current original Luminous Symbols SVGs and migrating the old lumi-symbols font-icon defaults.
+// @version        [20260601] v1.0.2
+// @update-log     1.0.2: 修复 Canvas、图片、Deep research 与 Learning 原始 SVG 在黑暗模式下不自适应的问题，为 Gemini 工具图标提供普通/黑暗模式双 SVG 并迁移 v1.0.1 旧值。
+// @update-log:en  1.0.2: Fixed original Canvas, image, Deep research, and Learning SVGs not adapting in dark mode by providing light/dark SVG variants and migrating v1.0.1 defaults.
 
 // @match          https://gemini.google.com/*
 
@@ -128,14 +128,26 @@
         iconAdaptive: false
       });
     }
-    function createGeminiSvgDataUrl(svgText) {
-      const source = String(svgText || "").trim();
+    const GEMINI_LIGHT_ICON_FILL = "#111827";
+    const GEMINI_DARK_ICON_FILL = "#F8FAFC";
+    function createGeminiSvgDataUrl(svgText, fillColor = "") {
+      let source = String(svgText || "").trim();
+      const color = String(fillColor || "").trim();
+      if (source && color) {
+        source = source.replace(/<path\b(?![^>]*\sfill=)/g, `<path fill="${color}"`);
+      }
       return source ? `data:image/svg+xml,${encodeURIComponent(source)}` : "";
     }
     function createGeminiSvgShortcutIconSet(svgText) {
-      const source = createGeminiSvgDataUrl(svgText);
       return Object.freeze({
-        icon: source,
+        icon: createGeminiSvgDataUrl(svgText, GEMINI_LIGHT_ICON_FILL),
+        iconDark: createGeminiSvgDataUrl(svgText, GEMINI_DARK_ICON_FILL),
+        iconAdaptive: false
+      });
+    }
+    function createGeminiAdaptiveSvgShortcutIconSet(svgText) {
+      return Object.freeze({
+        icon: createGeminiSvgDataUrl(svgText),
         iconDark: "",
         iconAdaptive: true
       });
@@ -176,11 +188,13 @@
       model: Object.freeze([createGeminiGoogleShortcutIconSet("spark")]),
       tools: Object.freeze([createGeminiGoogleShortcutIconSet("page_info")]),
       canvas: Object.freeze([
+        createGeminiAdaptiveSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.canvas),
         createGeminiNativeShortcutIconSet("canvas"),
         createGeminiGoogleShortcutIconSet("canvas"),
         createGeminiGoogleShortcutIconSet("note_stack_add")
       ]),
       createImage: Object.freeze([
+        createGeminiAdaptiveSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.imageCreate),
         createGeminiNativeShortcutIconSet("image_create"),
         createGeminiGoogleShortcutIconSet("photo_prints"),
         createGeminiGoogleShortcutIconSet("image_create"),
@@ -188,11 +202,13 @@
       ]),
       quickInput: Object.freeze([createGeminiGoogleShortcutIconSet("send")]),
       learn: Object.freeze([
+        createGeminiAdaptiveSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.guidedLearning),
         createGeminiNativeShortcutIconSet("guided_learning"),
         createGeminiGoogleShortcutIconSet("auto_stories"),
         createGeminiGoogleShortcutIconSet("guided_learning")
       ]),
       deepResearch: Object.freeze([
+        createGeminiAdaptiveSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.deepResearch),
         createGeminiNativeShortcutIconSet("deep_research"),
         createGeminiGoogleShortcutIconSet("deep_research"),
         createGeminiGoogleShortcutIconSet("travel_explore")
