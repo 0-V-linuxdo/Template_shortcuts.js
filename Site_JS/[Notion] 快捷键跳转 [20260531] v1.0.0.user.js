@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion] 快捷键跳转 [20260530] v1.0.1
-// @name:en        [Notion] Shortcut Jump [20260530] v1.0.1
+// @name           [Notion] 快捷键跳转 [20260531] v1.0.0
+// @name:en        [Notion] Shortcut Jump [20260531] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
-// @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access toggle, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
+// @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
+// @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260530] v1.0.1
-// @update-log     1.0.1: 修复 Notion AI Quick Input 在 /ai 空白 New Chat 页因 URL 不变化而校验失败的问题，新增空白新聊天页特征识别。
-// @update-log:en  1.0.1: Fixed Notion AI Quick Input new-chat verification on the blank /ai page when the URL does not change by recognizing the blank new-chat zero state.
+// @version        [20260531] v1.0.0
+// @update-log     1.0.0: 新增 Notion AI 图片生成模式切换快捷动作，默认快捷键为 Ctrl+I。
+// @update-log:en  1.0.0: Added a Notion AI image-generation mode toggle shortcut with Ctrl+I as the default hotkey.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -22,7 +22,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22notion-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.notion-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.notion-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Cg%20transform%3D%22translate(14%2C%2011)%20scale(2.4)%22%20fill%3D%22currentColor%22%3E%3Cpath%20d%3D%22M3.25781%203.11684C3.67771%203.45796%203.83523%203.43193%204.62369%203.37933L12.0571%202.93299C12.2147%202.93299%2012.0836%202.77571%2012.0311%202.74957L10.7965%201.85711C10.56%201.67347%2010.2448%201.46315%209.64083%201.51576L2.44308%202.04074C2.18059%202.06677%202.12815%202.19801%202.2327%202.30322L3.25781%203.11684ZM3.7041%204.84917V12.6704C3.7041%2013.0907%203.91415%2013.248%204.38693%2013.222L12.5562%2012.7493C13.0292%2012.7233%2013.0819%2012.4341%2013.0819%2012.0927V4.32397C13.0819%203.98306%2012.9508%203.79921%2012.6612%203.82545L4.12422%204.32397C3.80918%204.35044%203.7041%204.50803%203.7041%204.84917ZM11.7688%205.26872C11.8212%205.50518%2011.7688%205.74142%2011.5319%205.76799L11.1383%205.84641V11.6205C10.7965%2011.8042%2010.4814%2011.9092%2010.2188%2011.9092C9.79835%2011.9092%209.69305%2011.7779%209.37812%2011.3844L6.80345%207.34249V11.2532L7.61816%2011.437C7.61816%2011.437%207.61816%2011.9092%206.96086%2011.9092L5.14879%2012.0143C5.09615%2011.9092%205.14879%2011.647%205.33259%2011.5944L5.80546%2011.4634V6.29276L5.1489%206.24015C5.09625%206.00369%205.22739%205.66278%205.5954%205.63631L7.53935%205.50528L10.2188%209.5998V5.97765L9.53564%205.89924C9.4832%205.61018%209.69305%205.40028%209.95576%205.37425L11.7688%205.26872ZM1.83874%201.33212L9.32557%200.780787C10.245%200.701932%2010.4815%200.754753%2011.0594%201.17452L13.4492%202.85424C13.8436%203.14309%2013.975%203.22173%2013.975%203.53661V12.7493C13.975%2013.3266%2013.7647%2013.6681%2013.0293%2013.7203L4.33492%2014.2454C3.78291%2014.2717%203.52019%2014.193%203.23111%2013.8253L1.47116%2011.5419C1.1558%2011.1216%201.02466%2010.8071%201.02466%2010.4392V2.25041C1.02466%201.77825%201.23504%201.38441%201.83874%201.33212Z%22%3E%3C%2Fpath%3E%3C%2Fg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260530.1.0.1
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260531.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -109,6 +109,7 @@
     const ATTACH_FILE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath d='M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z'/%3E%3C/svg%3E";
     const NEW_CHAT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14'/%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E";
     const WEB_ACCESS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 0 20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E";
+    const IMAGE_GENERATION_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/%3E%3C/svg%3E";
     const QUICK_INPUT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M7 9h.01'/%3E%3Cpath d='M11 9h.01'/%3E%3Cpath d='M15 9h.01'/%3E%3Cpath d='M17 15H7'/%3E%3C/svg%3E";
     const DELETE_TOPIC_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M8 6V4h8v2'/%3E%3Cpath d='M19 6l-1 14H6L5 6'/%3E%3Cpath d='M10 11v5'/%3E%3Cpath d='M14 11v5'/%3E%3C/svg%3E";
     const defaultIcons = [
@@ -119,6 +120,7 @@
       { name: "Research", url: RESEARCH_ICON },
       { name: "New Chat", url: NEW_CHAT_ICON },
       { name: "Web Access", url: WEB_ACCESS_ICON },
+      { name: "Image Generation", url: IMAGE_GENERATION_ICON },
       { name: "Quick Input", url: QUICK_INPUT_ICON },
       { name: "Delete Topic", url: DELETE_TOPIC_ICON },
       { name: "Google", url: "https://www.google.com/favicon.ico" },
@@ -268,6 +270,7 @@
       LEGACY_SELECT_AI_MODEL_KEY,
       ...NOTION_MODEL_SHORTCUT_KEYS,
       "toggleWebAccess",
+      "toggleImageGeneration",
       "quickInput",
       "deleteTopic"
     ]);
@@ -352,6 +355,27 @@
       '[tabindex]:not([tabindex="-1"])'
     ].join(", ");
     const SETTINGS_MENU_TIMING = Object.freeze({
+      pollIntervalMs: 120,
+      waitTimeoutMs: 3e3,
+      openDelayMs: 120
+    });
+    const NOTION_IMAGE_MODE_CLOSE_SELECTOR = '[data-testid="unified-chat-image-mode-pill-close"]';
+    const NOTION_CONTEXT_MENU_TRIGGER_SELECTORS = [
+      '[data-testid="unified-chat-plus-menu-button"]',
+      '[data-testid*="plus-menu" i]',
+      '[role="button"][aria-label*="give context" i]',
+      '[role="button"][aria-label*="add context" i]',
+      'button[aria-label*="give context" i]',
+      'button[aria-label*="add context" i]'
+    ].join(", ");
+    const NOTION_CONTEXT_MENU_ROOT_SELECTOR = [
+      '[role="menu"]',
+      '[role="dialog"]',
+      "[data-radix-menu-content]",
+      "[data-floating-ui-portal]"
+    ].join(", ");
+    const NOTION_CONTEXT_MENU_ITEM_SELECTOR = '[role="menuitem"]';
+    const CONTEXT_MENU_TIMING = Object.freeze({
       pollIntervalMs: 120,
       waitTimeoutMs: 3e3,
       openDelayMs: 120
@@ -1538,6 +1562,96 @@
         await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
       } while (true);
       return false;
+    }
+    function textLooksLikeCreateImageMenuItem(value) {
+      const text = normalizeNotionText(value);
+      return text === "create image" || text === "create image new" || text === "create imagenew" || text === "generate image" || text === "generate imagenew" || text === "创建图片" || text === "生成图片" || text === "创建图像" || text === "生成图像";
+    }
+    function findImageModeCloseElement() {
+      return safeQueryAll(document, NOTION_IMAGE_MODE_CLOSE_SELECTOR).find((element) => element && isVisibleElement(element) && !isElementDisabled(element)) || null;
+    }
+    function findContextMenuTriggerElement() {
+      const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const element of safeQueryAll(document, NOTION_CONTEXT_MENU_TRIGGER_SELECTORS)) {
+        if (!element || seen.has(element)) continue;
+        seen.add(element);
+        if (!isVisibleElement(element) || isInsideShortcutUi(element) || isElementDisabled(element)) continue;
+        const clickable = getClickableActionElement(element) || element;
+        const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+        const text = normalizeNotionText(getElementSearchText(element));
+        let score = 0;
+        if (dataTestId === "unified-chat-plus-menu-button") score += 1e3;
+        if (dataTestId.includes("plus-menu")) score += 700;
+        if (text.includes("give context") || text.includes("add context")) score += 420;
+        if (isLikelyComposerToolbarControl(clickable)) score += 120;
+        candidates.push({ element: clickable, score });
+      }
+      candidates.sort((a, b) => b.score - a.score);
+      return candidates[0]?.element || null;
+    }
+    function findCreateImageMenuItem(root) {
+      if (!root) return null;
+      return safeQueryAll(root, NOTION_CONTEXT_MENU_ITEM_SELECTOR).find((element) => element && isVisibleElement(element) && !isElementDisabled(element) && textLooksLikeCreateImageMenuItem(getElementText(element))) || null;
+    }
+    function findContextMenuRoot(triggerEl = null) {
+      if (triggerEl) {
+        const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+        if (controlsId) {
+          const controlled = document.getElementById(controlsId);
+          if (findCreateImageMenuItem(controlled)) return controlled;
+        }
+      }
+      return safeQueryAll(document, NOTION_CONTEXT_MENU_ROOT_SELECTOR).find((element) => element && isVisibleElement(element) && findCreateImageMenuItem(element)) || null;
+    }
+    async function ensureContextMenuOpen(triggerEl) {
+      const existing = findContextMenuRoot(triggerEl);
+      if (existing) return existing;
+      if (!triggerEl || !simulateClickElement(triggerEl, { nativeFallback: true })) return null;
+      if (CONTEXT_MENU_TIMING.openDelayMs > 0) await sleep(CONTEXT_MENU_TIMING.openDelayMs);
+      const deadline = Date.now() + CONTEXT_MENU_TIMING.waitTimeoutMs;
+      while (Date.now() <= deadline) {
+        const root = findContextMenuRoot(triggerEl);
+        if (root) return root;
+        await sleep(CONTEXT_MENU_TIMING.pollIntervalMs);
+      }
+      return findContextMenuRoot(triggerEl);
+    }
+    async function waitForImageModeState(expectedState) {
+      const deadline = Date.now() + CONTEXT_MENU_TIMING.waitTimeoutMs;
+      while (Date.now() <= deadline) {
+        if (!!findImageModeCloseElement() === !!expectedState) return true;
+        await sleep(CONTEXT_MENU_TIMING.pollIntervalMs);
+      }
+      return !!findImageModeCloseElement() === !!expectedState;
+    }
+    async function toggleImageGenerationAction() {
+      const closeElement = findImageModeCloseElement();
+      if (closeElement) {
+        if (!simulateClickElement(closeElement, { nativeFallback: true })) return false;
+        const disabled = await waitForImageModeState(false);
+        if (!disabled) console.warn(`${LOG_TAG} toggleImageGeneration: image mode did not turn off.`);
+        return disabled;
+      }
+      const trigger = findContextMenuTriggerElement();
+      if (!trigger) {
+        console.warn(`${LOG_TAG} toggleImageGeneration: Give context trigger not found.`);
+        return false;
+      }
+      const root = await ensureContextMenuOpen(trigger);
+      if (!root) {
+        console.warn(`${LOG_TAG} toggleImageGeneration: Give context menu not found.`);
+        return false;
+      }
+      const item = findCreateImageMenuItem(root);
+      if (!item) {
+        console.warn(`${LOG_TAG} toggleImageGeneration: Create image menu item not found.`);
+        return false;
+      }
+      if (!simulateClickElement(item, { nativeFallback: true })) return false;
+      const enabled = await waitForImageModeState(true);
+      if (!enabled) console.warn(`${LOG_TAG} toggleImageGeneration: image mode did not turn on.`);
+      return enabled;
     }
     function findModelTriggerElement() {
       const candidates = [];
@@ -4297,6 +4411,7 @@
           toggleResearchMode: "切换研究模式",
           selectSearchScope: "选择搜索范围",
           toggleWebAccess: "切换联网",
+          toggleImageGeneration: "切换图片生成",
           deleteTopic: "删除话题",
           addContext: "添加上下文",
           attachFile: "附加文件",
@@ -4326,6 +4441,7 @@
           newChat: "New Chat",
           selectAiModel: "Select AI Model",
           toggleWebAccess: "Toggle Web Access",
+          toggleImageGeneration: "Toggle Image Generation",
           deleteTopic: "Delete Topic",
           quickInput: "Quick Input"
         },
@@ -4413,6 +4529,15 @@
         customAction: "toggleWebAccess",
         hotkey: "CTRL+W",
         icon: WEB_ACCESS_ICON
+      }),
+      createShortcut({
+        key: "toggleImageGeneration",
+        name: "Toggle Image Generation",
+        labelKey: "shortcuts.toggleImageGeneration",
+        actionType: "custom",
+        customAction: "toggleImageGeneration",
+        hotkey: "CTRL+I",
+        icon: IMAGE_GENERATION_ICON
       }),
       createShortcut({
         key: "quickInput",
@@ -4612,6 +4737,7 @@
         openModelPicker: openModelPickerAction,
         modelPicker: clickModelPickerItem,
         toggleWebAccess: toggleWebAccessAction,
+        toggleImageGeneration: toggleImageGenerationAction,
         conversationMenu: clickConversationMenuItem,
         quickInput: ({ engine: engine2 }) => {
           ensureQuickInputController(engine2)?.toggle?.();
