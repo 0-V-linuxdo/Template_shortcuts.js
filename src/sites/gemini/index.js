@@ -87,9 +87,12 @@
         "https://raw.githubusercontent.com/0-V-linuxdo/Template_shortcuts.js/release/Site_Icon/gemini_keycap.svg"
     ]);
 
-    function createGeminiNativeShortcutIconSet(iconName) {
+    function createGeminiFontShortcutIconSet(iconName, fontSet = "") {
         const normalizedIconName = String(iconName || "").trim();
-        const source = normalizedIconName ? `font-icon:${normalizedIconName}` : "";
+        const normalizedFontSet = String(fontSet || "").trim();
+        const source = normalizedIconName
+            ? `font-icon:${normalizedFontSet ? `${normalizedFontSet}:` : ""}${normalizedIconName}`
+            : "";
         return Object.freeze({
             icon: source,
             iconDark: source,
@@ -97,39 +100,56 @@
         });
     }
 
+    function createGeminiNativeShortcutIconSet(iconName) {
+        return createGeminiFontShortcutIconSet(iconName, "lumi-symbols");
+    }
+
+    function createGeminiGoogleShortcutIconSet(iconName) {
+        return createGeminiFontShortcutIconSet(iconName);
+    }
+
     const GEMINI_SHORTCUT_ICON_SETS = Object.freeze({
-        newChat: createGeminiNativeShortcutIconSet("gemini_chat"),
-        sidebar: createGeminiNativeShortcutIconSet("side_navigation"),
-        model: createGeminiNativeShortcutIconSet("keyboard_arrow_down"),
-        tools: createGeminiNativeShortcutIconSet("add_2"),
-        canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
-        createImage: createGeminiNativeShortcutIconSet("image"),
-        quickInput: createGeminiNativeShortcutIconSet("arrow_upward"),
+        newChat: createGeminiGoogleShortcutIconSet("gemini_chat"),
+        sidebar: createGeminiGoogleShortcutIconSet("side_navigation"),
+        model: createGeminiGoogleShortcutIconSet("keyboard_arrow_down"),
+        tools: createGeminiGoogleShortcutIconSet("add_2"),
+        canvas: createGeminiNativeShortcutIconSet("canvas"),
+        createImage: createGeminiNativeShortcutIconSet("image_create"),
+        quickInput: createGeminiGoogleShortcutIconSet("arrow_upward"),
         learn: createGeminiNativeShortcutIconSet("guided_learning"),
-        deepResearch: createGeminiNativeShortcutIconSet("travel_explore"),
-        delete: createGeminiNativeShortcutIconSet("delete"),
-        pin: createGeminiNativeShortcutIconSet("push_pin")
+        deepResearch: createGeminiNativeShortcutIconSet("deep_research"),
+        delete: createGeminiGoogleShortcutIconSet("delete"),
+        pin: createGeminiGoogleShortcutIconSet("push_pin")
     });
 
     const GEMINI_PREVIOUS_SHORTCUT_ICON_SETS = Object.freeze({
-        newChat: Object.freeze([createGeminiNativeShortcutIconSet("edit_square")]),
+        newChat: Object.freeze([createGeminiGoogleShortcutIconSet("edit_square")]),
         sidebar: Object.freeze([
-            createGeminiNativeShortcutIconSet("menu"),
-            createGeminiNativeShortcutIconSet("menu_open"),
-            createGeminiNativeShortcutIconSet("left_panel_open"),
-            createGeminiNativeShortcutIconSet("left_panel_close"),
-            createGeminiNativeShortcutIconSet("side_navigation")
+            createGeminiGoogleShortcutIconSet("menu"),
+            createGeminiGoogleShortcutIconSet("menu_open"),
+            createGeminiGoogleShortcutIconSet("left_panel_open"),
+            createGeminiGoogleShortcutIconSet("left_panel_close")
         ]),
-        model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
-        tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")]),
-        canvas: Object.freeze([createGeminiNativeShortcutIconSet("canvas")]),
+        model: Object.freeze([createGeminiGoogleShortcutIconSet("spark")]),
+        tools: Object.freeze([createGeminiGoogleShortcutIconSet("page_info")]),
+        canvas: Object.freeze([
+            createGeminiGoogleShortcutIconSet("canvas"),
+            createGeminiGoogleShortcutIconSet("note_stack_add")
+        ]),
         createImage: Object.freeze([
-            createGeminiNativeShortcutIconSet("photo_prints"),
-            createGeminiNativeShortcutIconSet("image_create")
+            createGeminiGoogleShortcutIconSet("photo_prints"),
+            createGeminiGoogleShortcutIconSet("image_create"),
+            createGeminiGoogleShortcutIconSet("image")
         ]),
-        quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")]),
-        learn: Object.freeze([createGeminiNativeShortcutIconSet("auto_stories")]),
-        deepResearch: Object.freeze([createGeminiNativeShortcutIconSet("deep_research")])
+        quickInput: Object.freeze([createGeminiGoogleShortcutIconSet("send")]),
+        learn: Object.freeze([
+            createGeminiGoogleShortcutIconSet("auto_stories"),
+            createGeminiGoogleShortcutIconSet("guided_learning")
+        ]),
+        deepResearch: Object.freeze([
+            createGeminiGoogleShortcutIconSet("deep_research"),
+            createGeminiGoogleShortcutIconSet("travel_explore")
+        ])
     });
 
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({

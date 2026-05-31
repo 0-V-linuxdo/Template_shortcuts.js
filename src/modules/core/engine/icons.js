@@ -555,8 +555,15 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
             function parseFontIconSource(value) {
                 const source = String(value || "").trim();
                 if (!source.startsWith(FONT_ICON_PREFIX)) return null;
-                const name = source.slice(FONT_ICON_PREFIX.length).trim();
-                return name ? { name } : null;
+                const body = source.slice(FONT_ICON_PREFIX.length).trim();
+                if (!body) return null;
+                const separator = body.indexOf(":");
+                if (separator > 0) {
+                    const fontSet = body.slice(0, separator).trim();
+                    const name = body.slice(separator + 1).trim();
+                    if (fontSet && name) return { name, fontSet };
+                }
+                return { name: body };
             }
 
             function resolveSvgUseIconHref(rawHref, source) {
@@ -748,9 +755,15 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                     try { parent.insertBefore(iconEl, imgEl.nextSibling); } catch { parent.appendChild(iconEl); }
                 }
 
-                iconEl.className = "mat-icon notranslate gds-icon-l google-symbols mat-ligature-font mat-icon-no-color";
+                const fontSet = String(spec.fontSet || "").trim();
+                const fontSetClasses = fontSet === "lumi-symbols"
+                    ? "lumi-symbols mat-ligature-font"
+                    : "google-symbols mat-ligature-font";
+                iconEl.className = `mat-icon notranslate gds-icon-l ${fontSetClasses} mat-icon-no-color`;
                 iconEl.setAttribute("aria-hidden", "true");
                 iconEl.setAttribute("data-st-icon-font", "true");
+                if (fontSet) iconEl.setAttribute("data-st-icon-font-set", fontSet);
+                else iconEl.removeAttribute("data-st-icon-font-set");
                 iconEl.textContent = name;
                 copyIconImageBoxStyle(imgEl, iconEl);
                 const fontSize = iconEl.style.height || "24px";
@@ -759,7 +772,6 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                     alignItems: "center",
                     justifyContent: "center",
                     overflow: "hidden",
-                    fontFamily: "\"Google Symbols\", \"Material Symbols Rounded\", \"Material Symbols Outlined\", \"Material Icons\", sans-serif",
                     fontSize,
                     fontStyle: "normal",
                     fontWeight: "400",
@@ -773,6 +785,11 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                     WebkitFontFeatureSettings: "\"liga\"",
                     fontVariationSettings: "\"FILL\" 0, \"wght\" 400, \"GRAD\" 0, \"opsz\" 24"
                 });
+                if (fontSet === "lumi-symbols") {
+                    iconEl.style.removeProperty("font-family");
+                } else {
+                    iconEl.style.fontFamily = "\"Google Symbols\", \"Material Symbols Rounded\", \"Material Symbols Outlined\", \"Material Icons\", sans-serif";
+                }
 
                 rememberOriginalImageDisplay(imgEl);
                 imgEl.style.display = "none";
