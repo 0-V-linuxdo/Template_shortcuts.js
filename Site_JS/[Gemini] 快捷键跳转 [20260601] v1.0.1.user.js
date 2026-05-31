@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260601] v1.0.0
-// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.0
+// @name           [Gemini] 快捷键跳转 [20260601] v1.0.1
+// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260601] v1.0.0
-// @update-log     1.0.0: 对齐 Gemini 新 UI 工具菜单快捷键图标，使用真实 mat-icon/fontSet 渲染页面的 lumi-symbols 字体集，并修正 Canvas、图片、Deep research 与 Learning 的默认图标迁移。
-// @update-log:en  1.0.0: Aligned Gemini new-UI tools shortcut icons by rendering the page's lumi-symbols font set through real mat-icon/fontSet attributes and fixing default icon migration for Canvas, image, Deep research, and Learning.
+// @version        [20260601] v1.0.1
+// @update-log     1.0.1: 修复 Canvas、图片、Deep research 与 Learning 快捷键图标异常，改用 Gemini 当前 Luminous Symbols 原始 SVG 并迁移旧的 lumi-symbols 字体图标默认值。
+// @update-log:en  1.0.1: Fixed broken Canvas, image, Deep research, and Learning shortcut icons by using Gemini's current original Luminous Symbols SVGs and migrating the old lumi-symbols font-icon defaults.
 
 // @match          https://gemini.google.com/*
 
@@ -128,22 +128,40 @@
         iconAdaptive: false
       });
     }
+    function createGeminiSvgDataUrl(svgText) {
+      const source = String(svgText || "").trim();
+      return source ? `data:image/svg+xml,${encodeURIComponent(source)}` : "";
+    }
+    function createGeminiSvgShortcutIconSet(svgText) {
+      const source = createGeminiSvgDataUrl(svgText);
+      return Object.freeze({
+        icon: source,
+        iconDark: "",
+        iconAdaptive: true
+      });
+    }
     function createGeminiNativeShortcutIconSet(iconName) {
       return createGeminiFontShortcutIconSet(iconName, "lumi-symbols");
     }
     function createGeminiGoogleShortcutIconSet(iconName) {
       return createGeminiFontShortcutIconSet(iconName);
     }
+    const GEMINI_LUMINOUS_SYMBOL_SVGS = Object.freeze({
+      canvas: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" height="20" width="20"><path d="M9.33,15.5h4.25q0.81,0 1.13-0.06t0.49-0.23t0.24-0.49t0.07-1.14V9.31q0-0.81-0.07-1.13T15.19,7.7T14.7,7.47T13.58,7.41H8.54q-0.57,0-0.78,0.08T7.46,7.78Q7.44,7.85 7.43,7.76T7.41,7.73T7.4,8.1t0,1.21v4.26q0,0.82 0.07,1.14t0.24,0.49T8.2,15.44T9.33,15.5Zm0,1.17q-0.91,0-1.27-0.04T7.41,16.45q-0.3-0.16-0.55-0.4T6.46,15.5q-0.15-0.28-0.18-0.65T6.24,13.58V9.31q0-0.91 0.04-1.28T6.46,7.4q0.16-0.3 0.4-0.53T7.41,6.47q0.3-0.15 0.5-0.19T8.54,6.24h5.04q0.91,0 1.27,0.04t0.64,0.18q0.3,0.16 0.54,0.4t0.39,0.54q0.15,0.29 0.2,0.65t0.05,1.27v4.26q0,0.91-0.05,1.27t-0.2,0.65q-0.15,0.3-0.39,0.55t-0.53,0.4q-0.28,0.15-0.64,0.18t-1.27,0.04H9.33ZM4.94,13.3q-0.72-0.17-1.16-0.74T3.33,11.23V6.42q0-0.91 0.05-1.27T3.58,4.5Q3.74,4.2 3.98,3.95t0.53-0.4Q4.79,3.4 5.15,3.37T6.42,3.33h4.82q0.75,0 1.33,0.44t0.75,1.15q0.07,0.24-0.04,0.44T12.91,5.65T12.47,5.62T12.19,5.26q-0.08-0.33-0.33-0.55T11.25,4.5H6.42q-0.8,0-1.12,0.06T4.81,4.79T4.57,5.29T4.5,6.42v4.81q0,0.35 0.23,0.61t0.55,0.33q0.24,0.07 0.35,0.28t0.03,0.44T5.39,13.25T4.94,13.3Zm6.09,0.45q-0.17-0.17-0.17-0.42V12.04H9.57q-0.25,0-0.42-0.17T8.99,11.46t0.17-0.42t0.42-0.17h1.29V9.58q0-0.25 0.17-0.42t0.41-0.17t0.42,0.17t0.17,0.42v1.29h1.29q0.25,0 0.42,0.17t0.17,0.41t-0.17,0.42t-0.42,0.17H12.03v1.29q0,0.25-0.17,0.42t-0.41,0.17t-0.42-0.17Z"/></svg>`,
+      imageCreate: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" height="20" width="20"><path d="M8.57,17.67q-1.6,0-2.49-0.07T4.57,17.23q-0.57-0.31-1.03-0.77T2.77,15.43q-0.3-0.62-0.37-1.51T2.33,11.43V8.59q0-1.62 0.07-2.5t0.37-1.5Q3.08,4 3.54,3.54T4.57,2.79Q5.19,2.47 6.09,2.4T8.57,2.33h2.83q1.62,0 2.5,0.07t1.5,0.39Q16,3.07 16.46,3.54t0.75,1.05q0.32,0.62 0.39,1.5t0.07,2.5v2.83q0,1.6-0.07,2.49t-0.39,1.51q-0.29,0.57-0.75,1.03t-1.05,0.77q-0.62,0.3-1.5,0.37t-2.5,0.07H8.57Zm7.93-6.89V8.59q0-1.39-0.02-2.17t-0.29-1.3Q15.95,4.7 15.62,4.38T14.87,3.82q-0.52-0.27-1.3-0.29T11.41,3.5H8.57q-1.39,0-2.16,0.02T5.11,3.82Q4.68,4.05 4.36,4.38T3.83,5.13Q3.53,5.65 3.52,6.43T3.5,8.59V9.77Q4.18,9.23 4.99,8.89T6.91,8.54q0.99,0 1.76,0.27T10.11,9.7q0.55-0.62 0.86-1.38t0.3-1.58V5.27q0-0.26 0.18-0.42t0.47-0.16H13.7q0.23,0 0.37,0.18t0.14,0.42V6.34Q14.67,7 14.9,7.77t0.24,1.58q0,0.25-0.02,0.52t-0.07,0.5q0.41,0.04 0.76,0.15t0.68,0.26ZM8.57,16.5h2.83q1.39,0 2.16-0.02t1.31-0.31q0.4-0.21 0.74-0.54t0.57-0.75q0.24-0.47 0.28-1.11t0.04-1.68q-0.41-0.25-0.85-0.4T14.7,11.5q-0.23,0.56-0.56,1.08t-0.8,0.99q-0.81,0.81-1.83,1.23T9.38,15.22q-1.1,0-2.11-0.42T5.49,13.61Q4.83,12.95 5.2,12.09t1.3-0.82q0.72,0.02 1.4-0.2t1.29-0.63Q8.71,10 8.15,9.85T6.91,9.71q-1.18,0-1.98,0.49T3.5,11.37q0,1.18 0.01,2.06t0.32,1.46q0.21,0.42 0.54,0.75t0.75,0.54q0.54,0.29 1.31,0.31T8.57,16.5Zm0.8-2.44q0.88,0 1.69-0.34t1.44-0.96q0.69-0.69 1.08-1.57t0.39-1.84q0-0.67-0.19-1.29T13.16,6.91q-0.04-0.08-0.07-0.18T13.07,6.54V5.86H12.44V6.74q0,1.19-0.47,2.26t-1.38,1.84Q9.7,11.57 8.69,12T6.56,12.43q-0.19-0.01-0.25,0.15t0.05,0.26q0.62,0.59 1.39,0.91t1.61,0.31Z"/></svg>`,
+      guidedLearning: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" height="20" width="20"><path d="M10.01,17.14q-0.18,0-0.34-0.04t-0.3-0.11L8.69,16.67q-1-0.47-2.05-0.74T4.48,15.67q-0.89,0-1.52-0.62T2.33,13.52V7.88q0-0.9 0.63-1.52T4.48,5.74q1.25,0 2.43,0.29t2.3,0.83L9.89,7.18Q9.93,7.2 9.96,7.2t0.07-0.02l0.72-0.32q1.13-0.54 2.32-0.83T15.5,5.74q0.89,0 1.53,0.62t0.64,1.52v5.64q0,0.91-0.64,1.52T15.5,15.67q-1.1,0-2.15,0.25t-2.05,0.75l-0.65,0.31q-0.16,0.08-0.32,0.12t-0.32,0.04ZM9.95,15.95q0.03,0.02 0.07,0.02t0.07-0.02l0.67-0.32q1.12-0.53 2.31-0.83t2.42-0.3q0.42,0 0.71-0.29t0.29-0.69V7.89q0-0.41-0.29-0.69T15.5,6.91q-1.1,0-2.15,0.24T11.29,7.9L10.65,8.22Q10.33,8.36 10,8.36T9.36,8.22L8.69,7.9q-1-0.48-2.05-0.73T4.48,6.91q-0.43,0-0.7,0.29T3.5,7.88v5.64q0,0.41 0.28,0.7t0.7,0.29q1.25,0 2.43,0.3t2.31,0.83l0.73,0.32ZM9.59,14.18q-0.17-0.17-0.17-0.42V10.39q0-0.25 0.17-0.42T10,9.81t0.42,0.17t0.17,0.42v3.37q0,0.25-0.17,0.42T10,14.35T9.59,14.18Zm-2.1-9.5q-0.27,0-0.47-0.19T6.83,4.01q0-0.25 0.19-0.46T7.5,3.33q0.25,0 0.46,0.21T8.17,4.02q0,0.27-0.21,0.47T7.49,4.68Zm5,0q-0.27,0-0.47-0.19t-0.2-0.48q0-0.25 0.19-0.46T12.5,3.33q0.25,0 0.46,0.21t0.21,0.47q0,0.27-0.21,0.47t-0.47,0.2Zm-2.5-1q-0.27,0-0.47-0.19T9.33,3.01q0-0.25 0.19-0.46T10,2.33q0.25,0 0.46,0.21t0.21,0.47q0,0.27-0.21,0.47T9.99,3.68Z"/></svg>`,
+      deepResearch: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" height="20" width="20"><path d="M6.34,16.66q-1.42,0-2.21-0.79T3.34,13.65q0-0.85 0.32-1.78T4.51,9.99Q3.97,9.05 3.66,8.11T3.34,6.33q0-1.43 0.79-2.21T6.35,3.33q0.85,0 1.78,0.3t1.88,0.84q0.95-0.54 1.88-0.84t1.79-0.3q1.43,0 2.21,0.78t0.78,2.22q0,0.86-0.32,1.79T15.5,10q0.54,0.95 0.85,1.87t0.32,1.78q0,1.42-0.78,2.22t-2.21,0.8q-0.86,0-1.79-0.32t-1.88-0.85q-0.95,0.54-1.87,0.85T6.34,16.66Zm0-1.17q0.6,0 1.27-0.18T8.95,14.8q-1.06-0.76-2.03-1.72T5.2,11.05q-0.34,0.66-0.51,1.32T4.51,13.66q0,0.87 0.49,1.35t1.36,0.49Zm7.33,0q0.86,0 1.34-0.48t0.49-1.34q0-0.61-0.18-1.28t-0.51-1.32q-0.76,1.06-1.72,2.03t-2.02,1.72q0.66,0.34 1.32,0.51t1.28,0.17Zm-3.67-1.28q1.22-0.79 2.33-1.88T14.23,10q-0.79-1.22-1.9-2.33t-2.33-1.9Q8.78,6.56 7.67,7.66T5.78,9.99q0.79,1.23 1.89,2.33t2.33,1.9ZM5.2,8.93Q5.95,7.88 6.91,6.91T8.95,5.19Q8.29,4.86 7.62,4.68T6.34,4.5q-0.87,0-1.35,0.48T4.51,6.34q0,0.6 0.18,1.27T5.2,8.93Zm9.62-0.01q0.34-0.68 0.51-1.33t0.18-1.27q0-0.86-0.49-1.34T13.67,4.5q-0.61,0-1.27,0.18T11.07,5.19Q12.13,5.94 13.1,6.9t1.72,2.02Z"/></svg>`
+    });
     const GEMINI_SHORTCUT_ICON_SETS = Object.freeze({
       newChat: createGeminiGoogleShortcutIconSet("gemini_chat"),
       sidebar: createGeminiGoogleShortcutIconSet("side_navigation"),
       model: createGeminiGoogleShortcutIconSet("keyboard_arrow_down"),
       tools: createGeminiGoogleShortcutIconSet("add_2"),
-      canvas: createGeminiNativeShortcutIconSet("canvas"),
-      createImage: createGeminiNativeShortcutIconSet("image_create"),
+      canvas: createGeminiSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.canvas),
+      createImage: createGeminiSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.imageCreate),
       quickInput: createGeminiGoogleShortcutIconSet("arrow_upward"),
-      learn: createGeminiNativeShortcutIconSet("guided_learning"),
-      deepResearch: createGeminiNativeShortcutIconSet("deep_research"),
+      learn: createGeminiSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.guidedLearning),
+      deepResearch: createGeminiSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.deepResearch),
       delete: createGeminiGoogleShortcutIconSet("delete"),
       pin: createGeminiGoogleShortcutIconSet("push_pin")
     });
@@ -158,20 +176,24 @@
       model: Object.freeze([createGeminiGoogleShortcutIconSet("spark")]),
       tools: Object.freeze([createGeminiGoogleShortcutIconSet("page_info")]),
       canvas: Object.freeze([
+        createGeminiNativeShortcutIconSet("canvas"),
         createGeminiGoogleShortcutIconSet("canvas"),
         createGeminiGoogleShortcutIconSet("note_stack_add")
       ]),
       createImage: Object.freeze([
+        createGeminiNativeShortcutIconSet("image_create"),
         createGeminiGoogleShortcutIconSet("photo_prints"),
         createGeminiGoogleShortcutIconSet("image_create"),
         createGeminiGoogleShortcutIconSet("image")
       ]),
       quickInput: Object.freeze([createGeminiGoogleShortcutIconSet("send")]),
       learn: Object.freeze([
+        createGeminiNativeShortcutIconSet("guided_learning"),
         createGeminiGoogleShortcutIconSet("auto_stories"),
         createGeminiGoogleShortcutIconSet("guided_learning")
       ]),
       deepResearch: Object.freeze([
+        createGeminiNativeShortcutIconSet("deep_research"),
         createGeminiGoogleShortcutIconSet("deep_research"),
         createGeminiGoogleShortcutIconSet("travel_explore")
       ])
@@ -978,8 +1000,8 @@
           updated.iconDark = iconSet.iconDark;
           changed = true;
         }
-        if ((replaceLightIcon || replaceDarkIcon) && updated.iconAdaptive) {
-          updated.iconAdaptive = false;
+        if ((replaceLightIcon || replaceDarkIcon) && !!updated.iconAdaptive !== !!iconSet.iconAdaptive) {
+          updated.iconAdaptive = !!iconSet.iconAdaptive;
           changed = true;
         }
         return updated;
