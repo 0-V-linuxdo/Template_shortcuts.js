@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260601] v1.0.2
-// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.2
+// @name           [Gemini] 快捷键跳转 [20260601] v1.0.3
+// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.3
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260601] v1.0.2
-// @update-log     1.0.2: 修正 Gemini 新 UI 默认快捷键图标，改用新建聊天、侧栏、Canvas、图片、学习与研究的页面语义图标，并迁移旧默认图标。
-// @update-log:en  1.0.2: Fixed Gemini new-UI default shortcut icons by using the page semantic icons for new chat, sidebar, Canvas, image, learning, and research, with migration for old defaults.
+// @version        [20260601] v1.0.3
+// @update-log     1.0.3: 修正 Gemini Canvas、图片与研究快捷键图标，按页面图标别名解析后的实际 Google Symbols glyph 渲染，并迁移 1.0.2 的语义图标默认值。
+// @update-log:en  1.0.3: Fixed Gemini Canvas, image, and research shortcut icons by rendering the actual Google Symbols glyphs resolved from the page icon aliases, and migrated the 1.0.2 semantic defaults.
 
 // @match          https://gemini.google.com/*
 
@@ -132,11 +132,11 @@
       sidebar: createGeminiNativeShortcutIconSet("side_navigation"),
       model: createGeminiNativeShortcutIconSet("keyboard_arrow_down"),
       tools: createGeminiNativeShortcutIconSet("add_2"),
-      canvas: createGeminiNativeShortcutIconSet("canvas"),
-      createImage: createGeminiNativeShortcutIconSet("image_create"),
+      canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
+      createImage: createGeminiNativeShortcutIconSet("image"),
       quickInput: createGeminiNativeShortcutIconSet("arrow_upward"),
       learn: createGeminiNativeShortcutIconSet("guided_learning"),
-      deepResearch: createGeminiNativeShortcutIconSet("deep_research"),
+      deepResearch: createGeminiNativeShortcutIconSet("travel_explore"),
       delete: createGeminiNativeShortcutIconSet("delete"),
       pin: createGeminiNativeShortcutIconSet("push_pin")
     });
@@ -151,11 +151,14 @@
       ]),
       model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
       tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")]),
-      canvas: Object.freeze([createGeminiNativeShortcutIconSet("note_stack_add")]),
-      createImage: Object.freeze([createGeminiNativeShortcutIconSet("photo_prints")]),
+      canvas: Object.freeze([createGeminiNativeShortcutIconSet("canvas")]),
+      createImage: Object.freeze([
+        createGeminiNativeShortcutIconSet("photo_prints"),
+        createGeminiNativeShortcutIconSet("image_create")
+      ]),
       quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")]),
       learn: Object.freeze([createGeminiNativeShortcutIconSet("auto_stories")]),
-      deepResearch: Object.freeze([createGeminiNativeShortcutIconSet("travel_explore")])
+      deepResearch: Object.freeze([createGeminiNativeShortcutIconSet("deep_research")])
     });
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
       "New Chat": "newChat",
