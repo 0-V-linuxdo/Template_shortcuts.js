@@ -57,8 +57,12 @@
     const GEMINI_NATIVE_ICON_URL = "https://www.gstatic.com/lamda/images/gemini_sparkle_aurora_33f86dc0c0257da337c63.svg";
     const GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY = "gemini_shortcuts_v2";
     const GEMINI_EXTENDED_MODEL_SHORTCUT_MIGRATION_KEY = "gemini_extended_model_shortcut_added_v1";
+    const GEMINI_USAGE_LIMITS_SHORTCUT_MIGRATION_KEY = "gemini_usage_limits_shortcut_added_v1";
     const GEMINI_EXTENDED_MODEL_SHORTCUT_NAME = "Model: Extended";
     const GEMINI_EXTENDED_MODEL_DEFAULT_HOTKEY = "CTRL+SHIFT+E";
+    const GEMINI_USAGE_LIMITS_SHORTCUT_NAME = "Usage limits";
+    const GEMINI_USAGE_LIMITS_URL = "https://gemini.google.com/usage";
+    const GEMINI_USAGE_LIMITS_DEFAULT_HOTKEY = "CTRL+U";
     const defaultIconURL = GEMINI_NATIVE_ICON_URL;
 
     const defaultIcons = [
@@ -172,6 +176,7 @@
         quickInput: createGeminiStrokeShortcutIconSet('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01"/><path d="M10 9h.01"/><path d="M14 9h.01"/><path d="M18 9h.01"/><path d="M7 15h10"/>'),
         learn: createGeminiSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.guidedLearning),
         deepResearch: createGeminiSvgShortcutIconSet(GEMINI_LUMINOUS_SYMBOL_SVGS.deepResearch),
+        usageLimits: createGeminiGoogleShortcutIconSet("donut_large"),
         delete: createGeminiGoogleShortcutIconSet("delete"),
         pin: createGeminiGoogleShortcutIconSet("push_pin")
     });
@@ -246,6 +251,7 @@
         "Quick Input": "quickInput",
         "Learning": "learn",
         "Research": "deepResearch",
+        "Usage limits": "usageLimits",
         "Delete": "delete",
         "Pin": "pin"
     });
@@ -271,6 +277,7 @@
                 "Quick Input": "快捷输入",
                 "Learning": "学习",
                 "Research": "深度研究",
+                "Usage limits": "用量限制",
                 "Delete": "删除",
                 "Pin": "置顶"
             },
@@ -974,6 +981,14 @@
             data: { menu: { id: "deepResearch" } }
         }, "deepResearch"),
         createShortcut({
+            name: GEMINI_USAGE_LIMITS_SHORTCUT_NAME,
+            actionType: "url",
+            url: GEMINI_USAGE_LIMITS_URL,
+            urlMethod: "current",
+            urlAdvanced: "href",
+            hotkey: GEMINI_USAGE_LIMITS_DEFAULT_HOTKEY
+        }, "usageLimits"),
+        createShortcut({
             name: "Delete",
             actionType: "custom",
             customAction: "conversationMenu",
@@ -1189,6 +1204,19 @@
         return String(shortcut.customAction || "").trim() === "modelPicker" && getTargetModelKey(shortcut) === "extended";
     }
 
+    function shortcutTargetsGeminiUsageLimits(shortcut) {
+        if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
+        if (String(shortcut.name || "").trim() === GEMINI_USAGE_LIMITS_SHORTCUT_NAME) return true;
+        const url = String(shortcut.url || "").trim();
+        if (!url) return false;
+        try {
+            const target = new URL(url, location.origin);
+            return target.hostname === "gemini.google.com" && target.pathname.replace(/\/+$/, "") === "/usage";
+        } catch {
+            return url.replace(/\/+$/, "") === GEMINI_USAGE_LIMITS_URL;
+        }
+    }
+
     function createGeminiExtendedModelShortcut({ hotkey = GEMINI_EXTENDED_MODEL_DEFAULT_HOTKEY } = {}) {
         return createShortcut({
             name: GEMINI_EXTENDED_MODEL_SHORTCUT_NAME,
@@ -1197,6 +1225,17 @@
             hotkey,
             data: { menu: MODEL_PICKER_OPTION_TARGETS.extended }
         }, "model");
+    }
+
+    function createGeminiUsageLimitsShortcut({ hotkey = GEMINI_USAGE_LIMITS_DEFAULT_HOTKEY } = {}) {
+        return createShortcut({
+            name: GEMINI_USAGE_LIMITS_SHORTCUT_NAME,
+            actionType: "url",
+            url: GEMINI_USAGE_LIMITS_URL,
+            urlMethod: "current",
+            urlAdvanced: "href",
+            hotkey
+        }, "usageLimits");
     }
 
     function migrateGeminiExtendedModelShortcut() {
@@ -1224,6 +1263,33 @@
 
         gmSetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, [...stored, extendedShortcut]);
         gmSetValueLocal(GEMINI_EXTENDED_MODEL_SHORTCUT_MIGRATION_KEY, true);
+    }
+
+    function migrateGeminiUsageLimitsShortcut() {
+        const migratedRaw = gmGetValueLocal(GEMINI_USAGE_LIMITS_SHORTCUT_MIGRATION_KEY, false);
+        const migrated = migratedRaw === true || migratedRaw === "true";
+        const stored = gmGetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
+
+        if (!Array.isArray(stored)) {
+            if (!migrated) gmSetValueLocal(GEMINI_USAGE_LIMITS_SHORTCUT_MIGRATION_KEY, true);
+            return;
+        }
+
+        if (stored.some(shortcutTargetsGeminiUsageLimits)) {
+            if (!migrated) gmSetValueLocal(GEMINI_USAGE_LIMITS_SHORTCUT_MIGRATION_KEY, true);
+            return;
+        }
+
+        if (migrated) return;
+
+        const defaultHotkey = normalizeGeminiShortcutHotkey(GEMINI_USAGE_LIMITS_DEFAULT_HOTKEY);
+        const hotkeyInUse = stored.some(shortcut => normalizeGeminiShortcutHotkey(shortcut?.hotkey) === defaultHotkey);
+        const usageLimitsShortcut = createGeminiUsageLimitsShortcut({
+            hotkey: hotkeyInUse ? "" : GEMINI_USAGE_LIMITS_DEFAULT_HOTKEY
+        });
+
+        gmSetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, [...stored, usageLimitsShortcut]);
+        gmSetValueLocal(GEMINI_USAGE_LIMITS_SHORTCUT_MIGRATION_KEY, true);
     }
 
     const TemplateUtils = ShortcutTemplate.utils;
@@ -7221,6 +7287,7 @@
 
     migrateGeminiManagedShortcuts();
     migrateGeminiExtendedModelShortcut();
+    migrateGeminiUsageLimitsShortcut();
 
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: "Gemini - 设置快捷键",
