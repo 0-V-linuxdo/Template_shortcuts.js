@@ -6,8 +6,8 @@
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
 // @version        [20260601] v1.0.0
-// @update-log     1.0.0: 对齐 Gemini 新 UI 工具菜单快捷键图标，支持页面的 lumi-symbols 字体集，并修正 Canvas、图片、Deep research 与 Learning 的默认图标迁移。
-// @update-log:en  1.0.0: Aligned Gemini new-UI tools shortcut icons by supporting the page's lumi-symbols font set and fixing default icon migration for Canvas, image, Deep research, and Learning.
+// @update-log     1.0.0: 对齐 Gemini 新 UI 工具菜单快捷键图标，使用真实 mat-icon/fontSet 渲染页面的 lumi-symbols 字体集，并修正 Canvas、图片、Deep research 与 Learning 的默认图标迁移。
+// @update-log:en  1.0.0: Aligned Gemini new-UI tools shortcut icons by rendering the page's lumi-symbols font set through real mat-icon/fontSet attributes and fixing default icon migration for Canvas, image, Deep research, and Learning.
 
 // @match          https://gemini.google.com/*
 
