@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260601] v1.0.1
-// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.1
+// @name           [Gemini] 快捷键跳转 [20260601] v1.0.2
+// @name:en        [Gemini] Shortcut Jump [20260601] v1.0.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260601] v1.0.1
-// @update-log     1.0.1: 对齐 Gemini 新侧栏折叠按钮图标，并扩充默认快捷键托管图标迁移清单以保留用户自定义图标。
-// @update-log:en  1.0.1: Aligned the Gemini new-sidebar collapse icon and expanded managed default-icon migration while preserving user-customized icons.
+// @version        [20260601] v1.0.2
+// @update-log     1.0.2: 修正 Gemini 新 UI 默认快捷键图标，改用新建聊天、侧栏、Canvas、图片、学习与研究的页面语义图标，并迁移旧默认图标。
+// @update-log:en  1.0.2: Fixed Gemini new-UI default shortcut icons by using the page semantic icons for new chat, sidebar, Canvas, image, learning, and research, with migration for old defaults.
 
 // @match          https://gemini.google.com/*
 
@@ -128,28 +128,34 @@
       });
     }
     const GEMINI_SHORTCUT_ICON_SETS = Object.freeze({
-      newChat: createGeminiNativeShortcutIconSet("edit_square"),
-      sidebar: createGeminiNativeShortcutIconSet("left_panel_close"),
+      newChat: createGeminiNativeShortcutIconSet("gemini_chat"),
+      sidebar: createGeminiNativeShortcutIconSet("side_navigation"),
       model: createGeminiNativeShortcutIconSet("keyboard_arrow_down"),
       tools: createGeminiNativeShortcutIconSet("add_2"),
-      canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
-      createImage: createGeminiNativeShortcutIconSet("photo_prints"),
+      canvas: createGeminiNativeShortcutIconSet("canvas"),
+      createImage: createGeminiNativeShortcutIconSet("image_create"),
       quickInput: createGeminiNativeShortcutIconSet("arrow_upward"),
-      learn: createGeminiNativeShortcutIconSet("auto_stories"),
-      deepResearch: createGeminiNativeShortcutIconSet("travel_explore"),
+      learn: createGeminiNativeShortcutIconSet("guided_learning"),
+      deepResearch: createGeminiNativeShortcutIconSet("deep_research"),
       delete: createGeminiNativeShortcutIconSet("delete"),
       pin: createGeminiNativeShortcutIconSet("push_pin")
     });
     const GEMINI_PREVIOUS_SHORTCUT_ICON_SETS = Object.freeze({
+      newChat: Object.freeze([createGeminiNativeShortcutIconSet("edit_square")]),
       sidebar: Object.freeze([
         createGeminiNativeShortcutIconSet("menu"),
         createGeminiNativeShortcutIconSet("menu_open"),
         createGeminiNativeShortcutIconSet("left_panel_open"),
+        createGeminiNativeShortcutIconSet("left_panel_close"),
         createGeminiNativeShortcutIconSet("side_navigation")
       ]),
       model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
       tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")]),
-      quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")])
+      canvas: Object.freeze([createGeminiNativeShortcutIconSet("note_stack_add")]),
+      createImage: Object.freeze([createGeminiNativeShortcutIconSet("photo_prints")]),
+      quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")]),
+      learn: Object.freeze([createGeminiNativeShortcutIconSet("auto_stories")]),
+      deepResearch: Object.freeze([createGeminiNativeShortcutIconSet("travel_explore")])
     });
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
       "New Chat": "newChat",
@@ -295,6 +301,12 @@
         "top-bar-actions button:has(mat-icon[data-mat-icon-name='left_panel_close'])",
         "top-bar-actions button:has(mat-icon[fonticon='side_navigation'])",
         "top-bar-actions button:has(mat-icon[data-mat-icon-name='side_navigation'])",
+        "top-bar-actions button:has(mat-icon[fonticon='side_nav'])",
+        "top-bar-actions button:has(mat-icon[data-mat-icon-name='side_nav'])",
+        "top-bar-actions button:has(mat-icon[fonticon='side_nav_collapse'])",
+        "top-bar-actions button:has(mat-icon[data-mat-icon-name='side_nav_collapse'])",
+        "top-bar-actions button:has(mat-icon[fonticon='side_nav_expand'])",
+        "top-bar-actions button:has(mat-icon[data-mat-icon-name='side_nav_expand'])",
         "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='sidebar' i]",
         "side-navigation-content button:not([aria-haspopup='menu'])[aria-label*='sidebar' i]",
         "bard-sidenav button:not([aria-haspopup='menu'])[aria-label*='side bar' i]",
@@ -335,6 +347,18 @@
         "side-navigation-content button:has(mat-icon[fonticon='side_navigation'])",
         "bard-sidenav button:has(mat-icon[data-mat-icon-name='side_navigation'])",
         "side-navigation-content button:has(mat-icon[data-mat-icon-name='side_navigation'])",
+        "bard-sidenav button:has(mat-icon[fonticon='side_nav'])",
+        "side-navigation-content button:has(mat-icon[fonticon='side_nav'])",
+        "bard-sidenav button:has(mat-icon[data-mat-icon-name='side_nav'])",
+        "side-navigation-content button:has(mat-icon[data-mat-icon-name='side_nav'])",
+        "bard-sidenav button:has(mat-icon[fonticon='side_nav_collapse'])",
+        "side-navigation-content button:has(mat-icon[fonticon='side_nav_collapse'])",
+        "bard-sidenav button:has(mat-icon[data-mat-icon-name='side_nav_collapse'])",
+        "side-navigation-content button:has(mat-icon[data-mat-icon-name='side_nav_collapse'])",
+        "bard-sidenav button:has(mat-icon[fonticon='side_nav_expand'])",
+        "side-navigation-content button:has(mat-icon[fonticon='side_nav_expand'])",
+        "bard-sidenav button:has(mat-icon[data-mat-icon-name='side_nav_expand'])",
+        "side-navigation-content button:has(mat-icon[data-mat-icon-name='side_nav_expand'])",
         "button[aria-label='Close sidebar']",
         "button[aria-label='Open sidebar']",
         "button[aria-label='Close side bar']",
@@ -529,7 +553,7 @@
       createImage: Object.freeze({
         id: "createImage",
         matchIds: Object.freeze(["createimage", "image"]),
-        iconNames: Object.freeze(["photo_prints"]),
+        iconNames: Object.freeze(["image_create", "image", "photo_prints"]),
         jslogIds: Object.freeze(["271906"]),
         featureIds: Object.freeze(["14"]),
         aliases: Object.freeze(["Create image", "Image", "创建图片", "生成图片"])
@@ -537,7 +561,7 @@
       canvas: Object.freeze({
         id: "canvas",
         matchIds: Object.freeze(["canvas"]),
-        iconNames: Object.freeze(["note_stack_add"]),
+        iconNames: Object.freeze(["canvas", "note_stack_add"]),
         jslogIds: Object.freeze(["251249"]),
         featureIds: Object.freeze(["2"]),
         aliases: Object.freeze(["Canvas", "画布"])
@@ -545,7 +569,7 @@
       deepResearch: Object.freeze({
         id: "deepResearch",
         matchIds: Object.freeze(["deepresearch", "research"]),
-        iconNames: Object.freeze(["travel_explore"]),
+        iconNames: Object.freeze(["deep_research", "travel_explore"]),
         jslogIds: Object.freeze(["251250"]),
         featureIds: Object.freeze(["1"]),
         aliases: Object.freeze(["Deep research", "Research", "深度研究"])
@@ -569,10 +593,10 @@
       learn: Object.freeze({
         id: "learn",
         matchIds: Object.freeze(["learn", "learning"]),
-        iconNames: Object.freeze(["auto_stories"]),
+        iconNames: Object.freeze(["guided_learning", "auto_stories"]),
         jslogIds: Object.freeze(["272446"]),
         featureIds: Object.freeze(["24"]),
-        aliases: Object.freeze(["Learn", "Learning", "学习"])
+        aliases: Object.freeze(["Guided learning", "Learn", "Learning", "引导学习", "学习"])
       })
     });
     const GEMINI_TOOLS_PRIMARY_MENU_MARKERS = Object.freeze([
@@ -1407,7 +1431,7 @@
         iconText = "";
       }
       const normalizedIconText = normalizeGeminiUiText(iconText);
-      return /(?:^|\s)(menu|menu_open|left_panel_open|left_panel_close|side_navigation)(?:\s|$)/.test(normalizedIconText);
+      return /(?:^|\s)(menu|menu_open|left_panel_open|left_panel_close|side_navigation|side_nav|side_nav_collapse|side_nav_expand)(?:\s|$)/.test(normalizedIconText);
     }
     function setupKeepSidebarVisible() {
       let wasSidebarAutoExpandSuppressed = isSidebarAutoExpandSuppressedByViewport();
@@ -4404,7 +4428,7 @@
         const text = rawText.replace(/\s+/g, " ").trim();
         const iconNames = getGeminiElementIconNames(el);
         const dataTestIds = getGeminiElementDataTestIds(el).join(" ");
-        const looksLikeNewChat = GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE.test(text) || GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE.test(dataTestIds) || iconNames.includes("edit_square");
+        const looksLikeNewChat = GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE.test(text) || GEMINI_NOTEBOOK_NEW_CHAT_TEXT_RE.test(dataTestIds) || iconNames.includes("edit_square") || iconNames.includes("gemini_chat");
         if (!looksLikeNewChat) return false;
         if (/temporary|临时/i.test(text) || /temp-chat/i.test(dataTestIds)) return false;
         const href = getGeminiNotebookCandidateHref(el);
@@ -4429,7 +4453,7 @@
         const dataTestIds = getGeminiElementDataTestIds(el).join(" ");
         if (/notebook/i.test(dataTestIds)) score += 40;
         if (/new.*chat|chat.*new/i.test(dataTestIds)) score += 30;
-        if (getGeminiElementIconNames(el).includes("edit_square")) score += 20;
+        if (getGeminiElementIconNames(el).some((name) => name === "edit_square" || name === "gemini_chat")) score += 20;
         try {
           if (el.closest?.("[data-test-id*='notebook' i], [class*='notebook' i]")) score += 30;
         } catch {
