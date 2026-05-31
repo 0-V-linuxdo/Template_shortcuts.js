@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260528] v1.0.1
-// @name:en        [Gemini] Shortcut Jump [20260528] v1.0.1
+// @name           [Gemini] 快捷键跳转 [20260531] v1.0.0
+// @name:en        [Gemini] Shortcut Jump [20260531] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260528] v1.0.1
-// @update-log     1.0.1: 进一步优化 Gemini Extended 快捷键选择路径，减少模型选择器停留时间。
-// @update-log:en  1.0.1: Further optimized the Gemini Extended shortcut selection path to reduce model picker linger time.
+// @version        [20260531] v1.0.0
+// @update-log     1.0.0: 将默认快捷键图标同步为 Gemini 新页面原生图标，并保留旧默认图标自动迁移。
+// @update-log:en  1.0.0: Synced default shortcut icons with Gemini's native new-page icons and keeps migrating old managed defaults.
 
 // @match          https://gemini.google.com/*
 
@@ -140,6 +140,13 @@
       delete: createGeminiNativeShortcutIconSet("delete"),
       pin: createGeminiNativeShortcutIconSet("push_pin")
     });
+    const GEMINI_MANAGED_SHORTCUT_FONT_ICON_NAMES = Object.freeze({
+      newChat: Object.freeze(["add", "add_circle", "add_circle_outline", "edit", "edit_square", "new_window", "open_in_new"]),
+      sidebar: Object.freeze(["left_panel_close", "left_panel_open", "menu", "menu_open", "side_navigation", "view_sidebar"]),
+      model: Object.freeze(["auto_awesome", "bolt", "gemini", "spark", "sparkle", "stars"]),
+      tools: Object.freeze(["add", "add_2", "add_circle", "attach_file", "page_info", "upload", "upload_file"])
+    });
+    const GEMINI_NATIVE_ICON_RETRY_DELAY_MS = 1200;
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
       "New Chat": "newChat",
       "Toggle Sidebar": "sidebar",
@@ -863,6 +870,11 @@
       data: {},
       icon: defaultIconURL
     });
+    const GEMINI_NEW_CHAT_NATIVE_ICON_SELECTORS = Object.freeze([
+      "side-nav-action-button[data-test-id='new-chat-button']",
+      "side-nav-action-button[data-test-id='new-chat-button'] button",
+      "[data-test-id='new-chat-button']"
+    ]);
     function deriveShortcutKeyFromName(name) {
       const raw = String(name ?? "").trim();
       if (!raw) return "";
@@ -874,8 +886,107 @@
       const tail = rest.map((word) => word.toLowerCase()).map((word) => word ? word[0].toUpperCase() + word.slice(1) : "").filter(Boolean).join("");
       return head + tail;
     }
+    function normalizeGeminiNativeIconName(value) {
+      const token = String(value ?? "").replace(/\s+/g, " ").trim();
+      if (!token || token.length > 80) return "";
+      if (!/^[a-z][a-z0-9_]*$/i.test(token)) return "";
+      return token.toLowerCase();
+    }
+    function createGeminiShortcutIconSetFromSource(source) {
+      const normalizedSource = String(source || "").trim();
+      if (!normalizedSource) return null;
+      return {
+        icon: normalizedSource,
+        iconDark: normalizedSource,
+        iconAdaptive: false
+      };
+    }
+    function serializeGeminiSvgIcon(svgEl) {
+      if (!svgEl || String(svgEl.tagName || "").toLowerCase() !== "svg") return "";
+      const XMLSerializerCtor = globalThis.XMLSerializer;
+      if (typeof XMLSerializerCtor !== "function") return "";
+      let clone = null;
+      try {
+        clone = svgEl.cloneNode(true);
+      } catch {
+        clone = null;
+      }
+      if (!clone) return "";
+      try {
+        if (!clone.getAttribute("xmlns")) {
+          clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        }
+        clone.setAttribute("aria-hidden", "true");
+        clone.removeAttribute("id");
+        clone.removeAttribute("class");
+        clone.removeAttribute("style");
+      } catch {
+      }
+      let markup = "";
+      try {
+        markup = new XMLSerializerCtor().serializeToString(clone);
+      } catch {
+        markup = "";
+      }
+      return markup ? `data:image/svg+xml,${encodeURIComponent(markup)}` : "";
+    }
+    function getGeminiNativeIconSourceFromElement(element) {
+      if (!element) return "";
+      const iconNames = [];
+      try {
+        iconNames.push(...getGeminiElementIconNames(element));
+      } catch {
+      }
+      try {
+        const nodes = [];
+        if (element.matches?.("[fonticon], [data-mat-icon-name], mat-icon, .google-symbols, .material-symbols-rounded, .material-symbols-outlined, .material-icons")) {
+          nodes.push(element);
+        }
+        nodes.push(...Array.from(element.querySelectorAll("[fonticon], [data-mat-icon-name], mat-icon, .google-symbols, .material-symbols-rounded, .material-symbols-outlined, .material-icons")));
+        for (const node of nodes) {
+          iconNames.push(
+            node.getAttribute?.("fonticon"),
+            node.getAttribute?.("data-mat-icon-name"),
+            node.textContent
+          );
+        }
+      } catch {
+      }
+      for (const rawName of iconNames) {
+        const iconName = normalizeGeminiNativeIconName(rawName);
+        if (iconName) return `font-icon:${iconName}`;
+      }
+      try {
+        const img = element.matches?.("img[src]") ? element : element.querySelector?.("img[src]");
+        const src = String(img?.currentSrc || img?.src || img?.getAttribute?.("src") || "").trim();
+        if (/^(?:https?:|data:image\/|blob:)/i.test(src)) return src;
+      } catch {
+      }
+      try {
+        const svg = element.matches?.("svg") ? element : element.querySelector?.("svg");
+        const serialized = serializeGeminiSvgIcon(svg);
+        if (serialized) return serialized;
+      } catch {
+      }
+      return "";
+    }
+    function resolveGeminiNativeShortcutIconSource(iconKey) {
+      const key = String(iconKey || "").trim();
+      let selector = null;
+      if (key === "newChat") selector = GEMINI_NEW_CHAT_NATIVE_ICON_SELECTORS;
+      else if (key === "sidebar") selector = SELECTORS.sidebarToggle;
+      else if (key === "model") selector = SELECTORS.modelPickerButton;
+      else if (key === "tools") selector = SELECTORS.toolsButton;
+      if (!selector) return "";
+      const element = getFirstVisibleBySelector(selector, { fallbackToFirst: true });
+      return getGeminiNativeIconSourceFromElement(element);
+    }
+    function resolveGeminiNativeShortcutIconSet(iconKey) {
+      const source = resolveGeminiNativeShortcutIconSource(iconKey);
+      return createGeminiShortcutIconSetFromSource(source);
+    }
     function getGeminiShortcutIconDefaults(iconKey) {
-      const iconSet = GEMINI_SHORTCUT_ICON_SETS[String(iconKey || "")] || null;
+      const iconSet = resolveGeminiNativeShortcutIconSet(iconKey) || GEMINI_SHORTCUT_ICON_SETS[String(iconKey || "")] || null;
       return iconSet ? { ...iconSet } : {};
     }
     const createShortcut = (overrides, iconKey = "") => {
@@ -998,18 +1109,23 @@
       if (GEMINI_MANAGED_SHORTCUT_ICON_URLS.includes(icon)) return true;
       if (/gemini_sparkle_(?:aurora|v002)_/i.test(icon)) return true;
       if (/(?:^|\/)gemini_keycap\.svg(?:[?#].*)?$/i.test(icon)) return true;
-      const iconSet = GEMINI_SHORTCUT_ICON_SETS[iconKey] || null;
-      return !!iconSet && (icon === iconSet.icon || icon === iconSet.iconDark);
+      const iconSets = [
+        GEMINI_SHORTCUT_ICON_SETS[iconKey] || null,
+        resolveGeminiNativeShortcutIconSet(iconKey)
+      ].filter(Boolean);
+      if (iconSets.some((iconSet) => icon === iconSet.icon || icon === iconSet.iconDark)) return true;
+      const fontIconName = icon.startsWith("font-icon:") ? normalizeGeminiNativeIconName(icon.slice("font-icon:".length)) : "";
+      const managedFontIconNames = GEMINI_MANAGED_SHORTCUT_FONT_ICON_NAMES[iconKey] || [];
+      return !!fontIconName && managedFontIconNames.includes(fontIconName);
     }
-    function migrateGeminiShortcutIcons() {
-      const stored = gmGetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
-      if (!Array.isArray(stored)) return;
+    function buildGeminiShortcutIconMigration(shortcuts) {
+      if (!Array.isArray(shortcuts)) return null;
       let changed = false;
-      const next = stored.map((shortcut) => {
+      const next = shortcuts.map((shortcut) => {
         if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return shortcut;
         const iconKey = getGeminiDefaultShortcutIconKey(shortcut);
-        const iconSet = GEMINI_SHORTCUT_ICON_SETS[iconKey] || null;
-        if (!iconSet) return shortcut;
+        const iconSet = getGeminiShortcutIconDefaults(iconKey);
+        if (!iconSet?.icon) return shortcut;
         const replaceLightIcon = isGeminiManagedShortcutIcon(shortcut.icon, iconKey);
         const replaceDarkIcon = replaceLightIcon && isGeminiManagedShortcutIcon(shortcut.iconDark, iconKey);
         if (!replaceLightIcon && !replaceDarkIcon) return shortcut;
@@ -1028,8 +1144,44 @@
         }
         return updated;
       });
-      if (!changed) return;
-      gmSetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
+      return changed ? next : null;
+    }
+    function getGeminiEngineShortcuts(engine2) {
+      if (!engine2) return null;
+      try {
+        if (typeof engine2.getShortcuts === "function") return engine2.getShortcuts();
+        if (typeof engine2.core?.getShortcuts === "function") return engine2.core.getShortcuts();
+      } catch {
+      }
+      return null;
+    }
+    function migrateGeminiShortcutIcons(engine2 = null, { refreshPanel = false } = {}) {
+      const stored = gmGetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
+      const source = Array.isArray(stored) ? stored : getGeminiEngineShortcuts(engine2);
+      if (!Array.isArray(source)) return false;
+      const next = buildGeminiShortcutIconMigration(source);
+      if (!next) return false;
+      if (engine2 && typeof engine2.setShortcuts === "function") {
+        engine2.setShortcuts(next);
+        if (refreshPanel && typeof engine2.reopenSettingsPanel === "function") {
+          engine2.reopenSettingsPanel();
+        }
+      } else {
+        gmSetValueLocal(GEMINI_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
+      }
+      return true;
+    }
+    function scheduleGeminiShortcutIconMigrationRetry(engine2) {
+      const run = () => {
+        setTimeout(() => {
+          migrateGeminiShortcutIcons(engine2, { refreshPanel: true });
+        }, GEMINI_NATIVE_ICON_RETRY_DELAY_MS);
+      };
+      if (document.readyState === "complete") {
+        run();
+        return;
+      }
+      window.addEventListener("load", run, { once: true });
     }
     function normalizeGeminiShortcutHotkey(value) {
       return String(value || "").replace(/\s+/g, "").trim().toUpperCase();
@@ -6642,6 +6794,7 @@
       }
     });
     engine.init();
+    scheduleGeminiShortcutIconMigrationRetry(engine);
     setupKeepSidebarVisible();
     registerGeminiMenuCommands(engine);
     engine.i18n?.addLocaleChangeListener?.(() => registerGeminiMenuCommands(engine));
