@@ -140,12 +140,6 @@
       delete: createGeminiNativeShortcutIconSet("delete"),
       pin: createGeminiNativeShortcutIconSet("push_pin")
     });
-    const GEMINI_MANAGED_SHORTCUT_FONT_ICON_NAMES = Object.freeze({
-      newChat: Object.freeze(["add", "add_circle", "add_circle_outline", "edit", "edit_square", "new_window", "open_in_new"]),
-      sidebar: Object.freeze(["left_panel_close", "left_panel_open", "menu", "menu_open", "side_navigation", "view_sidebar"]),
-      model: Object.freeze(["auto_awesome", "bolt", "gemini", "spark", "sparkle", "stars"]),
-      tools: Object.freeze(["add", "add_2", "add_circle", "attach_file", "page_info", "upload", "upload_file"])
-    });
     const GEMINI_NATIVE_ICON_RETRY_DELAY_MS = 1200;
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
       "New Chat": "newChat",
@@ -1113,10 +1107,7 @@
         GEMINI_SHORTCUT_ICON_SETS[iconKey] || null,
         resolveGeminiNativeShortcutIconSet(iconKey)
       ].filter(Boolean);
-      if (iconSets.some((iconSet) => icon === iconSet.icon || icon === iconSet.iconDark)) return true;
-      const fontIconName = icon.startsWith("font-icon:") ? normalizeGeminiNativeIconName(icon.slice("font-icon:".length)) : "";
-      const managedFontIconNames = GEMINI_MANAGED_SHORTCUT_FONT_ICON_NAMES[iconKey] || [];
-      return !!fontIconName && managedFontIconNames.includes(fontIconName);
+      return iconSets.some((iconSet) => icon === iconSet.icon || icon === iconSet.iconDark);
     }
     function buildGeminiShortcutIconMigration(shortcuts) {
       if (!Array.isArray(shortcuts)) return null;
