@@ -369,16 +369,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260601] v1.0.3",
+            name: "[Gemini] 快捷键跳转 [20260601] v1.0.4",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260601] v1.0.3",
-            updateLog: "1.0.3: 修正 Gemini Canvas、图片与研究快捷键图标，按页面图标别名解析后的实际 Google Symbols glyph 渲染，并迁移 1.0.2 的语义图标默认值。",
+            version: "[20260601] v1.0.4",
+            updateLog: "1.0.4: 修正 Gemini 保持侧边栏显示过于激进的问题；用户手动折叠侧边栏后会抑制后台自动展开，脚本内部临时展开仍可正常工作。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260601] v1.0.3",
+                    name: "[Gemini] Shortcut Jump [20260601] v1.0.4",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.3: Fixed Gemini Canvas, image, and research shortcut icons by rendering the actual Google Symbols glyphs resolved from the page icon aliases, and migrated the 1.0.2 semantic defaults."
+                    updateLog: "1.0.4: Fixed Gemini Keep sidebar visible being too aggressive; manual sidebar collapse now suppresses background auto-expansion while internal temporary expansion still works."
                 }
             },
             match: [

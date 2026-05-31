@@ -728,6 +728,7 @@
     const SIDEBAR_OPEN_LAYOUT_MIN_WIDTH = 160;
     const SIDEBAR_CLOSED_LAYOUT_MAX_WIDTH = 96;
     const SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS = 1200;
+    const SIDEBAR_AUTO_TOGGLE_EVENT_IGNORE_MS = 1200;
     const SIDEBAR_TOGGLE_SETTLE_MS = 700;
     const SIDEBAR_TEMPORARY_EXPAND_WAIT_MS = 1000;
     const SIDEBAR_STATE_POLL_INTERVAL_MS = 120;
@@ -753,6 +754,8 @@
     let sidebarWarmupRequestTimer = null;
     let sidebarLastWarmupRequestAt = 0;
     let sidebarTogglePendingUntil = 0;
+    let sidebarAutomationToggleUntil = 0;
+    let sidebarAutoExpandSuppressedByManualCollapse = false;
 
     const baseShortcut = Object.freeze({
         url: "",
@@ -1382,11 +1385,35 @@
         sidebarTogglePendingUntil = Date.now() + Math.max(150, Number(settleMs) || SIDEBAR_TOGGLE_SETTLE_MS);
     }
 
+    function markSidebarAutomationToggle() {
+        sidebarAutomationToggleUntil = Date.now() + SIDEBAR_AUTO_TOGGLE_EVENT_IGNORE_MS;
+    }
+
+    function isSidebarAutomationToggleEventActive() {
+        return sidebarAutomationToggleUntil > Date.now();
+    }
+
+    function suppressSidebarAutoExpandForManualCollapse() {
+        sidebarAutoExpandSuppressedByManualCollapse = true;
+        cancelSidebarWarmupRequest();
+        stopSidebarWarmup();
+        clearSidebarTogglePending();
+    }
+
+    function clearSidebarAutoExpandManualSuppression({ restartWarmup = false } = {}) {
+        const wasSuppressed = sidebarAutoExpandSuppressedByManualCollapse;
+        sidebarAutoExpandSuppressedByManualCollapse = false;
+        if (restartWarmup && wasSuppressed && shouldWarmupSidebarInBackground()) {
+            requestSidebarWarmup({ attempts: 8, intervalMs: 350, delayMs: 250 });
+        }
+    }
+
     function clickSidebarToggleButton({ settleMs = SIDEBAR_TOGGLE_SETTLE_MS } = {}) {
         if (isSidebarTogglePending()) return true;
         const button = getSidebarToggleButton();
         if (!button) return false;
         try {
+            markSidebarAutomationToggle();
             const clicked = TemplateUtils?.events?.simulateClick?.(button, { nativeFallback: true });
             if (clicked) {
                 markSidebarTogglePending(settleMs);
@@ -1394,6 +1421,7 @@
             }
         } catch { }
         try {
+            markSidebarAutomationToggle();
             button.click();
             markSidebarTogglePending(settleMs);
             return true;
@@ -1412,11 +1440,14 @@
     }
 
     function shouldWarmupSidebarInBackground() {
-        return keepSidebarVisible && !isSidebarAutoExpandSuppressedByViewport();
+        return keepSidebarVisible
+            && !sidebarAutoExpandSuppressedByManualCollapse
+            && !isSidebarAutoExpandSuppressedByViewport();
     }
 
-    function ensureSidebarVisible({ ignorePreference = false } = {}) {
+    function ensureSidebarVisible({ ignorePreference = false, ignoreManualSuppression = false } = {}) {
         if (!ignorePreference && !keepSidebarVisible) return false;
+        if (!ignorePreference && !ignoreManualSuppression && sidebarAutoExpandSuppressedByManualCollapse) return false;
         const open = isSidebarOpen();
         if (open === true) {
             clearSidebarTogglePending();
@@ -1430,6 +1461,7 @@
     function setSidebarVisibilityPreference(nextValue, engine = null) {
         keepSidebarVisible = !!nextValue;
         setKeepSidebarVisibleSetting(keepSidebarVisible);
+        clearSidebarAutoExpandManualSuppression();
         if (keepSidebarVisible) {
             if (shouldWarmupSidebarInBackground()) {
                 startSidebarWarmup();
@@ -1540,6 +1572,30 @@
         return /(?:^|\s)(menu|menu_open|left_panel_open|left_panel_close|side_navigation|side_nav|side_nav_collapse|side_nav_expand)(?:\s|$)/.test(normalizedIconText);
     }
 
+    function handleSidebarToggleUserIntent() {
+        if (isSidebarAutomationToggleEventActive()) return;
+
+        const beforeOpen = isSidebarOpen();
+        if (beforeOpen === true) {
+            suppressSidebarAutoExpandForManualCollapse();
+            return;
+        }
+
+        if (beforeOpen === false) {
+            clearSidebarAutoExpandManualSuppression({ restartWarmup: false });
+            return;
+        }
+
+        window.setTimeout(() => {
+            const afterOpen = isSidebarOpen();
+            if (afterOpen === false) {
+                suppressSidebarAutoExpandForManualCollapse();
+            } else if (afterOpen === true) {
+                clearSidebarAutoExpandManualSuppression({ restartWarmup: false });
+            }
+        }, Math.min(300, SIDEBAR_TOGGLE_SETTLE_MS));
+    }
+
     function setupKeepSidebarVisible() {
         let wasSidebarAutoExpandSuppressed = isSidebarAutoExpandSuppressedByViewport();
 
@@ -1580,7 +1636,7 @@
 
         document.addEventListener("click", (event) => {
             if (!isSidebarToggleEventTarget(event.target)) return;
-            requestSidebarWarmup({ attempts: 5, intervalMs: 300, delayMs: 500 });
+            handleSidebarToggleUserIntent();
         }, true);
 
         document.addEventListener("visibilitychange", () => {
