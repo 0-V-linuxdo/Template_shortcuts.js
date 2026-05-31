@@ -369,16 +369,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260601] v1.0.3",
+            name: "[Gemini] 快捷键跳转 [20260601] v1.0.4",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260601] v1.0.3",
-            updateLog: "1.0.3: 对齐 Gemini 原生侧栏切换按钮图标，将 Toggle Sidebar 默认图标改为当前 Luminous Symbols 原始 SVG；Quick Input 改用与 ChatGPT 脚本一致的键盘图标，并迁移旧默认值。",
+            version: "[20260601] v1.0.4",
+            updateLog: "1.0.4: 修正 Toggle Sidebar 为 Gemini 顶部按钮使用的 side_nav 原始 SVG，移除误用的箭头图标；Open Tools 改用 Gemini Luminous Symbols 原始 add_2 SVG，使图标尺寸与笔画更贴近网页。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260601] v1.0.3",
+                    name: "[Gemini] Shortcut Jump [20260601] v1.0.4",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.0.3: Aligned Toggle Sidebar with Gemini's native sidebar button using the current original Luminous Symbols SVG; Quick Input now uses the same keyboard icon as the ChatGPT script and migrates old defaults."
+                    updateLog: "1.0.4: Corrected Toggle Sidebar to Gemini's top-bar side_nav original SVG instead of the arrow variant; Open Tools now uses Gemini's original Luminous Symbols add_2 SVG for closer size and stroke matching."
                 }
             },
             match: [
