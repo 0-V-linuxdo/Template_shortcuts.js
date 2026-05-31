@@ -162,6 +162,21 @@ const AISTUDIO_KEYCAP_ICON = themeAdaptiveKeycapIcon(
 </svg>`
 );
 
+const QUIVER_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "quiver-keycap-icon",
+    `<svg x="10.8" y="10.8" width="42.4" height="42.4" viewBox="0 0 51 51" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g clip-path="url(#quiver-keycap-clip)">
+    <rect width="50.2724" height="50.2724" rx="11.3755" fill="#F8F8F8"></rect>
+    <path d="M25.1806 9.49414C33.844 9.49415 40.8671 16.5172 40.8671 25.1806V40.8671H25.1806C16.5173 40.8671 9.49415 33.844 9.49414 25.1806C9.49414 16.5172 16.5172 9.49414 25.1806 9.49414ZM17.8891 16.9534C17.314 16.7607 16.7667 17.309 16.9604 17.8837L23.3315 36.7771C23.5971 37.5646 24.7608 37.3737 24.7608 36.5426V24.7051H36.5206C37.3525 24.7051 37.5425 23.5396 36.7538 23.2753L17.8891 16.9534Z" fill="#333333"></path>
+  </g>
+  <defs>
+    <clipPath id="quiver-keycap-clip">
+      <rect width="50.2724" height="50.2724" rx="11.3755" fill="white"></rect>
+    </clipPath>
+  </defs>
+</svg>`
+);
+
 const KAGI_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     "kagi-keycap-icon",
     `<path d="M35.262 38.36H28.51c-1.855 0-2.138-1.99-1.792-2.789.165-.379.539-.927.892-1.376a9.06 9.06 0 0 0 4.389 1.13 9.13 9.13 0 0 0 9.12-9.122 9.1 9.1 0 0 0-3.022-6.775l.21-.212a2.32 2.32 0 0 1 1.9-.68l1.097.116v-4.47h-1.918a5.21 5.21 0 0 0-4.833 3.267 9.1 9.1 0 0 0-2.559-.366 9.13 9.13 0 0 0-6.446 2.674 9.13 9.13 0 0 0-2.675 6.446 9.08 9.08 0 0 0 1.774 5.402l-.54.416a4 4 0 0 0-.267.229c-1.848 1.723-2.695 3.98-2.211 6.49.265 1.376 1.433 2.804 2.621 3.561a5.35 5.35 0 0 0 2.823.82l7.569-.306a2.49 2.49 0 0 1 2.109 1.155l.989 1.785 4.692-1.568-.803-1.748a7.01 7.01 0 0 0-6.367-4.079m-3.263-16.519a4.367 4.367 0 0 1 4.36 4.36 4.367 4.367 0 0 1-4.36 4.359 4.367 4.367 0 0 1-4.36-4.36A4.367 4.367 0 0 1 32 21.842" fill="#FFB319"></path>`
@@ -179,7 +194,7 @@ const LE_CHAT_KEYCAP_ICON = themeAdaptiveKeycapIcon(
 
 const NOTION_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     "notion-keycap-icon",
-    `<g transform="translate(14, 11) scale(2.4)" fill="currentColor"><path d="M3.25781 3.11684C3.67771 3.45796 3.83523 3.43193 4.62369 3.37933L12.0571 2.93299C12.2147 2.93299 12.0836 2.77571 12.0311 2.74957L10.7965 1.85711C10.56 1.67347 10.2448 1.46315 9.64083 1.51576L2.44308 2.04074C2.18059 2.06677 2.12815 2.19801 2.2327 2.30322L3.25781 3.11684ZM3.7041 4.84917V12.6704C3.7041 13.0907 3.91415 13.248 4.38693 13.222L12.5562 12.7493C13.0292 12.7233 13.0819 12.4341 13.0819 12.0927V4.32397C13.0819 3.98306 12.9508 3.79921 12.6612 3.82545L4.12422 4.32397C3.80918 4.35044 3.7041 4.50803 3.7041 4.84917ZM11.7688 5.26872C11.8212 5.50518 11.7688 5.74142 11.5319 5.76799L11.1383 5.84641V11.6205C10.7965 11.8042 10.4814 11.9092 10.2188 11.9092C9.79835 11.9092 9.69305 11.7779 9.37812 11.3844L6.80345 7.34249V11.2532L7.61816 11.437C7.61816 11.437 7.61816 11.9092 6.96086 11.9092L5.14879 12.0143C5.09615 11.9092 5.14879 11.647 5.33259 11.5944L5.80546 11.4634V6.29276L5.1489 6.24015C5.09625 6.00369 5.22739 5.66278 5.5954 5.63631L7.53935 5.50528L10.2188 9.5998V5.97765L9.53564 5.89924C9.4832 5.61018 9.69305 5.40028 9.95576 5.37425L11.7688 5.26872ZM1.83874 1.33212L9.32557 0.780787C10.245 0.701932 10.4815 0.754753 11.0594 1.17452L13.4492 2.85424C13.8436 3.14309 13.975 3.22173 13.975 3.53661V12.7493C13.975 13.3266 13.7647 13.6681 13.0293 13.7203L4.33492 14.2454C3.78291 14.2717 3.52019 14.193 3.23111 13.8253L1.47116 11.5419C1.1558 11.1216 1.02466 10.8071 1.02466 10.4392V2.25041C1.02466 1.77825 1.23504 1.38441 1.83874 1.33212Z"></path></g>`
+    `<svg x="10" y="8" width="44" height="44" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="m135.3 29.9c-5.2-9.6-15.2-17.5-28.3-17.9-14.6-0.5-27.7 9.2-35.3 23.1-6.6 11.8-42.6 81.3-50.5 97.9-1.8 3.7 0.2 7 3.8 7.5l45.4 5 1.5-12.4-37.6-3.9 45.2-89.5c5-9.3 14.4-17.9 25.2-18 6.6-0.1 16.1 3.6 21.6 12.4 1.3 2.3 4.2 3.5 6.7 2.3 2.4-1 3.6-4.1 2.3-6.5z"/><path d="m23.5 27.6c4.2-4.8 10.7-12.4 24.2-13.6 8.7-0.6 15 4.1 18.9 10.2 1.4 2.4 4.1 4.1 6.8 2.6 2.5-1.2 3.2-4.2 1.6-6.9-2.8-5.2-11.6-14.9-23.8-15.4-8.9-0.4-24.3 2.9-35.4 17.1-1.7 2.1-1.7 5 0.4 6.8 1.9 1.9 5.4 1.6 7.3-0.8z"/><path d="m47.8 36.2c-5.7 0.1-10.5 4.9-10.5 10.7-0.2 6 4.1 11.6 10.5 11.7 6.1-0.1 10.5-5.2 10.6-12-0.2-5.7-4.5-10.4-10.6-10.4z"/><path d="m94.7 42.9c-5.6 0.1-10.6 4.8-10.7 11.3 0 6.3 4.2 11.9 10.7 11.8 5.9 0 10.3-5.1 10.4-11.8 0-5.7-3.9-11.2-10.4-11.3z"/></svg>`
 );
 
 const TELEGRAM_KEYCAP_ICON = themeAdaptiveKeycapIcon(
@@ -322,16 +337,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[QuiverAI] 快捷键跳转",
         sourceEntry: "src/sites/quiver/index.js",
         metadata: {
-            name: "[QuiverAI] 快捷键跳转 [20260531] v1.0.1",
+            name: "[QuiverAI] 快捷键跳转 [20260531] v1.0.2",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 QuiverAI 提供基础快捷键：侧边栏展开/折叠、Creations 跳转与 Gallery 跳转。",
-            version: "[20260531] v1.0.1",
-            updateLog: "1.0.1: 将默认快捷键图标改为 QuiverAI 页面原生 lucide 图标，并自动迁移旧默认图标。",
+            version: "[20260531] v1.0.2",
+            updateLog: "1.0.2: 为 QuiverAI 脚本头补充键帽样式图标，内嵌 QuiverAI logo。",
             localized: {
                 "en-US": {
-                    name: "[QuiverAI] Shortcut Jump [20260531] v1.0.1",
+                    name: "[QuiverAI] Shortcut Jump [20260531] v1.0.2",
                     description: "Basic shortcuts for QuiverAI: sidebar toggle plus Creations and Gallery jumps.",
-                    updateLog: "1.0.1: Changed the default shortcut icons to QuiverAI's native lucide icons and automatically migrates the old default icons."
+                    updateLog: "1.0.2: Added a keycap-style userscript header icon with the QuiverAI logo."
                 }
             },
             match: [
@@ -346,7 +361,7 @@ export const SITE_MANIFEST = Object.freeze([
             connect: [
                 "*"
             ],
-            icon: "https://app.quiver.ai/favicon.ico"
+            icon: QUIVER_KEYCAP_ICON
         }
     },
     {
@@ -517,16 +532,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion AI] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion AI] 快捷键跳转 [20260531] v1.0.0",
+            name: "[Notion AI] 快捷键跳转 [20260531] v1.1.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260531] v1.0.0",
-            updateLog: "1.0.0: 新增 Notion AI 图片生成模式切换快捷动作，默认快捷键为 Ctrl+I。",
+            version: "[20260531] v1.1.0",
+            updateLog: "1.1.0: 将 Notion AI 脚本图标改为自适应键帽与 Notion AI logo，普通模式黑色、黑暗模式白色。",
             localized: {
                 "en-US": {
-                    name: "[Notion AI] Shortcut Jump [20260531] v1.0.0",
+                    name: "[Notion AI] Shortcut Jump [20260531] v1.1.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.0: Added a Notion AI image-generation mode toggle shortcut with Ctrl+I as the default hotkey."
+                    updateLog: "1.1.0: Updated the Notion AI script icon to an adaptive keycap with the Notion AI logo, using black in light mode and white in dark mode."
                 }
             },
             match: [
