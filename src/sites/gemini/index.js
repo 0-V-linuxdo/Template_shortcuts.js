@@ -102,11 +102,11 @@
         sidebar: createGeminiNativeShortcutIconSet("side_navigation"),
         model: createGeminiNativeShortcutIconSet("keyboard_arrow_down"),
         tools: createGeminiNativeShortcutIconSet("add_2"),
-        canvas: createGeminiNativeShortcutIconSet("canvas"),
-        createImage: createGeminiNativeShortcutIconSet("image_create"),
+        canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
+        createImage: createGeminiNativeShortcutIconSet("image"),
         quickInput: createGeminiNativeShortcutIconSet("arrow_upward"),
         learn: createGeminiNativeShortcutIconSet("guided_learning"),
-        deepResearch: createGeminiNativeShortcutIconSet("deep_research"),
+        deepResearch: createGeminiNativeShortcutIconSet("travel_explore"),
         delete: createGeminiNativeShortcutIconSet("delete"),
         pin: createGeminiNativeShortcutIconSet("push_pin")
     });
@@ -122,11 +122,14 @@
         ]),
         model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
         tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")]),
-        canvas: Object.freeze([createGeminiNativeShortcutIconSet("note_stack_add")]),
-        createImage: Object.freeze([createGeminiNativeShortcutIconSet("photo_prints")]),
+        canvas: Object.freeze([createGeminiNativeShortcutIconSet("canvas")]),
+        createImage: Object.freeze([
+            createGeminiNativeShortcutIconSet("photo_prints"),
+            createGeminiNativeShortcutIconSet("image_create")
+        ]),
         quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")]),
         learn: Object.freeze([createGeminiNativeShortcutIconSet("auto_stories")]),
-        deepResearch: Object.freeze([createGeminiNativeShortcutIconSet("travel_explore")])
+        deepResearch: Object.freeze([createGeminiNativeShortcutIconSet("deep_research")])
     });
 
     const GEMINI_DEFAULT_SHORTCUT_ICON_KEYS_BY_NAME = Object.freeze({
