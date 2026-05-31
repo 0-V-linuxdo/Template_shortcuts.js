@@ -164,7 +164,7 @@ const AISTUDIO_KEYCAP_ICON = themeAdaptiveKeycapIcon(
 
 const QUIVER_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     "quiver-keycap-icon",
-    `<svg x="10.8" y="10.8" width="42.4" height="42.4" viewBox="0 0 51 51" fill="none" xmlns="http://www.w3.org/2000/svg">
+    `<svg x="16" y="14" width="32" height="32" viewBox="0 0 51 51" fill="none" xmlns="http://www.w3.org/2000/svg">
   <g clip-path="url(#quiver-keycap-clip)">
     <rect width="50.2724" height="50.2724" rx="11.3755" fill="#F8F8F8"></rect>
     <path d="M25.1806 9.49414C33.844 9.49415 40.8671 16.5172 40.8671 25.1806V40.8671H25.1806C16.5173 40.8671 9.49415 33.844 9.49414 25.1806C9.49414 16.5172 16.5172 9.49414 25.1806 9.49414ZM17.8891 16.9534C17.314 16.7607 16.7667 17.309 16.9604 17.8837L23.3315 36.7771C23.5971 37.5646 24.7608 37.3737 24.7608 36.5426V24.7051H36.5206C37.3525 24.7051 37.5425 23.5396 36.7538 23.2753L17.8891 16.9534Z" fill="#333333"></path>
@@ -337,16 +337,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[QuiverAI] 快捷键跳转",
         sourceEntry: "src/sites/quiver/index.js",
         metadata: {
-            name: "[QuiverAI] 快捷键跳转 [20260531] v1.0.2",
+            name: "[QuiverAI] 快捷键跳转 [20260531] v1.0.4",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 QuiverAI 提供基础快捷键：侧边栏展开/折叠、Creations 跳转与 Gallery 跳转。",
-            version: "[20260531] v1.0.2",
-            updateLog: "1.0.2: 为 QuiverAI 脚本头补充键帽样式图标，内嵌 QuiverAI logo。",
+            version: "[20260531] v1.0.4",
+            updateLog: "1.0.4: 略微放大并上移 QuiverAI 脚本头键帽内的 logo。",
             localized: {
                 "en-US": {
-                    name: "[QuiverAI] Shortcut Jump [20260531] v1.0.2",
+                    name: "[QuiverAI] Shortcut Jump [20260531] v1.0.4",
                     description: "Basic shortcuts for QuiverAI: sidebar toggle plus Creations and Gallery jumps.",
-                    updateLog: "1.0.2: Added a keycap-style userscript header icon with the QuiverAI logo."
+                    updateLog: "1.0.4: Slightly enlarged and raised the QuiverAI logo inside the keycap header icon."
                 }
             },
             match: [

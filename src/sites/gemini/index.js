@@ -104,7 +104,7 @@
         tools: createGeminiNativeShortcutIconSet("add_2"),
         canvas: createGeminiNativeShortcutIconSet("note_stack_add"),
         createImage: createGeminiNativeShortcutIconSet("photo_prints"),
-        quickInput: createGeminiNativeShortcutIconSet("send"),
+        quickInput: createGeminiNativeShortcutIconSet("arrow_upward"),
         learn: createGeminiNativeShortcutIconSet("auto_stories"),
         deepResearch: createGeminiNativeShortcutIconSet("travel_explore"),
         delete: createGeminiNativeShortcutIconSet("delete"),
@@ -113,7 +113,8 @@
 
     const GEMINI_LEGACY_SHORTCUT_ICON_SETS = Object.freeze({
         model: Object.freeze([createGeminiNativeShortcutIconSet("spark")]),
-        tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")])
+        tools: Object.freeze([createGeminiNativeShortcutIconSet("page_info")]),
+        quickInput: Object.freeze([createGeminiNativeShortcutIconSet("send")])
     });
 
     const GEMINI_NATIVE_ICON_RETRY_DELAY_MS = 1200;
@@ -1152,7 +1153,8 @@
     }
 
     function getGeminiShortcutIconDefaults(iconKey) {
-        const iconSet = resolveGeminiNativeShortcutIconSet(iconKey) || GEMINI_SHORTCUT_ICON_SETS[String(iconKey || "")] || null;
+        const key = String(iconKey || "");
+        const iconSet = GEMINI_SHORTCUT_ICON_SETS[key] || resolveGeminiNativeShortcutIconSet(key) || null;
         return iconSet ? { ...iconSet } : {};
     }
 
