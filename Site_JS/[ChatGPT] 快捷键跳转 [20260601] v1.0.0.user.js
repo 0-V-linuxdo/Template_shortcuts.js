@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260511] v1.1.0
-// @name:en        [ChatGPT] Shortcut Jump [20260511] v1.1.0
+// @name           [ChatGPT] 快捷键跳转 [20260601] v1.0.0
+// @name:en        [ChatGPT] Shortcut Jump [20260601] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260511] v1.1.0
-// @update-log     1.1.0: 修复 ChatGPT Project 场景下 Quick Input 循环运行一段时间后掉回普通 ChatGPT 的问题；现在会在面板打开期间持续保留 Project 目标，并在校验失败时自动跳回同一 Project。
-// @update-log:en  1.1.0: Fixed ChatGPT Quick Input Project loops drifting back to regular ChatGPT after running for a while; Project targets are now kept while the panel is open and recovered with a jump back to the same Project when verification fails.
+// @version        [20260601] v1.0.0
+// @update-log     1.0.0: 新增独立 Schedules 快捷项，使用 SPA route + history.pushState 跳转到 chatgpt.com/schedules，并保留旧的 Settings: Schedules 设置页入口。
+// @update-log:en  1.0.0: Added a separate Schedules shortcut that uses SPA route + history.pushState navigation to chatgpt.com/schedules while keeping the old Settings: Schedules settings-page entry.
 
 // @match          https://chatgpt.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22chatgpt-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.chatgpt-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.chatgpt-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cg%20id%3D%22SVGRepo_bgCarrier%22%20stroke-width%3D%220%22%3E%3C%2Fg%3E%20%3Cg%20id%3D%22SVGRepo_tracerCarrier%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3C%2Fg%3E%20%3Cg%20id%3D%22SVGRepo_iconCarrier%22%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3C%2Fg%3E%20%3Csvg%20x%3D%2211.5%22%20y%3D%229%22%20width%3D%2241%22%20height%3D%2241%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20viewBox%3D%220%200%2024%2024%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ctitle%3EOpenAI%3C%2Ftitle%3E%3Cpath%20d%3D%22M21.55%2010.004a5.416%205.416%200%2000-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59%205.59%200%200010.831%201C8.39.995%206.224%202.546%205.473%204.838A5.553%205.553%200%20001.76%207.496a5.487%205.487%200%2000.691%206.5%205.416%205.416%200%2000.477%204.502c1.217%202.09%203.662%203.165%206.05%202.66A5.586%205.586%200%200013.168%2023c2.443.006%204.61-1.546%205.361-3.84a5.553%205.553%200%20003.715-2.66%205.488%205.488%200%2000-.693-6.497v.001zm-8.381%2011.558a4.199%204.199%200%2001-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71%200%2000.364-.623v-6.176l1.877%201.069c.02.01.033.029.036.05v5.115c-.003%202.274-1.87%204.118-4.174%204.123zM4.192%2017.78a4.059%204.059%200%2001-.498-2.763c.032.02.09.055.131.078l4.44%202.53c.225.13.504.13.73%200l5.42-3.088v2.138a.068.068%200%2001-.027.057L9.9%2019.288c-1.999%201.136-4.552.46-5.707-1.51h-.001zM3.023%208.216A4.15%204.15%200%20015.198%206.41l-.002.151v5.06a.711.711%200%2000.364.624l5.42%203.087-1.876%201.07a.067.067%200%2001-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h-.001zm15.417%203.54l-5.42-3.088L14.896%207.6a.067.067%200%2001.063-.006l4.489%202.557c1.998%201.14%202.683%203.662%201.529%205.633a4.163%204.163%200%2001-2.174%201.807V12.38a.71.71%200%2000-.363-.623zm1.867-2.773a6.04%206.04%200%2000-.132-.078l-4.44-2.53a.731.731%200%2000-.729%200l-5.42%203.088V7.325a.068.068%200%2001.027-.057L14.1%204.713c2-1.137%204.555-.46%205.707%201.513.487.833.664%201.809.499%202.757h.001zm-11.741%203.81l-1.877-1.068a.065.065%200%2001-.036-.051V6.559c.001-2.277%201.873-4.122%204.181-4.12.976%200%201.92.338%202.671.954-.034.018-.092.05-.131.073l-4.44%202.53a.71.71%200%2000-.365.623l-.003%206.173v.002zm1.02-2.168L12%209.25l2.414%201.375v2.75L12%2014.75l-2.415-1.375v-2.75z%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260531.1.1.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260601.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -146,6 +146,7 @@
       "Settings: Account": "settingsAccount",
       "Settings: Data Controls": "settingsDataControls",
       "Settings: Schedules": "settingsSchedules",
+      "Schedules": "settingsSchedules",
       "Settings: Security": "settingsSecurity",
       "Temporary Chat": "temporaryChat",
       "Model: o3": "model",
@@ -169,6 +170,7 @@
           "chatgpt-settings-account": "设置：账号",
           "chatgpt-settings-data-controls": "设置：数据控制",
           "chatgpt-settings-schedules": "设置：计划任务",
+          "chatgpt-schedules": "计划任务",
           "chatgpt-settings-security": "设置：安全",
           "New Chat": "新建聊天",
           "Toggle Sidebar": "切换侧边栏",
@@ -231,6 +233,7 @@
           "chatgpt-settings-account": "Settings: Account",
           "chatgpt-settings-data-controls": "Settings: Data Controls",
           "chatgpt-settings-schedules": "Settings: Schedules",
+          "chatgpt-schedules": "Schedules",
           "chatgpt-settings-security": "Settings: Security"
         },
         dataAdapters: {
@@ -3679,6 +3682,7 @@
     });
     const CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY = "chatgpt-aspect-square-1-1";
     const CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY = "chatgpt-native-set-custom-instructions";
+    const CHATGPT_SCHEDULES_SHORTCUT_KEY = "chatgpt-schedules";
     const CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY = "chatgpt-settings-general";
     const CHATGPT_SETTINGS_ACCOUNT_SHORTCUT_KEY = "chatgpt-settings-account";
     const CHATGPT_SETTINGS_DATA_CONTROLS_SHORTCUT_KEY = "chatgpt-settings-data-controls";
@@ -3687,6 +3691,7 @@
     const CHATGPT_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
       CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY,
       CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY,
+      CHATGPT_SCHEDULES_SHORTCUT_KEY,
       CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY,
       CHATGPT_SETTINGS_ACCOUNT_SHORTCUT_KEY,
       CHATGPT_SETTINGS_DATA_CONTROLS_SHORTCUT_KEY,
@@ -3764,6 +3769,15 @@
         urlAdvanced: "pushState",
         hotkey: "CTRL+3"
       }, "model"),
+      createShortcut({
+        key: CHATGPT_SCHEDULES_SHORTCUT_KEY,
+        name: "Schedules",
+        actionType: "url",
+        url: "https://chatgpt.com/schedules",
+        urlMethod: "spa",
+        urlAdvanced: "pushState",
+        hotkey: "CTRL+S"
+      }, "settingsSchedules"),
       createShortcut({
         key: CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY,
         name: "Settings: General",
@@ -3983,7 +3997,16 @@
       }
       // 其余参数保持默认（Template 内置：URL模版解析、中文文案、响应式断点等）
     });
-    function ensureChatgptManagedShortcut(engineApi, { key, createShortcutItem } = {}) {
+    function normalizeChatgptShortcutHotkey(value, engineApi = null) {
+      if (engineApi && typeof engineApi.normalizeHotkey === "function") {
+        try {
+          return engineApi.normalizeHotkey(value);
+        } catch {
+        }
+      }
+      return String(value || "").replace(/\s+/g, "").trim().toUpperCase();
+    }
+    function ensureChatgptManagedShortcut(engineApi, { key, createShortcutItem, avoidHotkeyConflict = false } = {}) {
       if (!engineApi || typeof createShortcutItem !== "function") return;
       const shortcutKey = String(key || "").trim();
       if (!shortcutKey) return;
@@ -3992,12 +4015,18 @@
       if (exists) return;
       const shortcutItem = createShortcutItem();
       if (!shortcutItem || typeof shortcutItem !== "object" || Array.isArray(shortcutItem)) return;
+      if (avoidHotkeyConflict) {
+        const nextHotkey = normalizeChatgptShortcutHotkey(shortcutItem.hotkey, engineApi);
+        const hotkeyInUse = !!nextHotkey && current.some((shortcut) => normalizeChatgptShortcutHotkey(shortcut?.hotkey, engineApi) === nextHotkey);
+        if (hotkeyInUse) shortcutItem.hotkey = "";
+      }
       engineApi.setShortcuts([...current, shortcutItem]);
     }
     for (const key of CHATGPT_MANAGED_DEFAULT_SHORTCUT_KEYS) {
       ensureChatgptManagedShortcut(engine, {
         key,
-        createShortcutItem: () => createChatgptDefaultShortcutByKey(key)
+        createShortcutItem: () => createChatgptDefaultShortcutByKey(key),
+        avoidHotkeyConflict: key === CHATGPT_SCHEDULES_SHORTCUT_KEY
       });
     }
     let quickInputMenuCommandId = null;
