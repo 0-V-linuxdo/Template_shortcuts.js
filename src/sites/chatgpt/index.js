@@ -117,6 +117,7 @@
         "Settings: Account": "settingsAccount",
         "Settings: Data Controls": "settingsDataControls",
         "Settings: Schedules": "settingsSchedules",
+        "Schedules": "settingsSchedules",
         "Settings: Security": "settingsSecurity",
         "Temporary Chat": "temporaryChat",
         "Model: o3": "model",
@@ -141,6 +142,7 @@
                 "chatgpt-settings-account": "设置：账号",
                 "chatgpt-settings-data-controls": "设置：数据控制",
                 "chatgpt-settings-schedules": "设置：计划任务",
+                "chatgpt-schedules": "计划任务",
                 "chatgpt-settings-security": "设置：安全",
                 "New Chat": "新建聊天",
                 "Toggle Sidebar": "切换侧边栏",
@@ -203,6 +205,7 @@
                 "chatgpt-settings-account": "Settings: Account",
                 "chatgpt-settings-data-controls": "Settings: Data Controls",
                 "chatgpt-settings-schedules": "Settings: Schedules",
+                "chatgpt-schedules": "Schedules",
                 "chatgpt-settings-security": "Settings: Security"
             },
             dataAdapters: {
@@ -4028,6 +4031,7 @@
     });
     const CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY = "chatgpt-aspect-square-1-1";
     const CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY = "chatgpt-native-set-custom-instructions";
+    const CHATGPT_SCHEDULES_SHORTCUT_KEY = "chatgpt-schedules";
     const CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY = "chatgpt-settings-general";
     const CHATGPT_SETTINGS_ACCOUNT_SHORTCUT_KEY = "chatgpt-settings-account";
     const CHATGPT_SETTINGS_DATA_CONTROLS_SHORTCUT_KEY = "chatgpt-settings-data-controls";
@@ -4036,6 +4040,7 @@
     const CHATGPT_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
         CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY,
         CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY,
+        CHATGPT_SCHEDULES_SHORTCUT_KEY,
         CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY,
         CHATGPT_SETTINGS_ACCOUNT_SHORTCUT_KEY,
         CHATGPT_SETTINGS_DATA_CONTROLS_SHORTCUT_KEY,
@@ -4118,6 +4123,15 @@
             urlAdvanced: "pushState",
             hotkey: "CTRL+3"
         }, "model"),
+        createShortcut({
+            key: CHATGPT_SCHEDULES_SHORTCUT_KEY,
+            name: "Schedules",
+            actionType: "url",
+            url: "https://chatgpt.com/schedules",
+            urlMethod: "spa",
+            urlAdvanced: "pushState",
+            hotkey: "CTRL+S"
+        }, "settingsSchedules"),
         createShortcut({
             key: CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY,
             name: "Settings: General",
@@ -4365,7 +4379,16 @@
         // 其余参数保持默认（Template 内置：URL模版解析、中文文案、响应式断点等）
     });
 
-    function ensureChatgptManagedShortcut(engineApi, { key, createShortcutItem } = {}) {
+    function normalizeChatgptShortcutHotkey(value, engineApi = null) {
+        if (engineApi && typeof engineApi.normalizeHotkey === "function") {
+            try {
+                return engineApi.normalizeHotkey(value);
+            } catch {}
+        }
+        return String(value || "").replace(/\s+/g, "").trim().toUpperCase();
+    }
+
+    function ensureChatgptManagedShortcut(engineApi, { key, createShortcutItem, avoidHotkeyConflict = false } = {}) {
         if (!engineApi || typeof createShortcutItem !== "function") return;
         const shortcutKey = String(key || "").trim();
         if (!shortcutKey) return;
@@ -4374,13 +4397,21 @@
         if (exists) return;
         const shortcutItem = createShortcutItem();
         if (!shortcutItem || typeof shortcutItem !== "object" || Array.isArray(shortcutItem)) return;
+        if (avoidHotkeyConflict) {
+            const nextHotkey = normalizeChatgptShortcutHotkey(shortcutItem.hotkey, engineApi);
+            const hotkeyInUse = !!nextHotkey && current.some(shortcut => (
+                normalizeChatgptShortcutHotkey(shortcut?.hotkey, engineApi) === nextHotkey
+            ));
+            if (hotkeyInUse) shortcutItem.hotkey = "";
+        }
         engineApi.setShortcuts([...current, shortcutItem]);
     }
 
     for (const key of CHATGPT_MANAGED_DEFAULT_SHORTCUT_KEYS) {
         ensureChatgptManagedShortcut(engine, {
             key,
-            createShortcutItem: () => createChatgptDefaultShortcutByKey(key)
+            createShortcutItem: () => createChatgptDefaultShortcutByKey(key),
+            avoidHotkeyConflict: key === CHATGPT_SCHEDULES_SHORTCUT_KEY
         });
     }
 
