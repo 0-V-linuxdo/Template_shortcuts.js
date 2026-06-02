@@ -2108,7 +2108,6 @@ export function createController(userOptions = {}) {
                     draftPersistToken += 1;
                     setImageFiles(restored.files, { draftEntries: restored.entries, skipDraftPersist: true });
                     await persistDraftSnapshot({ text: payload.draft.text, images: restored.entries });
-                    appendGlobalLog(labels.messages?.importSuccess || DEFAULT_LABELS.messages.importSuccess, { level: "ok" });
                     showIoActionSuccess(actionBtn, "import");
                     schedulePanelLayout({ followupPasses: 2 });
                     try { textEl?.focus?.(); } catch {}
