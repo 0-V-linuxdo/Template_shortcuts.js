@@ -2048,7 +2048,6 @@ export function createController(userOptions = {}) {
                         return;
                     }
                     void persistDraftSnapshot({ text: draft.text, images: draft.images });
-                    appendGlobalLog(labels.messages?.exportSuccess || DEFAULT_LABELS.messages.exportSuccess, { level: "ok" });
                     showIoActionSuccess(actionBtn, "export");
                 } catch (error) {
                     warnQuickInput("QuickInput export failed.", error);
