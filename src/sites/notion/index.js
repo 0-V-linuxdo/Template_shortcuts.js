@@ -123,15 +123,18 @@
     const NOTION_MODEL_GEMINI_ICON = svgDataUri("<svg xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\" role=\"graphics-symbol\" viewBox=\"0 0 20 20\" style=\"--x-width: 20px; --x-height: 20px; width: 16px; height: 16px;\" class=\"googleGemini x1lliihq x1c4vz4f x2lah0s x1plvlek xryxfnj x5lhr3w x16ye13r x1kihv7h x1heor9g\"><g class=\"logo-light-mode\"><mask id=\"mask0_16020_459\" width=\"20\" height=\"20\" x=\"0\" y=\"0\" maskUnits=\"userSpaceOnUse\" style=\"mask-type: alpha;\"><path fill=\"url(#paint0_linear_16020_459)\" d=\"M10 0c.21 0 .392.143.443.347q.235.934.617 1.82a12.8 12.8 0 0 0 2.728 4.045 12.85 12.85 0 0 0 5.865 3.345.458.458 0 0 1 0 .886q-.934.235-1.82.617a12.8 12.8 0 0 0-4.045 2.728 12.85 12.85 0 0 0-3.345 5.865.458.458 0 0 1-.886 0 12.84 12.84 0 0 0-3.345-5.865 12.85 12.85 0 0 0-5.865-3.345.458.458 0 0 1 0-.886 12.84 12.84 0 0 0 5.865-3.345A12.84 12.84 0 0 0 9.557.347.46.46 0 0 1 10 0\"/></mask><g mask=\"url(#mask0_16020_459)\"><g filter=\"url(#filter0_f_16020_459)\"><path fill=\"#FFE432\" d=\"M-1.806 15.636c2.311.82 4.967-.718 5.933-3.437C5.092 9.48 4.002 6.61 1.69 5.79s-4.967.718-5.933 3.437c-.965 2.719.125 5.588 2.436 6.409\"/></g><g filter=\"url(#filter1_f_16020_459)\"><path fill=\"#FC413D\" d=\"M8.455 6.672c3.174 0 5.748-2.63 5.748-5.875s-2.574-5.875-5.748-5.875S2.706-2.448 2.706.797 5.28 6.672 8.455 6.672\"/></g><g filter=\"url(#filter2_f_16020_459)\"><path fill=\"#00B95C\" d=\"M6.22 25.46c3.315-.163 5.831-3.775 5.621-8.068s-3.066-7.642-6.38-7.48S-.37 13.686-.16 17.98s3.067 7.642 6.38 7.48\"/></g><g filter=\"url(#filter3_f_16020_459)\"><path fill=\"#00B95C\" d=\"M6.22 25.46c3.315-.163 5.831-3.775 5.621-8.068s-3.066-7.642-6.38-7.48S-.37 13.686-.16 17.98s3.067 7.642 6.38 7.48\"/></g><g filter=\"url(#filter4_f_16020_459)\"><path fill=\"#00B95C\" d=\"M9.54 22.862c2.778-1.69 3.522-5.54 1.66-8.599-1.86-3.059-5.621-4.168-8.4-2.477-2.778 1.69-3.521 5.54-1.66 8.599 1.86 3.058 5.621 4.167 8.4 2.477\"/></g><g filter=\"url(#filter5_f_16020_459)\"><path fill=\"#3186FF\" d=\"M20.77 13.25c3.122 0 5.654-2.438 5.654-5.445S23.892 2.36 20.769 2.36c-3.122 0-5.654 2.438-5.654 5.445s2.532 5.445 5.654 5.445\"/></g><g filter=\"url(#filter6_f_16020_459)\"><path fill=\"#FBBC04\" d=\"M-4.027 12.619c2.876 2.186 7.076 1.5 9.382-1.532s1.845-7.264-1.03-9.45C1.45-.55-2.75.135-5.057 3.167s-1.845 7.264 1.03 9.45\"/></g><g filter=\"url(#filter7_f_16020_459)\"><path fill=\"#3186FF\" d=\"M10.707 15.85c3.432 2.36 7.98 1.703 10.16-1.468 2.18-3.17 1.165-7.653-2.267-10.013S10.619 2.667 8.44 5.838c-2.18 3.17-1.165 7.653 2.267 10.012\"/></g><g filter=\"url(#filter8_f_16020_459)\"><path fill=\"#749BFF\" d=\"M16.946-.72c.873 1.187-.25 3.495-2.506 5.155-2.257 1.66-4.795 2.044-5.668.857s.249-3.496 2.506-5.156 4.794-2.043 5.668-.856\"/></g><g filter=\"url(#filter9_f_16020_459)\"><path fill=\"#FC413D\" d=\"M9.778 4.963c3.49-3.238 4.689-7.622 2.676-9.791S5.98-6.133 2.489-2.895-2.199 4.727-.187 6.896c2.013 2.17 6.474 1.305 9.965-1.933\"/></g><g filter=\"url(#filter10_f_16020_459)\"><path fill=\"#FFEE48\" d=\"M2.623 16.592c2.074 1.485 4.456 1.71 5.32.504s-.119-3.388-2.193-4.873c-2.075-1.485-4.457-1.71-5.32-.504-.864 1.207.118 3.388 2.193 4.873\"/></g></g><defs><filter id=\"filter0_f_16020_459\" width=\"12.099\" height=\"13.314\" x=\"-6.107\" y=\"4.056\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"0.757\"/></filter><filter id=\"filter1_f_16020_459\" width=\"26.132\" height=\"26.385\" x=\"-4.611\" y=\"-12.395\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"3.659\"/></filter><filter id=\"filter2_f_16020_459\" width=\"24.467\" height=\"28\" x=\"-6.393\" y=\"3.686\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"3.11\"/></filter><filter id=\"filter3_f_16020_459\" width=\"24.467\" height=\"28\" x=\"-6.393\" y=\"3.686\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"3.11\"/></filter><filter id=\"filter4_f_16020_459\" width=\"24.552\" height=\"25.099\" x=\"-6.106\" y=\"4.774\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"3.11\"/></filter><filter id=\"filter5_f_16020_459\" width=\"23.131\" height=\"22.712\" x=\"9.204\" y=\"-3.551\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.956\"/></filter><filter id=\"filter6_f_16020_459\" width=\"24.063\" height=\"24.255\" x=\"-11.882\" y=\"-5\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.679\"/></filter><filter id=\"filter7_f_16020_459\" width=\"24.294\" height=\"23.881\" x=\"2.506\" y=\"-1.831\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.392\"/></filter><filter id=\"filter8_f_16020_459\" width=\"17.329\" height=\"15.954\" x=\"4.194\" y=\"-5.691\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.141\"/></filter><filter id=\"filter9_f_16020_459\" width=\"21.826\" height=\"21.348\" x=\"-4.779\" y=\"-9.64\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"1.808\"/></filter><filter id=\"filter10_f_16020_459\" width=\"17.091\" height=\"15.879\" x=\"-4.359\" y=\"6.468\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.238\"/></filter><linearGradient id=\"paint0_linear_16020_459\" x1=\"5.685\" x2=\"16.073\" y1=\"13.382\" y2=\"4.624\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#4893FC\"/><stop offset=\"0.27\" stop-color=\"#4893FC\"/><stop offset=\"0.777\" stop-color=\"#969DFF\"/><stop offset=\"1\" stop-color=\"#BD99FE\"/></linearGradient></defs></g></svg>");
     const NOTION_MODEL_OPENAI_ICON = svgDataUri("<svg xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\" role=\"graphics-symbol\" viewBox=\"0 0 20 20\" style=\"--x-width: 20px; --x-height: 20px; width: 16px; height: 16px;\" class=\"openAi x1lliihq x1c4vz4f x2lah0s x1plvlek xryxfnj x5lhr3w x16ye13r x1kihv7h x1heor9g\"><g class=\"logo-light-mode\"><g clip-path=\"url(#clip0_16020_1032)\"><path fill=\"#000\" d=\"M7.894 7.562V5.86c0-.143.053-.25.179-.322l3.424-1.972c.466-.27 1.022-.395 1.595-.395 2.151 0 3.514 1.668 3.514 3.442 0 .126 0 .269-.018.412l-3.55-2.079a.6.6 0 0 0-.645 0zm7.995 6.633v-4.07a.6.6 0 0 0-.323-.555l-4.5-2.617 1.47-.843a.33.33 0 0 1 .359 0l3.424 1.972c.986.574 1.649 1.792 1.649 2.975 0 1.363-.807 2.618-2.08 3.138M6.836 10.61l-1.47-.86a.34.34 0 0 1-.18-.323V5.483c0-1.918 1.47-3.37 3.46-3.37.754 0 1.452.25 2.044.699L7.16 4.856a.6.6 0 0 0-.323.555zM10 12.438l-2.106-1.183v-2.51L10 7.562l2.106 1.183v2.51zm1.353 5.45a3.36 3.36 0 0 1-2.043-.7l3.531-2.043a.6.6 0 0 0 .323-.556V9.391l1.488.86c.125.072.179.18.179.323v3.943c0 1.918-1.488 3.37-3.478 3.37M7.105 13.89 3.68 11.918c-.986-.573-1.65-1.792-1.65-2.975 0-1.38.825-2.618 2.098-3.137v4.087a.6.6 0 0 0 .323.555l4.481 2.6-1.47.842a.33.33 0 0 1-.358 0m-.197 2.94c-2.026 0-3.514-1.524-3.514-3.406 0-.143.018-.287.036-.43l3.532 2.043a.6.6 0 0 0 .645 0l4.5-2.599v1.703a.34.34 0 0 1-.18.323l-3.424 1.972c-.466.268-1.022.394-1.595.394m4.445 2.133a4.48 4.48 0 0 0 4.392-3.585c2.008-.52 3.299-2.402 3.299-4.32a4.53 4.53 0 0 0-1.506-3.352 5 5 0 0 0 .143-1.13c0-2.563-2.08-4.481-4.481-4.481-.484 0-.95.071-1.416.233a4.5 4.5 0 0 0-3.137-1.29 4.48 4.48 0 0 0-4.392 3.584C2.247 5.142.956 7.024.956 8.942c0 1.255.538 2.474 1.506 3.352a5 5 0 0 0-.143 1.13c0 2.563 2.08 4.481 4.481 4.481.484 0 .95-.071 1.416-.233a4.5 4.5 0 0 0 3.137 1.29\"/></g><defs><clipPath id=\"clip0_16020_1032\"><path fill=\"#fff\" d=\"M1 1h18v18H1z\"/></clipPath></defs></g></svg>");
     const NOTION_MODEL_OPENAI_ICON_INFO = notionNativeSvgIconInfo(NOTION_MODEL_OPENAI_ICON);
+    const NOTION_MODEL_GROK_ICON_INFO = notionNativeSvgIconInfo("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 240\" fill=\"currentColor\"><path d=\"m92.7 152.9 79.78-58.97c3.91-2.9 9.5-1.77 11.37 2.72 9.8 23.69 5.42 52.15-14.1 71.69s-46.67 23.82-71.49 14.06l-27.11 12.57c38.89 26.61 86.11 20.03 115.62-9.53 23.41-23.44 30.66-55.39 23.88-84.2l.06.07c-9.83-42.32 2.42-59.24 27.5-93.83Q239.11 6.25 240 5l-33.01 33.05v-.1L92.67 152.92m-16.44 14.31c-27.92-26.7-23.1-68.01.71-91.84 17.61-17.63 46.47-24.83 71.66-14.25l27.05-12.5a78 78 0 0 0-18.29-10A89.75 89.75 0 0 0 59.84 58.3c-25.33 25.36-33.3 64.36-19.62 97.64 10.22 24.87-6.53 42.46-23.4 60.22-5.99 6.3-11.99 12.59-16.82 19.25l76.2-68.15\"/></svg>");
     const NOTION_MODEL_ICON_DEFAULTS = Object.freeze({
         auto: NOTION_MODEL_AI_FACE_ICON_INFO,
         sonnet46: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
-        opus48: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
         opus47: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
+        opus48: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
         gemini31pro: Object.freeze({ icon: NOTION_MODEL_GEMINI_ICON, iconAdaptive: false }),
         gpt52: NOTION_MODEL_OPENAI_ICON_INFO,
         gpt54: NOTION_MODEL_OPENAI_ICON_INFO,
         gpt55: NOTION_MODEL_OPENAI_ICON_INFO,
+        grok43: NOTION_MODEL_GROK_ICON_INFO,
+        grokBuild01: NOTION_MODEL_GROK_ICON_INFO,
         kimi26: NOTION_MODEL_AI_FACE_ICON_INFO,
         deepseekV4Pro: NOTION_MODEL_AI_FACE_ICON_INFO
     });
@@ -292,21 +295,21 @@
             labelKey: "shortcuts.modelSonnet46",
             aliases: Object.freeze(["Sonnet 4.6", "Claude Sonnet 4.6"])
         }),
-        opus48: Object.freeze({
-            id: "opus48",
-            label: "Claude Opus 4.8",
-            menuLabel: "Opus 4.8",
-            hotkey: "CTRL+SHIFT+3",
-            labelKey: "shortcuts.modelOpus48",
-            aliases: Object.freeze(["Opus 4.8", "Claude Opus 4.8", "Opus 4.6", "Claude Opus 4.6"])
-        }),
         opus47: Object.freeze({
             id: "opus47",
             label: "Claude Opus 4.7",
             menuLabel: "Opus 4.7",
-            hotkey: "CTRL+SHIFT+4",
+            hotkey: "CTRL+SHIFT+3",
             labelKey: "shortcuts.modelOpus47",
             aliases: Object.freeze(["Opus 4.7", "Claude Opus 4.7"])
+        }),
+        opus48: Object.freeze({
+            id: "opus48",
+            label: "Claude Opus 4.8",
+            menuLabel: "Opus 4.8",
+            hotkey: "CTRL+SHIFT+4",
+            labelKey: "shortcuts.modelOpus48",
+            aliases: Object.freeze(["Opus 4.8", "Claude Opus 4.8", "Opus 4.6", "Claude Opus 4.6"])
         }),
         gemini31pro: Object.freeze({
             id: "gemini31pro",
@@ -336,17 +339,31 @@
             labelKey: "shortcuts.modelGpt55",
             aliases: Object.freeze(["GPT-5.5", "GPT 5.5"])
         }),
+        grok43: Object.freeze({
+            id: "grok43",
+            label: "Grok 4.3",
+            hotkey: "CTRL+SHIFT+9",
+            labelKey: "shortcuts.modelGrok43",
+            aliases: Object.freeze(["Grok 4.3", "Grok 43", "grok43", "grok 4.3"])
+        }),
+        grokBuild01: Object.freeze({
+            id: "grokBuild01",
+            label: "Grok Build 0.1",
+            hotkey: "CTRL+SHIFT+0",
+            labelKey: "shortcuts.modelGrokBuild01",
+            aliases: Object.freeze(["Grok Build 0.1", "Grok Build 01", "Grok Build", "grokbuild01", "grok build 0.1", "grok build 01", "grok build"])
+        }),
         kimi26: Object.freeze({
             id: "kimi26",
             label: "Kimi K2.6",
-            hotkey: "CTRL+SHIFT+9",
+            hotkey: "CTRL+SHIFT+-",
             labelKey: "shortcuts.modelKimi26",
             aliases: Object.freeze(["Kimi K2.6"])
         }),
         deepseekV4Pro: Object.freeze({
             id: "deepseekV4Pro",
             label: "DeepSeek V4 Pro",
-            hotkey: "CTRL+SHIFT+0",
+            hotkey: "CTRL+SHIFT+=",
             labelKey: "shortcuts.modelDeepSeekV4Pro",
             aliases: Object.freeze(["DeepSeek V4 Pro", "DeepSeek V4", "deepseek v4 pro"])
         })
@@ -355,6 +372,18 @@
     const NOTION_MODEL_TARGET_LIST = Object.freeze(Object.values(NOTION_MODEL_TARGETS));
     const NOTION_MODEL_LEGACY_TARGET_IDS = Object.freeze({
         opus46: "opus48"
+    });
+    const NOTION_PRE_GROK_MODEL_DEFAULT_HOTKEYS = Object.freeze({
+        "model-auto": "CTRL+SHIFT+1",
+        "model-sonnet46": "CTRL+SHIFT+2",
+        "model-opus48": "CTRL+SHIFT+3",
+        "model-opus47": "CTRL+SHIFT+4",
+        "model-gemini31pro": "CTRL+SHIFT+5",
+        "model-gpt52": "CTRL+SHIFT+6",
+        "model-gpt54": "CTRL+SHIFT+7",
+        "model-gpt55": "CTRL+SHIFT+8",
+        "model-kimi26": "CTRL+SHIFT+9",
+        "model-deepseekV4Pro": "CTRL+SHIFT+0"
     });
     const NOTION_MODEL_SHORTCUT_KEYS = Object.freeze(NOTION_MODEL_TARGET_LIST.map(target => `model-${target.id}`));
     const NOTION_MODE_TARGETS = Object.freeze({
@@ -886,6 +915,8 @@
         if (target.id === "opus48") return normalized.includes("opus") && normalized.includes("4.8");
         if (target.id === "opus47") return normalized.includes("opus") && normalized.includes("4.7");
         if (target.id === "sonnet46") return normalized.includes("sonnet") && normalized.includes("4.6");
+        if (target.id === "grok43") return normalized.includes("grok") && normalized.includes("4.3");
+        if (target.id === "grokBuild01") return normalized.includes("grok") && normalized.includes("build") && normalized.includes("0.1");
         if (target.id === "deepseekV4Pro") return normalized.includes("deepseek") && normalized.includes("v4") && normalized.includes("pro");
         if (target.id === "kimi26") return normalized.includes("kimi") && normalized.includes("k2.6");
         return false;
@@ -916,6 +947,9 @@
         if (text.includes("gpt") && text.includes("5.2")) return NOTION_MODEL_TARGETS.gpt52;
         if (text.includes("gpt") && text.includes("5.4")) return NOTION_MODEL_TARGETS.gpt54;
         if (text.includes("gpt") && text.includes("5.5")) return NOTION_MODEL_TARGETS.gpt55;
+        if (text.includes("grok") && text.includes("build") && text.includes("0.1")) return NOTION_MODEL_TARGETS.grokBuild01;
+        if (text.includes("grok") && text.includes("build")) return NOTION_MODEL_TARGETS.grokBuild01;
+        if (text.includes("grok") && text.includes("4.3")) return NOTION_MODEL_TARGETS.grok43;
         if (text.includes("kimi") && text.includes("k2.6")) return NOTION_MODEL_TARGETS.kimi26;
         if (text.includes("deepseek") && text.includes("v4") && text.includes("pro")) return NOTION_MODEL_TARGETS.deepseekV4Pro;
         return null;
@@ -5382,12 +5416,14 @@
                 selectAiModel: "选择 AI 模型",
                 modelAuto: "模型：Auto",
                 modelSonnet46: "模型：Claude Sonnet 4.6",
-                modelOpus48: "模型：Claude Opus 4.8",
                 modelOpus47: "模型：Claude Opus 4.7",
+                modelOpus48: "模型：Claude Opus 4.8",
                 modelGemini31Pro: "模型：Gemini 3.1 Pro",
                 modelGpt52: "模型：GPT-5.2",
                 modelGpt54: "模型：GPT-5.4",
                 modelGpt55: "模型：GPT-5.5",
+                modelGrok43: "模型：Grok 4.3",
+                modelGrokBuild01: "模型：Grok Build 0.1",
                 modelKimi26: "模型：Kimi K2.6",
                 modelDeepSeekV4Pro: "模型：DeepSeek V4 Pro",
                 modeDefault: "模式：Default",
@@ -5406,7 +5442,7 @@
             dataAdapters: {
                 modelPicker: {
                     label: "模型 ID / 关键词（或粘贴 JSON，高级用法）:",
-                    placeholder: "例如: gemini pro / opus 4.8 / {\"menu\":{\"id\":\"opus48\"}}"
+                    placeholder: "例如: grok 4.3 / grok build / opus 4.8 / {\"menu\":{\"id\":\"grok43\"}}"
                 },
                 conversationMenu: {
                     label: "会话菜单项 ID / 关键词（或粘贴 JSON，高级用法）:",
@@ -5426,6 +5462,18 @@
             shortcuts: {
                 newChat: "New Chat",
                 selectAiModel: "Select AI Model",
+                modelAuto: "Model: Auto",
+                modelSonnet46: "Model: Claude Sonnet 4.6",
+                modelOpus47: "Model: Claude Opus 4.7",
+                modelOpus48: "Model: Claude Opus 4.8",
+                modelGemini31Pro: "Model: Gemini 3.1 Pro",
+                modelGpt52: "Model: GPT-5.2",
+                modelGpt54: "Model: GPT-5.4",
+                modelGpt55: "Model: GPT-5.5",
+                modelGrok43: "Model: Grok 4.3",
+                modelGrokBuild01: "Model: Grok Build 0.1",
+                modelKimi26: "Model: Kimi K2.6",
+                modelDeepSeekV4Pro: "Model: DeepSeek V4 Pro",
                 modeDefault: "Mode: Default",
                 modeAsk: "Mode: Ask",
                 modePlan: "Mode: Plan",
@@ -5440,7 +5488,7 @@
             dataAdapters: {
                 modelPicker: {
                     label: "Model ID / keyword (or paste JSON, advanced):",
-                    placeholder: "Example: gemini pro / opus 4.8 / {\"menu\":{\"id\":\"opus48\"}}"
+                    placeholder: "Example: grok 4.3 / grok build / opus 4.8 / {\"menu\":{\"id\":\"grok43\"}}"
                 },
                 conversationMenu: {
                     label: "Conversation menu item ID / keyword (or paste JSON, advanced):",
@@ -5887,12 +5935,101 @@
         );
     }
 
+    function getShortcutModelDefaultKey(shortcut) {
+        const key = getNotionDefaultShortcutKey(shortcut);
+        return NOTION_MODEL_ICON_SHORTCUT_KEY_SET.has(key) && key !== LEGACY_SELECT_AI_MODEL_KEY ? key : "";
+    }
+
+    function syncNotionDefaultModelHotkeyOrder(shortcuts, { forceKeys = null } = {}) {
+        if (!Array.isArray(shortcuts)) return false;
+        const forcedKeySet = forceKeys instanceof Set ? forceKeys : new Set();
+        let changed = false;
+        const modelShortcuts = shortcuts
+            .map(shortcut => ({ shortcut, key: getShortcutModelDefaultKey(shortcut) }))
+            .filter(item => item.key);
+
+        const modelShortcutSet = new Set(modelShortcuts.map(item => item.shortcut));
+        const hotkeysInUse = new Map();
+        for (const shortcut of shortcuts) {
+            if (modelShortcutSet.has(shortcut)) continue;
+            const hotkey = normalizeHotkeyToken(shortcut?.hotkey);
+            if (hotkey) hotkeysInUse.set(hotkey, shortcut);
+        }
+
+        for (const { shortcut, key } of modelShortcuts) {
+            const currentHotkey = normalizeHotkeyToken(shortcut.hotkey);
+            const oldDefaultHotkey = normalizeHotkeyToken(NOTION_PRE_GROK_MODEL_DEFAULT_HOTKEYS[key]);
+            const newDefault = createDefaultShortcutByKey(key);
+            const newDefaultHotkey = normalizeHotkeyToken(newDefault?.hotkey);
+            if (!newDefaultHotkey) {
+                if (currentHotkey) hotkeysInUse.set(currentHotkey, shortcut);
+                continue;
+            }
+
+            if (!currentHotkey && !forcedKeySet.has(key)) {
+                continue;
+            }
+
+            if (currentHotkey && oldDefaultHotkey && currentHotkey !== oldDefaultHotkey && currentHotkey !== newDefaultHotkey) {
+                if (currentHotkey) hotkeysInUse.set(currentHotkey, shortcut);
+                continue;
+            }
+
+            const conflict = hotkeysInUse.get(newDefaultHotkey);
+            const nextHotkey = conflict && conflict !== shortcut ? "" : newDefaultHotkey;
+            if (currentHotkey !== nextHotkey) {
+                shortcut.hotkey = nextHotkey;
+                changed = true;
+                if (!nextHotkey) {
+                    console.warn(`${LOG_TAG} migration: hotkey ${newDefaultHotkey} is already used; kept ${shortcut.name || key} without a default hotkey.`);
+                }
+            }
+            if (nextHotkey) hotkeysInUse.set(nextHotkey, shortcut);
+        }
+
+        return changed;
+    }
+
+    function syncNotionDefaultModelShortcutOrder(shortcuts) {
+        if (!Array.isArray(shortcuts)) return false;
+        const modelByKey = new Map();
+        const withoutManagedModels = [];
+        let insertIndex = -1;
+
+        for (const shortcut of shortcuts) {
+            const key = getShortcutModelDefaultKey(shortcut);
+            if (key && !modelByKey.has(key)) {
+                if (insertIndex < 0) insertIndex = withoutManagedModels.length;
+                modelByKey.set(key, shortcut);
+                continue;
+            }
+            withoutManagedModels.push(shortcut);
+        }
+
+        if (insertIndex < 0 || modelByKey.size < 2) return false;
+
+        const orderedModels = NOTION_MODEL_SHORTCUT_KEYS
+            .map(key => modelByKey.get(key))
+            .filter(Boolean);
+        const reordered = [
+            ...withoutManagedModels.slice(0, insertIndex),
+            ...orderedModels,
+            ...withoutManagedModels.slice(insertIndex)
+        ];
+
+        if (reordered.length !== shortcuts.length) return false;
+        const changed = reordered.some((shortcut, index) => shortcut !== shortcuts[index]);
+        if (changed) shortcuts.splice(0, shortcuts.length, ...reordered);
+        return changed;
+    }
+
     function migrateNotionManagedModelShortcuts() {
         const stored = gmGetValueLocal(NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
         if (!Array.isArray(stored)) return;
 
         let changed = false;
         const next = [];
+        const newlyAddedKeys = new Set();
         const originalKeys = new Set(stored.map(shortcut => String(shortcut?.key || "").trim()).filter(Boolean));
 
         for (const shortcut of stored) {
@@ -5960,12 +6097,15 @@
             }
             next.push(shortcut);
             existingKeys.add(key);
+            newlyAddedKeys.add(key);
             changed = true;
         }
 
         for (const shortcut of next) {
             if (applyNotionDefaultIconFields(shortcut)) changed = true;
         }
+        if (syncNotionDefaultModelHotkeyOrder(next, { forceKeys: newlyAddedKeys })) changed = true;
+        if (syncNotionDefaultModelShortcutOrder(next)) changed = true;
 
         if (changed) gmSetValueLocal(NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
     }
