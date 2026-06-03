@@ -6,8 +6,8 @@
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
 // @version        [20260603] v1.0.0
-// @update-log     1.0.0: 修复 Notion AI 全部默认快捷键图标，改用网页原生按钮/菜单 SVG，并为单色原生 SVG 生成普通/黑暗双图源，确保 New Chat、模型、Research、Search/Web、Image、Quick Input、Delete、Context、Attach 均与网页原图一致。
-// @update-log:en  1.0.0: Fixed all Notion AI default shortcut icons by using native web button/menu SVGs and light/dark icon sources for monochrome native SVGs, keeping New Chat, models, Research, Search/Web, Image, Quick Input, Delete, Context, and Attach faithful to the web artwork.
+// @update-log     1.0.0: 修复 Notion AI 默认快捷键图标与新版菜单动作：网页原生按钮/菜单图标使用普通/黑暗双图源，Quick Input 恢复脚本原键盘图标，并将 Research 与 Search Scope 从旧 selector 点击迁移为当前菜单动作。
+// @update-log:en  1.0.0: Fixed Notion AI default shortcut icons and current-menu actions: native web button/menu icons now use light/dark icon sources, Quick Input restores the script keyboard icon, and Research/Search Scope migrate from old selector clicks to current menu actions.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -178,14 +178,14 @@
     const NOTION_NATIVE_GLOBE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2.375a7.625 7.625 0 1 1 0 15.25 7.625 7.625 0 0 1 0-15.25m-1.863 8.25c.054 1.559.31 2.937.681 3.943.212.572.449.992.68 1.256.232.266.404.318.502.318s.27-.052.502-.318c.231-.264.468-.684.68-1.256.371-1.006.627-2.384.681-3.943zm-4.48 0a6.38 6.38 0 0 0 4.509 5.48 6.5 6.5 0 0 1-.52-1.104c-.431-1.167-.704-2.697-.76-4.376zm9.456 0c-.055 1.679-.327 3.21-.758 4.376-.15.405-.324.779-.522 1.104a6.38 6.38 0 0 0 4.51-5.48zM8.166 3.894a6.38 6.38 0 0 0-4.51 5.481h3.23c.056-1.679.328-3.21.76-4.376.15-.405.322-.78.52-1.105M10 3.858c-.099 0-.27.053-.502.319-.231.264-.468.683-.68 1.255-.371 1.006-.627 2.384-.681 3.943h3.726c-.054-1.559-.31-2.937-.681-3.943-.212-.572-.449-.99-.68-1.255-.232-.266-.404-.319-.502-.319m1.833.036c.198.326.372.7.521 1.105.432 1.167.704 2.697.76 4.376h3.23a6.38 6.38 0 0 0-4.511-5.481"/></svg>';
     const NOTION_NATIVE_CREATE_IMAGE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="m16.949 3.47-.618.619-1.164-1.165.625-.624a.823.823 0 0 1 1.157 0 .823.823 0 0 1 0 1.157zm-8.526 8.527 7.153-7.153-1.165-1.165-7.16 7.147a1.1 1.1 0 0 0-.247.414l-.303.978c-.055.206.137.4.33.33l.978-.303a.9.9 0 0 0 .414-.248"/><path d="M9.578 5.438q.617 0 1.197.126l1.051-1.004a6.9 6.9 0 0 0-2.248-.372h-.35a6.603 6.603 0 0 0-6.603 6.602v.257c0 1.254.371 2.48 1.067 3.524a9.25 9.25 0 0 0 5.455 3.844l.514.129a.625.625 0 1 0 .303-1.213l-.513-.128a8 8 0 0 1-4.719-3.325 5.1 5.1 0 0 1-.857-2.831v-.257a5.353 5.353 0 0 1 5.353-5.352z"/><path d="M12.444 15.748a6.47 6.47 0 0 1-5.471-1.878l1.387-.433a5.22 5.22 0 0 0 3.92 1.072l.08-.01a3.37 3.37 0 0 0 2.921-3.345 5.7 5.7 0 0 0-1.011-3.248l.904-.885a6.94 6.94 0 0 1 1.357 4.133 4.624 4.624 0 0 1-4.006 4.584z"/></svg>';
     const NOTION_NATIVE_DELETE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M8.806 8.505a.55.55 0 0 0-1.1 0v5.979a.55.55 0 1 0 1.1 0zm3.488 0a.55.55 0 0 0-1.1 0v5.979a.55.55 0 1 0 1.1 0z"/><path d="M6.386 3.925v1.464H3.523a.625.625 0 1 0 0 1.25h.897l.393 8.646A2.425 2.425 0 0 0 7.236 17.6h5.528a2.425 2.425 0 0 0 2.422-2.315l.393-8.646h.898a.625.625 0 1 0 0-1.25h-2.863V3.925c0-.842-.683-1.525-1.525-1.525H7.91c-.842 0-1.524.683-1.524 1.525M7.91 3.65h4.18c.15 0 .274.123.274.275v1.464H7.636V3.925c0-.152.123-.275.274-.275m-.9 2.99h7.318l-.39 8.588a1.175 1.175 0 0 1-1.174 1.122H7.236a1.175 1.175 0 0 1-1.174-1.122l-.39-8.589z"/></svg>';
-    const NOTION_NATIVE_SUBMIT_MESSAGE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M8.53 2.22a.75.75 0 0 0-1.06 0L3.15 6.54A.75.75 0 0 0 4.21 7.6l3.04-3.04v8.737c0 .388.336.703.75.703s.75-.315.75-.703V4.56l3.04 3.04a.75.75 0 0 0 1.06-1.061z"/></svg>';
+    const QUICK_INPUT_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h.01"/><path d="M11 9h.01"/><path d="M15 9h.01"/><path d="M17 15H7"/></svg>';
     const RESEARCH_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_RESEARCH_SVG);
     const ADD_CONTEXT_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_PLUS_SVG);
     const ATTACH_FILE_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_ATTACH_FILE_SVG);
     const SEARCH_SCOPE_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_SETTINGS_SLIDERS_SVG);
     const WEB_ACCESS_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_GLOBE_SVG);
     const IMAGE_GENERATION_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_CREATE_IMAGE_SVG);
-    const QUICK_INPUT_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_SUBMIT_MESSAGE_SVG);
+    const QUICK_INPUT_ICON_INFO = notionNativeSvgIconInfo(QUICK_INPUT_ICON_SVG);
     const DELETE_TOPIC_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_DELETE_SVG);
     const RESEARCH_ICON = RESEARCH_ICON_INFO.icon;
     const ADD_CONTEXT_ICON = ADD_CONTEXT_ICON_INFO.icon;
@@ -1413,6 +1413,103 @@
       }
       return bestWithToggle || bestRowLike || row;
     }
+    function textLooksLikeResearchModeMenuItem(value) {
+      const text = normalizeNotionText(value);
+      return !!text && (text === "research" || text === "research mode" || text === "deep research" || text.includes("research mode") || text.includes("deep research") || text.includes("research") || text.includes("研究") || text.includes("深度研究"));
+    }
+    function textLooksLikeModeMenuItem(value) {
+      const text = normalizeNotionText(value);
+      return !!text && (text === "mode" || text.startsWith("mode ") || text.includes(" mode ") || text === "模式" || text.includes("模式"));
+    }
+    function getSettingsMenuCandidateRow(element, root, predicate) {
+      if (!element || typeof predicate !== "function") return null;
+      const rootArea = getElementArea(root);
+      const rootRect = getElementRect(root);
+      let bestRowLike = null;
+      let row = element;
+      let node = element;
+      while (node && node.nodeType === 1) {
+        if (root && node !== root && !root.contains?.(node)) break;
+        if (!predicate(getElementSearchText(node))) {
+          node = node.parentElement || null;
+          continue;
+        }
+        const area = getElementArea(node);
+        if (rootArea > 0 && area >= rootArea * 0.85) break;
+        const rect = getElementRect(node);
+        if (rect && rootRect) {
+          const rowLike = rect.height >= 24 && rect.height <= 96 && rect.width >= Math.min(160, rootRect.width * 0.4);
+          if (rowLike) bestRowLike = node;
+        }
+        row = node;
+        node = node.parentElement || null;
+      }
+      return bestRowLike || row;
+    }
+    function findSettingsMenuItemByText(root, predicate) {
+      if (!root || typeof predicate !== "function") return null;
+      const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
+      const collect = (selector) => {
+        for (const element of safeQueryAll(root, selector)) {
+          if (!element || seen.has(element) || !isVisibleElement(element) || isElementDisabled(element)) continue;
+          seen.add(element);
+          if (!predicate(getElementSearchText(element))) continue;
+          candidates.push(getSettingsMenuCandidateRow(element, root, predicate));
+        }
+      };
+      collect(NOTION_SETTINGS_MENU_ITEM_SELECTOR);
+      collect("div, span, button");
+      const unique = Array.from(new Set(candidates.filter(Boolean)));
+      if (unique.length === 0) return null;
+      unique.sort((a, b) => {
+        const aText = normalizeNotionText(getElementSearchText(a));
+        const bText = normalizeNotionText(getElementSearchText(b));
+        const aExact = predicate(aText) && aText.length <= 32 ? 1 : 0;
+        const bExact = predicate(bText) && bText.length <= 32 ? 1 : 0;
+        if (aExact !== bExact) return bExact - aExact;
+        const aArea = getElementArea(a);
+        const bArea = getElementArea(b);
+        if (aArea !== bArea) return aArea - bArea;
+        return aText.length - bText.length;
+      });
+      return unique[0] || null;
+    }
+    function findOpenSettingsMenuItemByText(predicate) {
+      const roots = safeQueryAll(document, NOTION_SETTINGS_MENU_ROOT_SELECTOR).filter((root) => root && isVisibleElement(root) && !isInsideShortcutUi(root));
+      for (const root of roots) {
+        const item = findSettingsMenuItemByText(root, predicate);
+        if (item) return item;
+      }
+      return null;
+    }
+    function findResearchModeTriggerElement() {
+      const selectors = [
+        '[data-testid="unified-chat-research-mode-button"]',
+        'button[aria-label*="research" i]',
+        '[role="button"][aria-label*="research" i]',
+        'button[title*="research" i]',
+        '[role="button"][title*="research" i]',
+        'button[aria-label*="研究" i]',
+        '[role="button"][aria-label*="研究" i]',
+        'button[title*="研究" i]',
+        '[role="button"][title*="研究" i]'
+      ].join(", ");
+      const candidates = safeQueryAll(document, selectors).filter((element) => element && isVisibleElement(element) && !isInsideShortcutUi(element) && !isElementDisabled(element)).map((element) => {
+        const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+        const label = getElementSearchText(element);
+        const exact = dataTestId === "unified-chat-research-mode-button" ? 1e3 : 0;
+        const toolbar = isLikelyComposerToolbarControl(element) ? 300 : 0;
+        const rect = getElementRect(element);
+        const score = exact + toolbar + (textLooksLikeResearchModeMenuItem(label) ? 160 : 0);
+        return { element: getClickableActionElement(element), score, rect };
+      }).filter((item) => item.element && item.score > 0);
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (b.rect?.bottom || 0) - (a.rect?.bottom || 0);
+      });
+      return candidates[0]?.element || null;
+    }
     function findExplicitWebAccessToggleTarget(container) {
       if (!container) return null;
       const rowRole = String(container.getAttribute?.("role") || "").toLowerCase();
@@ -1660,6 +1757,46 @@
         await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
       } while (true);
       return false;
+    }
+    async function selectSearchScopeAction({ engine: engine2 } = {}) {
+      const trigger = findSettingsTriggerElement();
+      if (!trigger) return false;
+      syncNotionShortcutIconFromElement(engine2, "selectSearchScope", trigger);
+      const root = await ensureSettingsMenuOpen(trigger);
+      if (!root) return false;
+      const row = findWebAccessMenuItem(root);
+      if (row) syncNotionWebAccessShortcutIconFromElement(engine2, row);
+      return true;
+    }
+    async function toggleResearchModeAction({ engine: engine2 } = {}) {
+      const directTrigger = findResearchModeTriggerElement();
+      if (directTrigger) {
+        syncNotionShortcutIconFromElement(engine2, "toggleResearchMode", directTrigger);
+        return simulateClickElement(directTrigger, { nativeFallback: true });
+      }
+      const trigger = findSettingsTriggerElement();
+      const root = await ensureSettingsMenuOpen(trigger);
+      if (!root) return false;
+      let researchItem = findSettingsMenuItemByText(root, textLooksLikeResearchModeMenuItem) || findOpenSettingsMenuItemByText(textLooksLikeResearchModeMenuItem);
+      if (researchItem) {
+        syncNotionShortcutIconFromElement(engine2, "toggleResearchMode", researchItem);
+        const target2 = getClickableActionElement(researchItem, root) || researchItem;
+        if (!simulateClickElement(target2, { nativeFallback: true })) return false;
+        await closeSettingsMenu(trigger, { initialDelayMs: 30 });
+        return true;
+      }
+      const modeItem = findSettingsMenuItemByText(root, textLooksLikeModeMenuItem);
+      if (!modeItem) return false;
+      const modeTarget = getClickableActionElement(modeItem, root) || modeItem;
+      if (!simulateClickElement(modeTarget, { nativeFallback: true })) return false;
+      await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+      researchItem = findOpenSettingsMenuItemByText(textLooksLikeResearchModeMenuItem);
+      if (!researchItem) return true;
+      syncNotionShortcutIconFromElement(engine2, "toggleResearchMode", researchItem);
+      const target = getClickableActionElement(researchItem) || researchItem;
+      if (!simulateClickElement(target, { nativeFallback: true })) return true;
+      await closeSettingsMenu(trigger, { initialDelayMs: 30 });
+      return true;
     }
     function textLooksLikeCreateImageMenuItem(value) {
       const text = normalizeNotionText(value);
@@ -4629,7 +4766,8 @@
       createShortcut({
         key: "toggleResearchMode",
         name: "Toggle Research Mode",
-        selector: '[data-testid="unified-chat-research-mode-button"]',
+        actionType: "custom",
+        customAction: "toggleResearchMode",
         hotkey: "CTRL+R",
         icon: RESEARCH_ICON,
         iconDark: RESEARCH_ICON_INFO.iconDark,
@@ -4638,7 +4776,8 @@
       createShortcut({
         key: "selectSearchScope",
         name: "Select Search Scope",
-        selector: '[data-testid="unified-chat-search-scope-button"][role="button"]',
+        actionType: "custom",
+        customAction: "selectSearchScope",
         hotkey: "CTRL+S",
         icon: SEARCH_SCOPE_ICON,
         iconDark: SEARCH_SCOPE_ICON_INFO.iconDark,
@@ -4719,6 +4858,10 @@
       ...NOTION_MODEL_SHORTCUT_KEYS
     ]);
     const NOTION_MODEL_ICON_SHORTCUT_KEY_SET = new Set(NOTION_MODEL_ICON_SHORTCUT_KEYS);
+    const NOTION_DEFAULT_ACTION_MIGRATION_KEY_SET = /* @__PURE__ */ new Set([
+      "toggleResearchMode",
+      "selectSearchScope"
+    ]);
     function createDefaultShortcutByKey(key) {
       const shortcutKey = String(key || "").trim();
       if (!shortcutKey) return null;
@@ -4778,6 +4921,24 @@
       if (!String(shortcut.key || "").trim()) {
         shortcut.key = shortcutKey;
         changed = true;
+      }
+      if (NOTION_DEFAULT_ACTION_MIGRATION_KEY_SET.has(shortcutKey)) {
+        const actionFields = ["actionType", "customAction", "selector", "simulateKeys", "url", "urlMethod", "urlAdvanced"];
+        for (const field of actionFields) {
+          const defaultValue = defaultShortcut[field];
+          const currentValue = shortcut[field];
+          if (defaultValue === void 0 || defaultValue === null || defaultValue === "") {
+            if (currentValue !== void 0 && currentValue !== null && currentValue !== "") {
+              delete shortcut[field];
+              changed = true;
+            }
+            continue;
+          }
+          if (currentValue !== defaultValue) {
+            shortcut[field] = defaultValue;
+            changed = true;
+          }
+        }
       }
       const defaultIcon = String(defaultShortcut.icon || "").trim();
       const defaultIconDark = String(defaultShortcut.iconDark || "").trim();
@@ -5356,6 +5517,8 @@
         newChat: triggerNewChatAction,
         openModelPicker: openModelPickerAction,
         modelPicker: clickModelPickerItem,
+        toggleResearchMode: toggleResearchModeAction,
+        selectSearchScope: selectSearchScopeAction,
         toggleWebAccess: toggleWebAccessAction,
         toggleImageGeneration: toggleImageGenerationAction,
         conversationMenu: clickConversationMenuItem,
