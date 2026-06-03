@@ -97,15 +97,22 @@
     const NOTION_AI_FALLBACK_ICON = NOTION_AI_NATIVE_FACE_ICON;
     const SEARCH_ICON = notionNativeIcon("search");
     const SETTINGS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'/%3E%3Cpath d='M12 1L9 4H6a2 2 0 0 0-2 2v3l-3 3 3 3v3a2 2 0 0 0 2 2h3l3 3 3-3h3a2 2 0 0 0 2-2v-3l3-3-3-3V6a2 2 0 0 0-2-2h-3L12 1z'/%3E%3C/svg%3E";
-    const RESEARCH_ICON = notionNativeIcon("binoculars");
-    const ADD_CONTEXT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='currentColor'%3E%3Cpath d='M11.904 3.28a6.125 6.125 0 1 0-1.648 10.415.625.625 0 1 0-.46-1.163 4.875 4.875 0 1 1 2.808-2.93c-.102.294-.43.523-.878.523a.87.87 0 0 1-.872-.872V5.705a.625.625 0 0 0-1.242-.098 3.04 3.04 0 0 0-1.746-.527c-.792 0-1.542.277-2.095.825-.557.55-.871 1.332-.871 2.256s.313 1.714.864 2.276 1.3.858 2.102.858c.8 0 1.55-.294 2.104-.85a2.12 2.12 0 0 0 1.756.93c.835 0 1.738-.441 2.058-1.361a6.125 6.125 0 0 0-1.88-6.734M6.65 6.793c.294-.29.715-.463 1.216-.463.5 0 .929.173 1.228.466.296.289.508.735.508 1.365 0 .631-.213 1.095-.515 1.4-.303.306-.73.484-1.221.484-.49 0-.91-.178-1.209-.482-.296-.303-.507-.767-.507-1.402 0-.633.21-1.08.5-1.368'/%3E%3C/svg%3E";
-    const ATTACH_FILE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath d='M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z'/%3E%3C/svg%3E";
-    const NEW_CHAT_ICON = notionNativeIcon("plus");
-    const SEARCH_SCOPE_ICON = notionNativeIcon("globe");
-    const WEB_ACCESS_ICON = notionNativeIcon("globe");
-    const IMAGE_GENERATION_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/%3E%3C/svg%3E";
+    const NOTION_NATIVE_RESEARCH_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"m17.972 11.894-1.644-6.575a2.897 2.897 0 0 0-5.706.703v2.903a1.25 1.25 0 0 0-.625-.172c-.228 0-.44.066-.625.172V6.022a2.897 2.897 0 0 0-5.706-.703l-1.644 6.575a5 5 0 0 0-.153 1.231 3.749 3.749 0 0 0 7.443.625h1.363a3.749 3.749 0 0 0 7.444-.625q0-.625-.153-1.231zM5.625 15a1.876 1.876 0 0 1-1.875-1.875c0-1.034.84-1.875 1.875-1.875 1.034 0 1.875.84 1.875 1.875C7.5 14.159 6.66 15 5.625 15m8.75 0a1.876 1.876 0 0 1-1.875-1.875c0-1.034.84-1.875 1.875-1.875 1.034 0 1.875.84 1.875 1.875 0 1.034-.84 1.875-1.875 1.875\"/></svg>";
+    const NOTION_NATIVE_PLUS_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M10 3.59a.66.66 0 0 1 .66.66v5.09h5.09a.66.66 0 0 1 0 1.32h-5.09v5.09a.66.66 0 0 1-1.32 0v-5.09H4.25a.66.66 0 0 1 0-1.32h5.09V4.25a.66.66 0 0 1 .66-.66\"/></svg>";
+    const NOTION_NATIVE_ATTACH_FILE_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z\"/></svg>";
+    const NOTION_NATIVE_SETTINGS_SLIDERS_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M3 7.375h6.829a2.501 2.501 0 0 0 4.842 0H17a.625.625 0 1 0 0-1.25h-2.329a2.501 2.501 0 0 0-4.842 0H3a.625.625 0 1 0 0 1.25M12.25 5.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5\"/><path fill-rule=\"evenodd\" d=\"M7.75 15.75a2.5 2.5 0 0 0 2.421-1.875H17a.625.625 0 1 0 0-1.25h-6.829a2.5 2.5 0 0 0-4.842 0H3a.625.625 0 1 0 0 1.25h2.329A2.5 2.5 0 0 0 7.75 15.75m0-1.25a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5\" clip-rule=\"evenodd\"/></svg>";
+    const NOTION_NATIVE_GLOBE_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M10 2.375a7.625 7.625 0 1 1 0 15.25 7.625 7.625 0 0 1 0-15.25m-1.863 8.25c.054 1.559.31 2.937.681 3.943.212.572.449.992.68 1.256.232.266.404.318.502.318s.27-.052.502-.318c.231-.264.468-.684.68-1.256.371-1.006.627-2.384.681-3.943zm-4.48 0a6.38 6.38 0 0 0 4.509 5.48 6.5 6.5 0 0 1-.52-1.104c-.431-1.167-.704-2.697-.76-4.376zm9.456 0c-.055 1.679-.327 3.21-.758 4.376-.15.405-.324.779-.522 1.104a6.38 6.38 0 0 0 4.51-5.48zM8.166 3.894a6.38 6.38 0 0 0-4.51 5.481h3.23c.056-1.679.328-3.21.76-4.376.15-.405.322-.78.52-1.105M10 3.858c-.099 0-.27.053-.502.319-.231.264-.468.683-.68 1.255-.371 1.006-.627 2.384-.681 3.943h3.726c-.054-1.559-.31-2.937-.681-3.943-.212-.572-.449-.99-.68-1.255-.232-.266-.404-.319-.502-.319m1.833.036c.198.326.372.7.521 1.105.432 1.167.704 2.697.76 4.376h3.23a6.38 6.38 0 0 0-4.511-5.481\"/></svg>";
+    const NOTION_NATIVE_CREATE_IMAGE_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"m16.949 3.47-.618.619-1.164-1.165.625-.624a.823.823 0 0 1 1.157 0 .823.823 0 0 1 0 1.157zm-8.526 8.527 7.153-7.153-1.165-1.165-7.16 7.147a1.1 1.1 0 0 0-.247.414l-.303.978c-.055.206.137.4.33.33l.978-.303a.9.9 0 0 0 .414-.248\"/><path d=\"M9.578 5.438q.617 0 1.197.126l1.051-1.004a6.9 6.9 0 0 0-2.248-.372h-.35a6.603 6.603 0 0 0-6.603 6.602v.257c0 1.254.371 2.48 1.067 3.524a9.25 9.25 0 0 0 5.455 3.844l.514.129a.625.625 0 1 0 .303-1.213l-.513-.128a8 8 0 0 1-4.719-3.325 5.1 5.1 0 0 1-.857-2.831v-.257a5.353 5.353 0 0 1 5.353-5.352z\"/><path d=\"M12.444 15.748a6.47 6.47 0 0 1-5.471-1.878l1.387-.433a5.22 5.22 0 0 0 3.92 1.072l.08-.01a3.37 3.37 0 0 0 2.921-3.345 5.7 5.7 0 0 0-1.011-3.248l.904-.885a6.94 6.94 0 0 1 1.357 4.133 4.624 4.624 0 0 1-4.006 4.584z\"/></svg>";
+    const NOTION_NATIVE_DELETE_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M8.806 8.505a.55.55 0 0 0-1.1 0v5.979a.55.55 0 1 0 1.1 0zm3.488 0a.55.55 0 0 0-1.1 0v5.979a.55.55 0 1 0 1.1 0z\"/><path d=\"M6.386 3.925v1.464H3.523a.625.625 0 1 0 0 1.25h.897l.393 8.646A2.425 2.425 0 0 0 7.236 17.6h5.528a2.425 2.425 0 0 0 2.422-2.315l.393-8.646h.898a.625.625 0 1 0 0-1.25h-2.863V3.925c0-.842-.683-1.525-1.525-1.525H7.91c-.842 0-1.524.683-1.524 1.525M7.91 3.65h4.18c.15 0 .274.123.274.275v1.464H7.636V3.925c0-.152.123-.275.274-.275m-.9 2.99h7.318l-.39 8.588a1.175 1.175 0 0 1-1.174 1.122H7.236a1.175 1.175 0 0 1-1.174-1.122l-.39-8.589z\"/></svg>";
+    const RESEARCH_ICON = svgDataUri(NOTION_NATIVE_RESEARCH_SVG);
+    const ADD_CONTEXT_ICON = svgDataUri(NOTION_NATIVE_PLUS_SVG);
+    const ATTACH_FILE_ICON = svgDataUri(NOTION_NATIVE_ATTACH_FILE_SVG);
+    const NEW_CHAT_ICON = NOTION_MODEL_AI_FACE_ICON;
+    const SEARCH_SCOPE_ICON = svgDataUri(NOTION_NATIVE_SETTINGS_SLIDERS_SVG);
+    const WEB_ACCESS_ICON = svgDataUri(NOTION_NATIVE_GLOBE_SVG);
+    const IMAGE_GENERATION_ICON = svgDataUri(NOTION_NATIVE_CREATE_IMAGE_SVG);
     const QUICK_INPUT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M7 9h.01'/%3E%3Cpath d='M11 9h.01'/%3E%3Cpath d='M15 9h.01'/%3E%3Cpath d='M17 15H7'/%3E%3C/svg%3E";
-    const DELETE_TOPIC_ICON = notionNativeIcon("delete");
+    const DELETE_TOPIC_ICON = svgDataUri(NOTION_NATIVE_DELETE_SVG);
 
     const defaultIcons = [
         { name: 'Notion', url: defaultIconURL },
@@ -1065,7 +1072,14 @@
         return null;
     }
 
-    async function clickConversationMenuItem({ shortcut }) {
+    function shouldSyncDeleteTopicIcon(shortcut, spec) {
+        if (getNotionDefaultShortcutKey(shortcut) === "deleteTopic") return true;
+        const targetLabels = spec?.target ? [spec.target.label, ...(spec.target.aliases || [])] : [];
+        const labels = targetLabels.map(normalizeNotionText).filter(Boolean);
+        return labels.includes("delete") || labels.includes("删除");
+    }
+
+    async function clickConversationMenuItem({ shortcut, engine } = {}) {
         const spec = getConversationMenuSpec(shortcut);
         if (!spec) return false;
 
@@ -1085,7 +1099,12 @@
         do {
             const currentRoot = findConversationMenuRoot(trigger) || menuRoot;
             const target = findConversationMenuItem(currentRoot, spec);
-            if (target && simulateClickElement(target, { nativeFallback: true })) return true;
+            if (target) {
+                if (shouldSyncDeleteTopicIcon(shortcut, spec)) {
+                    syncNotionDeleteTopicShortcutIconFromElement(engine, target);
+                }
+                if (simulateClickElement(target, { nativeFallback: true })) return true;
+            }
             if (!spec.waitForItem || Date.now() >= deadline) break;
             await sleep(CONVERSATION_MENU_TIMING.pollIntervalMs);
         } while (true);
@@ -1793,6 +1812,21 @@
         );
     }
 
+    function textLooksLikeAttachFileMenuItem(value) {
+        const text = normalizeNotionText(value);
+        return (
+            text === "add images, pdfs, or csvs" ||
+            text === "add images pdfs or csvs" ||
+            text === "add images, pdfs, csvs" ||
+            text === "attach file" ||
+            text === "upload file" ||
+            text === "上传文件" ||
+            text === "添加图片、pdf 或 csv" ||
+            text === "添加图片 pdf 或 csv" ||
+            text === "添加图片、pdf、csv"
+        );
+    }
+
     function findImageModeCloseElement() {
         return safeQueryAll(document, NOTION_IMAGE_MODE_CLOSE_SELECTOR)
             .find(element => element && isVisibleElement(element) && !isElementDisabled(element)) || null;
@@ -1831,17 +1865,28 @@
             )) || null;
     }
 
+    function findAttachFileMenuItem(root) {
+        if (!root) return null;
+        return safeQueryAll(root, NOTION_CONTEXT_MENU_ITEM_SELECTOR)
+            .find(element => (
+                element &&
+                isVisibleElement(element) &&
+                !isElementDisabled(element) &&
+                textLooksLikeAttachFileMenuItem(getElementText(element))
+            )) || null;
+    }
+
     function findContextMenuRoot(triggerEl = null) {
         if (triggerEl) {
             const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
             if (controlsId) {
                 const controlled = document.getElementById(controlsId);
-                if (findCreateImageMenuItem(controlled)) return controlled;
+                if (findCreateImageMenuItem(controlled) || findAttachFileMenuItem(controlled)) return controlled;
             }
         }
 
         return safeQueryAll(document, NOTION_CONTEXT_MENU_ROOT_SELECTOR)
-            .find(element => element && isVisibleElement(element) && findCreateImageMenuItem(element)) || null;
+            .find(element => element && isVisibleElement(element) && (findCreateImageMenuItem(element) || findAttachFileMenuItem(element))) || null;
     }
 
     async function ensureContextMenuOpen(triggerEl) {
@@ -1887,6 +1932,7 @@
             console.warn(`${LOG_TAG} toggleImageGeneration: Give context menu not found.`);
             return false;
         }
+        syncNotionAttachFileShortcutIconFromElement(engine, findAttachFileMenuItem(root));
         const item = findCreateImageMenuItem(root);
         if (!item) {
             console.warn(`${LOG_TAG} toggleImageGeneration: Create image menu item not found.`);
@@ -5590,12 +5636,18 @@
 
         const modelTrigger = findModelTriggerElement();
         const modelRoot = findModelMenuRoot(modelTrigger) || findModelMenuRoot();
+        const settingsTrigger = findSettingsTriggerElement();
+        const settingsRoot = findSettingsMenuRoot(settingsTrigger) || findSettingsMenuRoot();
+        const contextTrigger = findContextMenuTriggerElement();
+        const contextRoot = findContextMenuRoot(contextTrigger) || findContextMenuRoot();
         setNotionModelIconUpdatesFromMenuRoot(updates, modelRoot);
         setNotionIconUpdateFromElement(updates, "newChat", findNewChatTriggerElement());
         setNotionIconUpdateFromElement(updates, "toggleResearchMode", findVisibleNativeElement('[data-testid="unified-chat-research-mode-button"]'));
-        setNotionIconUpdateFromElement(updates, "selectSearchScope", findSettingsTriggerElement());
-        setNotionIconUpdateFromElement(updates, "addContext", findContextMenuTriggerElement());
-        setNotionIconUpdateFromElement(updates, "attachFile", findVisibleNativeElement('button[aria-label="Attach file"]'));
+        setNotionIconUpdateFromElement(updates, "selectSearchScope", settingsTrigger);
+        setNotionIconUpdateFromElement(updates, "toggleWebAccess", findWebAccessMenuItem(settingsRoot));
+        setNotionIconUpdateFromElement(updates, "addContext", contextTrigger);
+        setNotionIconUpdateFromElement(updates, "attachFile", findAttachFileMenuItem(contextRoot) || findVisibleNativeElement('button[aria-label="Attach file"]'));
+        setNotionIconUpdateFromElement(updates, "toggleImageGeneration", findCreateImageMenuItem(contextRoot));
 
         return Object.keys(updates).length > 0 && updateNotionShortcutIcons(engineApi, updates);
     }
@@ -5610,8 +5662,16 @@
         return syncNotionShortcutIconFromElement(engineApi, "toggleImageGeneration", element);
     }
 
+    function syncNotionAttachFileShortcutIconFromElement(engineApi, element) {
+        return syncNotionShortcutIconFromElement(engineApi, "attachFile", element);
+    }
+
     function syncNotionWebAccessShortcutIconFromElement(engineApi, element) {
         return syncNotionShortcutIconFromElement(engineApi, "toggleWebAccess", element);
+    }
+
+    function syncNotionDeleteTopicShortcutIconFromElement(engineApi, element) {
+        return syncNotionShortcutIconFromElement(engineApi, "deleteTopic", element);
     }
 
     function scheduleNotionRuntimeNativeIconSync(engineApi) {

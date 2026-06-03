@@ -3,8 +3,8 @@
 // @name:en        [Template] Shortcut Core [20260603] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @version        [20260603] v1.0.0
-// @update-log     1.0.0: 刷新 Template core require 缓存标记，发布 Notion AI 模型菜单逐项原生图标同步与普通/黑暗模式可见性修复。
-// @update-log:en  1.0.0: Refreshed the Template core require cache token and published the Notion AI per-model native icon sync and light/dark visibility fix.
+// @update-log     1.0.0: 刷新 Template core require 缓存标记，发布 Notion AI 全部默认快捷键图标的网页原生 SVG 同步与普通/黑暗模式可见性修复。
+// @update-log:en  1.0.0: Refreshed the Template core require cache token and published native web SVG sync for all Notion AI default shortcut icons with light/dark visibility fixes.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
