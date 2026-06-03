@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260602] v1.0.1
-// @name:en        [Template] Shortcut Core [20260602] v1.0.1
+// @name           [Template] 快捷键跳转 [20260603] v1.0.0
+// @name:en        [Template] Shortcut Core [20260603] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260602] v1.0.1
-// @update-log     1.0.1: 刷新 Template core require 缓存标记，并移除 Quick Input 导入/导出成功时多余的 Log 记录。
-// @update-log:en  1.0.1: Refreshed the Template core require cache token and removed the extra Log entries after successful Quick Input imports and exports.
+// @version        [20260603] v1.0.0
+// @update-log     1.0.0: 刷新 Template core require 缓存标记，发布 Notion AI 原生图标与普通/黑暗模式自适应修复。
+// @update-log:en  1.0.0: Refreshed the Template core require cache token and published the Notion AI native icon and light/dark adaptive fix.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260602";
+  var TEMPLATE_VERSION = "20260603";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",

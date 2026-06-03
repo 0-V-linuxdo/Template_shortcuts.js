@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion AI] 快捷键跳转 [20260531] v1.1.2
-// @name:en        [Notion AI] Shortcut Jump [20260531] v1.1.2
+// @name           [Notion AI] 快捷键跳转 [20260603] v1.0.0
+// @name:en        [Notion AI] Shortcut Jump [20260603] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260531] v1.1.2
-// @update-log     1.1.2: 略微放大并上移 Notion AI 脚本头键帽内的 logo，使视觉居中更自然。
-// @update-log:en  1.1.2: Slightly enlarged and moved the Notion AI logo upward inside the keycap header icon for better visual centering.
+// @version        [20260603] v1.0.0
+// @update-log     1.0.0: 修复 Notion AI 默认快捷键图标，改用网页原生/官方图标来源，并启用普通/黑暗模式自适应迁移。
+// @update-log:en  1.0.0: Fixed Notion AI default shortcut icons by using native/official web icon sources and enabling light/dark adaptive migration.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -22,7 +22,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22notion-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.notion-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.notion-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Csvg%20x%3D%2216%22%20y%3D%2213%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%20150%20150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22currentColor%22%3E%3Cpath%20d%3D%22m135.3%2029.9c-5.2-9.6-15.2-17.5-28.3-17.9-14.6-0.5-27.7%209.2-35.3%2023.1-6.6%2011.8-42.6%2081.3-50.5%2097.9-1.8%203.7%200.2%207%203.8%207.5l45.4%205%201.5-12.4-37.6-3.9%2045.2-89.5c5-9.3%2014.4-17.9%2025.2-18%206.6-0.1%2016.1%203.6%2021.6%2012.4%201.3%202.3%204.2%203.5%206.7%202.3%202.4-1%203.6-4.1%202.3-6.5z%22%2F%3E%3Cpath%20d%3D%22m23.5%2027.6c4.2-4.8%2010.7-12.4%2024.2-13.6%208.7-0.6%2015%204.1%2018.9%2010.2%201.4%202.4%204.1%204.1%206.8%202.6%202.5-1.2%203.2-4.2%201.6-6.9-2.8-5.2-11.6-14.9-23.8-15.4-8.9-0.4-24.3%202.9-35.4%2017.1-1.7%202.1-1.7%205%200.4%206.8%201.9%201.9%205.4%201.6%207.3-0.8z%22%2F%3E%3Cpath%20d%3D%22m47.8%2036.2c-5.7%200.1-10.5%204.9-10.5%2010.7-0.2%206%204.1%2011.6%2010.5%2011.7%206.1-0.1%2010.5-5.2%2010.6-12-0.2-5.7-4.5-10.4-10.6-10.4z%22%2F%3E%3Cpath%20d%3D%22m94.7%2042.9c-5.6%200.1-10.6%204.8-10.7%2011.3%200%206.3%204.2%2011.9%2010.7%2011.8%205.9%200%2010.3-5.1%2010.4-11.8%200-5.7-3.9-11.2-10.4-11.3z%22%2F%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260602.1.0.1
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260603.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -101,24 +101,29 @@
     const LEGACY_NEW_CHAT_SIMULATE_KEYS = "CMD+O";
     const LEGACY_SELECT_AI_MODEL_KEY = "selectAiModel";
     const LEGACY_SELECT_AI_MODEL_SELECTOR = '[data-testid="unified-chat-model-button"][role="button"]';
-    const NOTION_AI_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 2l3.09 6.26L22 9l-5.91 4.47L17 22l-5-3.4L7 22l.91-8.53L2 9l6.91-.74z'/%3E%3C/svg%3E";
-    const SEARCH_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E";
+    function notionNativeIcon(name) {
+      return `${NOTION_LEGACY_ORIGIN}/icons/${encodeURIComponent(String(name || "").trim())}_gray.svg`;
+    }
+    const NOTION_AI_FALLBACK_ICON = defaultIconURL;
+    const SEARCH_ICON = notionNativeIcon("search");
     const SETTINGS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'/%3E%3Cpath d='M12 1L9 4H6a2 2 0 0 0-2 2v3l-3 3 3 3v3a2 2 0 0 0 2 2h3l3 3 3-3h3a2 2 0 0 0 2-2v-3l3-3-3-3V6a2 2 0 0 0-2-2h-3L12 1z'/%3E%3C/svg%3E";
-    const RESEARCH_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2zm0 15l-5-2.18L7 18V5h10v13z'/%3E%3C/svg%3E";
+    const RESEARCH_ICON = notionNativeIcon("binoculars");
     const ADD_CONTEXT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='currentColor'%3E%3Cpath d='M11.904 3.28a6.125 6.125 0 1 0-1.648 10.415.625.625 0 1 0-.46-1.163 4.875 4.875 0 1 1 2.808-2.93c-.102.294-.43.523-.878.523a.87.87 0 0 1-.872-.872V5.705a.625.625 0 0 0-1.242-.098 3.04 3.04 0 0 0-1.746-.527c-.792 0-1.542.277-2.095.825-.557.55-.871 1.332-.871 2.256s.313 1.714.864 2.276 1.3.858 2.102.858c.8 0 1.55-.294 2.104-.85a2.12 2.12 0 0 0 1.756.93c.835 0 1.738-.441 2.058-1.361a6.125 6.125 0 0 0-1.88-6.734M6.65 6.793c.294-.29.715-.463 1.216-.463.5 0 .929.173 1.228.466.296.289.508.735.508 1.365 0 .631-.213 1.095-.515 1.4-.303.306-.73.484-1.221.484-.49 0-.91-.178-1.209-.482-.296-.303-.507-.767-.507-1.402 0-.633.21-1.08.5-1.368'/%3E%3C/svg%3E";
     const ATTACH_FILE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath d='M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z'/%3E%3C/svg%3E";
-    const NEW_CHAT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14'/%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E";
-    const WEB_ACCESS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 0 20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E";
+    const NEW_CHAT_ICON = notionNativeIcon("plus");
+    const SEARCH_SCOPE_ICON = notionNativeIcon("globe");
+    const WEB_ACCESS_ICON = notionNativeIcon("globe");
     const IMAGE_GENERATION_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/%3E%3C/svg%3E";
     const QUICK_INPUT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M7 9h.01'/%3E%3Cpath d='M11 9h.01'/%3E%3Cpath d='M15 9h.01'/%3E%3Cpath d='M17 15H7'/%3E%3C/svg%3E";
-    const DELETE_TOPIC_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M8 6V4h8v2'/%3E%3Cpath d='M19 6l-1 14H6L5 6'/%3E%3Cpath d='M10 11v5'/%3E%3Cpath d='M14 11v5'/%3E%3C/svg%3E";
+    const DELETE_TOPIC_ICON = notionNativeIcon("delete");
     const defaultIcons = [
       { name: "Notion", url: defaultIconURL },
-      { name: "AI Assistant", url: NOTION_AI_ICON },
+      { name: "AI Assistant", url: NOTION_AI_FALLBACK_ICON },
       { name: "Search", url: SEARCH_ICON },
       { name: "Settings", url: SETTINGS_ICON },
       { name: "Research", url: RESEARCH_ICON },
       { name: "New Chat", url: NEW_CHAT_ICON },
+      { name: "Search Scope", url: SEARCH_SCOPE_ICON },
       { name: "Web Access", url: WEB_ACCESS_ICON },
       { name: "Image Generation", url: IMAGE_GENERATION_ICON },
       { name: "Quick Input", url: QUICK_INPUT_ICON },
@@ -1625,7 +1630,7 @@
       }
       return !!findImageModeCloseElement() === !!expectedState;
     }
-    async function toggleImageGenerationAction() {
+    async function toggleImageGenerationAction({ engine: engine2 } = {}) {
       const closeElement = findImageModeCloseElement();
       if (closeElement) {
         if (!simulateClickElement(closeElement, { nativeFallback: true })) return false;
@@ -1648,6 +1653,7 @@
         console.warn(`${LOG_TAG} toggleImageGeneration: Create image menu item not found.`);
         return false;
       }
+      syncNotionImageGenerationShortcutIconFromElement(engine2, item);
       if (!simulateClickElement(item, { nativeFallback: true })) return false;
       const enabled = await waitForImageModeState(true);
       if (!enabled) console.warn(`${LOG_TAG} toggleImageGeneration: image mode did not turn on.`);
@@ -4482,7 +4488,7 @@
         actionType: "custom",
         customAction: "modelPicker",
         hotkey: target.hotkey,
-        icon: NOTION_AI_ICON,
+        icon: NOTION_AI_FALLBACK_ICON,
         data: { menu: { id: target.id } }
       });
     }
@@ -4495,7 +4501,8 @@
         actionType: "custom",
         customAction: "newChat",
         hotkey: "CTRL+N",
-        icon: NEW_CHAT_ICON
+        icon: NEW_CHAT_ICON,
+        iconAdaptive: true
       }),
       createShortcut({
         key: LEGACY_SELECT_AI_MODEL_KEY,
@@ -4504,7 +4511,7 @@
         actionType: "custom",
         customAction: "openModelPicker",
         hotkey: "CTRL+M",
-        icon: NOTION_AI_ICON
+        icon: NOTION_AI_FALLBACK_ICON
       }),
       ...defaultModelShortcuts,
       createShortcut({
@@ -4512,14 +4519,16 @@
         name: "Toggle Research Mode",
         selector: '[data-testid="unified-chat-research-mode-button"]',
         hotkey: "CTRL+R",
-        icon: RESEARCH_ICON
+        icon: RESEARCH_ICON,
+        iconAdaptive: true
       }),
       createShortcut({
         key: "selectSearchScope",
         name: "Select Search Scope",
         selector: '[data-testid="unified-chat-search-scope-button"][role="button"]',
         hotkey: "CTRL+S",
-        icon: SEARCH_ICON
+        icon: SEARCH_SCOPE_ICON,
+        iconAdaptive: true
       }),
       createShortcut({
         key: "toggleWebAccess",
@@ -4528,7 +4537,8 @@
         actionType: "custom",
         customAction: "toggleWebAccess",
         hotkey: "CTRL+W",
-        icon: WEB_ACCESS_ICON
+        icon: WEB_ACCESS_ICON,
+        iconAdaptive: true
       }),
       createShortcut({
         key: "toggleImageGeneration",
@@ -4537,7 +4547,8 @@
         actionType: "custom",
         customAction: "toggleImageGeneration",
         hotkey: "CTRL+I",
-        icon: IMAGE_GENERATION_ICON
+        icon: IMAGE_GENERATION_ICON,
+        iconAdaptive: true
       }),
       createShortcut({
         key: "quickInput",
@@ -4546,7 +4557,8 @@
         actionType: "custom",
         customAction: "quickInput",
         hotkey: "CTRL+SHIFT+K",
-        icon: QUICK_INPUT_ICON
+        icon: QUICK_INPUT_ICON,
+        iconAdaptive: true
       }),
       createShortcut({
         key: "deleteTopic",
@@ -4556,6 +4568,7 @@
         customAction: "conversationMenu",
         hotkey: "CTRL+BACKSPACE",
         icon: DELETE_TOPIC_ICON,
+        iconAdaptive: true,
         data: { menu: { id: "delete" } }
       }),
       createShortcut({
@@ -4563,21 +4576,102 @@
         name: "Add Context",
         selector: '[data-testid="unified-chat-add-context-button"]',
         hotkey: "CTRL+SHIFT+C",
-        icon: ADD_CONTEXT_ICON
+        icon: ADD_CONTEXT_ICON,
+        iconAdaptive: true
       }),
       createShortcut({
         key: "attachFile",
         name: "Attach File",
         selector: 'button[aria-label="Attach file"]',
         hotkey: "CTRL+SHIFT+F",
-        icon: ATTACH_FILE_ICON
+        icon: ATTACH_FILE_ICON,
+        iconAdaptive: true
       })
     ];
+    const NOTION_DEFAULT_SHORTCUT_BY_KEY = Object.freeze(defaultShortcuts.reduce((acc, shortcut) => {
+      const key = String(shortcut?.key || "").trim();
+      if (key) acc[key] = shortcut;
+      return acc;
+    }, {}));
+    const NOTION_DEFAULT_SHORTCUT_KEY_SET = new Set(Object.keys(NOTION_DEFAULT_SHORTCUT_BY_KEY));
+    const NOTION_MODEL_ICON_SHORTCUT_KEYS = Object.freeze([
+      LEGACY_SELECT_AI_MODEL_KEY,
+      ...NOTION_MODEL_SHORTCUT_KEYS
+    ]);
+    const NOTION_MODEL_ICON_SHORTCUT_KEY_SET = new Set(NOTION_MODEL_ICON_SHORTCUT_KEYS);
     function createDefaultShortcutByKey(key) {
       const shortcutKey = String(key || "").trim();
       if (!shortcutKey) return null;
-      const shortcut = defaultShortcuts.find((item) => String(item?.key || "").trim() === shortcutKey);
+      const shortcut = NOTION_DEFAULT_SHORTCUT_BY_KEY[shortcutKey] || null;
       return cloneShortcutItem(shortcut);
+    }
+    function getNotionDefaultShortcutKey(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return "";
+      const key = String(shortcut.key || "").trim();
+      if (NOTION_DEFAULT_SHORTCUT_KEY_SET.has(key)) return key;
+      const selector = String(shortcut.selector || "").trim();
+      const customAction = String(shortcut.customAction || "").trim();
+      const actionType = String(shortcut.actionType || "").trim().toLowerCase();
+      const name = normalizeNotionText(shortcut.name);
+      if (customAction === "newChat" || isLegacyNewChatShortcut(shortcut)) return "newChat";
+      if (customAction === "openModelPicker" || selector === LEGACY_SELECT_AI_MODEL_SELECTOR || isLegacySelectAiModelShortcut(shortcut)) {
+        return LEGACY_SELECT_AI_MODEL_KEY;
+      }
+      if ((!actionType || actionType === "custom") && (!customAction || customAction === "modelPicker")) {
+        const data = isPlainObject(shortcut.data) ? shortcut.data : {};
+        const menu = isPlainObject(data.menu) ? data.menu : data;
+        const target = inferModelTargetFromText(menu.id ?? menu.textMatch ?? menu.keyword ?? shortcut.name);
+        if (target) return `model-${target.id}`;
+      }
+      if (selector.includes('data-testid="unified-chat-research-mode-button"') || name === "toggle research mode") {
+        return "toggleResearchMode";
+      }
+      if (selector.includes('data-testid="unified-chat-search-scope-button"') || name === "select search scope") {
+        return "selectSearchScope";
+      }
+      if (customAction === "toggleWebAccess" || name === "toggle web access") {
+        return "toggleWebAccess";
+      }
+      if (customAction === "toggleImageGeneration" || name === "toggle image generation") {
+        return "toggleImageGeneration";
+      }
+      if (customAction === "quickInput" || name === "quick input") return "quickInput";
+      if (customAction === "conversationMenu" || name === "delete topic") {
+        const data = isPlainObject(shortcut.data) ? shortcut.data : {};
+        const menu = isPlainObject(data.menu) ? data.menu : data;
+        if (resolveConversationMenuTarget(menu.id ?? menu.textMatch ?? menu.keyword ?? shortcut.name)) return "deleteTopic";
+      }
+      if (selector.includes('data-testid="unified-chat-add-context-button"') || name === "add context") {
+        return "addContext";
+      }
+      if (selector === 'button[aria-label="Attach file"]' || name === "attach file") {
+        return "attachFile";
+      }
+      return "";
+    }
+    function applyNotionDefaultIconFields(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
+      const shortcutKey = getNotionDefaultShortcutKey(shortcut);
+      const defaultShortcut = shortcutKey ? NOTION_DEFAULT_SHORTCUT_BY_KEY[shortcutKey] : null;
+      if (!defaultShortcut) return false;
+      let changed = false;
+      if (!String(shortcut.key || "").trim()) {
+        shortcut.key = shortcutKey;
+        changed = true;
+      }
+      const defaultIcon = String(defaultShortcut.icon || "").trim();
+      const currentIcon = String(shortcut.icon || "").trim();
+      const preserveRuntimeModelIcon = NOTION_MODEL_ICON_SHORTCUT_KEY_SET.has(shortcutKey) && currentIcon && currentIcon !== defaultIcon && !/^data:image\/svg\+xml/i.test(currentIcon);
+      if (!preserveRuntimeModelIcon && currentIcon !== defaultIcon) {
+        shortcut.icon = defaultIcon;
+        changed = true;
+      }
+      const targetIconAdaptive = preserveRuntimeModelIcon ? isSvgIconSource(currentIcon) : !!defaultShortcut.iconAdaptive;
+      if (!!shortcut.iconAdaptive !== targetIconAdaptive) {
+        shortcut.iconAdaptive = targetIconAdaptive;
+        changed = true;
+      }
+      return changed;
     }
     function isLegacyNewChatShortcut(shortcut) {
       if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
@@ -4683,6 +4777,9 @@
         existingKeys.add(key);
         changed = true;
       }
+      for (const shortcut of next) {
+        if (applyNotionDefaultIconFields(shortcut)) changed = true;
+      }
       if (changed) gmSetValueLocal(NOTION_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
     }
     migrateNotionManagedModelShortcuts();
@@ -4711,6 +4808,183 @@
         adapter
       });
       return quickInputController;
+    }
+    function getElementsIncludingRoot(root, selector) {
+      const elements = [];
+      if (!root || !selector) return elements;
+      try {
+        if (typeof root.matches === "function" && root.matches(selector)) elements.push(root);
+      } catch {
+      }
+      return elements.concat(safeQueryAll(root, selector));
+    }
+    function getResolvedIconUrl(rawValue) {
+      const raw = String(rawValue || "").trim();
+      if (!raw || raw.startsWith("blob:")) return "";
+      if (/^data:image\//i.test(raw)) return raw;
+      try {
+        const url = new URL(raw, window?.location?.href || NOTION_ORIGIN);
+        if (url.protocol === "http:" || url.protocol === "https:") return url.href;
+      } catch {
+      }
+      return "";
+    }
+    function getImageIconSource(img) {
+      if (!img) return "";
+      return getResolvedIconUrl(
+        img.currentSrc || img.src || img.getAttribute?.("src") || img.getAttribute?.("data-src") || img.getAttribute?.("data-original-src")
+      );
+    }
+    function serializeSvgIconSource(svg) {
+      if (!svg) return "";
+      let clone = null;
+      try {
+        clone = svg.cloneNode(true);
+      } catch {
+        clone = null;
+      }
+      if (!clone) return "";
+      try {
+        if (!clone.getAttribute("xmlns")) clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        const markup = new XMLSerializer().serializeToString(clone);
+        return markup ? `data:image/svg+xml,${encodeURIComponent(markup)}` : "";
+      } catch {
+        return "";
+      }
+    }
+    function isSvgIconSource(source) {
+      const value = String(source || "").trim();
+      return /^data:image\/svg\+xml/i.test(value) || /\.svg(?:[?#]|$)/i.test(value);
+    }
+    function extractNotionNativeIconSourceFromElement(root) {
+      if (!root || isInsideShortcutUi(root)) return "";
+      for (const img of getElementsIncludingRoot(root, "img")) {
+        if (!img || isInsideShortcutUi(img) || !isVisibleElement(img)) continue;
+        const source = getImageIconSource(img);
+        if (source) return source;
+      }
+      for (const svg of getElementsIncludingRoot(root, "svg")) {
+        if (!svg || isInsideShortcutUi(svg) || !isVisibleElement(svg)) continue;
+        const source = serializeSvgIconSource(svg);
+        if (source) return source;
+      }
+      return "";
+    }
+    function findNotionAiFaceIconSource() {
+      const candidates = safeQueryAll(document, "img").filter((img) => {
+        if (!img || isInsideShortcutUi(img) || !isVisibleElement(img)) return false;
+        const label = normalizeNotionText([
+          img.getAttribute?.("alt"),
+          img.getAttribute?.("aria-label"),
+          img.getAttribute?.("title")
+        ].filter(Boolean).join(" "));
+        return label.includes("notion ai") && (label.includes("face") || label.includes("notion ai"));
+      }).map((img) => ({ img, source: getImageIconSource(img), rect: getElementRect(img) })).filter((item) => !!item.source);
+      candidates.sort((a, b) => {
+        const aFace = normalizeNotionText(a.img.getAttribute?.("alt")).includes("face") ? 1 : 0;
+        const bFace = normalizeNotionText(b.img.getAttribute?.("alt")).includes("face") ? 1 : 0;
+        if (aFace !== bFace) return bFace - aFace;
+        return (b.rect?.width || 0) * (b.rect?.height || 0) - (a.rect?.width || 0) * (a.rect?.height || 0);
+      });
+      return candidates[0]?.source || "";
+    }
+    function updateNotionShortcutIcons(engineApi, updatesByKey) {
+      if (!engineApi || typeof engineApi.getShortcuts !== "function" || typeof engineApi.setShortcuts !== "function") return false;
+      const updates = updatesByKey && typeof updatesByKey === "object" ? updatesByKey : null;
+      if (!updates) return false;
+      const shortcuts = engineApi.getShortcuts();
+      if (!Array.isArray(shortcuts) || shortcuts.length === 0) return false;
+      let changed = false;
+      const next = shortcuts.map((shortcut) => {
+        const shortcutKey = getNotionDefaultShortcutKey(shortcut);
+        const update = shortcutKey ? updates[shortcutKey] : null;
+        if (!update || !update.icon) return shortcut;
+        const nextShortcut = { ...shortcut };
+        let itemChanged = false;
+        if (!String(nextShortcut.key || "").trim()) {
+          nextShortcut.key = shortcutKey;
+          itemChanged = true;
+        }
+        if (String(nextShortcut.icon || "").trim() !== update.icon) {
+          nextShortcut.icon = update.icon;
+          itemChanged = true;
+        }
+        if (typeof update.iconAdaptive === "boolean" && !!nextShortcut.iconAdaptive !== update.iconAdaptive) {
+          nextShortcut.iconAdaptive = update.iconAdaptive;
+          itemChanged = true;
+        }
+        if (!itemChanged) return shortcut;
+        changed = true;
+        return nextShortcut;
+      });
+      if (changed) engineApi.setShortcuts(next);
+      return changed;
+    }
+    function syncNotionAiFaceShortcutIcons(engineApi) {
+      const iconSource = findNotionAiFaceIconSource();
+      if (!iconSource) return false;
+      const iconAdaptive = isSvgIconSource(iconSource);
+      const updates = NOTION_MODEL_ICON_SHORTCUT_KEYS.reduce((acc, key) => {
+        acc[key] = { icon: iconSource, iconAdaptive };
+        return acc;
+      }, {});
+      return updateNotionShortcutIcons(engineApi, updates);
+    }
+    function syncNotionImageGenerationShortcutIconFromElement(engineApi, element) {
+      const iconSource = extractNotionNativeIconSourceFromElement(element);
+      if (!iconSource) return false;
+      return updateNotionShortcutIcons(engineApi, {
+        toggleImageGeneration: {
+          icon: iconSource,
+          iconAdaptive: isSvgIconSource(iconSource)
+        }
+      });
+    }
+    function scheduleNotionRuntimeNativeIconSync(engineApi) {
+      if (!engineApi) return;
+      const sync = () => syncNotionAiFaceShortcutIcons(engineApi);
+      sync();
+      [600, 1600, 3600, 8e3].forEach((delay) => {
+        try {
+          setTimeout(sync, delay);
+        } catch {
+        }
+      });
+      const MutationObserverCtor = window?.MutationObserver || null;
+      const root = document.body || document.documentElement;
+      if (typeof MutationObserverCtor !== "function" || !root) return;
+      let timer = null;
+      const observer = new MutationObserverCtor(() => {
+        if (timer !== null) return;
+        timer = setTimeout(() => {
+          timer = null;
+          if (sync()) {
+            try {
+              observer.disconnect();
+            } catch {
+            }
+          }
+        }, 160);
+      });
+      try {
+        observer.observe(root, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["alt", "src", "srcset", "aria-label", "title"]
+        });
+        setTimeout(() => {
+          try {
+            observer.disconnect();
+          } catch {
+          }
+          if (timer !== null) {
+            clearTimeout(timer);
+            timer = null;
+          }
+        }, 2e4);
+      } catch {
+      }
     }
     const engine = ShortcutTemplate.createShortcutEngine({
       menuCommandLabel: "Notion - 设置快捷键",
@@ -4766,6 +5040,7 @@
       }
     });
     engine.init();
+    scheduleNotionRuntimeNativeIconSync(engine);
     let quickInputMenuCommandId = null;
     function registerNotionQuickInputMenuCommand(engineApi) {
       if (quickInputMenuCommandId !== null) {
