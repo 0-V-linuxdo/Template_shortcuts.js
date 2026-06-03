@@ -6,8 +6,8 @@
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
 // @version        [20260603] v1.0.0
-// @update-log     1.0.0: 修复 Notion AI 全部默认快捷键图标，改用网页原生按钮/菜单 SVG，并通过 Template core 内联自适应渲染与 require 缓存标记保证普通/黑暗模式都与原图一致可见。
-// @update-log:en  1.0.0: Fixed all Notion AI default shortcut icons by using native web button/menu SVGs plus a refreshed Template core require cache token and inline adaptive rendering so light/dark mode stays visible and faithful to the source artwork.
+// @update-log     1.0.0: 修复 Notion AI 全部默认快捷键图标，改用网页原生按钮/菜单 SVG，并为单色原生 SVG 生成普通/黑暗双图源，确保 New Chat、模型、Research、Search/Web、Image、Quick Input、Delete、Context、Attach 均与网页原图一致。
+// @update-log:en  1.0.0: Fixed all Notion AI default shortcut icons by using native web button/menu SVGs and light/dark icon sources for monochrome native SVGs, keeping New Chat, models, Research, Search/Web, Image, Quick Input, Delete, Context, and Attach faithful to the web artwork.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -22,7 +22,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22notion-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.notion-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.notion-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Csvg%20x%3D%2216%22%20y%3D%2213%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%20150%20150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22currentColor%22%3E%3Cpath%20d%3D%22m135.3%2029.9c-5.2-9.6-15.2-17.5-28.3-17.9-14.6-0.5-27.7%209.2-35.3%2023.1-6.6%2011.8-42.6%2081.3-50.5%2097.9-1.8%203.7%200.2%207%203.8%207.5l45.4%205%201.5-12.4-37.6-3.9%2045.2-89.5c5-9.3%2014.4-17.9%2025.2-18%206.6-0.1%2016.1%203.6%2021.6%2012.4%201.3%202.3%204.2%203.5%206.7%202.3%202.4-1%203.6-4.1%202.3-6.5z%22%2F%3E%3Cpath%20d%3D%22m23.5%2027.6c4.2-4.8%2010.7-12.4%2024.2-13.6%208.7-0.6%2015%204.1%2018.9%2010.2%201.4%202.4%204.1%204.1%206.8%202.6%202.5-1.2%203.2-4.2%201.6-6.9-2.8-5.2-11.6-14.9-23.8-15.4-8.9-0.4-24.3%202.9-35.4%2017.1-1.7%202.1-1.7%205%200.4%206.8%201.9%201.9%205.4%201.6%207.3-0.8z%22%2F%3E%3Cpath%20d%3D%22m47.8%2036.2c-5.7%200.1-10.5%204.9-10.5%2010.7-0.2%206%204.1%2011.6%2010.5%2011.7%206.1-0.1%2010.5-5.2%2010.6-12-0.2-5.7-4.5-10.4-10.6-10.4z%22%2F%3E%3Cpath%20d%3D%22m94.7%2042.9c-5.6%200.1-10.6%204.8-10.7%2011.3%200%206.3%204.2%2011.9%2010.7%2011.8%205.9%200%2010.3-5.1%2010.4-11.8%200-5.7-3.9-11.2-10.4-11.3z%22%2F%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260603.1.0.0.inline-native-icons
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260603.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -108,22 +108,61 @@
     function svgDataUri(svgText) {
       return `data:image/svg+xml,${encodeURIComponent(String(svgText || "").trim())}`;
     }
+    const NOTION_NATIVE_ICON_LIGHT_COLOR = "#37352F";
+    const NOTION_NATIVE_ICON_DARK_COLOR = "#F1F1EF";
+    function decodeSvgDataUri(dataUri) {
+      const raw = String(dataUri || "").trim();
+      const match = raw.match(/^data:image\/svg\+xml(?:;[^,]*)?,([\s\S]*)$/i);
+      if (!match) return "";
+      try {
+        return decodeURIComponent(match[1] || "");
+      } catch {
+        return match[1] || "";
+      }
+    }
+    function repaintSvgText(svgText, paintColor) {
+      const color = String(paintColor || "").trim() || "currentColor";
+      return String(svgText || "").trim().replace(/currentColor/g, color).replace(/\b(fill|stroke)=(["'])(.*?)\2/gi, (match, attr, quote, value) => {
+        const token = String(value || "").trim();
+        if (!token || /^none$/i.test(token) || /^transparent$/i.test(token) || /^url\s*\(/i.test(token)) return match;
+        return `${attr}=${quote}${color}${quote}`;
+      }).replace(/\b(fill|stroke)\s*:\s*([^;"]+)/gi, (match, attr, value) => {
+        const token = String(value || "").trim();
+        if (!token || /^none$/i.test(token) || /^transparent$/i.test(token) || /^url\s*\(/i.test(token)) return match;
+        return `${attr}:${color}`;
+      });
+    }
+    function repaintSvgIconSource(iconSource, paintColor) {
+      const source = String(iconSource || "").trim();
+      if (!source) return "";
+      const svgText = /^<svg[\s>]/i.test(source) ? source : decodeSvgDataUri(source);
+      return svgText ? svgDataUri(repaintSvgText(svgText, paintColor)) : source;
+    }
+    function notionNativeSvgIconInfo(iconSource) {
+      return Object.freeze({
+        icon: repaintSvgIconSource(iconSource, NOTION_NATIVE_ICON_LIGHT_COLOR),
+        iconDark: repaintSvgIconSource(iconSource, NOTION_NATIVE_ICON_DARK_COLOR),
+        iconAdaptive: false
+      });
+    }
     const NOTION_MODEL_AI_FACE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M12.758 9.976a1.178 1.178 0 1 0 .377-2.326 1.178 1.178 0 0 0-.377 2.326M6.547 8.97a1.178 1.178 0 1 0 .377-2.327 1.178 1.178 0 0 0-.377 2.326"/><path d="M10.573 5.554a3.917 3.917 0 0 1 6.743.035.625.625 0 1 1-1.08.63 2.667 2.667 0 0 0-4.591-.023l-5.398 9.015 4.192.68a.625.625 0 0 1-.2 1.233l-5.102-.827a.625.625 0 0 1-.436-.938zM4.36 3.517a3.92 3.92 0 0 1 5.572.356.625.625 0 1 1-.945.818 2.67 2.67 0 0 0-3.795-.243.625.625 0 1 1-.833-.931"/></svg>';
-    const NOTION_MODEL_AI_FACE_ICON = svgDataUri(NOTION_MODEL_AI_FACE_SVG);
+    const NOTION_MODEL_AI_FACE_ICON_INFO = notionNativeSvgIconInfo(NOTION_MODEL_AI_FACE_SVG);
+    const NOTION_MODEL_AI_FACE_ICON = NOTION_MODEL_AI_FACE_ICON_INFO.icon;
     const NOTION_MODEL_CLAUDE_ICON = svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="graphics-symbol" viewBox="0 0 20 20" style="--x-width: 20px; --x-height: 20px; width: 16px; height: 16px;" class="claude x1lliihq x1c4vz4f x2lah0s x1plvlek xryxfnj x5lhr3w x16ye13r x1kihv7h x1heor9g"><g class="logo-light-mode"><g clip-path="url(#clip0_16020_144)"><path fill="#D97757" d="m3.908 13.296 3.945-2.206.066-.192-.066-.106H7.66l-.66-.04-2.254-.061-1.954-.081-1.894-.101-.477-.102-.447-.587.046-.293.4-.268.574.05 1.27.086 1.903.132 1.381.08 2.046.213h.325l.045-.131-.111-.081-.087-.081-1.97-1.33-2.13-1.407-1.117-.81-.604-.41-.305-.384-.132-.84.548-.602.737.05.187.051.747.572 1.594 1.23L7.4 7.173l.305.253.122-.086.015-.06-.137-.228-1.132-2.04L5.365 2.94l-.538-.86-.142-.517a2.5 2.5 0 0 1-.086-.607l.624-.845L5.568 0l.833.111.35.304.518 1.179.837 1.857 1.3 2.524.38.749.204.693.076.213h.132v-.122l.107-1.421.197-1.746.193-2.246.066-.633.315-.759.624-.41.488.233.4.572-.055.37-.239 1.542-.467 2.419-.304 1.619h.178l.203-.203.822-1.087 1.38-1.72.61-.684.71-.753.457-.36h.863l.635.941-.284.972-.889 1.123-.736.951-1.056 1.417-.66 1.133.061.091.158-.015 2.386-.506 1.289-.233 1.538-.263.696.324.076.329-.274.673-1.645.405-1.93.384-2.872.678-.036.025.04.051 1.295.121.553.03h1.356l2.523.188.66.435.396.531-.066.405-1.015.516-1.371-.324-3.198-.759-1.097-.273h-.152v.091l.914.89 1.675 1.508 2.097 1.943.106.48-.269.38-.284-.04-1.843-1.381-.71-.623-1.61-1.35h-.106v.141l.37.541 1.96 2.935.101.9-.142.294-.508.177-.558-.101-1.147-1.604-1.183-1.806-.954-1.62-.117.067-.564 6.046-.264.308-.609.233-.507-.384-.27-.623.27-1.23.324-1.603.264-1.275.239-1.584.142-.526-.01-.035-.117.015-1.198 1.64-1.822 2.453-1.442 1.538-.345.137-.6-.309.057-.551.335-.491 1.995-2.53L8 13.074l.777-.906-.006-.132h-.045l-5.3 3.43-.944.122-.406-.38.05-.622.193-.202 1.594-1.093z"/></g><defs><clipPath id="clip0_16020_144"><rect width="20" height="20" fill="#fff" rx="10"/></clipPath></defs></g></svg>');
     const NOTION_MODEL_GEMINI_ICON = svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="graphics-symbol" viewBox="0 0 20 20" style="--x-width: 20px; --x-height: 20px; width: 16px; height: 16px;" class="googleGemini x1lliihq x1c4vz4f x2lah0s x1plvlek xryxfnj x5lhr3w x16ye13r x1kihv7h x1heor9g"><g class="logo-light-mode"><mask id="mask0_16020_459" width="20" height="20" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type: alpha;"><path fill="url(#paint0_linear_16020_459)" d="M10 0c.21 0 .392.143.443.347q.235.934.617 1.82a12.8 12.8 0 0 0 2.728 4.045 12.85 12.85 0 0 0 5.865 3.345.458.458 0 0 1 0 .886q-.934.235-1.82.617a12.8 12.8 0 0 0-4.045 2.728 12.85 12.85 0 0 0-3.345 5.865.458.458 0 0 1-.886 0 12.84 12.84 0 0 0-3.345-5.865 12.85 12.85 0 0 0-5.865-3.345.458.458 0 0 1 0-.886 12.84 12.84 0 0 0 5.865-3.345A12.84 12.84 0 0 0 9.557.347.46.46 0 0 1 10 0"/></mask><g mask="url(#mask0_16020_459)"><g filter="url(#filter0_f_16020_459)"><path fill="#FFE432" d="M-1.806 15.636c2.311.82 4.967-.718 5.933-3.437C5.092 9.48 4.002 6.61 1.69 5.79s-4.967.718-5.933 3.437c-.965 2.719.125 5.588 2.436 6.409"/></g><g filter="url(#filter1_f_16020_459)"><path fill="#FC413D" d="M8.455 6.672c3.174 0 5.748-2.63 5.748-5.875s-2.574-5.875-5.748-5.875S2.706-2.448 2.706.797 5.28 6.672 8.455 6.672"/></g><g filter="url(#filter2_f_16020_459)"><path fill="#00B95C" d="M6.22 25.46c3.315-.163 5.831-3.775 5.621-8.068s-3.066-7.642-6.38-7.48S-.37 13.686-.16 17.98s3.067 7.642 6.38 7.48"/></g><g filter="url(#filter3_f_16020_459)"><path fill="#00B95C" d="M6.22 25.46c3.315-.163 5.831-3.775 5.621-8.068s-3.066-7.642-6.38-7.48S-.37 13.686-.16 17.98s3.067 7.642 6.38 7.48"/></g><g filter="url(#filter4_f_16020_459)"><path fill="#00B95C" d="M9.54 22.862c2.778-1.69 3.522-5.54 1.66-8.599-1.86-3.059-5.621-4.168-8.4-2.477-2.778 1.69-3.521 5.54-1.66 8.599 1.86 3.058 5.621 4.167 8.4 2.477"/></g><g filter="url(#filter5_f_16020_459)"><path fill="#3186FF" d="M20.77 13.25c3.122 0 5.654-2.438 5.654-5.445S23.892 2.36 20.769 2.36c-3.122 0-5.654 2.438-5.654 5.445s2.532 5.445 5.654 5.445"/></g><g filter="url(#filter6_f_16020_459)"><path fill="#FBBC04" d="M-4.027 12.619c2.876 2.186 7.076 1.5 9.382-1.532s1.845-7.264-1.03-9.45C1.45-.55-2.75.135-5.057 3.167s-1.845 7.264 1.03 9.45"/></g><g filter="url(#filter7_f_16020_459)"><path fill="#3186FF" d="M10.707 15.85c3.432 2.36 7.98 1.703 10.16-1.468 2.18-3.17 1.165-7.653-2.267-10.013S10.619 2.667 8.44 5.838c-2.18 3.17-1.165 7.653 2.267 10.012"/></g><g filter="url(#filter8_f_16020_459)"><path fill="#749BFF" d="M16.946-.72c.873 1.187-.25 3.495-2.506 5.155-2.257 1.66-4.795 2.044-5.668.857s.249-3.496 2.506-5.156 4.794-2.043 5.668-.856"/></g><g filter="url(#filter9_f_16020_459)"><path fill="#FC413D" d="M9.778 4.963c3.49-3.238 4.689-7.622 2.676-9.791S5.98-6.133 2.489-2.895-2.199 4.727-.187 6.896c2.013 2.17 6.474 1.305 9.965-1.933"/></g><g filter="url(#filter10_f_16020_459)"><path fill="#FFEE48" d="M2.623 16.592c2.074 1.485 4.456 1.71 5.32.504s-.119-3.388-2.193-4.873c-2.075-1.485-4.457-1.71-5.32-.504-.864 1.207.118 3.388 2.193 4.873"/></g></g><defs><filter id="filter0_f_16020_459" width="12.099" height="13.314" x="-6.107" y="4.056" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="0.757"/></filter><filter id="filter1_f_16020_459" width="26.132" height="26.385" x="-4.611" y="-12.395" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="3.659"/></filter><filter id="filter2_f_16020_459" width="24.467" height="28" x="-6.393" y="3.686" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="3.11"/></filter><filter id="filter3_f_16020_459" width="24.467" height="28" x="-6.393" y="3.686" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="3.11"/></filter><filter id="filter4_f_16020_459" width="24.552" height="25.099" x="-6.106" y="4.774" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="3.11"/></filter><filter id="filter5_f_16020_459" width="23.131" height="22.712" x="9.204" y="-3.551" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="2.956"/></filter><filter id="filter6_f_16020_459" width="24.063" height="24.255" x="-11.882" y="-5" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="2.679"/></filter><filter id="filter7_f_16020_459" width="24.294" height="23.881" x="2.506" y="-1.831" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="2.392"/></filter><filter id="filter8_f_16020_459" width="17.329" height="15.954" x="4.194" y="-5.691" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="2.141"/></filter><filter id="filter9_f_16020_459" width="21.826" height="21.348" x="-4.779" y="-9.64" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="1.808"/></filter><filter id="filter10_f_16020_459" width="17.091" height="15.879" x="-4.359" y="6.468" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_16020_459" stdDeviation="2.238"/></filter><linearGradient id="paint0_linear_16020_459" x1="5.685" x2="16.073" y1="13.382" y2="4.624" gradientUnits="userSpaceOnUse"><stop stop-color="#4893FC"/><stop offset="0.27" stop-color="#4893FC"/><stop offset="0.777" stop-color="#969DFF"/><stop offset="1" stop-color="#BD99FE"/></linearGradient></defs></g></svg>');
     const NOTION_MODEL_OPENAI_ICON = svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="graphics-symbol" viewBox="0 0 20 20" style="--x-width: 20px; --x-height: 20px; width: 16px; height: 16px;" class="openAi x1lliihq x1c4vz4f x2lah0s x1plvlek xryxfnj x5lhr3w x16ye13r x1kihv7h x1heor9g"><g class="logo-light-mode"><g clip-path="url(#clip0_16020_1032)"><path fill="#000" d="M7.894 7.562V5.86c0-.143.053-.25.179-.322l3.424-1.972c.466-.27 1.022-.395 1.595-.395 2.151 0 3.514 1.668 3.514 3.442 0 .126 0 .269-.018.412l-3.55-2.079a.6.6 0 0 0-.645 0zm7.995 6.633v-4.07a.6.6 0 0 0-.323-.555l-4.5-2.617 1.47-.843a.33.33 0 0 1 .359 0l3.424 1.972c.986.574 1.649 1.792 1.649 2.975 0 1.363-.807 2.618-2.08 3.138M6.836 10.61l-1.47-.86a.34.34 0 0 1-.18-.323V5.483c0-1.918 1.47-3.37 3.46-3.37.754 0 1.452.25 2.044.699L7.16 4.856a.6.6 0 0 0-.323.555zM10 12.438l-2.106-1.183v-2.51L10 7.562l2.106 1.183v2.51zm1.353 5.45a3.36 3.36 0 0 1-2.043-.7l3.531-2.043a.6.6 0 0 0 .323-.556V9.391l1.488.86c.125.072.179.18.179.323v3.943c0 1.918-1.488 3.37-3.478 3.37M7.105 13.89 3.68 11.918c-.986-.573-1.65-1.792-1.65-2.975 0-1.38.825-2.618 2.098-3.137v4.087a.6.6 0 0 0 .323.555l4.481 2.6-1.47.842a.33.33 0 0 1-.358 0m-.197 2.94c-2.026 0-3.514-1.524-3.514-3.406 0-.143.018-.287.036-.43l3.532 2.043a.6.6 0 0 0 .645 0l4.5-2.599v1.703a.34.34 0 0 1-.18.323l-3.424 1.972c-.466.268-1.022.394-1.595.394m4.445 2.133a4.48 4.48 0 0 0 4.392-3.585c2.008-.52 3.299-2.402 3.299-4.32a4.53 4.53 0 0 0-1.506-3.352 5 5 0 0 0 .143-1.13c0-2.563-2.08-4.481-4.481-4.481-.484 0-.95.071-1.416.233a4.5 4.5 0 0 0-3.137-1.29 4.48 4.48 0 0 0-4.392 3.584C2.247 5.142.956 7.024.956 8.942c0 1.255.538 2.474 1.506 3.352a5 5 0 0 0-.143 1.13c0 2.563 2.08 4.481 4.481 4.481.484 0 .95-.071 1.416-.233a4.5 4.5 0 0 0 3.137 1.29"/></g><defs><clipPath id="clip0_16020_1032"><path fill="#fff" d="M1 1h18v18H1z"/></clipPath></defs></g></svg>');
+    const NOTION_MODEL_OPENAI_ICON_INFO = notionNativeSvgIconInfo(NOTION_MODEL_OPENAI_ICON);
     const NOTION_MODEL_ICON_DEFAULTS = Object.freeze({
-      auto: Object.freeze({ icon: NOTION_MODEL_AI_FACE_ICON, iconAdaptive: true }),
+      auto: NOTION_MODEL_AI_FACE_ICON_INFO,
       sonnet46: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
       opus48: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
       opus47: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
       gemini31pro: Object.freeze({ icon: NOTION_MODEL_GEMINI_ICON, iconAdaptive: false }),
-      gpt52: Object.freeze({ icon: NOTION_MODEL_OPENAI_ICON, iconAdaptive: true }),
-      gpt54: Object.freeze({ icon: NOTION_MODEL_OPENAI_ICON, iconAdaptive: true }),
-      gpt55: Object.freeze({ icon: NOTION_MODEL_OPENAI_ICON, iconAdaptive: true }),
-      kimi26: Object.freeze({ icon: NOTION_MODEL_AI_FACE_ICON, iconAdaptive: true }),
-      deepseekV4Pro: Object.freeze({ icon: NOTION_MODEL_AI_FACE_ICON, iconAdaptive: true })
+      gpt52: NOTION_MODEL_OPENAI_ICON_INFO,
+      gpt54: NOTION_MODEL_OPENAI_ICON_INFO,
+      gpt55: NOTION_MODEL_OPENAI_ICON_INFO,
+      kimi26: NOTION_MODEL_AI_FACE_ICON_INFO,
+      deepseekV4Pro: NOTION_MODEL_AI_FACE_ICON_INFO
     });
     function getNotionDefaultModelIconInfo(targetId) {
       const key = String(targetId || "").trim();
@@ -139,15 +178,24 @@
     const NOTION_NATIVE_GLOBE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2.375a7.625 7.625 0 1 1 0 15.25 7.625 7.625 0 0 1 0-15.25m-1.863 8.25c.054 1.559.31 2.937.681 3.943.212.572.449.992.68 1.256.232.266.404.318.502.318s.27-.052.502-.318c.231-.264.468-.684.68-1.256.371-1.006.627-2.384.681-3.943zm-4.48 0a6.38 6.38 0 0 0 4.509 5.48 6.5 6.5 0 0 1-.52-1.104c-.431-1.167-.704-2.697-.76-4.376zm9.456 0c-.055 1.679-.327 3.21-.758 4.376-.15.405-.324.779-.522 1.104a6.38 6.38 0 0 0 4.51-5.48zM8.166 3.894a6.38 6.38 0 0 0-4.51 5.481h3.23c.056-1.679.328-3.21.76-4.376.15-.405.322-.78.52-1.105M10 3.858c-.099 0-.27.053-.502.319-.231.264-.468.683-.68 1.255-.371 1.006-.627 2.384-.681 3.943h3.726c-.054-1.559-.31-2.937-.681-3.943-.212-.572-.449-.99-.68-1.255-.232-.266-.404-.319-.502-.319m1.833.036c.198.326.372.7.521 1.105.432 1.167.704 2.697.76 4.376h3.23a6.38 6.38 0 0 0-4.511-5.481"/></svg>';
     const NOTION_NATIVE_CREATE_IMAGE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="m16.949 3.47-.618.619-1.164-1.165.625-.624a.823.823 0 0 1 1.157 0 .823.823 0 0 1 0 1.157zm-8.526 8.527 7.153-7.153-1.165-1.165-7.16 7.147a1.1 1.1 0 0 0-.247.414l-.303.978c-.055.206.137.4.33.33l.978-.303a.9.9 0 0 0 .414-.248"/><path d="M9.578 5.438q.617 0 1.197.126l1.051-1.004a6.9 6.9 0 0 0-2.248-.372h-.35a6.603 6.603 0 0 0-6.603 6.602v.257c0 1.254.371 2.48 1.067 3.524a9.25 9.25 0 0 0 5.455 3.844l.514.129a.625.625 0 1 0 .303-1.213l-.513-.128a8 8 0 0 1-4.719-3.325 5.1 5.1 0 0 1-.857-2.831v-.257a5.353 5.353 0 0 1 5.353-5.352z"/><path d="M12.444 15.748a6.47 6.47 0 0 1-5.471-1.878l1.387-.433a5.22 5.22 0 0 0 3.92 1.072l.08-.01a3.37 3.37 0 0 0 2.921-3.345 5.7 5.7 0 0 0-1.011-3.248l.904-.885a6.94 6.94 0 0 1 1.357 4.133 4.624 4.624 0 0 1-4.006 4.584z"/></svg>';
     const NOTION_NATIVE_DELETE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M8.806 8.505a.55.55 0 0 0-1.1 0v5.979a.55.55 0 1 0 1.1 0zm3.488 0a.55.55 0 0 0-1.1 0v5.979a.55.55 0 1 0 1.1 0z"/><path d="M6.386 3.925v1.464H3.523a.625.625 0 1 0 0 1.25h.897l.393 8.646A2.425 2.425 0 0 0 7.236 17.6h5.528a2.425 2.425 0 0 0 2.422-2.315l.393-8.646h.898a.625.625 0 1 0 0-1.25h-2.863V3.925c0-.842-.683-1.525-1.525-1.525H7.91c-.842 0-1.524.683-1.524 1.525M7.91 3.65h4.18c.15 0 .274.123.274.275v1.464H7.636V3.925c0-.152.123-.275.274-.275m-.9 2.99h7.318l-.39 8.588a1.175 1.175 0 0 1-1.174 1.122H7.236a1.175 1.175 0 0 1-1.174-1.122l-.39-8.589z"/></svg>';
-    const RESEARCH_ICON = svgDataUri(NOTION_NATIVE_RESEARCH_SVG);
-    const ADD_CONTEXT_ICON = svgDataUri(NOTION_NATIVE_PLUS_SVG);
-    const ATTACH_FILE_ICON = svgDataUri(NOTION_NATIVE_ATTACH_FILE_SVG);
+    const NOTION_NATIVE_SUBMIT_MESSAGE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M8.53 2.22a.75.75 0 0 0-1.06 0L3.15 6.54A.75.75 0 0 0 4.21 7.6l3.04-3.04v8.737c0 .388.336.703.75.703s.75-.315.75-.703V4.56l3.04 3.04a.75.75 0 0 0 1.06-1.061z"/></svg>';
+    const RESEARCH_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_RESEARCH_SVG);
+    const ADD_CONTEXT_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_PLUS_SVG);
+    const ATTACH_FILE_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_ATTACH_FILE_SVG);
+    const SEARCH_SCOPE_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_SETTINGS_SLIDERS_SVG);
+    const WEB_ACCESS_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_GLOBE_SVG);
+    const IMAGE_GENERATION_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_CREATE_IMAGE_SVG);
+    const QUICK_INPUT_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_SUBMIT_MESSAGE_SVG);
+    const DELETE_TOPIC_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_DELETE_SVG);
+    const RESEARCH_ICON = RESEARCH_ICON_INFO.icon;
+    const ADD_CONTEXT_ICON = ADD_CONTEXT_ICON_INFO.icon;
+    const ATTACH_FILE_ICON = ATTACH_FILE_ICON_INFO.icon;
     const NEW_CHAT_ICON = NOTION_MODEL_AI_FACE_ICON;
-    const SEARCH_SCOPE_ICON = svgDataUri(NOTION_NATIVE_SETTINGS_SLIDERS_SVG);
-    const WEB_ACCESS_ICON = svgDataUri(NOTION_NATIVE_GLOBE_SVG);
-    const IMAGE_GENERATION_ICON = svgDataUri(NOTION_NATIVE_CREATE_IMAGE_SVG);
-    const QUICK_INPUT_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='M7 9h.01'/%3E%3Cpath d='M11 9h.01'/%3E%3Cpath d='M15 9h.01'/%3E%3Cpath d='M17 15H7'/%3E%3C/svg%3E";
-    const DELETE_TOPIC_ICON = svgDataUri(NOTION_NATIVE_DELETE_SVG);
+    const SEARCH_SCOPE_ICON = SEARCH_SCOPE_ICON_INFO.icon;
+    const WEB_ACCESS_ICON = WEB_ACCESS_ICON_INFO.icon;
+    const IMAGE_GENERATION_ICON = IMAGE_GENERATION_ICON_INFO.icon;
+    const QUICK_INPUT_ICON = QUICK_INPUT_ICON_INFO.icon;
+    const DELETE_TOPIC_ICON = DELETE_TOPIC_ICON_INFO.icon;
     const defaultIcons = [
       { name: "Notion", url: defaultIconURL },
       { name: "AI Assistant", url: NOTION_AI_FALLBACK_ICON },
@@ -4534,7 +4582,8 @@
       simulateKeys: "",
       customAction: "",
       data: {},
-      icon: defaultIconURL
+      icon: defaultIconURL,
+      iconDark: ""
     });
     const createShortcut = (overrides) => ({ ...baseShortcut, ...overrides });
     function createModelShortcut(target) {
@@ -4547,6 +4596,7 @@
         customAction: "modelPicker",
         hotkey: target.hotkey,
         icon: iconInfo.icon,
+        iconDark: iconInfo.iconDark || "",
         iconAdaptive: iconInfo.iconAdaptive,
         data: { menu: { id: target.id } }
       });
@@ -4561,7 +4611,8 @@
         customAction: "newChat",
         hotkey: "CTRL+N",
         icon: NEW_CHAT_ICON,
-        iconAdaptive: true
+        iconDark: NOTION_MODEL_AI_FACE_ICON_INFO.iconDark,
+        iconAdaptive: NOTION_MODEL_AI_FACE_ICON_INFO.iconAdaptive
       }),
       createShortcut({
         key: LEGACY_SELECT_AI_MODEL_KEY,
@@ -4571,7 +4622,8 @@
         customAction: "openModelPicker",
         hotkey: "CTRL+M",
         icon: getNotionDefaultModelIconInfo("auto").icon,
-        iconAdaptive: true
+        iconDark: getNotionDefaultModelIconInfo("auto").iconDark || "",
+        iconAdaptive: getNotionDefaultModelIconInfo("auto").iconAdaptive
       }),
       ...defaultModelShortcuts,
       createShortcut({
@@ -4580,7 +4632,8 @@
         selector: '[data-testid="unified-chat-research-mode-button"]',
         hotkey: "CTRL+R",
         icon: RESEARCH_ICON,
-        iconAdaptive: true
+        iconDark: RESEARCH_ICON_INFO.iconDark,
+        iconAdaptive: RESEARCH_ICON_INFO.iconAdaptive
       }),
       createShortcut({
         key: "selectSearchScope",
@@ -4588,7 +4641,8 @@
         selector: '[data-testid="unified-chat-search-scope-button"][role="button"]',
         hotkey: "CTRL+S",
         icon: SEARCH_SCOPE_ICON,
-        iconAdaptive: true
+        iconDark: SEARCH_SCOPE_ICON_INFO.iconDark,
+        iconAdaptive: SEARCH_SCOPE_ICON_INFO.iconAdaptive
       }),
       createShortcut({
         key: "toggleWebAccess",
@@ -4598,7 +4652,8 @@
         customAction: "toggleWebAccess",
         hotkey: "CTRL+W",
         icon: WEB_ACCESS_ICON,
-        iconAdaptive: true
+        iconDark: WEB_ACCESS_ICON_INFO.iconDark,
+        iconAdaptive: WEB_ACCESS_ICON_INFO.iconAdaptive
       }),
       createShortcut({
         key: "toggleImageGeneration",
@@ -4608,7 +4663,8 @@
         customAction: "toggleImageGeneration",
         hotkey: "CTRL+I",
         icon: IMAGE_GENERATION_ICON,
-        iconAdaptive: true
+        iconDark: IMAGE_GENERATION_ICON_INFO.iconDark,
+        iconAdaptive: IMAGE_GENERATION_ICON_INFO.iconAdaptive
       }),
       createShortcut({
         key: "quickInput",
@@ -4618,7 +4674,8 @@
         customAction: "quickInput",
         hotkey: "CTRL+SHIFT+K",
         icon: QUICK_INPUT_ICON,
-        iconAdaptive: true
+        iconDark: QUICK_INPUT_ICON_INFO.iconDark,
+        iconAdaptive: QUICK_INPUT_ICON_INFO.iconAdaptive
       }),
       createShortcut({
         key: "deleteTopic",
@@ -4628,7 +4685,8 @@
         customAction: "conversationMenu",
         hotkey: "CTRL+BACKSPACE",
         icon: DELETE_TOPIC_ICON,
-        iconAdaptive: true,
+        iconDark: DELETE_TOPIC_ICON_INFO.iconDark,
+        iconAdaptive: DELETE_TOPIC_ICON_INFO.iconAdaptive,
         data: { menu: { id: "delete" } }
       }),
       createShortcut({
@@ -4637,7 +4695,8 @@
         selector: '[data-testid="unified-chat-add-context-button"]',
         hotkey: "CTRL+SHIFT+C",
         icon: ADD_CONTEXT_ICON,
-        iconAdaptive: true
+        iconDark: ADD_CONTEXT_ICON_INFO.iconDark,
+        iconAdaptive: ADD_CONTEXT_ICON_INFO.iconAdaptive
       }),
       createShortcut({
         key: "attachFile",
@@ -4645,7 +4704,8 @@
         selector: 'button[aria-label="Attach file"]',
         hotkey: "CTRL+SHIFT+F",
         icon: ATTACH_FILE_ICON,
-        iconAdaptive: true
+        iconDark: ATTACH_FILE_ICON_INFO.iconDark,
+        iconAdaptive: ATTACH_FILE_ICON_INFO.iconAdaptive
       })
     ];
     const NOTION_DEFAULT_SHORTCUT_BY_KEY = Object.freeze(defaultShortcuts.reduce((acc, shortcut) => {
@@ -4720,10 +4780,16 @@
         changed = true;
       }
       const defaultIcon = String(defaultShortcut.icon || "").trim();
+      const defaultIconDark = String(defaultShortcut.iconDark || "").trim();
       const currentIcon = String(shortcut.icon || "").trim();
+      const currentIconDark = String(shortcut.iconDark || "").trim();
       const preserveRuntimeModelIcon = NOTION_MODEL_ICON_SHORTCUT_KEY_SET.has(shortcutKey) && currentIcon && currentIcon !== defaultIcon && currentIcon !== NOTION_AI_NATIVE_FACE_ICON && currentIcon !== NOTION_AI_FALLBACK_ICON && isNotionNativeRuntimeAssetIconSource(currentIcon);
       if (!preserveRuntimeModelIcon && currentIcon !== defaultIcon) {
         shortcut.icon = defaultIcon;
+        changed = true;
+      }
+      if (!preserveRuntimeModelIcon && currentIconDark !== defaultIconDark) {
+        shortcut.iconDark = defaultIconDark;
         changed = true;
       }
       const targetIconAdaptive = preserveRuntimeModelIcon ? isSvgIconSource(currentIcon) : !!defaultShortcut.iconAdaptive;
@@ -4939,7 +5005,7 @@
       const raw = String(value || "").trim();
       return !raw || /^none$/i.test(raw) || /^url\s*\(/i.test(raw) || /^transparent$/i.test(raw);
     }
-    function normalizeNotionSvgStyle(styleText, forcePaintColor) {
+    function normalizeNotionSvgStyle(styleText, forcePaintColor, paintColor = "currentColor") {
       const declarations = String(styleText || "").split(";");
       const normalized = [];
       for (const rawDeclaration of declarations) {
@@ -4952,7 +5018,7 @@
         if (!name || !value) continue;
         if (name.startsWith("--x-")) continue;
         if ((name === "fill" || name === "stroke") && forcePaintColor && !isPreservedSvgPaintValue(value)) {
-          normalized.push(`${name}:currentColor`);
+          normalized.push(`${name}:${paintColor}`);
         } else {
           normalized.push(`${name}:${value}`);
         }
@@ -4978,7 +5044,7 @@
       const className = getSvgClassName(svg);
       return /\b(?:claude|googleGemini)\b/i.test(className) ? "original" : "adaptive";
     }
-    function sanitizeNotionNativeSvgIcon(svg, { paintMode = "adaptive" } = {}) {
+    function sanitizeNotionNativeSvgIcon(svg, { paintMode = "adaptive", paintColor = "currentColor" } = {}) {
       if (!svg) return null;
       let clone = null;
       try {
@@ -4992,8 +5058,8 @@
         if (!clone.getAttribute("xmlns")) clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
         removeNotionDuplicateLogoThemeGroups(clone);
         if (forcePaintColor) {
-          clone.setAttribute("fill", "currentColor");
-          clone.setAttribute("color", "currentColor");
+          clone.setAttribute("fill", paintColor);
+          clone.setAttribute("color", paintColor);
         } else {
           clone.removeAttribute("fill");
           clone.removeAttribute("color");
@@ -5034,20 +5100,20 @@
           }
           const fill = node.getAttribute("fill");
           if (forcePaintColor && !blockedByPaintAncestor && fill !== null && !isPreservedSvgPaintValue(fill)) {
-            node.setAttribute("fill", "currentColor");
+            node.setAttribute("fill", paintColor);
           }
           const stroke = node.getAttribute("stroke");
           if (forcePaintColor && !blockedByPaintAncestor && stroke !== null && !isPreservedSvgPaintValue(stroke)) {
-            node.setAttribute("stroke", "currentColor");
+            node.setAttribute("stroke", paintColor);
           }
           if (node.hasAttribute("style")) {
-            const nextStyle = normalizeNotionSvgStyle(node.getAttribute("style"), forcePaintColor && !blockedByPaintAncestor);
+            const nextStyle = normalizeNotionSvgStyle(node.getAttribute("style"), forcePaintColor && !blockedByPaintAncestor, paintColor);
             if (nextStyle) node.setAttribute("style", nextStyle);
             else node.removeAttribute("style");
           }
           const hasPaint = node.hasAttribute("fill") || node.hasAttribute("stroke");
           if (forcePaintColor && !blockedByPaintAncestor && !hasPaint && paintTags.has(tag)) {
-            node.setAttribute("fill", "currentColor");
+            node.setAttribute("fill", paintColor);
           }
         }
       } catch {
@@ -5078,8 +5144,14 @@
       }
       for (const svg of getElementsIncludingRoot(root, "svg")) {
         if (!svg || isInsideShortcutUi(svg) || !isVisibleElement(svg)) continue;
-        const source = serializeSvgIconSource(svg, { paintMode });
-        if (source) return { icon: source, iconAdaptive: paintMode !== "original" };
+        if (paintMode === "original") {
+          const source2 = serializeSvgIconSource(svg, { paintMode });
+          if (source2) return { icon: source2, iconDark: "", iconAdaptive: false };
+          continue;
+        }
+        const source = serializeSvgIconSource(svg, { paintMode, paintColor: NOTION_NATIVE_ICON_LIGHT_COLOR });
+        const darkSource = serializeSvgIconSource(svg, { paintMode, paintColor: NOTION_NATIVE_ICON_DARK_COLOR });
+        if (source) return { icon: source, iconDark: darkSource, iconAdaptive: false };
       }
       for (const element of getElementsIncludingRoot(root, "[role='img'], span, div, button, [role='button']")) {
         if (!element || isInsideShortcutUi(element) || !isVisibleElement(element)) continue;
@@ -5128,6 +5200,10 @@
         }
         if (String(nextShortcut.icon || "").trim() !== update.icon) {
           nextShortcut.icon = update.icon;
+          itemChanged = true;
+        }
+        if (Object.prototype.hasOwnProperty.call(update, "iconDark") && String(nextShortcut.iconDark || "").trim() !== String(update.iconDark || "").trim()) {
+          nextShortcut.iconDark = String(update.iconDark || "").trim();
           itemChanged = true;
         }
         if (typeof update.iconAdaptive === "boolean" && !!nextShortcut.iconAdaptive !== update.iconAdaptive) {
