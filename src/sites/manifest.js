@@ -536,12 +536,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
             version: "[20260603] v1.0.0",
-            updateLog: "1.0.0: 修复 Notion AI 全部默认快捷键图标，改用网页原生按钮/菜单 SVG，同步 New Chat、模型、Settings/Web、Context/Image/Attach/Delete 图标，并保留普通/黑暗模式可见性。",
+            updateLog: "1.0.0: 修复 Notion AI 全部默认快捷键图标，改用网页原生按钮/菜单 SVG，并通过 Template core 内联自适应渲染保证普通/黑暗模式都与原图一致可见。",
             localized: {
                 "en-US": {
                     name: "[Notion AI] Shortcut Jump [20260603] v1.0.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.0: Fixed all Notion AI default shortcut icons by using native web button/menu SVGs for New Chat, models, Settings/Web, Context/Image/Attach/Delete while preserving light/dark visibility."
+                    updateLog: "1.0.0: Fixed all Notion AI default shortcut icons by using native web button/menu SVGs and Template core inline adaptive rendering so light/dark mode stays visible and faithful to the source artwork."
                 }
             },
             match: [
