@@ -6,8 +6,8 @@
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
 // @version        [20260603] v1.0.0
-// @update-log     1.0.0: 修复 Notion AI 全部默认快捷键图标，改用网页原生按钮/菜单 SVG，同步 New Chat、模型、Settings/Web、Context/Image/Attach/Delete 图标，并保留普通/黑暗模式可见性。
-// @update-log:en  1.0.0: Fixed all Notion AI default shortcut icons by using native web button/menu SVGs for New Chat, models, Settings/Web, Context/Image/Attach/Delete while preserving light/dark visibility.
+// @update-log     1.0.0: 修复 Notion AI 全部默认快捷键图标，改用网页原生按钮/菜单 SVG，并通过 Template core 内联自适应渲染保证普通/黑暗模式都与原图一致可见。
+// @update-log:en  1.0.0: Fixed all Notion AI default shortcut icons by using native web button/menu SVGs and Template core inline adaptive rendering so light/dark mode stays visible and faithful to the source artwork.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
