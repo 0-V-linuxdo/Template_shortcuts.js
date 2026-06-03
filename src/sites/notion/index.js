@@ -67,6 +67,33 @@
         return `${NOTION_LEGACY_ORIGIN}/icons/${encodeURIComponent(String(name || "").trim())}_gray.svg`;
     }
 
+    function svgDataUri(svgText) {
+        return `data:image/svg+xml,${encodeURIComponent(String(svgText || "").trim())}`;
+    }
+
+    const NOTION_MODEL_AI_FACE_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M12.758 9.976a1.178 1.178 0 1 0 .377-2.326 1.178 1.178 0 0 0-.377 2.326M6.547 8.97a1.178 1.178 0 1 0 .377-2.327 1.178 1.178 0 0 0-.377 2.326\"/><path d=\"M10.573 5.554a3.917 3.917 0 0 1 6.743.035.625.625 0 1 1-1.08.63 2.667 2.667 0 0 0-4.591-.023l-5.398 9.015 4.192.68a.625.625 0 0 1-.2 1.233l-5.102-.827a.625.625 0 0 1-.436-.938zM4.36 3.517a3.92 3.92 0 0 1 5.572.356.625.625 0 1 1-.945.818 2.67 2.67 0 0 0-3.795-.243.625.625 0 1 1-.833-.931\"/></svg>";
+    const NOTION_MODEL_AI_FACE_ICON = svgDataUri(NOTION_MODEL_AI_FACE_SVG);
+    const NOTION_MODEL_CLAUDE_ICON = svgDataUri("<svg xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\" role=\"graphics-symbol\" viewBox=\"0 0 20 20\" style=\"--x-width: 20px; --x-height: 20px; width: 16px; height: 16px;\" class=\"claude x1lliihq x1c4vz4f x2lah0s x1plvlek xryxfnj x5lhr3w x16ye13r x1kihv7h x1heor9g\"><g class=\"logo-light-mode\"><g clip-path=\"url(#clip0_16020_144)\"><path fill=\"#D97757\" d=\"m3.908 13.296 3.945-2.206.066-.192-.066-.106H7.66l-.66-.04-2.254-.061-1.954-.081-1.894-.101-.477-.102-.447-.587.046-.293.4-.268.574.05 1.27.086 1.903.132 1.381.08 2.046.213h.325l.045-.131-.111-.081-.087-.081-1.97-1.33-2.13-1.407-1.117-.81-.604-.41-.305-.384-.132-.84.548-.602.737.05.187.051.747.572 1.594 1.23L7.4 7.173l.305.253.122-.086.015-.06-.137-.228-1.132-2.04L5.365 2.94l-.538-.86-.142-.517a2.5 2.5 0 0 1-.086-.607l.624-.845L5.568 0l.833.111.35.304.518 1.179.837 1.857 1.3 2.524.38.749.204.693.076.213h.132v-.122l.107-1.421.197-1.746.193-2.246.066-.633.315-.759.624-.41.488.233.4.572-.055.37-.239 1.542-.467 2.419-.304 1.619h.178l.203-.203.822-1.087 1.38-1.72.61-.684.71-.753.457-.36h.863l.635.941-.284.972-.889 1.123-.736.951-1.056 1.417-.66 1.133.061.091.158-.015 2.386-.506 1.289-.233 1.538-.263.696.324.076.329-.274.673-1.645.405-1.93.384-2.872.678-.036.025.04.051 1.295.121.553.03h1.356l2.523.188.66.435.396.531-.066.405-1.015.516-1.371-.324-3.198-.759-1.097-.273h-.152v.091l.914.89 1.675 1.508 2.097 1.943.106.48-.269.38-.284-.04-1.843-1.381-.71-.623-1.61-1.35h-.106v.141l.37.541 1.96 2.935.101.9-.142.294-.508.177-.558-.101-1.147-1.604-1.183-1.806-.954-1.62-.117.067-.564 6.046-.264.308-.609.233-.507-.384-.27-.623.27-1.23.324-1.603.264-1.275.239-1.584.142-.526-.01-.035-.117.015-1.198 1.64-1.822 2.453-1.442 1.538-.345.137-.6-.309.057-.551.335-.491 1.995-2.53L8 13.074l.777-.906-.006-.132h-.045l-5.3 3.43-.944.122-.406-.38.05-.622.193-.202 1.594-1.093z\"/></g><defs><clipPath id=\"clip0_16020_144\"><rect width=\"20\" height=\"20\" fill=\"#fff\" rx=\"10\"/></clipPath></defs></g></svg>");
+    const NOTION_MODEL_GEMINI_ICON = svgDataUri("<svg xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\" role=\"graphics-symbol\" viewBox=\"0 0 20 20\" style=\"--x-width: 20px; --x-height: 20px; width: 16px; height: 16px;\" class=\"googleGemini x1lliihq x1c4vz4f x2lah0s x1plvlek xryxfnj x5lhr3w x16ye13r x1kihv7h x1heor9g\"><g class=\"logo-light-mode\"><mask id=\"mask0_16020_459\" width=\"20\" height=\"20\" x=\"0\" y=\"0\" maskUnits=\"userSpaceOnUse\" style=\"mask-type: alpha;\"><path fill=\"url(#paint0_linear_16020_459)\" d=\"M10 0c.21 0 .392.143.443.347q.235.934.617 1.82a12.8 12.8 0 0 0 2.728 4.045 12.85 12.85 0 0 0 5.865 3.345.458.458 0 0 1 0 .886q-.934.235-1.82.617a12.8 12.8 0 0 0-4.045 2.728 12.85 12.85 0 0 0-3.345 5.865.458.458 0 0 1-.886 0 12.84 12.84 0 0 0-3.345-5.865 12.85 12.85 0 0 0-5.865-3.345.458.458 0 0 1 0-.886 12.84 12.84 0 0 0 5.865-3.345A12.84 12.84 0 0 0 9.557.347.46.46 0 0 1 10 0\"/></mask><g mask=\"url(#mask0_16020_459)\"><g filter=\"url(#filter0_f_16020_459)\"><path fill=\"#FFE432\" d=\"M-1.806 15.636c2.311.82 4.967-.718 5.933-3.437C5.092 9.48 4.002 6.61 1.69 5.79s-4.967.718-5.933 3.437c-.965 2.719.125 5.588 2.436 6.409\"/></g><g filter=\"url(#filter1_f_16020_459)\"><path fill=\"#FC413D\" d=\"M8.455 6.672c3.174 0 5.748-2.63 5.748-5.875s-2.574-5.875-5.748-5.875S2.706-2.448 2.706.797 5.28 6.672 8.455 6.672\"/></g><g filter=\"url(#filter2_f_16020_459)\"><path fill=\"#00B95C\" d=\"M6.22 25.46c3.315-.163 5.831-3.775 5.621-8.068s-3.066-7.642-6.38-7.48S-.37 13.686-.16 17.98s3.067 7.642 6.38 7.48\"/></g><g filter=\"url(#filter3_f_16020_459)\"><path fill=\"#00B95C\" d=\"M6.22 25.46c3.315-.163 5.831-3.775 5.621-8.068s-3.066-7.642-6.38-7.48S-.37 13.686-.16 17.98s3.067 7.642 6.38 7.48\"/></g><g filter=\"url(#filter4_f_16020_459)\"><path fill=\"#00B95C\" d=\"M9.54 22.862c2.778-1.69 3.522-5.54 1.66-8.599-1.86-3.059-5.621-4.168-8.4-2.477-2.778 1.69-3.521 5.54-1.66 8.599 1.86 3.058 5.621 4.167 8.4 2.477\"/></g><g filter=\"url(#filter5_f_16020_459)\"><path fill=\"#3186FF\" d=\"M20.77 13.25c3.122 0 5.654-2.438 5.654-5.445S23.892 2.36 20.769 2.36c-3.122 0-5.654 2.438-5.654 5.445s2.532 5.445 5.654 5.445\"/></g><g filter=\"url(#filter6_f_16020_459)\"><path fill=\"#FBBC04\" d=\"M-4.027 12.619c2.876 2.186 7.076 1.5 9.382-1.532s1.845-7.264-1.03-9.45C1.45-.55-2.75.135-5.057 3.167s-1.845 7.264 1.03 9.45\"/></g><g filter=\"url(#filter7_f_16020_459)\"><path fill=\"#3186FF\" d=\"M10.707 15.85c3.432 2.36 7.98 1.703 10.16-1.468 2.18-3.17 1.165-7.653-2.267-10.013S10.619 2.667 8.44 5.838c-2.18 3.17-1.165 7.653 2.267 10.012\"/></g><g filter=\"url(#filter8_f_16020_459)\"><path fill=\"#749BFF\" d=\"M16.946-.72c.873 1.187-.25 3.495-2.506 5.155-2.257 1.66-4.795 2.044-5.668.857s.249-3.496 2.506-5.156 4.794-2.043 5.668-.856\"/></g><g filter=\"url(#filter9_f_16020_459)\"><path fill=\"#FC413D\" d=\"M9.778 4.963c3.49-3.238 4.689-7.622 2.676-9.791S5.98-6.133 2.489-2.895-2.199 4.727-.187 6.896c2.013 2.17 6.474 1.305 9.965-1.933\"/></g><g filter=\"url(#filter10_f_16020_459)\"><path fill=\"#FFEE48\" d=\"M2.623 16.592c2.074 1.485 4.456 1.71 5.32.504s-.119-3.388-2.193-4.873c-2.075-1.485-4.457-1.71-5.32-.504-.864 1.207.118 3.388 2.193 4.873\"/></g></g><defs><filter id=\"filter0_f_16020_459\" width=\"12.099\" height=\"13.314\" x=\"-6.107\" y=\"4.056\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"0.757\"/></filter><filter id=\"filter1_f_16020_459\" width=\"26.132\" height=\"26.385\" x=\"-4.611\" y=\"-12.395\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"3.659\"/></filter><filter id=\"filter2_f_16020_459\" width=\"24.467\" height=\"28\" x=\"-6.393\" y=\"3.686\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"3.11\"/></filter><filter id=\"filter3_f_16020_459\" width=\"24.467\" height=\"28\" x=\"-6.393\" y=\"3.686\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"3.11\"/></filter><filter id=\"filter4_f_16020_459\" width=\"24.552\" height=\"25.099\" x=\"-6.106\" y=\"4.774\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"3.11\"/></filter><filter id=\"filter5_f_16020_459\" width=\"23.131\" height=\"22.712\" x=\"9.204\" y=\"-3.551\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.956\"/></filter><filter id=\"filter6_f_16020_459\" width=\"24.063\" height=\"24.255\" x=\"-11.882\" y=\"-5\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.679\"/></filter><filter id=\"filter7_f_16020_459\" width=\"24.294\" height=\"23.881\" x=\"2.506\" y=\"-1.831\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.392\"/></filter><filter id=\"filter8_f_16020_459\" width=\"17.329\" height=\"15.954\" x=\"4.194\" y=\"-5.691\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.141\"/></filter><filter id=\"filter9_f_16020_459\" width=\"21.826\" height=\"21.348\" x=\"-4.779\" y=\"-9.64\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"1.808\"/></filter><filter id=\"filter10_f_16020_459\" width=\"17.091\" height=\"15.879\" x=\"-4.359\" y=\"6.468\" color-interpolation-filters=\"sRGB\" filterUnits=\"userSpaceOnUse\"><feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/><feBlend in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/><feGaussianBlur result=\"effect1_foregroundBlur_16020_459\" stdDeviation=\"2.238\"/></filter><linearGradient id=\"paint0_linear_16020_459\" x1=\"5.685\" x2=\"16.073\" y1=\"13.382\" y2=\"4.624\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#4893FC\"/><stop offset=\"0.27\" stop-color=\"#4893FC\"/><stop offset=\"0.777\" stop-color=\"#969DFF\"/><stop offset=\"1\" stop-color=\"#BD99FE\"/></linearGradient></defs></g></svg>");
+    const NOTION_MODEL_OPENAI_ICON = svgDataUri("<svg xmlns=\"http://www.w3.org/2000/svg\" aria-hidden=\"true\" role=\"graphics-symbol\" viewBox=\"0 0 20 20\" style=\"--x-width: 20px; --x-height: 20px; width: 16px; height: 16px;\" class=\"openAi x1lliihq x1c4vz4f x2lah0s x1plvlek xryxfnj x5lhr3w x16ye13r x1kihv7h x1heor9g\"><g class=\"logo-light-mode\"><g clip-path=\"url(#clip0_16020_1032)\"><path fill=\"#000\" d=\"M7.894 7.562V5.86c0-.143.053-.25.179-.322l3.424-1.972c.466-.27 1.022-.395 1.595-.395 2.151 0 3.514 1.668 3.514 3.442 0 .126 0 .269-.018.412l-3.55-2.079a.6.6 0 0 0-.645 0zm7.995 6.633v-4.07a.6.6 0 0 0-.323-.555l-4.5-2.617 1.47-.843a.33.33 0 0 1 .359 0l3.424 1.972c.986.574 1.649 1.792 1.649 2.975 0 1.363-.807 2.618-2.08 3.138M6.836 10.61l-1.47-.86a.34.34 0 0 1-.18-.323V5.483c0-1.918 1.47-3.37 3.46-3.37.754 0 1.452.25 2.044.699L7.16 4.856a.6.6 0 0 0-.323.555zM10 12.438l-2.106-1.183v-2.51L10 7.562l2.106 1.183v2.51zm1.353 5.45a3.36 3.36 0 0 1-2.043-.7l3.531-2.043a.6.6 0 0 0 .323-.556V9.391l1.488.86c.125.072.179.18.179.323v3.943c0 1.918-1.488 3.37-3.478 3.37M7.105 13.89 3.68 11.918c-.986-.573-1.65-1.792-1.65-2.975 0-1.38.825-2.618 2.098-3.137v4.087a.6.6 0 0 0 .323.555l4.481 2.6-1.47.842a.33.33 0 0 1-.358 0m-.197 2.94c-2.026 0-3.514-1.524-3.514-3.406 0-.143.018-.287.036-.43l3.532 2.043a.6.6 0 0 0 .645 0l4.5-2.599v1.703a.34.34 0 0 1-.18.323l-3.424 1.972c-.466.268-1.022.394-1.595.394m4.445 2.133a4.48 4.48 0 0 0 4.392-3.585c2.008-.52 3.299-2.402 3.299-4.32a4.53 4.53 0 0 0-1.506-3.352 5 5 0 0 0 .143-1.13c0-2.563-2.08-4.481-4.481-4.481-.484 0-.95.071-1.416.233a4.5 4.5 0 0 0-3.137-1.29 4.48 4.48 0 0 0-4.392 3.584C2.247 5.142.956 7.024.956 8.942c0 1.255.538 2.474 1.506 3.352a5 5 0 0 0-.143 1.13c0 2.563 2.08 4.481 4.481 4.481.484 0 .95-.071 1.416-.233a4.5 4.5 0 0 0 3.137 1.29\"/></g><defs><clipPath id=\"clip0_16020_1032\"><path fill=\"#fff\" d=\"M1 1h18v18H1z\"/></clipPath></defs></g></svg>");
+    const NOTION_MODEL_ICON_DEFAULTS = Object.freeze({
+        auto: Object.freeze({ icon: NOTION_MODEL_AI_FACE_ICON, iconAdaptive: true }),
+        sonnet46: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
+        opus48: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
+        opus47: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
+        gemini31pro: Object.freeze({ icon: NOTION_MODEL_GEMINI_ICON, iconAdaptive: false }),
+        gpt52: Object.freeze({ icon: NOTION_MODEL_OPENAI_ICON, iconAdaptive: true }),
+        gpt54: Object.freeze({ icon: NOTION_MODEL_OPENAI_ICON, iconAdaptive: true }),
+        gpt55: Object.freeze({ icon: NOTION_MODEL_OPENAI_ICON, iconAdaptive: true }),
+        kimi26: Object.freeze({ icon: NOTION_MODEL_AI_FACE_ICON, iconAdaptive: true }),
+        deepseekV4Pro: Object.freeze({ icon: NOTION_MODEL_AI_FACE_ICON, iconAdaptive: true })
+    });
+
+    function getNotionDefaultModelIconInfo(targetId) {
+        const key = String(targetId || "").trim();
+        return NOTION_MODEL_ICON_DEFAULTS[key] || NOTION_MODEL_ICON_DEFAULTS.auto;
+    }
+
     const NOTION_AI_FALLBACK_ICON = NOTION_AI_NATIVE_FACE_ICON;
     const SEARCH_ICON = notionNativeIcon("search");
     const SETTINGS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'/%3E%3Cpath d='M12 1L9 4H6a2 2 0 0 0-2 2v3l-3 3 3 3v3a2 2 0 0 0 2 2h3l3 3 3-3h3a2 2 0 0 0 2-2v-3l3-3-3-3V6a2 2 0 0 0-2-2h-3L12 1z'/%3E%3C/svg%3E";
@@ -1895,7 +1922,7 @@
     }
 
     function scoreModelMenuRoot(root) {
-        if (!root || !isVisibleElement(root)) return -1;
+        if (!root || !isVisibleElement(root) || isInsideShortcutUi(root)) return -1;
         const text = getElementText(root);
         const normalized = normalizeNotionText(text);
         let score = 0;
@@ -2207,6 +2234,7 @@
             console.warn(`${LOG_TAG} modelPicker: model menu root not found after opening trigger.`);
             return false;
         }
+        syncNotionModelShortcutIconsFromMenuRoot(engine, menuRoot);
 
         const deadline = Date.now() + MODEL_MENU_TIMING.waitTimeoutMs;
         let retriedPointTarget = false;
@@ -2233,10 +2261,12 @@
         return false;
     }
 
-    async function openModelPickerAction() {
+    async function openModelPickerAction({ engine } = {}) {
         const trigger = findModelTriggerElement();
         if (!trigger) return false;
-        return !!(await ensureModelMenuOpen(trigger));
+        const root = await ensureModelMenuOpen(trigger);
+        if (root) syncNotionModelShortcutIconsFromMenuRoot(engine, root);
+        return !!root;
     }
 
     function createNotionQuickInputAdapter({ idPrefix = "notion", engine = null } = {}) {
@@ -4824,6 +4854,7 @@
     const createShortcut = (overrides) => ({ ...baseShortcut, ...overrides });
 
     function createModelShortcut(target) {
+        const iconInfo = getNotionDefaultModelIconInfo(target?.id);
         return createShortcut({
             key: `model-${target.id}`,
             name: target.label,
@@ -4831,7 +4862,8 @@
             actionType: "custom",
             customAction: "modelPicker",
             hotkey: target.hotkey,
-            icon: NOTION_AI_FALLBACK_ICON,
+            icon: iconInfo.icon,
+            iconAdaptive: iconInfo.iconAdaptive,
             data: { menu: { id: target.id } }
         });
     }
@@ -4856,7 +4888,8 @@
             actionType: 'custom',
             customAction: 'openModelPicker',
             hotkey: 'CTRL+M',
-            icon: NOTION_AI_FALLBACK_ICON
+            icon: getNotionDefaultModelIconInfo("auto").icon,
+            iconAdaptive: true
         }),
         ...defaultModelShortcuts,
         createShortcut({
@@ -5027,6 +5060,8 @@
         const preserveRuntimeModelIcon = NOTION_MODEL_ICON_SHORTCUT_KEY_SET.has(shortcutKey) &&
             currentIcon &&
             currentIcon !== defaultIcon &&
+            currentIcon !== NOTION_AI_NATIVE_FACE_ICON &&
+            currentIcon !== NOTION_AI_FALLBACK_ICON &&
             isNotionNativeRuntimeAssetIconSource(currentIcon);
 
         if (!preserveRuntimeModelIcon && currentIcon !== defaultIcon) {
@@ -5307,7 +5342,28 @@
         return normalized.join(";");
     }
 
-    function sanitizeNotionNativeSvgIcon(svg) {
+    function removeNotionDuplicateLogoThemeGroups(svg) {
+        if (!svg) return;
+        try {
+            for (const group of Array.from(svg.querySelectorAll(".logo-dark-mode"))) {
+                group.remove();
+            }
+        } catch { }
+    }
+
+    function getSvgClassName(svg) {
+        if (!svg) return "";
+        const rawClass = svg.getAttribute?.("class") || svg.className || "";
+        if (typeof rawClass === "string") return rawClass;
+        return String(rawClass?.baseVal || "");
+    }
+
+    function getNotionModelSvgPaintMode(svg) {
+        const className = getSvgClassName(svg);
+        return /\b(?:claude|googleGemini)\b/i.test(className) ? "original" : "adaptive";
+    }
+
+    function sanitizeNotionNativeSvgIcon(svg, { paintMode = "adaptive" } = {}) {
         if (!svg) return null;
         let clone = null;
         try {
@@ -5318,9 +5374,16 @@
         if (!clone) return null;
 
         try {
+            const forcePaintColor = paintMode !== "original";
             if (!clone.getAttribute("xmlns")) clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-            clone.setAttribute("fill", "currentColor");
-            clone.setAttribute("color", "currentColor");
+            removeNotionDuplicateLogoThemeGroups(clone);
+            if (forcePaintColor) {
+                clone.setAttribute("fill", "currentColor");
+                clone.setAttribute("color", "currentColor");
+            } else {
+                clone.removeAttribute("fill");
+                clone.removeAttribute("color");
+            }
             clone.removeAttribute("class");
             clone.removeAttribute("style");
 
@@ -5338,29 +5401,41 @@
                 node.removeAttribute("class");
                 node.removeAttribute("data-testid");
 
+                let blockedByPaintAncestor = false;
+                try {
+                    const ancestor = node.closest("defs,clipPath,mask,linearGradient,radialGradient,pattern,filter,symbol");
+                    blockedByPaintAncestor = !!ancestor && ancestor !== node;
+                } catch { }
+
                 const fill = node.getAttribute("fill");
-                if (fill !== null && !isPreservedSvgPaintValue(fill)) node.setAttribute("fill", "currentColor");
+                if (forcePaintColor && !blockedByPaintAncestor && fill !== null && !isPreservedSvgPaintValue(fill)) {
+                    node.setAttribute("fill", "currentColor");
+                }
 
                 const stroke = node.getAttribute("stroke");
-                if (stroke !== null && !isPreservedSvgPaintValue(stroke)) node.setAttribute("stroke", "currentColor");
+                if (forcePaintColor && !blockedByPaintAncestor && stroke !== null && !isPreservedSvgPaintValue(stroke)) {
+                    node.setAttribute("stroke", "currentColor");
+                }
 
                 if (node.hasAttribute("style")) {
-                    const nextStyle = normalizeNotionSvgStyle(node.getAttribute("style"), true);
+                    const nextStyle = normalizeNotionSvgStyle(node.getAttribute("style"), forcePaintColor && !blockedByPaintAncestor);
                     if (nextStyle) node.setAttribute("style", nextStyle);
                     else node.removeAttribute("style");
                 }
 
                 const hasPaint = node.hasAttribute("fill") || node.hasAttribute("stroke");
-                if (!hasPaint && paintTags.has(tag)) node.setAttribute("fill", "currentColor");
+                if (forcePaintColor && !blockedByPaintAncestor && !hasPaint && paintTags.has(tag)) {
+                    node.setAttribute("fill", "currentColor");
+                }
             }
         } catch { }
 
         return clone;
     }
 
-    function serializeSvgIconSource(svg) {
+    function serializeSvgIconSource(svg, options = {}) {
         if (!svg) return "";
-        const clone = sanitizeNotionNativeSvgIcon(svg);
+        const clone = sanitizeNotionNativeSvgIcon(svg, options);
         if (!clone) return "";
         try {
             const markup = new XMLSerializer().serializeToString(clone);
@@ -5375,28 +5450,32 @@
         return /^data:image\/svg\+xml/i.test(value) || /\.svg(?:[?#]|$)/i.test(value);
     }
 
-    function extractNotionNativeIconSourceFromElement(root) {
-        if (!root || isInsideShortcutUi(root)) return "";
+    function extractNotionNativeIconInfoFromElement(root, { paintMode = "adaptive" } = {}) {
+        if (!root || isInsideShortcutUi(root)) return null;
 
         for (const img of getElementsIncludingRoot(root, "img")) {
             if (!img || isInsideShortcutUi(img) || !isVisibleElement(img)) continue;
             const source = getImageIconSource(img);
-            if (source) return source;
+            if (source) return { icon: source, iconAdaptive: false };
         }
 
         for (const svg of getElementsIncludingRoot(root, "svg")) {
             if (!svg || isInsideShortcutUi(svg) || !isVisibleElement(svg)) continue;
-            const source = serializeSvgIconSource(svg);
-            if (source) return source;
+            const source = serializeSvgIconSource(svg, { paintMode });
+            if (source) return { icon: source, iconAdaptive: paintMode !== "original" };
         }
 
         for (const element of getElementsIncludingRoot(root, "[role='img'], span, div, button, [role='button']")) {
             if (!element || isInsideShortcutUi(element) || !isVisibleElement(element)) continue;
             const source = getCssIconSource(element);
-            if (source) return source;
+            if (source) return { icon: source, iconAdaptive: isSvgIconSource(source) };
         }
 
-        return "";
+        return null;
+    }
+
+    function extractNotionNativeIconSourceFromElement(root, options = {}) {
+        return extractNotionNativeIconInfoFromElement(root, options)?.icon || "";
     }
 
     function findNotionAiFaceIconSource() {
@@ -5459,48 +5538,59 @@
         return changed;
     }
 
-    function syncNotionAiFaceShortcutIcons(engineApi) {
-        const iconSource = findNotionAiFaceIconSource();
-        if (!iconSource) return false;
-        const iconAdaptive = isSvgIconSource(iconSource);
-        const updates = NOTION_MODEL_ICON_SHORTCUT_KEYS.reduce((acc, key) => {
-            acc[key] = { icon: iconSource, iconAdaptive };
-            return acc;
-        }, {});
-        return updateNotionShortcutIcons(engineApi, updates);
-    }
-
     function findVisibleNativeElement(selector) {
         return safeQueryAll(document, selector)
             .find(element => element && isVisibleElement(element) && !isInsideShortcutUi(element) && !isElementDisabled(element)) || null;
     }
 
-    function setNotionIconUpdateFromElement(updates, key, element) {
+    function setNotionIconUpdateFromElement(updates, key, element, options = {}) {
         if (!updates || !key || !element) return false;
-        const iconSource = extractNotionNativeIconSourceFromElement(element);
-        if (!iconSource) return false;
-        updates[key] = {
-            icon: iconSource,
-            iconAdaptive: isSvgIconSource(iconSource)
-        };
+        const iconInfo = extractNotionNativeIconInfoFromElement(element, options);
+        if (!iconInfo?.icon) return false;
+        updates[key] = iconInfo;
         return true;
     }
 
-    function setNotionAiFaceIconUpdates(updates) {
-        if (!updates) return false;
-        const iconSource = findNotionAiFaceIconSource();
-        if (!iconSource) return false;
-        const iconAdaptive = isSvgIconSource(iconSource);
-        for (const key of NOTION_MODEL_ICON_SHORTCUT_KEYS) {
-            updates[key] = { icon: iconSource, iconAdaptive };
+    function getNotionModelIconInfoFromMenuRow(row) {
+        if (!row || isInsideShortcutUi(row)) return null;
+        const svg = getElementsIncludingRoot(row, "svg")
+            .find(element => element && !isInsideShortcutUi(element) && isVisibleElement(element)) || null;
+        const paintMode = svg ? getNotionModelSvgPaintMode(svg) : "adaptive";
+        return extractNotionNativeIconInfoFromElement(row, { paintMode });
+    }
+
+    function setNotionModelIconUpdatesFromMenuRoot(updates, root) {
+        if (!updates || !root || isInsideShortcutUi(root)) return false;
+        let changed = false;
+        for (const target of NOTION_MODEL_TARGET_LIST) {
+            const row = findModelMenuItem(root, { target });
+            const iconInfo = getNotionModelIconInfoFromMenuRow(row);
+            if (!iconInfo?.icon) continue;
+            updates[`model-${target.id}`] = iconInfo;
+            if (target.id === "auto") updates[LEGACY_SELECT_AI_MODEL_KEY] = iconInfo;
+            changed = true;
         }
-        return true;
+        return changed;
+    }
+
+    function syncNotionModelShortcutIconsFromMenuRoot(engineApi, root) {
+        const updates = {};
+        setNotionModelIconUpdatesFromMenuRoot(updates, root);
+        return Object.keys(updates).length > 0 && updateNotionShortcutIcons(engineApi, updates);
+    }
+
+    function syncNotionModelShortcutIconsFromOpenMenu(engineApi) {
+        const trigger = findModelTriggerElement();
+        const root = findModelMenuRoot(trigger) || findModelMenuRoot();
+        return syncNotionModelShortcutIconsFromMenuRoot(engineApi, root);
     }
 
     function syncNotionVisibleNativeShortcutIcons(engineApi) {
         const updates = {};
 
-        setNotionAiFaceIconUpdates(updates);
+        const modelTrigger = findModelTriggerElement();
+        const modelRoot = findModelMenuRoot(modelTrigger) || findModelMenuRoot();
+        setNotionModelIconUpdatesFromMenuRoot(updates, modelRoot);
         setNotionIconUpdateFromElement(updates, "newChat", findNewChatTriggerElement());
         setNotionIconUpdateFromElement(updates, "toggleResearchMode", findVisibleNativeElement('[data-testid="unified-chat-research-mode-button"]'));
         setNotionIconUpdateFromElement(updates, "selectSearchScope", findSettingsTriggerElement());
@@ -5526,7 +5616,7 @@
 
     function scheduleNotionRuntimeNativeIconSync(engineApi) {
         if (!engineApi) return;
-        const sync = () => syncNotionVisibleNativeShortcutIcons(engineApi) || syncNotionAiFaceShortcutIcons(engineApi);
+        const sync = () => syncNotionVisibleNativeShortcutIcons(engineApi);
         sync();
 
         [600, 1600, 3600, 8000].forEach((delay) => {
