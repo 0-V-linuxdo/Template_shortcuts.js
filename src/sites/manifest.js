@@ -532,16 +532,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion AI] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion AI] 快捷键跳转 [20260604] v1.1.0",
+            name: "[Notion AI] 快捷键跳转 [20260604] v1.1.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260604] v1.1.0",
-            updateLog: "1.1.0: 完善 Notion AI Mode 适配，新增 Default / Ask / Plan / Research 四个直达快捷键（Ctrl+D / Ctrl+A / Ctrl+Shift+P / Ctrl+R），四项默认图标改用官方原生 SVG，并且打开 Mode 子菜单时只从右侧 Mode 行同步网页原生图标，尤其 Ctrl+R 使用 Research 行 glasses 图标；保留 Ctrl+S 全部来源开关与 Ctrl+W 联网开关。",
+            version: "[20260604] v1.1.1",
+            updateLog: "1.1.1: 修正 Notion AI Mode 四项默认图标，改为与网页 Mode 菜单一致的线框图标；迁移时清理旧 stars / 官方填充版兜底图标，打开 Mode 子菜单后继续只从右侧 Mode 行同步网页原生 SVG。",
             localized: {
                 "en-US": {
-                    name: "[Notion AI] Shortcut Jump [20260604] v1.1.0",
+                    name: "[Notion AI] Shortcut Jump [20260604] v1.1.1",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.1.0: Improved Notion AI Mode support with direct Default / Ask / Plan / Research shortcuts (Ctrl+D / Ctrl+A / Ctrl+Shift+P / Ctrl+R), official native SVG defaults for all four Mode items, and native icon sync only from the right-side Mode rows, especially the Research-row glasses icon for Ctrl+R; Ctrl+S All Sources and Ctrl+W Web Access remain unchanged."
+                    updateLog: "1.1.1: Fixed the four Notion AI Mode default icons to match the line-style icons used by the web Mode menu; migration now clears old stars / filled official fallback icons, while native SVG sync still only reads the right-side Mode rows."
                 }
             },
             match: [
