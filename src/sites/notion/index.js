@@ -144,7 +144,7 @@
     const NOTION_AI_FALLBACK_ICON = NOTION_AI_NATIVE_FACE_ICON;
     const SEARCH_ICON = notionNativeIcon("search");
     const SETTINGS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'/%3E%3Cpath d='M12 1L9 4H6a2 2 0 0 0-2 2v3l-3 3 3 3v3a2 2 0 0 0 2 2h3l3 3 3-3h3a2 2 0 0 0 2-2v-3l3-3-3-3V6a2 2 0 0 0-2-2h-3L12 1z'/%3E%3C/svg%3E";
-    const NOTION_NATIVE_RESEARCH_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"m17.972 11.894-1.644-6.575a2.897 2.897 0 0 0-5.706.703v2.903a1.25 1.25 0 0 0-.625-.172c-.228 0-.44.066-.625.172V6.022a2.897 2.897 0 0 0-5.706-.703l-1.644 6.575a5 5 0 0 0-.153 1.231 3.749 3.749 0 0 0 7.443.625h1.363a3.749 3.749 0 0 0 7.444-.625q0-.625-.153-1.231zM5.625 15a1.876 1.876 0 0 1-1.875-1.875c0-1.034.84-1.875 1.875-1.875 1.034 0 1.875.84 1.875 1.875C7.5 14.159 6.66 15 5.625 15m8.75 0a1.876 1.876 0 0 1-1.875-1.875c0-1.034.84-1.875 1.875-1.875 1.034 0 1.875.84 1.875 1.875 0 1.034-.84 1.875-1.875 1.875\"/></svg>";
+    const NOTION_NATIVE_RESEARCH_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M.625 7.188v1.875h1.25l.353 2.121c.31 1.857 1.516 2.879 3.397 2.879s3.088-1.022 3.397-2.879l.25-1.506c.066-.397.325-.616.728-.616s.662.22.728.616l.25 1.506c.31 1.857 1.516 2.879 3.397 2.879s3.087-1.022 3.397-2.879l.353-2.121h1.25V7.187zm6.547 3.69c-.16.956-.578 1.31-1.547 1.31s-1.388-.357-1.547-1.31l-.303-1.815h3.697l-.303 1.815zm8.75 0c-.16.956-.578 1.31-1.547 1.31s-1.387-.357-1.547-1.31l-.303-1.815h3.697l-.303 1.815z\"/></svg>";
     const NOTION_NATIVE_PLUS_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M10 3.59a.66.66 0 0 1 .66.66v5.09h5.09a.66.66 0 0 1 0 1.32h-5.09v5.09a.66.66 0 0 1-1.32 0v-5.09H4.25a.66.66 0 0 1 0-1.32h5.09V4.25a.66.66 0 0 1 .66-.66\"/></svg>";
     const NOTION_NATIVE_ATTACH_FILE_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z\"/></svg>";
     const NOTION_NATIVE_SETTINGS_SLIDERS_SVG = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 20 20\" fill=\"currentColor\"><path d=\"M3 7.375h6.829a2.501 2.501 0 0 0 4.842 0H17a.625.625 0 1 0 0-1.25h-2.329a2.501 2.501 0 0 0-4.842 0H3a.625.625 0 1 0 0 1.25M12.25 5.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5\"/><path fill-rule=\"evenodd\" d=\"M7.75 15.75a2.5 2.5 0 0 0 2.421-1.875H17a.625.625 0 1 0 0-1.25h-6.829a2.5 2.5 0 0 0-4.842 0H3a.625.625 0 1 0 0 1.25h2.329A2.5 2.5 0 0 0 7.75 15.75m0-1.25a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5\" clip-rule=\"evenodd\"/></svg>";
@@ -1603,6 +1603,32 @@
         );
     }
 
+    function textLooksLikeMySourcesMenuItem(value) {
+        const text = normalizeNotionText(value);
+        return !!text && (
+            text === "my sources" ||
+            text.startsWith("my sources ") ||
+            text.includes("my sources") ||
+            text === "我的来源" ||
+            text.includes("我的来源") ||
+            text.includes("我的资料源") ||
+            text.includes("我的资源")
+        );
+    }
+
+    function textLooksLikeAllSourcesMenuItem(value) {
+        const text = normalizeNotionText(value);
+        return !!text && (
+            text === "all sources i can access" ||
+            text.includes("all sources i can access") ||
+            text.includes("all sources") ||
+            text.includes("全部来源") ||
+            text.includes("所有来源") ||
+            text.includes("全部资料源") ||
+            text.includes("所有资料源")
+        );
+    }
+
     function getSettingsMenuCandidateRow(element, root, predicate) {
         if (!element || typeof predicate !== "function") return null;
         const rootArea = getElementArea(root);
@@ -1670,6 +1696,20 @@
             if (item) return item;
         }
         return null;
+    }
+
+    function findOpenAllSourcesMenuItem() {
+        return findOpenSettingsMenuItemByText(textLooksLikeAllSourcesMenuItem);
+    }
+
+    async function waitForAllSourcesMenuItem() {
+        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+        while (Date.now() <= deadline) {
+            const row = findOpenAllSourcesMenuItem();
+            if (row) return row;
+            await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+        }
+        return findOpenAllSourcesMenuItem();
     }
 
     function findResearchModeTriggerElement() {
@@ -1779,6 +1819,23 @@
             const currentRoot = findSettingsMenuRoot(trigger);
             if (!currentRoot) return true;
             const row = findWebAccessMenuItem(currentRoot);
+            const target = findWebAccessToggleTarget(row);
+            const currentState = getWebAccessToggleState(target);
+            if (currentState !== null && currentState !== previousState) return true;
+            await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+        }
+        return false;
+    }
+
+    async function waitForAllSourcesToggleChange(previousState) {
+        if (previousState === null) {
+            await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+            return true;
+        }
+        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+        while (Date.now() <= deadline) {
+            const row = findOpenAllSourcesMenuItem();
+            if (!row) return true;
             const target = findWebAccessToggleTarget(row);
             const currentState = getWebAccessToggleState(target);
             if (currentState !== null && currentState !== previousState) return true;
@@ -1978,15 +2035,33 @@
         return false;
     }
 
-    async function selectSearchScopeAction({ engine } = {}) {
+    async function toggleAllSourcesAction({ engine } = {}) {
         const trigger = findSettingsTriggerElement();
         if (!trigger) return false;
-        syncNotionShortcutIconFromElement(engine, "selectSearchScope", trigger);
         const root = await ensureSettingsMenuOpen(trigger);
         if (!root) return false;
-        const row = findWebAccessMenuItem(root);
-        if (row) syncNotionWebAccessShortcutIconFromElement(engine, row);
-        return true;
+
+        let row = findOpenAllSourcesMenuItem();
+        if (!row) {
+            const mySourcesRow = findSettingsMenuItemByText(root, textLooksLikeMySourcesMenuItem);
+            const mySourcesTarget = getClickableActionElement(mySourcesRow, root) || mySourcesRow;
+            if (!mySourcesTarget || !simulateClickElement(mySourcesTarget, { nativeFallback: true })) return false;
+            await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+            row = await waitForAllSourcesMenuItem();
+        }
+        if (!row) return false;
+
+        syncNotionShortcutIconFromElement(engine, "selectSearchScope", row);
+        const target = findWebAccessToggleTarget(row);
+        if (!target) return false;
+
+        const previousState = getWebAccessToggleState(target);
+        if (!simulateClickElement(target, { nativeFallback: true })) return false;
+        const closePromise = closeSettingsMenu(trigger, { initialDelayMs: 30 });
+        const changed = await waitForAllSourcesToggleChange(previousState);
+        const closed = await closePromise;
+        if (!closed) await closeSettingsMenu(findSettingsTriggerElement(), { initialDelayMs: 0 });
+        return changed;
     }
 
     async function toggleResearchModeAction({ engine } = {}) {
@@ -5059,7 +5134,7 @@
                 modelKimi26: "模型：Kimi K2.6",
                 modelDeepSeekV4Pro: "模型：DeepSeek V4 Pro",
                 toggleResearchMode: "切换研究模式",
-                selectSearchScope: "选择搜索范围",
+                selectSearchScope: "切换全部来源",
                 toggleWebAccess: "切换联网",
                 toggleImageGeneration: "切换图片生成",
                 deleteTopic: "删除话题",
@@ -5090,6 +5165,8 @@
             shortcuts: {
                 newChat: "New Chat",
                 selectAiModel: "Select AI Model",
+                toggleResearchMode: "Toggle Research Mode",
+                selectSearchScope: "Toggle All Sources",
                 toggleWebAccess: "Toggle Web Access",
                 toggleImageGeneration: "Toggle Image Generation",
                 deleteTopic: "Delete Topic",
@@ -5173,6 +5250,7 @@
         createShortcut({
             key: 'toggleResearchMode',
             name: 'Toggle Research Mode',
+            labelKey: 'shortcuts.toggleResearchMode',
             actionType: 'custom',
             customAction: 'toggleResearchMode',
             hotkey: 'CTRL+R',
@@ -5182,9 +5260,10 @@
         }),
         createShortcut({
             key: 'selectSearchScope',
-            name: 'Select Search Scope',
+            name: 'Toggle All Sources',
+            labelKey: 'shortcuts.selectSearchScope',
             actionType: 'custom',
-            customAction: 'selectSearchScope',
+            customAction: 'toggleAllSources',
             hotkey: 'CTRL+S',
             icon: SEARCH_SCOPE_ICON,
             iconDark: SEARCH_SCOPE_ICON_INFO.iconDark,
@@ -5302,10 +5381,18 @@
             const target = inferModelTargetFromText(menu.id ?? menu.textMatch ?? menu.keyword ?? shortcut.name);
             if (target) return `model-${target.id}`;
         }
-        if (selector.includes('data-testid="unified-chat-research-mode-button"') || name === "toggle research mode") {
+        if (selector.includes('data-testid="unified-chat-research-mode-button"') || name === "toggle research mode" || name === "切换研究模式") {
             return "toggleResearchMode";
         }
-        if (selector.includes('data-testid="unified-chat-search-scope-button"') || name === "select search scope") {
+        if (
+            customAction === "toggleAllSources" ||
+            customAction === "selectSearchScope" ||
+            selector.includes('data-testid="unified-chat-search-scope-button"') ||
+            name === "select search scope" ||
+            name === "toggle all sources" ||
+            name === "选择搜索范围" ||
+            name === "切换全部来源"
+        ) {
             return "selectSearchScope";
         }
         if (
@@ -5348,6 +5435,22 @@
         }
 
         if (NOTION_DEFAULT_ACTION_MIGRATION_KEY_SET.has(shortcutKey)) {
+            const legacyDefaultNames = {
+                toggleResearchMode: ["toggle research mode", "切换研究模式"],
+                selectSearchScope: ["select search scope", "选择搜索范围", "toggle all sources", "切换全部来源"]
+            };
+            const currentName = normalizeNotionText(shortcut.name);
+            const defaultName = String(defaultShortcut.name || "").trim();
+            const shouldUpdateName = !currentName || (legacyDefaultNames[shortcutKey] || []).includes(currentName);
+            if (defaultName && shouldUpdateName && String(shortcut.name || "") !== defaultName) {
+                shortcut.name = defaultName;
+                changed = true;
+            }
+            if (defaultShortcut.labelKey && String(shortcut.labelKey || "") !== String(defaultShortcut.labelKey || "")) {
+                shortcut.labelKey = defaultShortcut.labelKey;
+                changed = true;
+            }
+
             const actionFields = ["actionType", "customAction", "selector", "simulateKeys", "url", "urlMethod", "urlAdvanced"];
             for (const field of actionFields) {
                 const defaultValue = defaultShortcut[field];
@@ -5924,8 +6027,8 @@
         const contextRoot = findContextMenuRoot(contextTrigger) || findContextMenuRoot();
         setNotionModelIconUpdatesFromMenuRoot(updates, modelRoot);
         setNotionIconUpdateFromElement(updates, "newChat", findNewChatTriggerElement());
-        setNotionIconUpdateFromElement(updates, "toggleResearchMode", findVisibleNativeElement('[data-testid="unified-chat-research-mode-button"]'));
-        setNotionIconUpdateFromElement(updates, "selectSearchScope", settingsTrigger);
+        setNotionIconUpdateFromElement(updates, "toggleResearchMode", findOpenSettingsMenuItemByText(textLooksLikeResearchModeMenuItem) || findVisibleNativeElement('[data-testid="unified-chat-research-mode-button"]'));
+        setNotionIconUpdateFromElement(updates, "selectSearchScope", findOpenAllSourcesMenuItem());
         setNotionIconUpdateFromElement(updates, "toggleWebAccess", findWebAccessMenuItem(settingsRoot));
         setNotionIconUpdateFromElement(updates, "addContext", contextTrigger);
         setNotionIconUpdateFromElement(updates, "attachFile", findAttachFileMenuItem(contextRoot) || findVisibleNativeElement('button[aria-label="Attach file"]'));
@@ -6020,7 +6123,8 @@
             openModelPicker: openModelPickerAction,
             modelPicker: clickModelPickerItem,
             toggleResearchMode: toggleResearchModeAction,
-            selectSearchScope: selectSearchScopeAction,
+            toggleAllSources: toggleAllSourcesAction,
+            selectSearchScope: toggleAllSourcesAction,
             toggleWebAccess: toggleWebAccessAction,
             toggleImageGeneration: toggleImageGenerationAction,
             conversationMenu: clickConversationMenuItem,

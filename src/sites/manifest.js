@@ -536,12 +536,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
             version: "[20260603] v1.0.0",
-            updateLog: "1.0.0: 修复 Notion AI 默认快捷键图标与新版菜单动作：网页原生按钮/菜单图标使用普通/黑暗双图源，Quick Input 恢复脚本原键盘图标，并将 Research 与 Search Scope 从旧 selector 点击迁移为当前菜单动作。",
+            updateLog: "1.0.0: 优化 Notion AI 当前菜单快捷键：Ctrl+S 改为切换 All sources I can access 开关，Ctrl+R Research 图标改为网页原生 glasses，并继续保留普通/黑暗双图源与旧配置迁移。",
             localized: {
                 "en-US": {
                     name: "[Notion AI] Shortcut Jump [20260603] v1.0.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.0: Fixed Notion AI default shortcut icons and current-menu actions: native web button/menu icons now use light/dark icon sources, Quick Input restores the script keyboard icon, and Research/Search Scope migrate from old selector clicks to current menu actions."
+                    updateLog: "1.0.0: Optimized Notion AI current-menu shortcuts: Ctrl+S now toggles All sources I can access, Ctrl+R uses the native Research glasses icon, and light/dark icon sources plus old-config migration are kept."
                 }
             },
             match: [
