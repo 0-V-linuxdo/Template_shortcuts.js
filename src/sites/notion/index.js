@@ -19,6 +19,7 @@
     const NOTION_ORIGIN = "https://app.notion.com";
     const NOTION_LEGACY_ORIGIN = "https://www.notion.so";
     const NOTION_AI_HOME_PATH = "/ai";
+    const NOTION_AI_NATIVE_FACE_ICON = `${NOTION_ORIGIN}/_assets/9ade71d75a1c0e93.png`;
     const NOTION_NEW_CHAT_TARGET_TTL_MS = 15000;
     const NOTION_QUICK_INPUT_THEME = Object.freeze({
         dark: {
@@ -66,7 +67,7 @@
         return `${NOTION_LEGACY_ORIGIN}/icons/${encodeURIComponent(String(name || "").trim())}_gray.svg`;
     }
 
-    const NOTION_AI_FALLBACK_ICON = defaultIconURL;
+    const NOTION_AI_FALLBACK_ICON = NOTION_AI_NATIVE_FACE_ICON;
     const SEARCH_ICON = notionNativeIcon("search");
     const SETTINGS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'/%3E%3Cpath d='M12 1L9 4H6a2 2 0 0 0-2 2v3l-3 3 3 3v3a2 2 0 0 0 2 2h3l3 3 3-3h3a2 2 0 0 0 2-2v-3l3-3-3-3V6a2 2 0 0 0-2-2h-3L12 1z'/%3E%3C/svg%3E";
     const RESEARCH_ICON = notionNativeIcon("binoculars");
@@ -98,7 +99,8 @@
     ];
 
     const protectedIconUrls = [
-        defaultIconURL
+        defaultIconURL,
+        NOTION_AI_NATIVE_FACE_ICON
     ];
 
     const TemplateUtils = ShortcutTemplate.utils || {};
@@ -1723,7 +1725,7 @@
         return false;
     }
 
-    async function toggleWebAccessAction() {
+    async function toggleWebAccessAction({ engine } = {}) {
         const trigger = findSettingsTriggerElement();
         const root = await ensureSettingsMenuOpen(trigger);
         if (!root) return false;
@@ -1734,6 +1736,7 @@
             const row = findWebAccessMenuItem(currentRoot);
             const target = findWebAccessToggleTarget(row);
             if (target) {
+                syncNotionWebAccessShortcutIconFromElement(engine, row);
                 const previousState = getWebAccessToggleState(target);
                 if (!simulateClickElement(target, { nativeFallback: true })) return false;
                 const closePromise = closeSettingsMenu(trigger, { initialDelayMs: 30 });
@@ -5024,7 +5027,7 @@
         const preserveRuntimeModelIcon = NOTION_MODEL_ICON_SHORTCUT_KEY_SET.has(shortcutKey) &&
             currentIcon &&
             currentIcon !== defaultIcon &&
-            !/^data:image\/svg\+xml/i.test(currentIcon);
+            isNotionNativeRuntimeAssetIconSource(currentIcon);
 
         if (!preserveRuntimeModelIcon && currentIcon !== defaultIcon) {
             shortcut.icon = defaultIcon;
@@ -5038,6 +5041,18 @@
         }
 
         return changed;
+    }
+
+    function isNotionNativeRuntimeAssetIconSource(source) {
+        const value = String(source || "").trim();
+        if (!value || /^data:image\/svg\+xml/i.test(value)) return false;
+        try {
+            const url = new URL(value, window?.location?.href || NOTION_ORIGIN);
+            const host = String(url.hostname || "").toLowerCase();
+            return host === "app.notion.com" && String(url.pathname || "").startsWith("/_assets/");
+        } catch {
+            return false;
+        }
     }
 
     function isLegacyNewChatShortcut(shortcut) {
@@ -5239,17 +5254,115 @@
         );
     }
 
-    function serializeSvgIconSource(svg) {
-        if (!svg) return "";
+    function getCssImageUrl(value) {
+        const raw = String(value || "").trim();
+        if (!raw || raw === "none") return "";
+        const match = raw.match(/url\((["']?)(.*?)\1\)/i);
+        return match ? getResolvedIconUrl(match[2]) : "";
+    }
+
+    function getCssIconSource(element) {
+        if (!element || typeof window?.getComputedStyle !== "function") return "";
+        const pseudos = ["", "::before", "::after"];
+        for (const pseudo of pseudos) {
+            let style = null;
+            try { style = window.getComputedStyle(element, pseudo || undefined); } catch { style = null; }
+            if (!style) continue;
+            const candidates = [
+                style.backgroundImage,
+                style.maskImage,
+                style.webkitMaskImage
+            ];
+            for (const candidate of candidates) {
+                const source = getCssImageUrl(candidate);
+                if (source) return source;
+            }
+        }
+        return "";
+    }
+
+    function isPreservedSvgPaintValue(value) {
+        const raw = String(value || "").trim();
+        return !raw || /^none$/i.test(raw) || /^url\s*\(/i.test(raw) || /^transparent$/i.test(raw);
+    }
+
+    function normalizeNotionSvgStyle(styleText, forcePaintColor) {
+        const declarations = String(styleText || "").split(";");
+        const normalized = [];
+        for (const rawDeclaration of declarations) {
+            const declaration = String(rawDeclaration || "").trim();
+            if (!declaration) continue;
+            const separatorIndex = declaration.indexOf(":");
+            if (separatorIndex <= 0) continue;
+            const name = declaration.slice(0, separatorIndex).trim().toLowerCase();
+            const value = declaration.slice(separatorIndex + 1).trim();
+            if (!name || !value) continue;
+            if (name.startsWith("--x-")) continue;
+            if ((name === "fill" || name === "stroke") && forcePaintColor && !isPreservedSvgPaintValue(value)) {
+                normalized.push(`${name}:currentColor`);
+            } else {
+                normalized.push(`${name}:${value}`);
+            }
+        }
+        return normalized.join(";");
+    }
+
+    function sanitizeNotionNativeSvgIcon(svg) {
+        if (!svg) return null;
         let clone = null;
         try {
             clone = svg.cloneNode(true);
         } catch {
             clone = null;
         }
-        if (!clone) return "";
+        if (!clone) return null;
+
         try {
             if (!clone.getAttribute("xmlns")) clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+            clone.setAttribute("fill", "currentColor");
+            clone.setAttribute("color", "currentColor");
+            clone.removeAttribute("class");
+            clone.removeAttribute("style");
+
+            const paintTags = new Set(["path", "circle", "rect", "ellipse", "line", "polyline", "polygon", "text"]);
+            const skipTags = new Set([
+                "defs", "clippath", "mask", "lineargradient", "radialgradient",
+                "stop", "pattern", "filter", "image", "foreignobject",
+                "style", "script", "metadata", "title", "desc", "symbol", "use"
+            ]);
+            const nodes = Array.from(clone.querySelectorAll("*"));
+            for (const node of nodes) {
+                const tag = String(node.tagName || "").toLowerCase();
+                if (!tag || skipTags.has(tag)) continue;
+
+                node.removeAttribute("class");
+                node.removeAttribute("data-testid");
+
+                const fill = node.getAttribute("fill");
+                if (fill !== null && !isPreservedSvgPaintValue(fill)) node.setAttribute("fill", "currentColor");
+
+                const stroke = node.getAttribute("stroke");
+                if (stroke !== null && !isPreservedSvgPaintValue(stroke)) node.setAttribute("stroke", "currentColor");
+
+                if (node.hasAttribute("style")) {
+                    const nextStyle = normalizeNotionSvgStyle(node.getAttribute("style"), true);
+                    if (nextStyle) node.setAttribute("style", nextStyle);
+                    else node.removeAttribute("style");
+                }
+
+                const hasPaint = node.hasAttribute("fill") || node.hasAttribute("stroke");
+                if (!hasPaint && paintTags.has(tag)) node.setAttribute("fill", "currentColor");
+            }
+        } catch { }
+
+        return clone;
+    }
+
+    function serializeSvgIconSource(svg) {
+        if (!svg) return "";
+        const clone = sanitizeNotionNativeSvgIcon(svg);
+        if (!clone) return "";
+        try {
             const markup = new XMLSerializer().serializeToString(clone);
             return markup ? `data:image/svg+xml,${encodeURIComponent(markup)}` : "";
         } catch {
@@ -5277,30 +5390,36 @@
             if (source) return source;
         }
 
+        for (const element of getElementsIncludingRoot(root, "[role='img'], span, div, button, [role='button']")) {
+            if (!element || isInsideShortcutUi(element) || !isVisibleElement(element)) continue;
+            const source = getCssIconSource(element);
+            if (source) return source;
+        }
+
         return "";
     }
 
     function findNotionAiFaceIconSource() {
-        const candidates = safeQueryAll(document, "img")
-            .filter((img) => {
-                if (!img || isInsideShortcutUi(img) || !isVisibleElement(img)) return false;
+        const candidates = safeQueryAll(document, "img, [role='img'], [alt*='Notion AI' i], [aria-label*='Notion AI' i]")
+            .filter((element) => {
+                if (!element || isInsideShortcutUi(element) || !isVisibleElement(element)) return false;
                 const label = normalizeNotionText([
-                    img.getAttribute?.("alt"),
-                    img.getAttribute?.("aria-label"),
-                    img.getAttribute?.("title")
+                    element.getAttribute?.("alt"),
+                    element.getAttribute?.("aria-label"),
+                    element.getAttribute?.("title")
                 ].filter(Boolean).join(" "));
                 return label.includes("notion ai") && (label.includes("face") || label.includes("notion ai"));
             })
-            .map((img) => ({ img, source: getImageIconSource(img), rect: getElementRect(img) }))
+            .map((element) => ({ element, source: extractNotionNativeIconSourceFromElement(element), rect: getElementRect(element) }))
             .filter((item) => !!item.source);
 
         candidates.sort((a, b) => {
-            const aFace = normalizeNotionText(a.img.getAttribute?.("alt")).includes("face") ? 1 : 0;
-            const bFace = normalizeNotionText(b.img.getAttribute?.("alt")).includes("face") ? 1 : 0;
+            const aFace = normalizeNotionText(a.element.getAttribute?.("alt")).includes("face") ? 1 : 0;
+            const bFace = normalizeNotionText(b.element.getAttribute?.("alt")).includes("face") ? 1 : 0;
             if (aFace !== bFace) return bFace - aFace;
             return (b.rect?.width || 0) * (b.rect?.height || 0) - (a.rect?.width || 0) * (a.rect?.height || 0);
         });
-        return candidates[0]?.source || "";
+        return candidates[0]?.source || NOTION_AI_NATIVE_FACE_ICON;
     }
 
     function updateNotionShortcutIcons(engineApi, updatesByKey) {
@@ -5351,20 +5470,63 @@
         return updateNotionShortcutIcons(engineApi, updates);
     }
 
-    function syncNotionImageGenerationShortcutIconFromElement(engineApi, element) {
+    function findVisibleNativeElement(selector) {
+        return safeQueryAll(document, selector)
+            .find(element => element && isVisibleElement(element) && !isInsideShortcutUi(element) && !isElementDisabled(element)) || null;
+    }
+
+    function setNotionIconUpdateFromElement(updates, key, element) {
+        if (!updates || !key || !element) return false;
         const iconSource = extractNotionNativeIconSourceFromElement(element);
         if (!iconSource) return false;
-        return updateNotionShortcutIcons(engineApi, {
-            toggleImageGeneration: {
-                icon: iconSource,
-                iconAdaptive: isSvgIconSource(iconSource)
-            }
-        });
+        updates[key] = {
+            icon: iconSource,
+            iconAdaptive: isSvgIconSource(iconSource)
+        };
+        return true;
+    }
+
+    function setNotionAiFaceIconUpdates(updates) {
+        if (!updates) return false;
+        const iconSource = findNotionAiFaceIconSource();
+        if (!iconSource) return false;
+        const iconAdaptive = isSvgIconSource(iconSource);
+        for (const key of NOTION_MODEL_ICON_SHORTCUT_KEYS) {
+            updates[key] = { icon: iconSource, iconAdaptive };
+        }
+        return true;
+    }
+
+    function syncNotionVisibleNativeShortcutIcons(engineApi) {
+        const updates = {};
+
+        setNotionAiFaceIconUpdates(updates);
+        setNotionIconUpdateFromElement(updates, "newChat", findNewChatTriggerElement());
+        setNotionIconUpdateFromElement(updates, "toggleResearchMode", findVisibleNativeElement('[data-testid="unified-chat-research-mode-button"]'));
+        setNotionIconUpdateFromElement(updates, "selectSearchScope", findSettingsTriggerElement());
+        setNotionIconUpdateFromElement(updates, "addContext", findContextMenuTriggerElement());
+        setNotionIconUpdateFromElement(updates, "attachFile", findVisibleNativeElement('button[aria-label="Attach file"]'));
+
+        return Object.keys(updates).length > 0 && updateNotionShortcutIcons(engineApi, updates);
+    }
+
+    function syncNotionShortcutIconFromElement(engineApi, key, element) {
+        const updates = {};
+        setNotionIconUpdateFromElement(updates, key, element);
+        return Object.keys(updates).length > 0 && updateNotionShortcutIcons(engineApi, updates);
+    }
+
+    function syncNotionImageGenerationShortcutIconFromElement(engineApi, element) {
+        return syncNotionShortcutIconFromElement(engineApi, "toggleImageGeneration", element);
+    }
+
+    function syncNotionWebAccessShortcutIconFromElement(engineApi, element) {
+        return syncNotionShortcutIconFromElement(engineApi, "toggleWebAccess", element);
     }
 
     function scheduleNotionRuntimeNativeIconSync(engineApi) {
         if (!engineApi) return;
-        const sync = () => syncNotionAiFaceShortcutIcons(engineApi);
+        const sync = () => syncNotionVisibleNativeShortcutIcons(engineApi) || syncNotionAiFaceShortcutIcons(engineApi);
         sync();
 
         [600, 1600, 3600, 8000].forEach((delay) => {
@@ -5380,9 +5542,7 @@
             if (timer !== null) return;
             timer = setTimeout(() => {
                 timer = null;
-                if (sync()) {
-                    try { observer.disconnect(); } catch { }
-                }
+                sync();
             }, 160);
         });
 
