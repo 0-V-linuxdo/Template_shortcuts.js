@@ -481,73 +481,6 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 return `data:image/svg+xml,${encodeURIComponent(markup)}`;
             }
 
-            function buildThemeAdaptiveSvgElement(svgText) {
-                const source = String(svgText || "").trim();
-                if (!source) return null;
-
-                const DOMParserCtor = globalThis.DOMParser;
-                if (typeof DOMParserCtor !== "function") return null;
-
-                let doc = null;
-                try {
-                    doc = new DOMParserCtor().parseFromString(source, "image/svg+xml");
-                } catch {
-                    doc = null;
-                }
-                if (!doc || doc.querySelector("parsererror")) return null;
-
-                const root = doc.documentElement;
-                if (!root || String(root.tagName || "").toLowerCase() !== "svg") return null;
-
-                const clone = root.cloneNode(true);
-                if (!clone.getAttribute("xmlns")) {
-                    clone.setAttribute("xmlns", SVG_NAMESPACE);
-                }
-
-                const autoFillTags = new Set(["path", "circle", "rect", "ellipse", "line", "polyline", "polygon", "text"]);
-                const skipTags = new Set([
-                    "defs", "clippath", "mask",
-                    "lineargradient", "radialgradient", "stop",
-                    "pattern", "filter", "image", "foreignobject",
-                    "style", "script", "metadata", "title", "desc",
-                    "symbol", "use"
-                ]);
-
-                const nodes = [clone, ...Array.from(clone.querySelectorAll("*"))];
-                for (const node of nodes) {
-                    const tag = String(node.tagName || "").toLowerCase();
-                    if (!tag || skipTags.has(tag)) continue;
-                    let blockedByAncestor = false;
-                    try {
-                        const ancestor = node.closest("defs,clipPath,mask,linearGradient,radialGradient,pattern,filter,symbol");
-                        blockedByAncestor = !!ancestor && ancestor !== node;
-                    } catch {}
-                    if (blockedByAncestor) continue;
-
-                    const fill = node.getAttribute("fill");
-                    if (fill !== null && isConvertiblePaintValue(fill)) {
-                        node.setAttribute("fill", "currentColor");
-                    }
-                    const stroke = node.getAttribute("stroke");
-                    if (stroke !== null && isConvertiblePaintValue(stroke)) {
-                        node.setAttribute("stroke", "currentColor");
-                    }
-
-                    if (node.hasAttribute("style")) {
-                        const nextStyle = normalizeSvgInlineStyleColor(node.getAttribute("style"));
-                        if (nextStyle) node.setAttribute("style", nextStyle);
-                        else node.removeAttribute("style");
-                    }
-
-                    const hasPaintAttr = node.hasAttribute("fill") || node.hasAttribute("stroke");
-                    if (!hasPaintAttr && autoFillTags.has(tag)) {
-                        node.setAttribute("fill", "currentColor");
-                    }
-                }
-
-                return clone;
-            }
-
             function ensureThemeAdaptiveIconStored(iconSource, cb = null) {
                 const source = String(iconSource || "").trim();
                 const callback = (typeof cb === "function") ? cb : null;
@@ -695,16 +628,6 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 restoreOriginalImageDisplay(imgEl);
             }
 
-            function removeInlineSvgIcon(imgEl) {
-                if (!imgEl) return;
-                try {
-                    const svg = imgEl.__stInlineSvgIcon || null;
-                    if (svg && svg.parentNode) svg.parentNode.removeChild(svg);
-                    imgEl.__stInlineSvgIcon = null;
-                } catch {}
-                restoreOriginalImageDisplay(imgEl);
-            }
-
             function removeFontIcon(imgEl) {
                 if (!imgEl) return;
                 try {
@@ -717,19 +640,17 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
 
             function copyIconImageBoxStyle(imgEl, svgEl) {
                 if (!imgEl || !svgEl) return;
-                let computedStyle = null;
-                try { computedStyle = globalThis.getComputedStyle?.(imgEl) || null; } catch { computedStyle = null; }
-                const width = imgEl.style?.width || imgEl.getAttribute?.("width") || computedStyle?.width || "24px";
-                const height = imgEl.style?.height || imgEl.getAttribute?.("height") || computedStyle?.height || "24px";
-                const verticalAlign = imgEl.style?.verticalAlign || computedStyle?.verticalAlign || "middle";
-                const flexShrink = imgEl.style?.flexShrink || computedStyle?.flexShrink || "0";
+                const width = imgEl.style?.width || imgEl.getAttribute?.("width") || "24px";
+                const height = imgEl.style?.height || imgEl.getAttribute?.("height") || "24px";
+                const verticalAlign = imgEl.style?.verticalAlign || "middle";
+                const flexShrink = imgEl.style?.flexShrink || "0";
                 Object.assign(svgEl.style, {
                     width: /^\d+(?:\.\d+)?$/.test(String(width)) ? `${width}px` : String(width),
                     height: /^\d+(?:\.\d+)?$/.test(String(height)) ? `${height}px` : String(height),
                     display: "inline-block",
                     verticalAlign,
                     flexShrink,
-                    color: "inherit"
+                    color: isDarkModeNow() ? themeDarkFillColor : themeLightFillColor
                 });
             }
 
@@ -884,63 +805,6 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 imgEl.style.display = "none";
             }
 
-            function renderInlineSvgIcon(imgEl, svgSourceText, sourceMarker, deferredCount = 0) {
-                if (!imgEl) return;
-                if (!isImageSourceCurrent(imgEl, sourceMarker)) return;
-                const parent = imgEl.parentNode;
-                if (!parent) {
-                    rememberOriginalImageDisplay(imgEl);
-                    imgEl.style.display = "none";
-                    if (deferredCount < 2) {
-                        const schedule = typeof globalThis.requestAnimationFrame === "function"
-                            ? globalThis.requestAnimationFrame
-                            : (fn) => setTimeout(fn, 0);
-                        schedule(() => renderInlineSvgIcon(imgEl, svgSourceText, sourceMarker, deferredCount + 1));
-                    } else {
-                        removeInlineSvgIcon(imgEl);
-                        imgEl.src = getDefaultIconURL();
-                    }
-                    return;
-                }
-
-                const svgEl = buildThemeAdaptiveSvgElement(svgSourceText);
-                if (!svgEl) {
-                    removeInlineSvgIcon(imgEl);
-                    return;
-                }
-
-                svgEl.setAttribute("aria-hidden", "true");
-                svgEl.setAttribute("focusable", "false");
-                svgEl.setAttribute("data-st-icon-inline-svg", "true");
-                copyIconImageBoxStyle(imgEl, svgEl);
-
-                let previous = null;
-                try { previous = imgEl.__stInlineSvgIcon || null; } catch {}
-                if (previous && previous.parentNode) {
-                    try { previous.parentNode.replaceChild(svgEl, previous); } catch {
-                        try { previous.parentNode.removeChild(previous); } catch {}
-                        try { parent.insertBefore(svgEl, imgEl.nextSibling); } catch { parent.appendChild(svgEl); }
-                    }
-                } else {
-                    try { parent.insertBefore(svgEl, imgEl.nextSibling); } catch { parent.appendChild(svgEl); }
-                }
-                try { imgEl.__stInlineSvgIcon = svgEl; } catch {}
-
-                rememberOriginalImageDisplay(imgEl);
-                imgEl.style.display = "none";
-            }
-
-            function renderInlineSvgIconFromSource(imgEl, source, sourceMarker) {
-                resolveSvgSource(source, (svgText) => {
-                    if (!svgText || !isImageSourceCurrent(imgEl, sourceMarker)) {
-                        removeInlineSvgIcon(imgEl);
-                        if (source && isImageSourceCurrent(imgEl, sourceMarker)) imgEl.src = source;
-                        return;
-                    }
-                    renderInlineSvgIcon(imgEl, svgText, sourceMarker);
-                });
-            }
-
             function setIconImage(imgEl, iconUrl, iconDarkUrl = "", iconAdaptive = false) {
                 const fallback = getDefaultIconURL();
                 if (!imgEl) return;
@@ -953,28 +817,20 @@ import { normalizeSvgCssColorToken } from "../utils/svg.js";
                 const svgUseSpec = parseSvgUseIconSource(source);
                 if (svgUseSpec) {
                     removeFontIcon(imgEl);
-                    removeInlineSvgIcon(imgEl);
                     renderSvgUseIcon(imgEl, svgUseSpec, sourceMarker);
                     return;
                 }
                 const fontIconSpec = parseFontIconSource(source);
                 if (fontIconSpec) {
                     removeSvgUseIcon(imgEl);
-                    removeInlineSvgIcon(imgEl);
                     renderFontIcon(imgEl, fontIconSpec, sourceMarker);
                     return;
                 }
                 removeSvgUseIcon(imgEl);
                 removeFontIcon(imgEl);
-                removeInlineSvgIcon(imgEl);
 
                 if (!source) {
                     imgEl.src = fallback;
-                    return;
-                }
-
-                if (shouldUseThemeAdapt && (source.startsWith("data:image/svg+xml") || /^<svg[\s>]/i.test(source) || isLikelySvgUrl(source))) {
-                    renderInlineSvgIconFromSource(imgEl, source, sourceMarker);
                     return;
                 }
 
