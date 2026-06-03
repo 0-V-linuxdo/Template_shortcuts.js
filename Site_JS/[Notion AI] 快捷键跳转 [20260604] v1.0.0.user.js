@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion AI] 快捷键跳转 [20260603] v1.0.0
-// @name:en        [Notion AI] Shortcut Jump [20260603] v1.0.0
+// @name           [Notion AI] 快捷键跳转 [20260604] v1.0.0
+// @name:en        [Notion AI] Shortcut Jump [20260604] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260603] v1.0.0
-// @update-log     1.0.0: 优化 Notion AI 当前菜单快捷键：Ctrl+S 改为切换 All sources I can access 开关，Ctrl+R Research 图标改为网页原生 glasses，并继续保留普通/黑暗双图源与旧配置迁移。
-// @update-log:en  1.0.0: Optimized Notion AI current-menu shortcuts: Ctrl+S now toggles All sources I can access, Ctrl+R uses the native Research glasses icon, and light/dark icon sources plus old-config migration are kept.
+// @version        [20260604] v1.0.0
+// @update-log     1.0.0: 修复 Notion AI 当前菜单快捷键：Ctrl+S 可靠展开 My sources 子菜单并切换 All sources I can access，Ctrl+R 使用网页原生 Research glasses 图标，继续保留普通/黑暗双图源与旧配置迁移。
+// @update-log:en  1.0.0: Fixed Notion AI current-menu shortcuts: Ctrl+S now reliably opens the My sources submenu and toggles All sources I can access, Ctrl+R uses the native Research glasses icon, and light/dark icon sources plus old-config migration are kept.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -1494,6 +1494,40 @@
     function findOpenAllSourcesMenuItem() {
       return findOpenSettingsMenuItemByText(textLooksLikeAllSourcesMenuItem);
     }
+    function activateSettingsMenuRow(row, root = null) {
+      if (!row || !isVisibleElement(row) || isElementDisabled(row)) return false;
+      const rect = getElementRect(row);
+      const points = rect ? [
+        [rect.left + rect.width * 0.52, rect.top + rect.height * 0.5],
+        [rect.left + rect.width * 0.88, rect.top + rect.height * 0.5]
+      ] : [[1, 1]];
+      let activated = false;
+      for (const [x, y] of points) {
+        const pointElement = getElementFromPointSafe(x, y);
+        const targets = Array.from(new Set([
+          getClickableActionElement(pointElement, root),
+          pointElement,
+          getClickableActionElement(row, root),
+          row
+        ].filter(Boolean)));
+        for (const target of targets) {
+          if (!target || !isVisibleElement(target) || isElementDisabled(target)) continue;
+          try {
+            target.focus?.({ preventScroll: true });
+          } catch {
+            try {
+              target.focus?.();
+            } catch {
+            }
+          }
+          activated = simulatePointerActivationAt(target, x, y) || activated;
+          activated = forceNativeClickElement(target) || activated;
+          activated = simulateClickElement(target, { nativeFallback: true }) || activated;
+          if (activated) return true;
+        }
+      }
+      return activated;
+    }
     async function waitForAllSourcesMenuItem() {
       const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
       while (Date.now() <= deadline) {
@@ -1802,15 +1836,23 @@
       let row = findOpenAllSourcesMenuItem();
       if (!row) {
         const mySourcesRow = findSettingsMenuItemByText(root, textLooksLikeMySourcesMenuItem);
-        const mySourcesTarget = getClickableActionElement(mySourcesRow, root) || mySourcesRow;
-        if (!mySourcesTarget || !simulateClickElement(mySourcesTarget, { nativeFallback: true })) return false;
+        if (!activateSettingsMenuRow(mySourcesRow, root)) {
+          await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+          return false;
+        }
         await sleep(SETTINGS_MENU_TIMING.openDelayMs);
         row = await waitForAllSourcesMenuItem();
       }
-      if (!row) return false;
+      if (!row) {
+        await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+        return false;
+      }
       syncNotionShortcutIconFromElement(engine2, "selectSearchScope", row);
       const target = findWebAccessToggleTarget(row);
-      if (!target) return false;
+      if (!target) {
+        await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+        return false;
+      }
       const previousState = getWebAccessToggleState(target);
       if (!simulateClickElement(target, { nativeFallback: true })) return false;
       const closePromise = closeSettingsMenu(trigger, { initialDelayMs: 30 });
