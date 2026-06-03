@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion AI] 快捷键跳转 [20260604] v1.0.0
-// @name:en        [Notion AI] Shortcut Jump [20260604] v1.0.0
+// @name           [Notion AI] 快捷键跳转 [20260604] v1.1.0
+// @name:en        [Notion AI] Shortcut Jump [20260604] v1.1.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260604] v1.0.0
-// @update-log     1.0.0: 修复 Notion AI 当前菜单快捷键：Ctrl+S 可靠展开 My sources 子菜单并切换 All sources I can access，Ctrl+R 使用网页原生 Research glasses 图标，继续保留普通/黑暗双图源与旧配置迁移。
-// @update-log:en  1.0.0: Fixed Notion AI current-menu shortcuts: Ctrl+S now reliably opens the My sources submenu and toggles All sources I can access, Ctrl+R uses the native Research glasses icon, and light/dark icon sources plus old-config migration are kept.
+// @version        [20260604] v1.1.0
+// @update-log     1.1.0: 完善 Notion AI Mode 适配，新增 Default / Ask / Plan / Research 四个直达快捷键（Ctrl+D / Ctrl+A / Ctrl+Shift+P / Ctrl+R），打开 Mode 子菜单时同步网页原生 SVG 图标，尤其 Ctrl+R 使用 Research 行原生 glasses 图标；保留 Ctrl+S 全部来源开关与 Ctrl+W 联网开关。
+// @update-log:en  1.1.0: Improved Notion AI Mode support with direct Default / Ask / Plan / Research shortcuts (Ctrl+D / Ctrl+A / Ctrl+Shift+P / Ctrl+R), native SVG icon sync from the Mode submenu, especially the Research-row glasses icon for Ctrl+R; Ctrl+S All Sources and Ctrl+W Web Access remain unchanged.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -171,6 +171,9 @@
     const NOTION_AI_FALLBACK_ICON = NOTION_AI_NATIVE_FACE_ICON;
     const SEARCH_ICON = notionNativeIcon("search");
     const SETTINGS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'/%3E%3Cpath d='M12 1L9 4H6a2 2 0 0 0-2 2v3l-3 3 3 3v3a2 2 0 0 0 2 2h3l3 3 3-3h3a2 2 0 0 0 2-2v-3l3-3-3-3V6a2 2 0 0 0-2-2h-3L12 1z'/%3E%3C/svg%3E";
+    const NOTION_NATIVE_MODE_DEFAULT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M18.125 7.188 14.875 8l-.812 3.25h-.626L12.626 8l-3.25-.812v-.625l3.25-.813.813-3.25h.624l.813 3.25 3.25.813zM6.875 9.063v-.626L5.125 8l-.437-1.75h-.625L3.625 8l-1.75.438v.624l1.75.438.438 1.75h.625l.437-1.75zm2.813 2.187h-.626L8.5 13.5l-2.25.563v.624l2.25.563.563 2.25h.624l.563-2.25 2.25-.562v-.626l-2.25-.562z"/></svg>';
+    const NOTION_NATIVE_MODE_ASK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M17.5 9.375c0 4.24-2.872 6.875-7.5 6.875q-1.275-.002-2.36-.262A7.48 7.48 0 0 1 3.126 17.5l-.625-.937 2.094-2.094C3.25 13.279 2.5 11.538 2.5 9.375 2.5 5.135 5.372 2.5 10 2.5s7.5 2.634 7.5 6.875"/></svg>';
+    const NOTION_NATIVE_MODE_PLAN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M11.25 3.75h1.25v10.625L8.75 16.25H7.5V5.625zm-10 0v10.625L5 16.25h1.25V5.625L2.5 3.75zm13.75 0h-1.25v10.625l3.75 1.875h1.25V5.625z"/></svg>';
     const NOTION_NATIVE_RESEARCH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M.625 7.188v1.875h1.25l.353 2.121c.31 1.857 1.516 2.879 3.397 2.879s3.088-1.022 3.397-2.879l.25-1.506c.066-.397.325-.616.728-.616s.662.22.728.616l.25 1.506c.31 1.857 1.516 2.879 3.397 2.879s3.087-1.022 3.397-2.879l.353-2.121h1.25V7.187zm6.547 3.69c-.16.956-.578 1.31-1.547 1.31s-1.388-.357-1.547-1.31l-.303-1.815h3.697l-.303 1.815zm8.75 0c-.16.956-.578 1.31-1.547 1.31s-1.387-.357-1.547-1.31l-.303-1.815h3.697l-.303 1.815z"/></svg>';
     const NOTION_NATIVE_PLUS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3.59a.66.66 0 0 1 .66.66v5.09h5.09a.66.66 0 0 1 0 1.32h-5.09v5.09a.66.66 0 0 1-1.32 0v-5.09H4.25a.66.66 0 0 1 0-1.32h5.09V4.25a.66.66 0 0 1 .66-.66"/></svg>';
     const NOTION_NATIVE_ATTACH_FILE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z"/></svg>';
@@ -179,6 +182,9 @@
     const NOTION_NATIVE_CREATE_IMAGE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="m16.949 3.47-.618.619-1.164-1.165.625-.624a.823.823 0 0 1 1.157 0 .823.823 0 0 1 0 1.157zm-8.526 8.527 7.153-7.153-1.165-1.165-7.16 7.147a1.1 1.1 0 0 0-.247.414l-.303.978c-.055.206.137.4.33.33l.978-.303a.9.9 0 0 0 .414-.248"/><path d="M9.578 5.438q.617 0 1.197.126l1.051-1.004a6.9 6.9 0 0 0-2.248-.372h-.35a6.603 6.603 0 0 0-6.603 6.602v.257c0 1.254.371 2.48 1.067 3.524a9.25 9.25 0 0 0 5.455 3.844l.514.129a.625.625 0 1 0 .303-1.213l-.513-.128a8 8 0 0 1-4.719-3.325 5.1 5.1 0 0 1-.857-2.831v-.257a5.353 5.353 0 0 1 5.353-5.352z"/><path d="M12.444 15.748a6.47 6.47 0 0 1-5.471-1.878l1.387-.433a5.22 5.22 0 0 0 3.92 1.072l.08-.01a3.37 3.37 0 0 0 2.921-3.345 5.7 5.7 0 0 0-1.011-3.248l.904-.885a6.94 6.94 0 0 1 1.357 4.133 4.624 4.624 0 0 1-4.006 4.584z"/></svg>';
     const NOTION_NATIVE_DELETE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M8.806 8.505a.55.55 0 0 0-1.1 0v5.979a.55.55 0 1 0 1.1 0zm3.488 0a.55.55 0 0 0-1.1 0v5.979a.55.55 0 1 0 1.1 0z"/><path d="M6.386 3.925v1.464H3.523a.625.625 0 1 0 0 1.25h.897l.393 8.646A2.425 2.425 0 0 0 7.236 17.6h5.528a2.425 2.425 0 0 0 2.422-2.315l.393-8.646h.898a.625.625 0 1 0 0-1.25h-2.863V3.925c0-.842-.683-1.525-1.525-1.525H7.91c-.842 0-1.524.683-1.524 1.525M7.91 3.65h4.18c.15 0 .274.123.274.275v1.464H7.636V3.925c0-.152.123-.275.274-.275m-.9 2.99h7.318l-.39 8.588a1.175 1.175 0 0 1-1.174 1.122H7.236a1.175 1.175 0 0 1-1.174-1.122l-.39-8.589z"/></svg>';
     const QUICK_INPUT_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h.01"/><path d="M11 9h.01"/><path d="M15 9h.01"/><path d="M17 15H7"/></svg>';
+    const MODE_DEFAULT_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_MODE_DEFAULT_SVG);
+    const MODE_ASK_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_MODE_ASK_SVG);
+    const MODE_PLAN_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_MODE_PLAN_SVG);
     const RESEARCH_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_RESEARCH_SVG);
     const ADD_CONTEXT_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_PLUS_SVG);
     const ATTACH_FILE_ICON_INFO = notionNativeSvgIconInfo(NOTION_NATIVE_ATTACH_FILE_SVG);
@@ -196,12 +202,26 @@
     const IMAGE_GENERATION_ICON = IMAGE_GENERATION_ICON_INFO.icon;
     const QUICK_INPUT_ICON = QUICK_INPUT_ICON_INFO.icon;
     const DELETE_TOPIC_ICON = DELETE_TOPIC_ICON_INFO.icon;
+    const NOTION_MODE_ICON_DEFAULTS = Object.freeze({
+      default: MODE_DEFAULT_ICON_INFO,
+      ask: MODE_ASK_ICON_INFO,
+      plan: MODE_PLAN_ICON_INFO,
+      research: RESEARCH_ICON_INFO
+    });
+    function getNotionDefaultModeIconInfo(modeId) {
+      const key = String(modeId || "").trim();
+      return NOTION_MODE_ICON_DEFAULTS[key] || NOTION_MODE_ICON_DEFAULTS.research;
+    }
     const defaultIcons = [
       { name: "Notion", url: defaultIconURL },
       { name: "AI Assistant", url: NOTION_AI_FALLBACK_ICON },
       { name: "Search", url: SEARCH_ICON },
       { name: "Settings", url: SETTINGS_ICON },
       { name: "Research", url: RESEARCH_ICON },
+      { name: "Mode Default", url: MODE_DEFAULT_ICON_INFO.icon },
+      { name: "Mode Ask", url: MODE_ASK_ICON_INFO.icon },
+      { name: "Mode Plan", url: MODE_PLAN_ICON_INFO.icon },
+      { name: "Mode Research", url: RESEARCH_ICON },
       { name: "New Chat", url: NEW_CHAT_ICON },
       { name: "Search Scope", url: SEARCH_SCOPE_ICON },
       { name: "Web Access", url: WEB_ACCESS_ICON },
@@ -351,10 +371,50 @@
       opus46: "opus48"
     });
     const NOTION_MODEL_SHORTCUT_KEYS = Object.freeze(NOTION_MODEL_TARGET_LIST.map((target) => `model-${target.id}`));
+    const NOTION_MODE_TARGETS = Object.freeze({
+      default: Object.freeze({
+        id: "default",
+        key: "modeDefault",
+        label: "Mode: Default",
+        labelKey: "shortcuts.modeDefault",
+        hotkey: "CTRL+D",
+        aliases: Object.freeze(["default", "mode default", "默认"])
+      }),
+      ask: Object.freeze({
+        id: "ask",
+        key: "modeAsk",
+        label: "Mode: Ask",
+        labelKey: "shortcuts.modeAsk",
+        hotkey: "CTRL+A",
+        aliases: Object.freeze(["ask", "mode ask", "提问", "询问"])
+      }),
+      plan: Object.freeze({
+        id: "plan",
+        key: "modePlan",
+        label: "Mode: Plan",
+        labelKey: "shortcuts.modePlan",
+        hotkey: "CTRL+SHIFT+P",
+        aliases: Object.freeze(["plan", "mode plan", "计划"])
+      }),
+      research: Object.freeze({
+        id: "research",
+        key: "toggleResearchMode",
+        label: "Mode: Research",
+        labelKey: "shortcuts.modeResearch",
+        hotkey: "CTRL+R",
+        aliases: Object.freeze(["research", "research mode", "deep research", "mode research", "研究", "深度研究"])
+      })
+    });
+    const NOTION_MODE_TARGET_LIST = Object.freeze(Object.values(NOTION_MODE_TARGETS));
+    const NOTION_MODE_SHORTCUT_KEYS = Object.freeze(NOTION_MODE_TARGET_LIST.map((target) => target.key));
+    const NOTION_MANAGED_MODE_SHORTCUT_KEYS = Object.freeze(
+      NOTION_MODE_TARGET_LIST.filter((target) => target.id !== "research").map((target) => target.key)
+    );
     const NOTION_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
       "newChat",
       LEGACY_SELECT_AI_MODEL_KEY,
       ...NOTION_MODEL_SHORTCUT_KEYS,
+      ...NOTION_MANAGED_MODE_SHORTCUT_KEYS,
       "toggleWebAccess",
       "toggleImageGeneration",
       "quickInput",
@@ -834,6 +894,35 @@
       if (text.includes("kimi") && text.includes("k2.6")) return NOTION_MODEL_TARGETS.kimi26;
       if (text.includes("deepseek") && text.includes("v4") && text.includes("pro")) return NOTION_MODEL_TARGETS.deepseekV4Pro;
       return null;
+    }
+    function getModeTargetComparableLabels(target) {
+      if (!target) return [];
+      const labels = [target.label, ...target.aliases || []].map(normalizeNotionText).filter(Boolean);
+      return Array.from(new Set(labels));
+    }
+    function inferModeTargetFromText(value) {
+      const text = normalizeNotionText(value);
+      const key = normalizeNotionTargetKey(value);
+      if (!text && !key) return null;
+      for (const target of NOTION_MODE_TARGET_LIST) {
+        if (key === normalizeNotionTargetKey(target.id)) return target;
+        if (key === normalizeNotionTargetKey(target.key)) return target;
+        if (key === normalizeNotionTargetKey(target.label)) return target;
+        if ((target.aliases || []).some((alias) => key === normalizeNotionTargetKey(alias))) return target;
+      }
+      if (text.includes("answers only") || text.includes("won't make edits")) return NOTION_MODE_TARGETS.ask;
+      if (text.includes("plans first") || text.includes("approval")) return NOTION_MODE_TARGETS.plan;
+      if (text.includes("think deeper") || text.includes("thorough analysis")) return NOTION_MODE_TARGETS.research;
+      if (text.includes("can search") && text.includes("edit")) return NOTION_MODE_TARGETS.default;
+      if (text === "默认" || text.includes("默认模式")) return NOTION_MODE_TARGETS.default;
+      if (text.includes("提问") || text.includes("只回答")) return NOTION_MODE_TARGETS.ask;
+      if (text.includes("计划") || text.includes("审批")) return NOTION_MODE_TARGETS.plan;
+      if (text.includes("研究") || text.includes("深度")) return NOTION_MODE_TARGETS.research;
+      return null;
+    }
+    function getModeTargetByShortcutKey(key) {
+      const normalized = String(key || "").trim();
+      return NOTION_MODE_TARGET_LIST.find((target) => target.key === normalized) || null;
     }
     function textLooksLikeNewChat(value) {
       const text = normalizeNotionText(value);
@@ -1315,6 +1404,8 @@
       if (normalized.includes("add sources")) score += 80;
       if (normalized.includes("personalize")) score += 60;
       if (normalized.includes("mode")) score += 40;
+      if (normalized.includes("default") && normalized.includes("ask") && normalized.includes("plan")) score += 220;
+      if (normalized.includes("answers only") || normalized.includes("plans first") || normalized.includes("think deeper")) score += 100;
       return score >= 160 ? score : -1;
     }
     function findSettingsMenuRoot(triggerEl = null) {
@@ -1415,7 +1506,30 @@
     }
     function textLooksLikeResearchModeMenuItem(value) {
       const text = normalizeNotionText(value);
-      return !!text && (text === "research" || text === "research mode" || text === "deep research" || text.includes("research mode") || text.includes("deep research") || text.includes("research") || text.includes("研究") || text.includes("深度研究"));
+      return !!text && (text === "research" || text === "research mode" || text === "deep research" || text.startsWith("research ") || text.includes("research mode") || text.includes("deep research") || text.includes("think deeper") || text.includes("thorough analysis") || text.includes("research") || text.includes("研究") || text.includes("深度研究"));
+    }
+    function textLooksLikeModeTargetMenuItem(value, target) {
+      const text = normalizeNotionText(value);
+      if (!text || !target) return false;
+      const labels = getModeTargetComparableLabels(target);
+      if (labels.some((label) => text === label || text.startsWith(`${label} `))) return true;
+      if (target.id === "default") {
+        return text.includes("can search") || text.includes("edit, and more") || text.includes("search, edit") || text === "默认" || text.includes("默认");
+      }
+      if (target.id === "ask") {
+        return text.includes("answers only") || text.includes("won't make edits") || text.includes("不会编辑") || text.includes("只回答") || text.includes("提问");
+      }
+      if (target.id === "plan") {
+        return text.includes("plans first") || text.includes("executes after approval") || text.includes("approval") || text.includes("先计划") || text.includes("计划");
+      }
+      if (target.id === "research") {
+        return textLooksLikeResearchModeMenuItem(text);
+      }
+      return false;
+    }
+    function findOpenModeMenuItem(target) {
+      if (!target) return null;
+      return findOpenSettingsMenuItemByText((value) => textLooksLikeModeTargetMenuItem(value, target));
     }
     function textLooksLikeModeMenuItem(value) {
       const text = normalizeNotionText(value);
@@ -1536,6 +1650,24 @@
         await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
       }
       return findOpenAllSourcesMenuItem();
+    }
+    async function waitForModeMenuItem(target) {
+      const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+      while (Date.now() <= deadline) {
+        const row = findOpenModeMenuItem(target);
+        if (row) return row;
+        await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+      }
+      return findOpenModeMenuItem(target);
+    }
+    async function ensureModeMenuOpen(trigger, root, target) {
+      const existingTargetRow = findOpenModeMenuItem(target);
+      if (existingTargetRow) return existingTargetRow;
+      const modeRow = findSettingsMenuItemByText(root, textLooksLikeModeMenuItem) || findOpenSettingsMenuItemByText(textLooksLikeModeMenuItem);
+      if (!modeRow) return null;
+      if (!activateSettingsMenuRow(modeRow, root)) return null;
+      await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+      return waitForModeMenuItem(target);
     }
     function findResearchModeTriggerElement() {
       const selectors = [
@@ -1861,35 +1993,46 @@
       if (!closed) await closeSettingsMenu(findSettingsTriggerElement(), { initialDelayMs: 0 });
       return changed;
     }
-    async function toggleResearchModeAction({ engine: engine2 } = {}) {
-      const directTrigger = findResearchModeTriggerElement();
-      if (directTrigger) {
-        syncNotionShortcutIconFromElement(engine2, "toggleResearchMode", directTrigger);
-        return simulateClickElement(directTrigger, { nativeFallback: true });
-      }
+    function resolveModeSelectionTarget(shortcut, targetId = "") {
+      const explicitTarget = inferModeTargetFromText(targetId);
+      if (explicitTarget) return explicitTarget;
+      const data = getShortcutDataObject(shortcut);
+      const rawMode = data.mode;
+      const mode = isPlainObject(rawMode) ? rawMode : rawMode !== void 0 ? { id: rawMode } : data;
+      const target = inferModeTargetFromText(mode.id ?? mode.target ?? mode.textMatch ?? mode.keyword ?? shortcut?.key ?? shortcut?.name);
+      if (target) return target;
+      const byKey = getModeTargetByShortcutKey(shortcut?.key);
+      if (byKey) return byKey;
+      return NOTION_MODE_TARGETS.research;
+    }
+    async function selectModeAction({ shortcut, engine: engine2, targetId = "" } = {}) {
+      const target = resolveModeSelectionTarget(shortcut, targetId);
       const trigger = findSettingsTriggerElement();
+      if (!trigger) return false;
       const root = await ensureSettingsMenuOpen(trigger);
       if (!root) return false;
-      let researchItem = findSettingsMenuItemByText(root, textLooksLikeResearchModeMenuItem) || findOpenSettingsMenuItemByText(textLooksLikeResearchModeMenuItem);
-      if (researchItem) {
-        syncNotionShortcutIconFromElement(engine2, "toggleResearchMode", researchItem);
-        const target2 = getClickableActionElement(researchItem, root) || researchItem;
-        if (!simulateClickElement(target2, { nativeFallback: true })) return false;
-        await closeSettingsMenu(trigger, { initialDelayMs: 30 });
-        return true;
+      const initialRow = await ensureModeMenuOpen(trigger, root, target);
+      if (!initialRow) {
+        await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+        return false;
       }
-      const modeItem = findSettingsMenuItemByText(root, textLooksLikeModeMenuItem);
-      if (!modeItem) return false;
-      const modeTarget = getClickableActionElement(modeItem, root) || modeItem;
-      if (!simulateClickElement(modeTarget, { nativeFallback: true })) return false;
+      syncNotionModeShortcutIconsFromOpenMenu(engine2);
+      const row = findOpenModeMenuItem(target) || initialRow;
+      if (!row) {
+        await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+        return false;
+      }
+      if (!activateSettingsMenuRow(row)) {
+        await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+        return false;
+      }
       await sleep(SETTINGS_MENU_TIMING.openDelayMs);
-      researchItem = findOpenSettingsMenuItemByText(textLooksLikeResearchModeMenuItem);
-      if (!researchItem) return true;
-      syncNotionShortcutIconFromElement(engine2, "toggleResearchMode", researchItem);
-      const target = getClickableActionElement(researchItem) || researchItem;
-      if (!simulateClickElement(target, { nativeFallback: true })) return true;
+      syncNotionModeShortcutIconsFromOpenMenu(engine2);
       await closeSettingsMenu(trigger, { initialDelayMs: 30 });
       return true;
+    }
+    async function toggleResearchModeAction(args = {}) {
+      return selectModeAction({ ...args, targetId: "research" });
     }
     function textLooksLikeCreateImageMenuItem(value) {
       const text = normalizeNotionText(value);
@@ -4749,7 +4892,11 @@
           modelGpt55: "模型：GPT-5.5",
           modelKimi26: "模型：Kimi K2.6",
           modelDeepSeekV4Pro: "模型：DeepSeek V4 Pro",
-          toggleResearchMode: "切换研究模式",
+          modeDefault: "模式：Default",
+          modeAsk: "模式：Ask",
+          modePlan: "模式：Plan",
+          modeResearch: "模式：Research",
+          toggleResearchMode: "模式：Research",
           selectSearchScope: "切换全部来源",
           toggleWebAccess: "切换联网",
           toggleImageGeneration: "切换图片生成",
@@ -4781,7 +4928,11 @@
         shortcuts: {
           newChat: "New Chat",
           selectAiModel: "Select AI Model",
-          toggleResearchMode: "Toggle Research Mode",
+          modeDefault: "Mode: Default",
+          modeAsk: "Mode: Ask",
+          modePlan: "Mode: Plan",
+          modeResearch: "Mode: Research",
+          toggleResearchMode: "Mode: Research",
           selectSearchScope: "Toggle All Sources",
           toggleWebAccess: "Toggle Web Access",
           toggleImageGeneration: "Toggle Image Generation",
@@ -4834,6 +4985,22 @@
       });
     }
     const defaultModelShortcuts = NOTION_MODEL_TARGET_LIST.map(createModelShortcut);
+    function createModeShortcut(target) {
+      const iconInfo = getNotionDefaultModeIconInfo(target?.id);
+      return createShortcut({
+        key: target.key,
+        name: target.label,
+        labelKey: target.labelKey,
+        actionType: "custom",
+        customAction: "selectMode",
+        hotkey: target.hotkey,
+        icon: iconInfo.icon,
+        iconDark: iconInfo.iconDark || "",
+        iconAdaptive: iconInfo.iconAdaptive,
+        data: { mode: { id: target.id } }
+      });
+    }
+    const defaultModeShortcuts = NOTION_MODE_TARGET_LIST.map(createModeShortcut);
     const defaultShortcuts = [
       createShortcut({
         key: "newChat",
@@ -4858,17 +5025,7 @@
         iconAdaptive: getNotionDefaultModelIconInfo("auto").iconAdaptive
       }),
       ...defaultModelShortcuts,
-      createShortcut({
-        key: "toggleResearchMode",
-        name: "Toggle Research Mode",
-        labelKey: "shortcuts.toggleResearchMode",
-        actionType: "custom",
-        customAction: "toggleResearchMode",
-        hotkey: "CTRL+R",
-        icon: RESEARCH_ICON,
-        iconDark: RESEARCH_ICON_INFO.iconDark,
-        iconAdaptive: RESEARCH_ICON_INFO.iconAdaptive
-      }),
+      ...defaultModeShortcuts,
       createShortcut({
         key: "selectSearchScope",
         name: "Toggle All Sources",
@@ -4955,8 +5112,9 @@
       ...NOTION_MODEL_SHORTCUT_KEYS
     ]);
     const NOTION_MODEL_ICON_SHORTCUT_KEY_SET = new Set(NOTION_MODEL_ICON_SHORTCUT_KEYS);
+    const NOTION_MODE_SHORTCUT_KEY_SET = new Set(NOTION_MODE_SHORTCUT_KEYS);
     const NOTION_DEFAULT_ACTION_MIGRATION_KEY_SET = /* @__PURE__ */ new Set([
-      "toggleResearchMode",
+      ...NOTION_MODE_SHORTCUT_KEYS,
       "selectSearchScope"
     ]);
     function createDefaultShortcutByKey(key) {
@@ -4983,6 +5141,12 @@
         const target = inferModelTargetFromText(menu.id ?? menu.textMatch ?? menu.keyword ?? shortcut.name);
         if (target) return `model-${target.id}`;
       }
+      if (customAction === "selectMode" || customAction === "toggleResearchMode") {
+        const target = resolveModeSelectionTarget(shortcut, customAction === "toggleResearchMode" ? "research" : "");
+        if (target) return target.key;
+      }
+      const modeTarget = inferModeTargetFromText(shortcut.name);
+      if (modeTarget) return modeTarget.key;
       if (selector.includes('data-testid="unified-chat-research-mode-button"') || name === "toggle research mode" || name === "切换研究模式") {
         return "toggleResearchMode";
       }
@@ -5021,7 +5185,10 @@
       }
       if (NOTION_DEFAULT_ACTION_MIGRATION_KEY_SET.has(shortcutKey)) {
         const legacyDefaultNames = {
-          toggleResearchMode: ["toggle research mode", "切换研究模式"],
+          modeDefault: ["mode: default", "模式：default", "模式: default"],
+          modeAsk: ["mode: ask", "模式：ask", "模式: ask"],
+          modePlan: ["mode: plan", "模式：plan", "模式: plan"],
+          toggleResearchMode: ["toggle research mode", "切换研究模式", "mode: research", "模式：research", "模式: research"],
           selectSearchScope: ["select search scope", "选择搜索范围", "toggle all sources", "切换全部来源"]
         };
         const currentName = normalizeNotionText(shortcut.name);
@@ -5051,21 +5218,36 @@
             changed = true;
           }
         }
+        if (NOTION_MODE_SHORTCUT_KEY_SET.has(shortcutKey)) {
+          const defaultData = cloneShortcutItem(defaultShortcut.data) || {};
+          const currentData = isPlainObject(shortcut.data) ? shortcut.data : {};
+          let shouldReplaceData = true;
+          try {
+            shouldReplaceData = JSON.stringify(currentData) !== JSON.stringify(defaultData);
+          } catch {
+          }
+          if (shouldReplaceData) {
+            shortcut.data = defaultData;
+            changed = true;
+          }
+        }
       }
       const defaultIcon = String(defaultShortcut.icon || "").trim();
       const defaultIconDark = String(defaultShortcut.iconDark || "").trim();
       const currentIcon = String(shortcut.icon || "").trim();
       const currentIconDark = String(shortcut.iconDark || "").trim();
       const preserveRuntimeModelIcon = NOTION_MODEL_ICON_SHORTCUT_KEY_SET.has(shortcutKey) && currentIcon && currentIcon !== defaultIcon && currentIcon !== NOTION_AI_NATIVE_FACE_ICON && currentIcon !== NOTION_AI_FALLBACK_ICON && isNotionNativeRuntimeAssetIconSource(currentIcon);
-      if (!preserveRuntimeModelIcon && currentIcon !== defaultIcon) {
+      const preserveRuntimeModeIcon = NOTION_MODE_SHORTCUT_KEY_SET.has(shortcutKey) && currentIcon && currentIcon !== defaultIcon && isNotionModeRuntimeSvgIconSource(currentIcon);
+      const preserveRuntimeIcon = preserveRuntimeModelIcon || preserveRuntimeModeIcon;
+      if (!preserveRuntimeIcon && currentIcon !== defaultIcon) {
         shortcut.icon = defaultIcon;
         changed = true;
       }
-      if (!preserveRuntimeModelIcon && currentIconDark !== defaultIconDark) {
+      if (!preserveRuntimeIcon && currentIconDark !== defaultIconDark) {
         shortcut.iconDark = defaultIconDark;
         changed = true;
       }
-      const targetIconAdaptive = preserveRuntimeModelIcon ? isSvgIconSource(currentIcon) : !!defaultShortcut.iconAdaptive;
+      const targetIconAdaptive = preserveRuntimeIcon ? isSvgIconSource(currentIcon) : !!defaultShortcut.iconAdaptive;
       if (!!shortcut.iconAdaptive !== targetIconAdaptive) {
         shortcut.iconAdaptive = targetIconAdaptive;
         changed = true;
@@ -5082,6 +5264,12 @@
       } catch {
         return false;
       }
+    }
+    function isNotionModeRuntimeSvgIconSource(source) {
+      const value = String(source || "").trim();
+      if (!/^data:image\/svg\+xml/i.test(value)) return false;
+      const svgText = decodeSvgDataUri(value);
+      return /<svg[\s>]/i.test(svgText) && /color=(["'])#37352F\1/i.test(svgText);
     }
     function isLegacyNewChatShortcut(shortcut) {
       if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
@@ -5500,6 +5688,37 @@
       updates[key] = iconInfo;
       return true;
     }
+    function getNotionModeIconInfoFromMenuRow(row) {
+      if (!row || isInsideShortcutUi(row)) return null;
+      const rowRect = getElementRect(row);
+      const candidates = getElementsIncludingRoot(row, "svg").map((element) => ({ element, rect: getElementRect(element) })).filter(({ element, rect }) => {
+        if (!element || !rect || isInsideShortcutUi(element) || !isVisibleElement(element)) return false;
+        if (!rowRect) return true;
+        return rect.left <= rowRect.left + Math.min(120, rowRect.width * 0.42);
+      }).sort((a, b) => {
+        if (a.rect.left !== b.rect.left) return a.rect.left - b.rect.left;
+        return (a.rect.top || 0) - (b.rect.top || 0);
+      });
+      const svg = candidates[0]?.element || null;
+      return extractNotionNativeIconInfoFromElement(svg || row, { paintMode: "adaptive" });
+    }
+    function setNotionModeIconUpdatesFromOpenMenu(updates) {
+      if (!updates) return false;
+      let changed = false;
+      for (const target of NOTION_MODE_TARGET_LIST) {
+        const row = findOpenModeMenuItem(target);
+        const iconInfo = getNotionModeIconInfoFromMenuRow(row);
+        if (!iconInfo?.icon) continue;
+        updates[target.key] = iconInfo;
+        changed = true;
+      }
+      return changed;
+    }
+    function syncNotionModeShortcutIconsFromOpenMenu(engineApi) {
+      const updates = {};
+      setNotionModeIconUpdatesFromOpenMenu(updates);
+      return Object.keys(updates).length > 0 && updateNotionShortcutIcons(engineApi, updates);
+    }
     function getNotionModelIconInfoFromMenuRow(row) {
       if (!row || isInsideShortcutUi(row)) return null;
       const svg = getElementsIncludingRoot(row, "svg").find((element) => element && !isInsideShortcutUi(element) && isVisibleElement(element)) || null;
@@ -5538,8 +5757,8 @@
       const contextTrigger = findContextMenuTriggerElement();
       const contextRoot = findContextMenuRoot(contextTrigger) || findContextMenuRoot();
       setNotionModelIconUpdatesFromMenuRoot(updates, modelRoot);
+      setNotionModeIconUpdatesFromOpenMenu(updates);
       setNotionIconUpdateFromElement(updates, "newChat", findNewChatTriggerElement());
-      setNotionIconUpdateFromElement(updates, "toggleResearchMode", findOpenSettingsMenuItemByText(textLooksLikeResearchModeMenuItem) || findVisibleNativeElement('[data-testid="unified-chat-research-mode-button"]'));
       setNotionIconUpdateFromElement(updates, "selectSearchScope", findOpenAllSourcesMenuItem());
       setNotionIconUpdateFromElement(updates, "toggleWebAccess", findWebAccessMenuItem(settingsRoot));
       setNotionIconUpdateFromElement(updates, "addContext", contextTrigger);
@@ -5629,6 +5848,7 @@
         newChat: triggerNewChatAction,
         openModelPicker: openModelPickerAction,
         modelPicker: clickModelPickerItem,
+        selectMode: selectModeAction,
         toggleResearchMode: toggleResearchModeAction,
         toggleAllSources: toggleAllSourcesAction,
         selectSearchScope: toggleAllSourcesAction,
