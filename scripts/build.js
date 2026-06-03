@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
 
-import { SITE_MANIFEST, releaseTemplateCore } from "../src/sites/manifest.js";
+import { RELEASE_PUBLISH_CONFIG, SITE_MANIFEST, releaseTemplateCore } from "../src/sites/manifest.js";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -557,7 +557,8 @@ export async function build() {
   const templateHeader = ensureTrailingNewline(readUtf8(headerTemplatePath).trimEnd());
   const notice = readUtf8(notesPath).trimEnd();
   const buildVersion = extractBuildDate(templateHeader);
-  const templateRequireVersion = extractRequireVersionToken(templateHeader);
+  const configuredRequireVersion = String(RELEASE_PUBLISH_CONFIG.templateCoreRequireVersion || "").trim();
+  const templateRequireVersion = configuredRequireVersion || extractRequireVersionToken(templateHeader);
   const templateCoreRequireUrl = `${releaseTemplateCore()}?v=${encodeURIComponent(templateRequireVersion)}`;
   const builtTemplateCore = applyBuildReplacements(
     await bundleJavaScript(templateArchiveEntryPath, "iife"),
