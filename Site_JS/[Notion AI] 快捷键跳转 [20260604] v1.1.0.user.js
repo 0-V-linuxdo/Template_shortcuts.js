@@ -6,8 +6,8 @@
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
 // @version        [20260604] v1.1.0
-// @update-log     1.1.0: 完善 Notion AI Mode 适配，新增 Default / Ask / Plan / Research 四个直达快捷键（Ctrl+D / Ctrl+A / Ctrl+Shift+P / Ctrl+R），打开 Mode 子菜单时同步网页原生 SVG 图标，尤其 Ctrl+R 使用 Research 行原生 glasses 图标；保留 Ctrl+S 全部来源开关与 Ctrl+W 联网开关。
-// @update-log:en  1.1.0: Improved Notion AI Mode support with direct Default / Ask / Plan / Research shortcuts (Ctrl+D / Ctrl+A / Ctrl+Shift+P / Ctrl+R), native SVG icon sync from the Mode submenu, especially the Research-row glasses icon for Ctrl+R; Ctrl+S All Sources and Ctrl+W Web Access remain unchanged.
+// @update-log     1.1.0: 完善 Notion AI Mode 适配，新增 Default / Ask / Plan / Research 四个直达快捷键（Ctrl+D / Ctrl+A / Ctrl+Shift+P / Ctrl+R），四项默认图标改用官方原生 SVG，并且打开 Mode 子菜单时只从右侧 Mode 行同步网页原生图标，尤其 Ctrl+R 使用 Research 行 glasses 图标；保留 Ctrl+S 全部来源开关与 Ctrl+W 联网开关。
+// @update-log:en  1.1.0: Improved Notion AI Mode support with direct Default / Ask / Plan / Research shortcuts (Ctrl+D / Ctrl+A / Ctrl+Shift+P / Ctrl+R), official native SVG defaults for all four Mode items, and native icon sync only from the right-side Mode rows, especially the Research-row glasses icon for Ctrl+R; Ctrl+S All Sources and Ctrl+W Web Access remain unchanged.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -171,10 +171,10 @@
     const NOTION_AI_FALLBACK_ICON = NOTION_AI_NATIVE_FACE_ICON;
     const SEARCH_ICON = notionNativeIcon("search");
     const SETTINGS_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z'/%3E%3Cpath d='M12 1L9 4H6a2 2 0 0 0-2 2v3l-3 3 3 3v3a2 2 0 0 0 2 2h3l3 3 3-3h3a2 2 0 0 0 2-2v-3l3-3-3-3V6a2 2 0 0 0-2-2h-3L12 1z'/%3E%3C/svg%3E";
-    const NOTION_NATIVE_MODE_DEFAULT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M18.125 7.188 14.875 8l-.812 3.25h-.626L12.626 8l-3.25-.812v-.625l3.25-.813.813-3.25h.624l.813 3.25 3.25.813zM6.875 9.063v-.626L5.125 8l-.437-1.75h-.625L3.625 8l-1.75.438v.624l1.75.438.438 1.75h.625l.437-1.75zm2.813 2.187h-.626L8.5 13.5l-2.25.563v.624l2.25.563.563 2.25h.624l.563-2.25 2.25-.562v-.626l-2.25-.562z"/></svg>';
-    const NOTION_NATIVE_MODE_ASK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M17.5 9.375c0 4.24-2.872 6.875-7.5 6.875q-1.275-.002-2.36-.262A7.48 7.48 0 0 1 3.126 17.5l-.625-.937 2.094-2.094C3.25 13.279 2.5 11.538 2.5 9.375 2.5 5.135 5.372 2.5 10 2.5s7.5 2.634 7.5 6.875"/></svg>';
-    const NOTION_NATIVE_MODE_PLAN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M11.25 3.75h1.25v10.625L8.75 16.25H7.5V5.625zm-10 0v10.625L5 16.25h1.25V5.625L2.5 3.75zm13.75 0h-1.25v10.625l3.75 1.875h1.25V5.625z"/></svg>';
-    const NOTION_NATIVE_RESEARCH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M.625 7.188v1.875h1.25l.353 2.121c.31 1.857 1.516 2.879 3.397 2.879s3.088-1.022 3.397-2.879l.25-1.506c.066-.397.325-.616.728-.616s.662.22.728.616l.25 1.506c.31 1.857 1.516 2.879 3.397 2.879s3.087-1.022 3.397-2.879l.353-2.121h1.25V7.187zm6.547 3.69c-.16.956-.578 1.31-1.547 1.31s-1.388-.357-1.547-1.31l-.303-1.815h3.697l-.303 1.815zm8.75 0c-.16.956-.578 1.31-1.547 1.31s-1.387-.357-1.547-1.31l-.303-1.815h3.697l-.303 1.815z"/></svg>';
+    const NOTION_NATIVE_MODE_DEFAULT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="#55534E"><path d="m12.166 5.625 2.209 2.21-3.103 3.103-2.21-2.21zM20 9.688l-1.75-.438-.437-1.75h-.625l-.438 1.75-1.75.438v.624l1.75.438.438 1.75h.625l.437-1.75 1.75-.437zM5.938 8.75h.625L7 7l1.75-.437v-.625L7 5.5l-.437-1.75h-.625L5.5 5.5l-1.75.438v.625L5.5 7zm-4.063 7.166 2.21 2.209 6.302-6.303-2.209-2.21zM15.875 4l2.25-.562v-.626l-2.25-.562L15.313 0h-.626l-.562 2.25-2.25.563v.624l2.25.563.563 2.25h.624z" fill="#55534E"></path></svg>';
+    const NOTION_NATIVE_MODE_ASK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="#55534E"><path d="M17.5 9.375c0 4.24-2.872 6.875-7.5 6.875q-1.275-.002-2.36-.262A7.48 7.48 0 0 1 3.126 17.5l-.625-.937 2.094-2.094C3.25 13.279 2.5 11.538 2.5 9.375 2.5 5.135 5.372 2.5 10 2.5s7.5 2.634 7.5 6.875" fill="#55534E"></path></svg>';
+    const NOTION_NATIVE_MODE_PLAN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="#55534E"><path d="M11.25 3.75h1.25v10.625L8.75 16.25H7.5V5.625zm-10 0v10.625L5 16.25h1.25V5.625L2.5 3.75zm13.75 0h-1.25v10.625l3.75 1.875h1.25V5.625z" fill="#55534E"></path></svg>';
+    const NOTION_NATIVE_RESEARCH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="#55534E"><path d="M.625 7.188v1.875h1.25l.353 2.121c.31 1.857 1.516 2.879 3.397 2.879s3.088-1.022 3.397-2.879l.25-1.506c.066-.397.325-.616.728-.616s.662.22.728.616l.25 1.506c.31 1.857 1.516 2.879 3.397 2.879s3.087-1.022 3.397-2.879l.353-2.121h1.25V7.187zm6.547 3.69c-.16.956-.578 1.31-1.547 1.31s-1.388-.357-1.547-1.31l-.303-1.815h3.697l-.303 1.815zm8.75 0c-.16.956-.578 1.31-1.547 1.31s-1.387-.357-1.547-1.31l-.303-1.815h3.697l-.303 1.815z" fill="#55534E"></path></svg>';
     const NOTION_NATIVE_PLUS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3.59a.66.66 0 0 1 .66.66v5.09h5.09a.66.66 0 0 1 0 1.32h-5.09v5.09a.66.66 0 0 1-1.32 0v-5.09H4.25a.66.66 0 0 1 0-1.32h5.09V4.25a.66.66 0 0 1 .66-.66"/></svg>';
     const NOTION_NATIVE_ATTACH_FILE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.184 3.64A3.475 3.475 0 0 1 15.1 8.554l-5.374 5.374a2.05 2.05 0 1 1-2.9-2.9l2.688-2.686a.625.625 0 0 1 .884.884L7.71 11.913a.8.8 0 0 0 1.13 1.131l5.375-5.374a2.225 2.225 0 1 0-3.147-3.146L5.694 9.898a3.65 3.65 0 1 0 5.162 5.161l4.702-4.702a.625.625 0 0 1 .884.884l-4.702 4.702a4.9 4.9 0 1 1-6.93-6.93z"/></svg>';
     const NOTION_NATIVE_SETTINGS_SLIDERS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3 7.375h6.829a2.501 2.501 0 0 0 4.842 0H17a.625.625 0 1 0 0-1.25h-2.329a2.501 2.501 0 0 0-4.842 0H3a.625.625 0 1 0 0 1.25M12.25 5.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5"/><path fill-rule="evenodd" d="M7.75 15.75a2.5 2.5 0 0 0 2.421-1.875H17a.625.625 0 1 0 0-1.25h-6.829a2.5 2.5 0 0 0-4.842 0H3a.625.625 0 1 0 0 1.25h2.329A2.5 2.5 0 0 0 7.75 15.75m0-1.25a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5" clip-rule="evenodd"/></svg>';
@@ -1527,9 +1527,39 @@
       }
       return false;
     }
+    function scoreModeMenuRoot(root) {
+      if (!root || !isVisibleElement(root) || isInsideShortcutUi(root)) return -1;
+      const text = normalizeNotionText(getElementText(root));
+      if (!text) return -1;
+      let score = 0;
+      if (text.includes("default")) score += 80;
+      if (text.includes("ask")) score += 80;
+      if (text.includes("plan")) score += 80;
+      if (text.includes("research")) score += 80;
+      if (text.includes("默认")) score += 80;
+      if (text.includes("提问") || text.includes("询问")) score += 80;
+      if (text.includes("计划")) score += 80;
+      if (text.includes("研究")) score += 80;
+      if (text.includes("answers only") || text.includes("won't make edits")) score += 120;
+      if (text.includes("plans first") || text.includes("executes after approval")) score += 120;
+      if (text.includes("think deeper") || text.includes("thorough analysis")) score += 120;
+      const role = String(root.getAttribute?.("role") || "").toLowerCase();
+      if (role === "menu") score += 60;
+      return score >= 240 ? score : -1;
+    }
+    function findOpenModeMenuRoot() {
+      const roots = safeQueryAll(document, NOTION_SETTINGS_MENU_ROOT_SELECTOR).filter((root) => root && isVisibleElement(root) && !isInsideShortcutUi(root)).map((root) => ({ root, score: scoreModeMenuRoot(root), rect: getElementRect(root) })).filter((item) => item.score > 0);
+      if (roots.length === 0) return null;
+      roots.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (b.rect?.right || 0) - (a.rect?.right || 0);
+      });
+      return roots[0]?.root || null;
+    }
     function findOpenModeMenuItem(target) {
       if (!target) return null;
-      return findOpenSettingsMenuItemByText((value) => textLooksLikeModeTargetMenuItem(value, target));
+      const root = findOpenModeMenuRoot();
+      return root ? findSettingsMenuItemByText(root, (value) => textLooksLikeModeTargetMenuItem(value, target)) : null;
     }
     function textLooksLikeModeMenuItem(value) {
       const text = normalizeNotionText(value);
@@ -5237,7 +5267,7 @@
       const currentIcon = String(shortcut.icon || "").trim();
       const currentIconDark = String(shortcut.iconDark || "").trim();
       const preserveRuntimeModelIcon = NOTION_MODEL_ICON_SHORTCUT_KEY_SET.has(shortcutKey) && currentIcon && currentIcon !== defaultIcon && currentIcon !== NOTION_AI_NATIVE_FACE_ICON && currentIcon !== NOTION_AI_FALLBACK_ICON && isNotionNativeRuntimeAssetIconSource(currentIcon);
-      const preserveRuntimeModeIcon = NOTION_MODE_SHORTCUT_KEY_SET.has(shortcutKey) && currentIcon && currentIcon !== defaultIcon && isNotionModeRuntimeSvgIconSource(currentIcon);
+      const preserveRuntimeModeIcon = NOTION_MODE_SHORTCUT_KEY_SET.has(shortcutKey) && currentIcon && currentIcon !== defaultIcon && !isLegacyNotionModeFallbackIconSource(currentIcon) && isNotionModeRuntimeSvgIconSource(currentIcon);
       const preserveRuntimeIcon = preserveRuntimeModelIcon || preserveRuntimeModeIcon;
       if (!preserveRuntimeIcon && currentIcon !== defaultIcon) {
         shortcut.icon = defaultIcon;
@@ -5270,6 +5300,10 @@
       if (!/^data:image\/svg\+xml/i.test(value)) return false;
       const svgText = decodeSvgDataUri(value);
       return /<svg[\s>]/i.test(svgText) && /color=(["'])#37352F\1/i.test(svgText);
+    }
+    function isLegacyNotionModeFallbackIconSource(source) {
+      const svgText = decodeSvgDataUri(source);
+      return svgText.includes("18.125 7.188") && svgText.includes("2.813 2.187");
     }
     function isLegacyNewChatShortcut(shortcut) {
       if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
