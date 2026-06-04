@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260604] v1.0.0
-// @name:en        [Template] Shortcut Core [20260604] v1.0.0
+// @name           [Template] 快捷键跳转 [20260603] v1.0.0
+// @name:en        [Template] Shortcut Core [20260603] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260604] v1.0.0
-// @update-log     1.0.0: 为模拟按键事件补充 composed 事件属性，提升跨组件边界的 Enter 等按键触发稳定性。
-// @update-log:en  1.0.0: Added the composed event flag to simulated keyboard events for more reliable Enter and shortcut dispatch across component boundaries.
+// @version        [20260603] v1.0.0
+// @update-log     1.0.0: 刷新 Template core require 缓存标记，发布 Notion AI 全部默认快捷键图标的网页原生 SVG 同步与普通/黑暗模式可见性修复。
+// @update-log:en  1.0.0: Refreshed the Template core require cache token and published native web SVG sync for all Notion AI default shortcut icons with light/dark visibility fixes.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260604";
+  var TEMPLATE_VERSION = "20260603";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -1356,7 +1356,6 @@
         code: keyProps.code,
         bubbles: true,
         cancelable: true,
-        composed: true,
         ctrlKey: modifiers.includes("CTRL"),
         shiftKey: modifiers.includes("SHIFT"),
         altKey: modifiers.includes("ALT"),
@@ -10174,7 +10173,6 @@ ${displayTargetText}`;
       code: props.code,
       bubbles: true,
       cancelable: true,
-      composed: true,
       ctrlKey: modifiers.has("CTRL") || modifiers.has("CONTROL"),
       shiftKey: modifiers.has("SHIFT"),
       altKey: modifiers.has("ALT") || modifiers.has("OPTION") || modifiers.has("OPT"),
