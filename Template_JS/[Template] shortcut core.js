@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260605] v1.0.0
-// @name:en        [Template] Shortcut Core [20260605] v1.0.0
+// @name           [Template] 快捷键跳转 [20260604] v1.0.1
+// @name:en        [Template] Shortcut Core [20260604] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260605] v1.0.0
-// @update-log     1.0.0: 修复 custom action Promise 返回链；QuickInput 工具快捷键失败会停在当前 hotkey 重试/暂停，未成功前绝不进入发送流程。
-// @update-log:en  1.0.0: Fixed custom action Promise propagation; failed QuickInput tool shortcuts now retry/pause on the current hotkey and never proceed to send before success.
+// @version        [20260604] v1.0.1
+// @update-log     1.0.1: 为模拟按键事件补充 composed 事件属性，配合 Gemini 删除确认流程在模拟 Enter 时稳定触发站点级接管。
+// @update-log:en  1.0.1: Added the composed event flag to simulated keyboard events so Gemini's delete confirmation takeover receives simulated Enter reliably.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260605";
+  var TEMPLATE_VERSION = "20260604";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -8320,23 +8320,21 @@ ${displayTargetText}`;
       const key = item && item.customAction ? String(item.customAction) : "";
       if (!key) {
         console.warn(`${options.consoleTag} Shortcut "${item?.name || ""}" is type 'custom' but has no customAction defined.`);
-        return false;
+        return;
       }
       const actions = options.customActions && typeof options.customActions === "object" ? options.customActions : null;
       const fn = actions ? actions[key] : null;
       if (typeof fn !== "function") {
         console.warn(`${options.consoleTag} Custom action "${key}" not found or not a function.`);
-        return false;
+        return;
       }
       try {
         const res = fn({ shortcut: item, event, engine: engineApi });
         if (res && typeof res.then === "function") {
           res.catch((err) => console.warn(`${options.consoleTag} Custom action "${key}" rejected:`, err));
         }
-        return res;
       } catch (err) {
         console.warn(`${options.consoleTag} Custom action "${key}" failed:`, err);
-        return false;
       }
     }
     function createCoreLayer() {
@@ -8367,7 +8365,7 @@ ${displayTargetText}`;
           }
         }, { label: options?.text?.stats?.simulate || "Key simulation", shortLabel: options?.text?.actionTypes?.simulateShortLabel || "Keys", color: "#2196F3", builtin: true });
         actions.register("custom", ({ shortcut, event }) => {
-          return executeCustomAction(shortcut, event);
+          executeCustomAction(shortcut, event);
         }, { label: options?.text?.stats?.custom || "Custom action", shortLabel: options?.text?.actionTypes?.customShortLabel || "Custom", color: "#607D8B", builtin: true });
       }
       function registerUserActionHandlers() {
@@ -9548,9 +9546,7 @@ ${displayTargetText}`;
       textInserted: (ok) => ok ? "已输入文字。" : "输入文字失败。",
       textRetrying: (stage, attempt = 1, maxAttempts = 1) => `文字校验失败${stage ? `（${stage}）` : ""}：准备自动重试 ${attempt}/${maxAttempts} 次。`,
       textNotReady: (stage) => `文字未真正写入输入框${stage ? `（${stage}）` : ""}：自动补救后仍失败，已停止当前运行，避免发送空内容。`,
-      hotkeyTriggered: (hotkey, ok, detail = "") => ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}${detail ? `（${detail}）` : ""}`,
-      hotkeyRetrying: (hotkey, attempt = 1, maxAttempts = 1, detail = "") => `工具快捷键失败${detail ? `（${detail}）` : ""}：准备自动重试 ${attempt}/${maxAttempts} 次（${hotkey}）。`,
-      hotkeyPausedAfterRetries: (hotkey, maxAttempts = 1, detail = "") => `工具快捷键连续失败 ${maxAttempts} 次${detail ? `（${detail}）` : ""}，已暂停；点击继续后仍将重试当前快捷键（${hotkey}），不会发送当前内容。`,
+      hotkeyTriggered: (hotkey, ok) => ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}`,
       waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
       resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `图片就绪等待超时：当前识别到 ${currentCount} / ${expectedCount} 张，准备清空当前附件并整组重传（第 ${attempt}/${maxAttempts} 次）。`,
       reuploadedImages: (count, expectedCount = count) => `已清空当前附件，并重新上传图片：${count} 张（目标共 ${expectedCount} 张）。`,
@@ -9690,9 +9686,7 @@ ${displayTargetText}`;
         textInserted: (ok) => ok ? "Text inserted." : "Failed to insert text.",
         textRetrying: (stage, attempt = 1, maxAttempts = 1) => `Text verification failed${stage ? ` (${stage})` : ""}; retrying automatically ${attempt}/${maxAttempts}.`,
         textNotReady: (stage) => `Text was not actually written to the input${stage ? ` (${stage})` : ""}; stopped to avoid sending empty content.`,
-        hotkeyTriggered: (hotkey, ok, detail = "") => ok ? `Triggered shortcut: ${hotkey}` : `Failed to trigger shortcut: ${hotkey}${detail ? ` (${detail})` : ""}`,
-        hotkeyRetrying: (hotkey, attempt = 1, maxAttempts = 1, detail = "") => `Tool shortcut failed${detail ? ` (${detail})` : ""}; retrying automatically ${attempt}/${maxAttempts} (${hotkey}).`,
-        hotkeyPausedAfterRetries: (hotkey, maxAttempts = 1, detail = "") => `Tool shortcut failed ${maxAttempts} times${detail ? ` (${detail})` : ""}; paused. Resume will retry the current shortcut and will not send the current content (${hotkey}).`,
+        hotkeyTriggered: (hotkey, ok) => ok ? `Triggered shortcut: ${hotkey}` : `Failed to trigger shortcut: ${hotkey}`,
         waitingUploads: (count) => `Waiting for image uploads... (${count})`,
         resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `Image readiness timed out: detected ${currentCount}/${expectedCount}; clearing attachments and re-uploading the group (${attempt}/${maxAttempts}).`,
         reuploadedImages: (count, expectedCount = count) => `Cleared current attachments and re-uploaded images: ${count} (target ${expectedCount}).`,
@@ -9845,43 +9839,7 @@ ${displayTargetText}`;
     if (panelPos) payload.panelPos = panelPos;
     safeStoreSet(storageKey, payload);
   }
-  function getShortcutExecutionMessage(value) {
-    if (!value || typeof value !== "object") return "";
-    const raw = value.message ?? value.detail ?? value.reason ?? value.error;
-    if (raw instanceof Error) return String(raw.message || raw).trim();
-    if (raw && typeof raw === "object") {
-      try {
-        return JSON.stringify(raw);
-      } catch {
-        return String(raw || "").trim();
-      }
-    }
-    return String(raw || "").trim();
-  }
-  function normalizeShortcutExecutionResult(value) {
-    if (value && typeof value === "object") {
-      const message = getShortcutExecutionMessage(value);
-      if (Object.prototype.hasOwnProperty.call(value, "ok")) {
-        return { ok: !!value.ok, message };
-      }
-      if (Object.prototype.hasOwnProperty.call(value, "success")) {
-        return { ok: !!value.success, message };
-      }
-      const status = String(value.status || "").trim().toLowerCase();
-      if (status === "failed" || status === "failure" || status === "error") {
-        return { ok: false, message };
-      }
-    }
-    return { ok: value !== false, message: "" };
-  }
-  function createHotkeyExecutionReturn(ok, message, detailed) {
-    if (!detailed) return !!ok;
-    return {
-      ok: !!ok,
-      message: String(message || "").trim()
-    };
-  }
-  async function executeEngineShortcutByHotkey(engine, hotkey, { detailed = false } = {}) {
+  async function executeEngineShortcutByHotkey(engine, hotkey) {
     const api = engine || null;
     const core = api?.core || null;
     const normalize = core?.hotkeys?.normalize || core?.normalizeHotkey || null;
@@ -9890,7 +9848,7 @@ ${displayTargetText}`;
       return typeof normalize === "function" ? normalize(raw) : normalizeHotkeyFallback(raw);
     };
     const norm = normalizeOne(hotkey);
-    if (!norm) return createHotkeyExecutionReturn(false, "Invalid hotkey.", detailed);
+    if (!norm) return false;
     let shortcut = core?.getShortcutByHotkeyNorm?.(norm) || null;
     if (!shortcut && typeof api?.getShortcuts === "function") {
       const list = api.getShortcuts();
@@ -9898,30 +9856,23 @@ ${displayTargetText}`;
         shortcut = list.find((item) => item && normalizeOne(item.hotkey) === norm) || null;
       }
     }
-    if (!shortcut) return createHotkeyExecutionReturn(false, "Shortcut not found.", detailed);
-    if (typeof core?.executeShortcutAction !== "function") {
-      return createHotkeyExecutionReturn(false, "Shortcut executor not available.", detailed);
-    }
+    if (!shortcut) return false;
     try {
-      const res = core.executeShortcutAction(shortcut, null);
-      let executionResult = res;
+      const res = core?.executeShortcutAction?.(shortcut, null);
       if (res && typeof res.then === "function") {
         try {
-          executionResult = await res;
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err || "");
-          return createHotkeyExecutionReturn(false, message || "Shortcut action rejected.", detailed);
+          const awaited = await res;
+          if (awaited === false) return false;
+        } catch {
+          return false;
         }
+      } else if (res === false) {
+        return false;
       }
-      const normalizedResult = normalizeShortcutExecutionResult(executionResult);
-      if (!normalizedResult.ok) {
-        return createHotkeyExecutionReturn(false, normalizedResult.message || "Shortcut action returned false.", detailed);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err || "");
-      return createHotkeyExecutionReturn(false, message || "Shortcut action failed.", detailed);
+    } catch {
+      return false;
     }
-    return createHotkeyExecutionReturn(true, "", detailed);
+    return true;
   }
   async function sleepWithCancel(totalMs, { shouldCancel = null, chunkMs = 160, runtime = null } = {}) {
     const cancelFn = typeof shouldCancel === "function" ? shouldCancel : null;
@@ -12050,7 +12001,6 @@ ${displayTargetText}`;
   var QUICK_INPUT_CLIPBOARD_SCHEMA_VERSION = 1;
   var QUICK_INPUT_CLIPBOARD_TYPE = "template-shortcuts.quick-input";
   var IO_SUCCESS_FEEDBACK_MS = 3e3;
-  var TOOL_HOTKEY_MAX_ATTEMPTS = 3;
   function createController(userOptions = {}) {
     const options = userOptions && typeof userOptions === "object" ? userOptions : {};
     const engine = options.engine;
@@ -12885,13 +12835,6 @@ ${displayTargetText}`;
     function getNewChatTriggerLabel(hotkey) {
       const label = resolveDynamicText(adapter.newChatLabel, "");
       return label || String(hotkey || "").trim();
-    }
-    function normalizeHotkeyExecutionResult(result) {
-      if (result && typeof result === "object") {
-        const message = String(result.message ?? result.detail ?? result.reason ?? "").trim();
-        return { ok: result.ok !== false, message };
-      }
-      return { ok: !!result, message: "" };
     }
     function normalizeHotkeyComparisonToken(value) {
       return String(value ?? "").trim().replace(/\s+/g, "").toUpperCase();
@@ -15533,54 +15476,16 @@ ${displayTargetText}`;
         if (toolHotkeys.length) {
           for (const hotkey of toolHotkeys) {
             if (cancelRun) break;
-            let failedAttempts = 0;
-            let hotkeyCompleted = false;
-            while (!cancelRun) {
-              const beforeToolReady = await verifyInputUrlReady(getStageLabel("beforeTool", `:${hotkey}`));
-              if (beforeToolReady !== true) {
-                if (beforeToolReady === "cancelled") {
-                  markRunCancelled();
-                } else {
-                  markRunFailed();
-                  cancelRun = true;
-                }
-                break;
-              }
-              const hotkeyResult = normalizeHotkeyExecutionResult(await executeEngineShortcutByHotkey(engine, hotkey, { detailed: true }));
-              const okHotkey = hotkeyResult.ok;
-              const detail = hotkeyResult.message;
-              const msg = labels.messages?.hotkeyTriggered ? labels.messages.hotkeyTriggered(hotkey, okHotkey, detail) : DEFAULT_LABELS.messages.hotkeyTriggered(hotkey, okHotkey, detail);
-              appendLoopLog(msg, { level: okHotkey ? "ok" : "error" });
-              if (okHotkey) {
-                hotkeyCompleted = true;
-                if (!await waitStep(cfg.stepDelayMs)) {
-                  markRunCancelled();
-                }
-                break;
-              }
-              failedAttempts += 1;
-              if (failedAttempts < TOOL_HOTKEY_MAX_ATTEMPTS) {
-                const retryMsg = labels.messages?.hotkeyRetrying ? labels.messages.hotkeyRetrying(hotkey, failedAttempts + 1, TOOL_HOTKEY_MAX_ATTEMPTS, detail) : DEFAULT_LABELS.messages.hotkeyRetrying(hotkey, failedAttempts + 1, TOOL_HOTKEY_MAX_ATTEMPTS, detail);
-                appendLoopLog(retryMsg, { level: "warn" });
-                if (!await waitStep(cfg.stepDelayMs)) {
-                  markRunCancelled();
-                  break;
-                }
-                continue;
-              }
-              const pausedMsg = labels.messages?.hotkeyPausedAfterRetries ? labels.messages.hotkeyPausedAfterRetries(hotkey, TOOL_HOTKEY_MAX_ATTEMPTS, detail) : DEFAULT_LABELS.messages.hotkeyPausedAfterRetries(hotkey, TOOL_HOTKEY_MAX_ATTEMPTS, detail);
-              appendLoopLog(pausedMsg, { level: "warn" });
-              pauseRun();
-              if (!await waitWhilePaused()) {
-                markRunCancelled();
-                break;
-              }
-              failedAttempts = 0;
+            const beforeToolReady = await verifyInputUrlReady(getStageLabel("beforeTool", `:${hotkey}`));
+            if (beforeToolReady !== true) {
+              if (beforeToolReady === "cancelled") markRunCancelled();
+              break;
             }
-            if (cancelRun) break;
-            if (!hotkeyCompleted) {
-              markRunFailed();
-              cancelRun = true;
+            const okHotkey = await executeEngineShortcutByHotkey(engine, hotkey);
+            const msg = labels.messages?.hotkeyTriggered ? labels.messages.hotkeyTriggered(hotkey, okHotkey) : DEFAULT_LABELS.messages.hotkeyTriggered(hotkey, okHotkey);
+            appendLoopLog(msg, { level: okHotkey ? "ok" : "error" });
+            if (!await waitStep(cfg.stepDelayMs)) {
+              markRunCancelled();
               break;
             }
           }
