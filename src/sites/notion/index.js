@@ -522,7 +522,6 @@
         waitTimeoutMs: 3000,
         openDelayMs: 120
     });
-    const RESEARCH_MODE_SETTLE_MS = 450;
     const NOTION_IMAGE_MODE_CLOSE_SELECTOR = '[data-testid="unified-chat-image-mode-pill-close"]';
     const NOTION_CONTEXT_MENU_TRIGGER_SELECTORS = [
         '[data-testid="unified-chat-plus-menu-button"]',
@@ -2010,67 +2009,6 @@
         return candidates[0]?.element || null;
     }
 
-    function getExplicitResearchModeTriggerState(trigger) {
-        if (!trigger) return null;
-        const candidates = [trigger, ...safeQueryAll(trigger, [
-            "[aria-pressed]",
-            "[aria-checked]",
-            "[aria-selected]",
-            "[data-state]",
-            "[data-active]",
-            "[data-selected]"
-        ].join(", "))];
-        for (const element of candidates) {
-            if (!element) continue;
-            const ariaPressed = String(element.getAttribute?.("aria-pressed") || "").toLowerCase();
-            if (ariaPressed === "true") return true;
-            if (ariaPressed === "false") return false;
-
-            const ariaChecked = String(element.getAttribute?.("aria-checked") || "").toLowerCase();
-            if (ariaChecked === "true") return true;
-            if (ariaChecked === "false") return false;
-
-            const ariaSelected = String(element.getAttribute?.("aria-selected") || "").toLowerCase();
-            if (ariaSelected === "true") return true;
-            if (ariaSelected === "false") return false;
-
-            const dataState = String(element.getAttribute?.("data-state") || "").toLowerCase();
-            if (["active", "checked", "on", "pressed", "selected"].includes(dataState)) return true;
-            if (["inactive", "off", "unchecked", "unpressed"].includes(dataState)) return false;
-
-            const dataActive = String(element.getAttribute?.("data-active") || "").toLowerCase();
-            if (["1", "true", "yes"].includes(dataActive)) return true;
-            if (["0", "false", "no"].includes(dataActive)) return false;
-
-            const dataSelected = String(element.getAttribute?.("data-selected") || "").toLowerCase();
-            if (["1", "true", "yes"].includes(dataSelected)) return true;
-            if (["0", "false", "no"].includes(dataSelected)) return false;
-        }
-        return null;
-    }
-
-    async function waitForResearchModeTriggerState(expectedState, initialTrigger = null) {
-        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
-        while (Date.now() <= deadline) {
-            const trigger = findResearchModeTriggerElement() ||
-                (initialTrigger && isVisibleElement(initialTrigger) ? initialTrigger : null);
-            const currentState = getExplicitResearchModeTriggerState(trigger);
-            if (currentState === expectedState) {
-                return { ok: true, state: currentState, stateKnown: true };
-            }
-            await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
-        }
-
-        const finalTrigger = findResearchModeTriggerElement() ||
-            (initialTrigger && isVisibleElement(initialTrigger) ? initialTrigger : null);
-        const finalState = getExplicitResearchModeTriggerState(finalTrigger);
-        return {
-            ok: finalState === expectedState,
-            state: finalState,
-            stateKnown: finalState !== null
-        };
-    }
-
     function findExplicitWebAccessToggleTarget(container) {
         if (!container) return null;
         const rowRole = String(container.getAttribute?.("role") || "").toLowerCase();
@@ -2417,8 +2355,8 @@
         return NOTION_MODE_TARGETS.research;
     }
 
-    async function selectModeViaSettingsMenuAction({ shortcut, engine, targetId = "", target: resolvedTarget = null } = {}) {
-        const target = resolvedTarget || resolveModeSelectionTarget(shortcut, targetId);
+    async function selectModeAction({ shortcut, engine, targetId = "" } = {}) {
+        const target = resolveModeSelectionTarget(shortcut, targetId);
         const trigger = findSettingsTriggerElement();
         if (!trigger) return false;
 
@@ -2449,41 +2387,8 @@
         return true;
     }
 
-    async function toggleResearchModeAction({ shortcut, engine } = {}) {
-        const trigger = findResearchModeTriggerElement();
-        if (trigger) {
-            const currentState = getExplicitResearchModeTriggerState(trigger);
-            if (currentState === true) return true;
-
-            if (!simulateClickElement(trigger, { nativeFallback: true })) {
-                console.warn(`${LOG_TAG} toggleResearchMode: Research mode button click failed; falling back to mode menu.`);
-            } else {
-                const stateResult = await waitForResearchModeTriggerState(true, trigger);
-                if (stateResult.ok) return true;
-                if (!stateResult.stateKnown) {
-                    console.warn(`${LOG_TAG} toggleResearchMode: Research mode button state is not exposed; treating the successful click as complete after settle.`);
-                    await sleep(RESEARCH_MODE_SETTLE_MS);
-                    return true;
-                }
-                console.warn(`${LOG_TAG} toggleResearchMode: Research mode button did not report an active state; falling back to mode menu.`);
-            }
-        } else {
-            console.warn(`${LOG_TAG} toggleResearchMode: direct Research mode button not found; falling back to mode menu.`);
-        }
-
-        return selectModeViaSettingsMenuAction({
-            shortcut,
-            engine,
-            target: NOTION_MODE_TARGETS.research
-        });
-    }
-
-    async function selectModeAction(args = {}) {
-        const target = resolveModeSelectionTarget(args.shortcut, args.targetId);
-        if (target?.id === "research" || String(args.shortcut?.key || "").trim() === "toggleResearchMode") {
-            return toggleResearchModeAction(args);
-        }
-        return selectModeViaSettingsMenuAction({ ...args, target });
+    async function toggleResearchModeAction(args = {}) {
+        return selectModeAction({ ...args, targetId: "research" });
     }
 
     function textLooksLikeCreateImageMenuItem(value) {
@@ -5638,7 +5543,7 @@
             name: target.label,
             labelKey: target.labelKey,
             actionType: "custom",
-            customAction: target?.id === "research" ? "toggleResearchMode" : "selectMode",
+            customAction: "selectMode",
             hotkey: target.hotkey,
             icon: iconInfo.icon,
             iconDark: iconInfo.iconDark || "",
