@@ -4396,6 +4396,71 @@
         return true;
     }
 
+    function getDeleteConfirmTarget(fallbackBtn = null) {
+        const latest = findDeleteConfirmDialog();
+        if (isUsableDeleteConfirmButton(latest?.confirmBtn)) return latest;
+        if (isUsableDeleteConfirmButton(fallbackBtn)) {
+            return {
+                dialog: latest?.dialog || fallbackBtn.closest?.("mat-dialog-container, [role='dialog'], .cdk-overlay-pane") || null,
+                confirmBtn: fallbackBtn
+            };
+        }
+        return null;
+    }
+
+    async function waitForDeleteConfirmTarget({ fallbackBtn = null, timeoutMs = 900, intervalMs = 50 } = {}) {
+        const timeout = Math.max(0, Number(timeoutMs) || 0);
+        const interval = Math.max(25, Number(intervalMs) || 50);
+        const deadline = Date.now() + timeout;
+
+        while (Date.now() <= deadline) {
+            const target = getDeleteConfirmTarget(fallbackBtn);
+            if (target?.confirmBtn) return target;
+            await sleep(interval);
+        }
+
+        return getDeleteConfirmTarget(fallbackBtn);
+    }
+
+    async function waitForDeleteConfirmDialogClosed({ timeoutMs = 1400, intervalMs = 70, settleMs = 120 } = {}) {
+        const timeout = Math.max(0, Number(timeoutMs) || 0);
+        const interval = Math.max(25, Number(intervalMs) || 70);
+        const settle = Math.max(0, Number(settleMs) || 0);
+        const deadline = Date.now() + timeout;
+        let closedSince = 0;
+
+        while (Date.now() <= deadline) {
+            if (!findDeleteConfirmDialog()?.dialog) {
+                if (!closedSince) closedSince = Date.now();
+                if (Date.now() - closedSince >= settle) return true;
+            } else {
+                closedSince = 0;
+            }
+            await sleep(interval);
+        }
+
+        return !findDeleteConfirmDialog()?.dialog;
+    }
+
+    async function clickDeleteConfirmButtonWithRetry({ fallbackBtn = null, engine = null } = {}) {
+        await waitForConversationMenusSettled({
+            engine,
+            timeoutMs: 650,
+            intervalMs: 35,
+            settleMs: 35
+        });
+
+        const target = await waitForDeleteConfirmTarget({
+            fallbackBtn,
+            timeoutMs: 900,
+            intervalMs: 45
+        });
+        if (!isUsableDeleteConfirmButton(target?.confirmBtn)) return false;
+
+        focusDeleteConfirmButton(target.confirmBtn);
+        return !!simulateGeminiMenuClick(target.confirmBtn);
+    }
+
     function isPlainEnterKeyEvent(event) {
         if (!event) return false;
         const key = String(event.key || "");
@@ -4467,9 +4532,7 @@
         const onKeydown = (event) => {
             if (!isPlainEnterKeyEvent(event)) return;
 
-            if (handlingEnter) return;
-
-            const latest = findDeleteConfirmDialog();
+            const latest = getDeleteConfirmTarget(confirmBtn);
             const candidate = latest?.confirmBtn || confirmBtn;
             if (!latest?.dialog && !isUsableDeleteConfirmButton(candidate)) {
                 cleanup();
@@ -4480,23 +4543,32 @@
             try { event.stopPropagation(); } catch { }
             try { event.stopImmediatePropagation?.(); } catch { }
 
+            if (handlingEnter) return;
             handlingEnter = true;
-            cleanup();
             void (async () => {
-                await waitForConversationMenusSettled({
-                    engine,
-                    timeoutMs: 650,
-                    intervalMs: 35,
-                    settleMs: 35
-                });
+                const clicked = await clickDeleteConfirmButtonWithRetry({ fallbackBtn: candidate, engine });
+                if (cleaned) return;
+                if (!clicked) {
+                    handlingEnter = false;
+                    const retryTarget = getDeleteConfirmTarget(candidate);
+                    if (isUsableDeleteConfirmButton(retryTarget?.confirmBtn)) focusDeleteConfirmButton(retryTarget.confirmBtn);
+                    return;
+                }
 
-                const settledLatest = findDeleteConfirmDialog();
-                const target = isUsableDeleteConfirmButton(settledLatest?.confirmBtn)
-                    ? settledLatest.confirmBtn
-                    : candidate;
-                if (!isUsableDeleteConfirmButton(target)) return;
-                focusDeleteConfirmButton(target);
-                simulateGeminiMenuClick(target);
+                const closed = await waitForDeleteConfirmDialogClosed({
+                    timeoutMs: 1600,
+                    intervalMs: 70,
+                    settleMs: 120
+                });
+                if (cleaned) return;
+                if (closed) {
+                    cleanup();
+                    return;
+                }
+
+                handlingEnter = false;
+                const retryTarget = getDeleteConfirmTarget(candidate);
+                if (isUsableDeleteConfirmButton(retryTarget?.confirmBtn)) focusDeleteConfirmButton(retryTarget.confirmBtn);
             })();
         };
 
