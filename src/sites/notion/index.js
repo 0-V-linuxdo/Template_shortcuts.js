@@ -699,6 +699,45 @@
         return dispatched;
     }
 
+    function simulatePointerHoverAt(target, x, y) {
+        if (!target || typeof target.dispatchEvent !== "function") return false;
+        const view = document?.defaultView || window;
+        const clientX = Number.isFinite(Number(x)) ? Number(x) : 1;
+        const clientY = Number.isFinite(Number(y)) ? Number(y) : 1;
+        const common = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            view: view || null,
+            clientX,
+            clientY,
+            screenX: clientX,
+            screenY: clientY,
+            button: 0,
+            buttons: 0
+        };
+        const PointerEventCtor = getEventConstructor("PointerEvent");
+        const MouseEventCtor = getEventConstructor("MouseEvent");
+        const pointerOpts = { pointerId: 1, pointerType: "mouse", isPrimary: true };
+        const plans = [
+            PointerEventCtor && { ctor: PointerEventCtor, type: "pointerover", opts: { ...common, ...pointerOpts } },
+            PointerEventCtor && { ctor: PointerEventCtor, type: "pointerenter", opts: { ...common, ...pointerOpts } },
+            MouseEventCtor && { ctor: MouseEventCtor, type: "mouseover", opts: common },
+            MouseEventCtor && { ctor: MouseEventCtor, type: "mouseenter", opts: common },
+            PointerEventCtor && { ctor: PointerEventCtor, type: "pointermove", opts: { ...common, ...pointerOpts } },
+            MouseEventCtor && { ctor: MouseEventCtor, type: "mousemove", opts: common }
+        ].filter(Boolean);
+
+        let dispatched = false;
+        for (const plan of plans) {
+            try {
+                target.dispatchEvent(new plan.ctor(plan.type, plan.opts));
+                dispatched = true;
+            } catch { }
+        }
+        return dispatched;
+    }
+
     function getElementFromPointSafe(x, y) {
         try {
             return document?.elementFromPoint?.(x, y) || null;
@@ -1806,6 +1845,127 @@
         return root ? findSettingsMenuItemByText(root, value => textLooksLikeModeTargetMenuItem(value, target)) : null;
     }
 
+    function textLooksLikeModeSummaryForTarget(value, target) {
+        const text = normalizeNotionText(value);
+        if (!text || !target) return false;
+        const hasModeLabel = text === "mode" ||
+            text.startsWith("mode ") ||
+            text.includes(" mode ") ||
+            text === "模式" ||
+            text.includes("模式");
+        if (!hasModeLabel) return false;
+        const labels = getModeTargetComparableLabels(target);
+        return labels.some(label => (
+            text === `mode ${label}` ||
+            text === `mode: ${label}` ||
+            text === `mode：${label}` ||
+            text.includes(`mode ${label}`) ||
+            text.includes(`mode: ${label}`) ||
+            text.includes(`mode：${label}`) ||
+            text === `模式 ${label}` ||
+            text === `模式: ${label}` ||
+            text === `模式：${label}` ||
+            text.includes(`模式 ${label}`) ||
+            text.includes(`模式: ${label}`) ||
+            text.includes(`模式：${label}`)
+        ));
+    }
+
+    function findSettingsModeSummaryRow(root, target) {
+        if (!root || !target) return null;
+        return findSettingsMenuItemByText(root, value => textLooksLikeModeSummaryForTarget(value, target));
+    }
+
+    function settingsMenuShowsModeTarget(root, target) {
+        return !!findSettingsModeSummaryRow(root, target);
+    }
+
+    function visiblePageShowsModeTarget(target) {
+        if (!target) return false;
+        const labels = getModeTargetComparableLabels(target);
+        const selector = [
+            "button",
+            '[role="button"]',
+            "span",
+            "div"
+        ].join(", ");
+        for (const element of safeQueryAll(document, selector)) {
+            if (!element || !isVisibleElement(element) || isInsideShortcutUi(element)) continue;
+            if (element.closest?.(NOTION_SETTINGS_MENU_ROOT_SELECTOR)) continue;
+            if (element.closest?.('[contenteditable="true"], [role="textbox"], textarea, input')) continue;
+            const text = normalizeNotionText(getElementSearchText(element));
+            if (!text || text.length > 48) continue;
+            const matches = labels.some(label => (
+                text === label ||
+                text === `mode ${label}` ||
+                text === `mode: ${label}` ||
+                text === `mode：${label}` ||
+                text === `模式 ${label}` ||
+                text === `模式: ${label}` ||
+                text === `模式：${label}`
+            ));
+            if (matches && isLikelyComposerToolbarControl(element)) return true;
+        }
+        return false;
+    }
+
+    async function waitForModeSelectionTarget(target, trigger = null) {
+        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+        while (Date.now() <= deadline) {
+            const currentRoot = findSettingsMenuRoot(trigger);
+            if (settingsMenuShowsModeTarget(currentRoot, target) || visiblePageShowsModeTarget(target)) return true;
+            await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+        }
+        const finalRoot = findSettingsMenuRoot(trigger);
+        return settingsMenuShowsModeTarget(finalRoot, target) || visiblePageShowsModeTarget(target);
+    }
+
+    function shortenDebugValue(value, maxLength = 96) {
+        const text = String(value || "").replace(/\s+/g, " ").trim();
+        if (text.length <= maxLength) return text;
+        return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
+    }
+
+    function getActiveElementDebugLabel() {
+        const element = document?.activeElement || null;
+        if (!element) return "";
+        const tag = String(element.tagName || "").toLowerCase();
+        const role = String(element.getAttribute?.("role") || "").trim();
+        const label = shortenDebugValue(getElementSearchText(element), 48);
+        return [tag, role ? `role=${role}` : "", label ? `text=${label}` : ""].filter(Boolean).join(" ");
+    }
+
+    function pageHasComposerContent() {
+        const selectors = [
+            "textarea",
+            '[contenteditable="true"]',
+            '[role="textbox"]'
+        ].join(", ");
+        for (const element of safeQueryAll(document, selectors)) {
+            if (!element || !isVisibleElement(element) || isInsideShortcutUi(element)) continue;
+            let value = "";
+            try {
+                value = typeof element.value === "string" ? element.value : String(element.textContent || "");
+            } catch { }
+            value = normalizeNotionText(value);
+            if (value && !textLooksLikeComposerPrompt(value)) return true;
+        }
+        return false;
+    }
+
+    function formatModeActionDiagnostics(details = {}) {
+        const fields = {
+            modeRow: shortenDebugValue(details.modeRowText),
+            researchRow: shortenDebugValue(details.researchRowText),
+            active: getActiveElementDebugLabel(),
+            composerHasText: pageHasComposerContent() ? "yes" : "no"
+        };
+        return Object.entries(fields)
+            .filter(([, value]) => value)
+            .map(([key, value]) => `${key}=${value}`)
+            .join("; ");
+    }
+
     function textLooksLikeModeMenuItem(value) {
         const text = normalizeNotionText(value);
         return !!text && (
@@ -1920,6 +2080,7 @@
         if (!row || !isVisibleElement(row) || isElementDisabled(row)) return false;
         const rect = getElementRect(row);
         const points = rect ? [
+            [rect.left + rect.width * 0.18, rect.top + rect.height * 0.5],
             [rect.left + rect.width * 0.52, rect.top + rect.height * 0.5],
             [rect.left + rect.width * 0.88, rect.top + rect.height * 0.5]
         ] : [[1, 1]];
@@ -1966,15 +2127,37 @@
         return findOpenModeMenuItem(target);
     }
 
-    async function ensureModeMenuOpen(trigger, root, target) {
+    async function ensureModeMenuOpen(trigger, root, target, modeRowHint = null) {
         const existingTargetRow = findOpenModeMenuItem(target);
         if (existingTargetRow) return existingTargetRow;
 
-        const modeRow = findSettingsMenuItemByText(root, textLooksLikeModeMenuItem) ||
+        const modeRow = modeRowHint ||
+            findSettingsMenuItemByText(root, textLooksLikeModeMenuItem) ||
             findOpenSettingsMenuItemByText(textLooksLikeModeMenuItem);
         if (!modeRow) return null;
-        if (!activateSettingsMenuRow(modeRow, root)) return null;
-        await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+        const clickable = getClickableActionElement(modeRow, root) || modeRow;
+        const rect = getElementRect(modeRow);
+        const centerY = rect ? rect.top + rect.height * 0.5 : 1;
+        const centerX = rect ? rect.left + rect.width * 0.52 : 1;
+        const rightX = rect ? rect.left + rect.width * 0.92 : centerX;
+        const attempts = [
+            () => simulatePointerHoverAt(clickable, rightX, centerY) || simulatePointerHoverAt(modeRow, rightX, centerY),
+            () => {
+                const pointElement = getElementFromPointSafe(rightX, centerY);
+                const targetElement = getClickableActionElement(pointElement, root) || pointElement || clickable;
+                return simulatePointerActivationAt(targetElement, rightX, centerY) ||
+                    forceNativeClickElement(targetElement) ||
+                    simulateClickElement(targetElement, { nativeFallback: true });
+            },
+            () => activateSettingsMenuRow(modeRow, root)
+        ];
+
+        for (const attempt of attempts) {
+            try { attempt(); } catch { }
+            await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+            const row = findOpenModeMenuItem(target);
+            if (row) return row;
+        }
         return waitForModeMenuItem(target);
     }
 
@@ -2355,34 +2538,72 @@
         return NOTION_MODE_TARGETS.research;
     }
 
+    function createNotionActionFailure(action, stage, message, diagnostics = {}) {
+        const diagnosticText = formatModeActionDiagnostics(diagnostics);
+        const detail = `${action}/${stage}: ${message}${diagnosticText ? ` (${diagnosticText})` : ""}`;
+        console.warn(`${LOG_TAG} ${detail}`);
+        return { ok: false, message: detail };
+    }
+
     async function selectModeAction({ shortcut, engine, targetId = "" } = {}) {
         const target = resolveModeSelectionTarget(shortcut, targetId);
+        const actionName = target?.id === "research" ? "toggleResearchMode" : "selectMode";
+        if (!target) return createNotionActionFailure(actionName, "target", "Mode target not resolved.");
+
         const trigger = findSettingsTriggerElement();
-        if (!trigger) return false;
+        if (!trigger) return createNotionActionFailure(actionName, "settings-trigger", "Settings button not found.");
 
         const root = await ensureSettingsMenuOpen(trigger);
-        if (!root) return false;
+        if (!root) return createNotionActionFailure(actionName, "settings-menu", "Settings menu did not open.");
 
-        const initialRow = await ensureModeMenuOpen(trigger, root, target);
+        if (settingsMenuShowsModeTarget(root, target) || visiblePageShowsModeTarget(target)) {
+            await closeSettingsMenu(trigger, { initialDelayMs: 30 });
+            return true;
+        }
+
+        const modeRow = findSettingsMenuItemByText(root, textLooksLikeModeMenuItem) ||
+            findOpenSettingsMenuItemByText(textLooksLikeModeMenuItem);
+        const diagnostics = { modeRowText: getElementSearchText(modeRow) };
+        if (!modeRow) {
+            await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+            return createNotionActionFailure(actionName, "mode-row", "Mode row not found in Settings menu.", diagnostics);
+        }
+
+        const initialRow = await ensureModeMenuOpen(trigger, root, target, modeRow);
+        diagnostics.researchRowText = getElementSearchText(initialRow);
         if (!initialRow) {
             await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-            return false;
+            return createNotionActionFailure(actionName, "mode-menu", `Mode submenu item not found for ${target.id}.`, diagnostics);
         }
 
         syncNotionModeShortcutIconsFromOpenMenu(engine);
         const row = findOpenModeMenuItem(target) || initialRow;
+        diagnostics.researchRowText = getElementSearchText(row);
         if (!row) {
             await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-            return false;
+            return createNotionActionFailure(actionName, "mode-target", `Mode submenu target disappeared for ${target.id}.`, diagnostics);
         }
 
-        if (!activateSettingsMenuRow(row)) {
+        const modeMenuRoot = findOpenModeMenuRoot();
+        if (!activateSettingsMenuRow(row, modeMenuRoot)) {
             await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-            return false;
+            return createNotionActionFailure(actionName, "mode-click", `Failed to activate submenu target for ${target.id}.`, diagnostics);
         }
 
-        await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+        const selected = await waitForModeSelectionTarget(target, trigger);
         syncNotionModeShortcutIconsFromOpenMenu(engine);
+        if (!selected) {
+            await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+            await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+            const verifyTrigger = findSettingsTriggerElement() || trigger;
+            const verifyRoot = verifyTrigger ? await ensureSettingsMenuOpen(verifyTrigger) : null;
+            const verified = settingsMenuShowsModeTarget(verifyRoot, target) || visiblePageShowsModeTarget(target);
+            await closeSettingsMenu(verifyTrigger || trigger, { initialDelayMs: 0 });
+            if (!verified) {
+                return createNotionActionFailure(actionName, "confirm", `Mode did not settle to ${target.label || target.id}.`, diagnostics);
+            }
+            return true;
+        }
         await closeSettingsMenu(trigger, { initialDelayMs: 30 });
         return true;
     }
@@ -5543,7 +5764,7 @@
             name: target.label,
             labelKey: target.labelKey,
             actionType: "custom",
-            customAction: "selectMode",
+            customAction: target.id === "research" ? "toggleResearchMode" : "selectMode",
             hotkey: target.hotkey,
             icon: iconInfo.icon,
             iconDark: iconInfo.iconDark || "",
