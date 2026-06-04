@@ -699,6 +699,44 @@
         return dispatched;
     }
 
+    function simulatePointerHoverAt(target, x, y) {
+        if (!target || typeof target.dispatchEvent !== "function") return false;
+        const view = document?.defaultView || window;
+        const clientX = Number.isFinite(Number(x)) ? Number(x) : 1;
+        const clientY = Number.isFinite(Number(y)) ? Number(y) : 1;
+        const common = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            view: view || null,
+            clientX,
+            clientY,
+            screenX: clientX,
+            screenY: clientY,
+            button: 0
+        };
+        const PointerEventCtor = getEventConstructor("PointerEvent");
+        const MouseEventCtor = getEventConstructor("MouseEvent");
+        const pointerOpts = { pointerId: 1, pointerType: "mouse", isPrimary: true };
+        const plans = [
+            PointerEventCtor && { ctor: PointerEventCtor, type: "pointerover", opts: { ...common, ...pointerOpts, buttons: 0 } },
+            PointerEventCtor && { ctor: PointerEventCtor, type: "pointerenter", opts: { ...common, ...pointerOpts, buttons: 0 } },
+            MouseEventCtor && { ctor: MouseEventCtor, type: "mouseover", opts: { ...common, buttons: 0 } },
+            MouseEventCtor && { ctor: MouseEventCtor, type: "mouseenter", opts: { ...common, buttons: 0 } },
+            PointerEventCtor && { ctor: PointerEventCtor, type: "pointermove", opts: { ...common, ...pointerOpts, buttons: 0 } },
+            MouseEventCtor && { ctor: MouseEventCtor, type: "mousemove", opts: { ...common, buttons: 0 } }
+        ].filter(Boolean);
+
+        let dispatched = false;
+        for (const plan of plans) {
+            try {
+                target.dispatchEvent(new plan.ctor(plan.type, plan.opts));
+                dispatched = true;
+            } catch { }
+        }
+        return dispatched;
+    }
+
     function getElementFromPointSafe(x, y) {
         try {
             return document?.elementFromPoint?.(x, y) || null;
@@ -1806,6 +1844,60 @@
         return root ? findSettingsMenuItemByText(root, value => textLooksLikeModeTargetMenuItem(value, target)) : null;
     }
 
+    function findAnyOpenModeMenuItem(target) {
+        if (!target) return null;
+        return findOpenModeMenuItem(target) ||
+            findOpenSettingsMenuItemByText(value => textLooksLikeModeTargetMenuItem(value, target));
+    }
+
+    function textLooksLikeModeSummaryForTarget(value, target) {
+        const text = normalizeNotionText(value);
+        if (!text || !target) return false;
+        if (!(text === "mode" || text.startsWith("mode ") || text.includes(" mode ") || text.includes("模式"))) return false;
+        const labels = getModeTargetComparableLabels(target);
+        return labels.some(label => text === `mode ${label}` || text.includes(`mode ${label}`) || text.includes(label));
+    }
+
+    function settingsMenuShowsModeTarget(root, target) {
+        if (!root || !target) return false;
+        return !!findSettingsMenuItemByText(root, value => textLooksLikeModeSummaryForTarget(value, target));
+    }
+
+    function composerShowsModeTarget(target) {
+        if (!target) return false;
+        const labels = getModeTargetComparableLabels(target);
+        if (!labels.length) return false;
+        const root = findComposerRootElement();
+        const rootRect = getElementRect(root);
+        if (!root || !rootRect) return false;
+        const candidates = safeQueryAll(root, 'button, [role="button"], [aria-label], [title], div, span')
+            .filter(element => {
+                if (!element || !isVisibleElement(element) || isInsideShortcutUi(element)) return false;
+                const rect = getElementRect(element);
+                if (!rect) return false;
+                const compact = rect.width <= 180 && rect.height <= 52;
+                const inToolbarY = rect.top >= rootRect.top - 8 && rect.bottom <= rootRect.bottom + 8;
+                return compact && inToolbarY;
+            });
+        for (const element of candidates) {
+            const text = normalizeNotionText(getElementSearchText(element));
+            if (!text) continue;
+            if (labels.some(label => text === label || text.startsWith(`${label} `))) return true;
+        }
+        return false;
+    }
+
+    async function waitForModeSelectionTarget(target, trigger = null) {
+        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+        while (Date.now() <= deadline) {
+            const currentRoot = trigger ? findSettingsMenuRoot(trigger) : findSettingsMenuRoot();
+            if (settingsMenuShowsModeTarget(currentRoot, target) || composerShowsModeTarget(target)) return true;
+            await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+        }
+        const finalRoot = trigger ? findSettingsMenuRoot(trigger) : findSettingsMenuRoot();
+        return settingsMenuShowsModeTarget(finalRoot, target) || composerShowsModeTarget(target);
+    }
+
     function textLooksLikeModeMenuItem(value) {
         const text = normalizeNotionText(value);
         return !!text && (
@@ -1916,6 +2008,30 @@
         return findOpenSettingsMenuItemByText(textLooksLikeAllSourcesMenuItem);
     }
 
+    function hoverSettingsMenuRow(row, root = null) {
+        if (!row || !isVisibleElement(row) || isElementDisabled(row)) return false;
+        const rect = getElementRect(row);
+        const points = rect ? [
+            [rect.left + rect.width * 0.52, rect.top + rect.height * 0.5],
+            [rect.left + rect.width * 0.88, rect.top + rect.height * 0.5]
+        ] : [[1, 1]];
+        let hovered = false;
+        for (const [x, y] of points) {
+            const pointElement = getElementFromPointSafe(x, y);
+            const targets = Array.from(new Set([
+                getClickableActionElement(pointElement, root),
+                pointElement,
+                getClickableActionElement(row, root),
+                row
+            ].filter(Boolean)));
+            for (const target of targets) {
+                if (!target || !isVisibleElement(target) || isElementDisabled(target)) continue;
+                hovered = simulatePointerHoverAt(target, x, y) || hovered;
+            }
+        }
+        return hovered;
+    }
+
     function activateSettingsMenuRow(row, root = null) {
         if (!row || !isVisibleElement(row) || isElementDisabled(row)) return false;
         const rect = getElementRect(row);
@@ -1959,20 +2075,26 @@
     async function waitForModeMenuItem(target) {
         const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
         while (Date.now() <= deadline) {
-            const row = findOpenModeMenuItem(target);
+            const row = findAnyOpenModeMenuItem(target);
             if (row) return row;
             await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
         }
-        return findOpenModeMenuItem(target);
+        return findAnyOpenModeMenuItem(target);
     }
 
     async function ensureModeMenuOpen(trigger, root, target) {
-        const existingTargetRow = findOpenModeMenuItem(target);
+        const existingTargetRow = findAnyOpenModeMenuItem(target);
         if (existingTargetRow) return existingTargetRow;
 
         const modeRow = findSettingsMenuItemByText(root, textLooksLikeModeMenuItem) ||
             findOpenSettingsMenuItemByText(textLooksLikeModeMenuItem);
         if (!modeRow) return null;
+
+        hoverSettingsMenuRow(modeRow, root);
+        await sleep(Math.max(40, Math.floor(SETTINGS_MENU_TIMING.openDelayMs / 2)));
+        const hoveredTargetRow = findAnyOpenModeMenuItem(target);
+        if (hoveredTargetRow) return hoveredTargetRow;
+
         if (!activateSettingsMenuRow(modeRow, root)) return null;
         await sleep(SETTINGS_MENU_TIMING.openDelayMs);
         return waitForModeMenuItem(target);
@@ -2358,32 +2480,51 @@
     async function selectModeAction({ shortcut, engine, targetId = "" } = {}) {
         const target = resolveModeSelectionTarget(shortcut, targetId);
         const trigger = findSettingsTriggerElement();
-        if (!trigger) return false;
+        if (!trigger) {
+            console.warn(`${LOG_TAG} selectMode: settings trigger not found for ${target?.id || "unknown"}.`);
+            return false;
+        }
 
         const root = await ensureSettingsMenuOpen(trigger);
-        if (!root) return false;
+        if (!root) {
+            console.warn(`${LOG_TAG} selectMode: settings menu did not open for ${target?.id || "unknown"}.`);
+            return false;
+        }
+
+        if (settingsMenuShowsModeTarget(root, target) || composerShowsModeTarget(target)) {
+            await closeSettingsMenu(trigger, { initialDelayMs: 30 });
+            return true;
+        }
 
         const initialRow = await ensureModeMenuOpen(trigger, root, target);
         if (!initialRow) {
+            console.warn(`${LOG_TAG} selectMode: mode menu item not found for ${target?.id || "unknown"}.`);
             await closeSettingsMenu(trigger, { initialDelayMs: 0 });
             return false;
         }
 
         syncNotionModeShortcutIconsFromOpenMenu(engine);
-        const row = findOpenModeMenuItem(target) || initialRow;
+        const row = findAnyOpenModeMenuItem(target) || initialRow;
         if (!row) {
+            console.warn(`${LOG_TAG} selectMode: resolved mode menu item disappeared for ${target?.id || "unknown"}.`);
             await closeSettingsMenu(trigger, { initialDelayMs: 0 });
             return false;
         }
 
         if (!activateSettingsMenuRow(row)) {
+            console.warn(`${LOG_TAG} selectMode: failed to activate mode menu item for ${target?.id || "unknown"}.`);
             await closeSettingsMenu(trigger, { initialDelayMs: 0 });
             return false;
         }
 
         await sleep(SETTINGS_MENU_TIMING.openDelayMs);
         syncNotionModeShortcutIconsFromOpenMenu(engine);
+        const selected = await waitForModeSelectionTarget(target, trigger);
         await closeSettingsMenu(trigger, { initialDelayMs: 30 });
+        if (!selected) {
+            console.warn(`${LOG_TAG} selectMode: mode selection did not settle for ${target?.id || "unknown"}.`);
+            return false;
+        }
         return true;
     }
 
