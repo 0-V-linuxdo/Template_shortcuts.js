@@ -532,16 +532,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion AI] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion AI] 快捷键跳转 [20260605] v1.0.0",
+            name: "[Notion AI] 快捷键跳转 [20260604] v1.2.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260605] v1.0.0",
-            updateLog: "1.0.0: 修复 Research 模式快捷键：使用 Settings 中的 Mode 整行打开子菜单，通过可见浮层与几何位置定位 Research，并在确认失败时阻断 QuickInput 发送。",
+            version: "[20260604] v1.2.0",
+            updateLog: "1.2.0: 对照 Notion AI 当前网页模型菜单完成适配，新增 Grok 4.3 与 Grok Build 0.1，按 Auto/Sonnet/Opus/Gemini/GPT/Grok/Kimi/DeepSeek 顺序重排模型默认热键，并迁移旧默认模型快捷键与显示顺序。",
             localized: {
                 "en-US": {
-                    name: "[Notion AI] Shortcut Jump [20260605] v1.0.0",
+                    name: "[Notion AI] Shortcut Jump [20260604] v1.2.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.0: Fixed the Research mode shortcut by opening the full Mode row in Settings, locating Research through visible floating menus plus geometry, and blocking QuickInput send on confirmation failure."
+                    updateLog: "1.2.0: Adapted against the current Notion AI web model menu, added Grok 4.3 and Grok Build 0.1, reordered default model hotkeys across Auto/Sonnet/Opus/Gemini/GPT/Grok/Kimi/DeepSeek, and migrated old default model hotkeys plus display order."
                 }
             },
             match: [
