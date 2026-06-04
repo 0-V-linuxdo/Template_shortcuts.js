@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion AI] 快捷键跳转 [20260604] v1.2.0
-// @name:en        [Notion AI] Shortcut Jump [20260604] v1.2.0
+// @name           [Notion AI] 快捷键跳转 [20260605] v1.0.0
+// @name:en        [Notion AI] Shortcut Jump [20260605] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260604] v1.2.0
-// @update-log     1.2.0: 对照 Notion AI 当前网页模型菜单完成适配，新增 Grok 4.3 与 Grok Build 0.1，按 Auto/Sonnet/Opus/Gemini/GPT/Grok/Kimi/DeepSeek 顺序重排模型默认热键，并迁移旧默认模型快捷键与显示顺序。
-// @update-log:en  1.2.0: Adapted against the current Notion AI web model menu, added Grok 4.3 and Grok Build 0.1, reordered default model hotkeys across Auto/Sonnet/Opus/Gemini/GPT/Grok/Kimi/DeepSeek, and migrated old default model hotkeys plus display order.
+// @version        [20260605] v1.0.0
+// @update-log     1.0.0: 修复 Research 模式快捷键，移除可能提交消息的 Enter fallback，仅在 Mode 子菜单内点击 Research，并在确认失败时阻断 QuickInput 发送。
+// @update-log:en  1.0.0: Fixed the Research mode shortcut by removing Enter fallbacks that could submit messages, clicking Research only inside the Mode submenu, and blocking QuickInput send on confirmation failure.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -22,7 +22,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22notion-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.notion-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.notion-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Csvg%20x%3D%2216%22%20y%3D%2213%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%20150%20150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22currentColor%22%3E%3Cpath%20d%3D%22m135.3%2029.9c-5.2-9.6-15.2-17.5-28.3-17.9-14.6-0.5-27.7%209.2-35.3%2023.1-6.6%2011.8-42.6%2081.3-50.5%2097.9-1.8%203.7%200.2%207%203.8%207.5l45.4%205%201.5-12.4-37.6-3.9%2045.2-89.5c5-9.3%2014.4-17.9%2025.2-18%206.6-0.1%2016.1%203.6%2021.6%2012.4%201.3%202.3%204.2%203.5%206.7%202.3%202.4-1%203.6-4.1%202.3-6.5z%22%2F%3E%3Cpath%20d%3D%22m23.5%2027.6c4.2-4.8%2010.7-12.4%2024.2-13.6%208.7-0.6%2015%204.1%2018.9%2010.2%201.4%202.4%204.1%204.1%206.8%202.6%202.5-1.2%203.2-4.2%201.6-6.9-2.8-5.2-11.6-14.9-23.8-15.4-8.9-0.4-24.3%202.9-35.4%2017.1-1.7%202.1-1.7%205%200.4%206.8%201.9%201.9%205.4%201.6%207.3-0.8z%22%2F%3E%3Cpath%20d%3D%22m47.8%2036.2c-5.7%200.1-10.5%204.9-10.5%2010.7-0.2%206%204.1%2011.6%2010.5%2011.7%206.1-0.1%2010.5-5.2%2010.6-12-0.2-5.7-4.5-10.4-10.6-10.4z%22%2F%3E%3Cpath%20d%3D%22m94.7%2042.9c-5.6%200.1-10.6%204.8-10.7%2011.3%200%206.3%204.2%2011.9%2010.7%2011.8%205.9%200%2010.3-5.1%2010.4-11.8%200-5.7-3.9-11.2-10.4-11.3z%22%2F%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260604.1.0.1
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260605.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -693,6 +693,44 @@
         PointerEventCtor && { ctor: PointerEventCtor, type: "pointerup", opts: { ...common, ...pointerOpts, buttons: 0 } },
         MouseEventCtor && { ctor: MouseEventCtor, type: "mouseup", opts: { ...common, buttons: 0 } },
         MouseEventCtor && { ctor: MouseEventCtor, type: "click", opts: { ...common, buttons: 0, detail: 1 } }
+      ].filter(Boolean);
+      let dispatched = false;
+      for (const plan of plans) {
+        try {
+          target.dispatchEvent(new plan.ctor(plan.type, plan.opts));
+          dispatched = true;
+        } catch {
+        }
+      }
+      return dispatched;
+    }
+    function simulatePointerHoverAt(target, x, y) {
+      if (!target || typeof target.dispatchEvent !== "function") return false;
+      const view = document?.defaultView || window;
+      const clientX = Number.isFinite(Number(x)) ? Number(x) : 1;
+      const clientY = Number.isFinite(Number(y)) ? Number(y) : 1;
+      const common = {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: view || null,
+        clientX,
+        clientY,
+        screenX: clientX,
+        screenY: clientY,
+        button: 0,
+        buttons: 0
+      };
+      const PointerEventCtor = getEventConstructor("PointerEvent");
+      const MouseEventCtor = getEventConstructor("MouseEvent");
+      const pointerOpts = { pointerId: 1, pointerType: "mouse", isPrimary: true };
+      const plans = [
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointerover", opts: { ...common, ...pointerOpts } },
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointerenter", opts: { ...common, ...pointerOpts } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mouseover", opts: common },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mouseenter", opts: common },
+        PointerEventCtor && { ctor: PointerEventCtor, type: "pointermove", opts: { ...common, ...pointerOpts } },
+        MouseEventCtor && { ctor: MouseEventCtor, type: "mousemove", opts: common }
       ].filter(Boolean);
       let dispatched = false;
       for (const plan of plans) {
@@ -1595,6 +1633,91 @@
       const root = findOpenModeMenuRoot();
       return root ? findSettingsMenuItemByText(root, (value) => textLooksLikeModeTargetMenuItem(value, target)) : null;
     }
+    function textLooksLikeModeSummaryForTarget(value, target) {
+      const text = normalizeNotionText(value);
+      if (!text || !target) return false;
+      const hasModeLabel = text === "mode" || text.startsWith("mode ") || text.includes(" mode ") || text === "模式" || text.includes("模式");
+      if (!hasModeLabel) return false;
+      const labels = getModeTargetComparableLabels(target);
+      return labels.some((label) => text === `mode ${label}` || text === `mode: ${label}` || text === `mode：${label}` || text.includes(`mode ${label}`) || text.includes(`mode: ${label}`) || text.includes(`mode：${label}`) || text === `模式 ${label}` || text === `模式: ${label}` || text === `模式：${label}` || text.includes(`模式 ${label}`) || text.includes(`模式: ${label}`) || text.includes(`模式：${label}`));
+    }
+    function findSettingsModeSummaryRow(root, target) {
+      if (!root || !target) return null;
+      return findSettingsMenuItemByText(root, (value) => textLooksLikeModeSummaryForTarget(value, target));
+    }
+    function settingsMenuShowsModeTarget(root, target) {
+      return !!findSettingsModeSummaryRow(root, target);
+    }
+    function visiblePageShowsModeTarget(target) {
+      if (!target) return false;
+      const labels = getModeTargetComparableLabels(target);
+      const selector = [
+        "button",
+        '[role="button"]',
+        "span",
+        "div"
+      ].join(", ");
+      for (const element of safeQueryAll(document, selector)) {
+        if (!element || !isVisibleElement(element) || isInsideShortcutUi(element)) continue;
+        if (element.closest?.(NOTION_SETTINGS_MENU_ROOT_SELECTOR)) continue;
+        if (element.closest?.('[contenteditable="true"], [role="textbox"], textarea, input')) continue;
+        const text = normalizeNotionText(getElementSearchText(element));
+        if (!text || text.length > 48) continue;
+        const matches = labels.some((label) => text === label || text === `mode ${label}` || text === `mode: ${label}` || text === `mode：${label}` || text === `模式 ${label}` || text === `模式: ${label}` || text === `模式：${label}`);
+        if (matches && isLikelyComposerToolbarControl(element)) return true;
+      }
+      return false;
+    }
+    async function waitForModeSelectionTarget(target, trigger = null) {
+      const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+      while (Date.now() <= deadline) {
+        const currentRoot = findSettingsMenuRoot(trigger);
+        if (settingsMenuShowsModeTarget(currentRoot, target) || visiblePageShowsModeTarget(target)) return true;
+        await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+      }
+      const finalRoot = findSettingsMenuRoot(trigger);
+      return settingsMenuShowsModeTarget(finalRoot, target) || visiblePageShowsModeTarget(target);
+    }
+    function shortenDebugValue(value, maxLength = 96) {
+      const text = String(value || "").replace(/\s+/g, " ").trim();
+      if (text.length <= maxLength) return text;
+      return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
+    }
+    function getActiveElementDebugLabel() {
+      const element = document?.activeElement || null;
+      if (!element) return "";
+      const tag = String(element.tagName || "").toLowerCase();
+      const role = String(element.getAttribute?.("role") || "").trim();
+      const label = shortenDebugValue(getElementSearchText(element), 48);
+      return [tag, role ? `role=${role}` : "", label ? `text=${label}` : ""].filter(Boolean).join(" ");
+    }
+    function pageHasComposerContent() {
+      const selectors = [
+        "textarea",
+        '[contenteditable="true"]',
+        '[role="textbox"]'
+      ].join(", ");
+      for (const element of safeQueryAll(document, selectors)) {
+        if (!element || !isVisibleElement(element) || isInsideShortcutUi(element)) continue;
+        let value = "";
+        try {
+          value = typeof element.value === "string" ? element.value : String(element.textContent || "");
+        } catch {
+        }
+        value = normalizeNotionText(value);
+        if (value && !textLooksLikeComposerPrompt(value)) return true;
+      }
+      return false;
+    }
+    function formatModeActionDiagnostics(details = {}) {
+      const fields = {
+        modeRow: shortenDebugValue(details.modeRowText),
+        researchRow: shortenDebugValue(details.researchRowText),
+        active: getActiveElementDebugLabel(),
+        composerHasText: pageHasComposerContent() ? "yes" : "no"
+      };
+      return Object.entries(fields).filter(([, value]) => value).map(([key, value]) => `${key}=${value}`).join("; ");
+    }
     function textLooksLikeModeMenuItem(value) {
       const text = normalizeNotionText(value);
       return !!text && (text === "mode" || text.startsWith("mode ") || text.includes(" mode ") || text === "模式" || text.includes("模式"));
@@ -1676,6 +1799,7 @@
       if (!row || !isVisibleElement(row) || isElementDisabled(row)) return false;
       const rect = getElementRect(row);
       const points = rect ? [
+        [rect.left + rect.width * 0.18, rect.top + rect.height * 0.5],
         [rect.left + rect.width * 0.52, rect.top + rect.height * 0.5],
         [rect.left + rect.width * 0.88, rect.top + rect.height * 0.5]
       ] : [[1, 1]];
@@ -1724,13 +1848,34 @@
       }
       return findOpenModeMenuItem(target);
     }
-    async function ensureModeMenuOpen(trigger, root, target) {
+    async function ensureModeMenuOpen(trigger, root, target, modeRowHint = null) {
       const existingTargetRow = findOpenModeMenuItem(target);
       if (existingTargetRow) return existingTargetRow;
-      const modeRow = findSettingsMenuItemByText(root, textLooksLikeModeMenuItem) || findOpenSettingsMenuItemByText(textLooksLikeModeMenuItem);
+      const modeRow = modeRowHint || findSettingsMenuItemByText(root, textLooksLikeModeMenuItem) || findOpenSettingsMenuItemByText(textLooksLikeModeMenuItem);
       if (!modeRow) return null;
-      if (!activateSettingsMenuRow(modeRow, root)) return null;
-      await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+      const clickable = getClickableActionElement(modeRow, root) || modeRow;
+      const rect = getElementRect(modeRow);
+      const centerY = rect ? rect.top + rect.height * 0.5 : 1;
+      const centerX = rect ? rect.left + rect.width * 0.52 : 1;
+      const rightX = rect ? rect.left + rect.width * 0.92 : centerX;
+      const attempts = [
+        () => simulatePointerHoverAt(clickable, rightX, centerY) || simulatePointerHoverAt(modeRow, rightX, centerY),
+        () => {
+          const pointElement = getElementFromPointSafe(rightX, centerY);
+          const targetElement = getClickableActionElement(pointElement, root) || pointElement || clickable;
+          return simulatePointerActivationAt(targetElement, rightX, centerY) || forceNativeClickElement(targetElement) || simulateClickElement(targetElement, { nativeFallback: true });
+        },
+        () => activateSettingsMenuRow(modeRow, root)
+      ];
+      for (const attempt of attempts) {
+        try {
+          attempt();
+        } catch {
+        }
+        await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+        const row = findOpenModeMenuItem(target);
+        if (row) return row;
+      }
       return waitForModeMenuItem(target);
     }
     function findResearchModeTriggerElement() {
@@ -2069,29 +2214,62 @@
       if (byKey) return byKey;
       return NOTION_MODE_TARGETS.research;
     }
+    function createNotionActionFailure(action, stage, message, diagnostics = {}) {
+      const diagnosticText = formatModeActionDiagnostics(diagnostics);
+      const detail = `${action}/${stage}: ${message}${diagnosticText ? ` (${diagnosticText})` : ""}`;
+      console.warn(`${LOG_TAG} ${detail}`);
+      return { ok: false, message: detail };
+    }
     async function selectModeAction({ shortcut, engine: engine2, targetId = "" } = {}) {
       const target = resolveModeSelectionTarget(shortcut, targetId);
+      const actionName = target?.id === "research" ? "toggleResearchMode" : "selectMode";
+      if (!target) return createNotionActionFailure(actionName, "target", "Mode target not resolved.");
       const trigger = findSettingsTriggerElement();
-      if (!trigger) return false;
+      if (!trigger) return createNotionActionFailure(actionName, "settings-trigger", "Settings button not found.");
       const root = await ensureSettingsMenuOpen(trigger);
-      if (!root) return false;
-      const initialRow = await ensureModeMenuOpen(trigger, root, target);
+      if (!root) return createNotionActionFailure(actionName, "settings-menu", "Settings menu did not open.");
+      if (settingsMenuShowsModeTarget(root, target) || visiblePageShowsModeTarget(target)) {
+        await closeSettingsMenu(trigger, { initialDelayMs: 30 });
+        return true;
+      }
+      const modeRow = findSettingsMenuItemByText(root, textLooksLikeModeMenuItem) || findOpenSettingsMenuItemByText(textLooksLikeModeMenuItem);
+      const diagnostics = { modeRowText: getElementSearchText(modeRow) };
+      if (!modeRow) {
+        await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+        return createNotionActionFailure(actionName, "mode-row", "Mode row not found in Settings menu.", diagnostics);
+      }
+      const initialRow = await ensureModeMenuOpen(trigger, root, target, modeRow);
+      diagnostics.researchRowText = getElementSearchText(initialRow);
       if (!initialRow) {
         await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-        return false;
+        return createNotionActionFailure(actionName, "mode-menu", `Mode submenu item not found for ${target.id}.`, diagnostics);
       }
       syncNotionModeShortcutIconsFromOpenMenu(engine2);
       const row = findOpenModeMenuItem(target) || initialRow;
+      diagnostics.researchRowText = getElementSearchText(row);
       if (!row) {
         await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-        return false;
+        return createNotionActionFailure(actionName, "mode-target", `Mode submenu target disappeared for ${target.id}.`, diagnostics);
       }
-      if (!activateSettingsMenuRow(row)) {
+      const modeMenuRoot = findOpenModeMenuRoot();
+      if (!activateSettingsMenuRow(row, modeMenuRoot)) {
         await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-        return false;
+        return createNotionActionFailure(actionName, "mode-click", `Failed to activate submenu target for ${target.id}.`, diagnostics);
       }
-      await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+      const selected = await waitForModeSelectionTarget(target, trigger);
       syncNotionModeShortcutIconsFromOpenMenu(engine2);
+      if (!selected) {
+        await closeSettingsMenu(trigger, { initialDelayMs: 0 });
+        await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+        const verifyTrigger = findSettingsTriggerElement() || trigger;
+        const verifyRoot = verifyTrigger ? await ensureSettingsMenuOpen(verifyTrigger) : null;
+        const verified = settingsMenuShowsModeTarget(verifyRoot, target) || visiblePageShowsModeTarget(target);
+        await closeSettingsMenu(verifyTrigger || trigger, { initialDelayMs: 0 });
+        if (!verified) {
+          return createNotionActionFailure(actionName, "confirm", `Mode did not settle to ${target.label || target.id}.`, diagnostics);
+        }
+        return true;
+      }
       await closeSettingsMenu(trigger, { initialDelayMs: 30 });
       return true;
     }
@@ -5070,7 +5248,7 @@
         name: target.label,
         labelKey: target.labelKey,
         actionType: "custom",
-        customAction: "selectMode",
+        customAction: target.id === "research" ? "toggleResearchMode" : "selectMode",
         hotkey: target.hotkey,
         icon: iconInfo.icon,
         iconDark: iconInfo.iconDark || "",
