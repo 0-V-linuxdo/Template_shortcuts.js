@@ -14,7 +14,6 @@ import { ensureQuickInputStyle } from "./style.js";
 const QUICK_INPUT_CLIPBOARD_SCHEMA_VERSION = 1;
 const QUICK_INPUT_CLIPBOARD_TYPE = "template-shortcuts.quick-input";
 const IO_SUCCESS_FEEDBACK_MS = 3000;
-const TOOL_HOTKEY_MAX_ATTEMPTS = 3;
 
 export function createController(userOptions = {}) {
             const options = userOptions && typeof userOptions === "object" ? userOptions : {};
@@ -3911,51 +3910,21 @@ export function createController(userOptions = {}) {
 
                     if (toolHotkeys.length) {
                         for (const hotkey of toolHotkeys) {
-                            let failedAttempts = 0;
-                            while (!cancelRun) {
-                                const beforeToolReady = await verifyInputUrlReady(getStageLabel("beforeTool", `:${hotkey}`));
-                                if (beforeToolReady !== true) {
-                                    if (beforeToolReady === "cancelled") markRunCancelled();
-                                    break;
-                                }
-
-                                const okHotkey = await executeEngineShortcutByHotkey(engine, hotkey);
-                                const msg = labels.messages?.hotkeyTriggered
-                                    ? labels.messages.hotkeyTriggered(hotkey, okHotkey)
-                                    : DEFAULT_LABELS.messages.hotkeyTriggered(hotkey, okHotkey);
-                                appendLoopLog(msg, { level: okHotkey ? "ok" : "error" });
-
-                                if (okHotkey) {
-                                    if (!(await waitStep(cfg.stepDelayMs))) markRunCancelled();
-                                    break;
-                                }
-
-                                failedAttempts += 1;
-                                if (failedAttempts < TOOL_HOTKEY_MAX_ATTEMPTS) {
-                                    const retryMsg = labels.messages?.hotkeyRetrying
-                                        ? labels.messages.hotkeyRetrying(hotkey, failedAttempts + 1, TOOL_HOTKEY_MAX_ATTEMPTS)
-                                        : DEFAULT_LABELS.messages.hotkeyRetrying(hotkey, failedAttempts + 1, TOOL_HOTKEY_MAX_ATTEMPTS);
-                                    appendLoopLog(retryMsg, { level: "warn" });
-                                    if (!(await waitStep(cfg.stepDelayMs))) {
-                                        markRunCancelled();
-                                        break;
-                                    }
-                                    continue;
-                                }
-
-                                const pausedMsg = labels.messages?.hotkeyPausedAfterRetries
-                                    ? labels.messages.hotkeyPausedAfterRetries(hotkey, TOOL_HOTKEY_MAX_ATTEMPTS)
-                                    : DEFAULT_LABELS.messages.hotkeyPausedAfterRetries(hotkey, TOOL_HOTKEY_MAX_ATTEMPTS);
-                                appendLoopLog(pausedMsg, { level: "warn" });
-                                pauseRun();
-                                const resumed = await runtime.waitIfPaused();
-                                if (!resumed) {
-                                    markRunCancelled();
-                                    break;
-                                }
-                                failedAttempts = 0;
-                            }
                             if (cancelRun) break;
+                            const beforeToolReady = await verifyInputUrlReady(getStageLabel("beforeTool", `:${hotkey}`));
+                            if (beforeToolReady !== true) {
+                                if (beforeToolReady === "cancelled") markRunCancelled();
+                                break;
+                            }
+                            const okHotkey = await executeEngineShortcutByHotkey(engine, hotkey);
+                            const msg = labels.messages?.hotkeyTriggered
+                                ? labels.messages.hotkeyTriggered(hotkey, okHotkey)
+                                : DEFAULT_LABELS.messages.hotkeyTriggered(hotkey, okHotkey);
+                            appendLoopLog(msg, { level: okHotkey ? "ok" : "error" });
+                            if (!(await waitStep(cfg.stepDelayMs))) {
+                                markRunCancelled();
+                                break;
+                            }
                         }
                         if (cancelRun) break;
                     }

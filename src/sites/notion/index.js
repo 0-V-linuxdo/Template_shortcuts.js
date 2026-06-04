@@ -2381,13 +2381,9 @@
             return false;
         }
 
-        syncNotionModeShortcutIconsFromOpenMenu(engine);
-        const closed = await closeSettingsMenu(trigger, { initialDelayMs: 30 });
-        if (!closed) {
-            await closeSettingsMenu(findSettingsTriggerElement(), { initialDelayMs: 0 });
-            return false;
-        }
         await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+        syncNotionModeShortcutIconsFromOpenMenu(engine);
+        await closeSettingsMenu(trigger, { initialDelayMs: 30 });
         return true;
     }
 
