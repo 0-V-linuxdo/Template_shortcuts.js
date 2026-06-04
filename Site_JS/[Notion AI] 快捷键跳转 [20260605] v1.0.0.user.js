@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion AI] 快捷键跳转 [20260604] v1.2.0
-// @name:en        [Notion AI] Shortcut Jump [20260604] v1.2.0
+// @name           [Notion AI] 快捷键跳转 [20260605] v1.0.0
+// @name:en        [Notion AI] Shortcut Jump [20260605] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260604] v1.2.0
-// @update-log     1.2.0: 对照 Notion AI 当前网页模型菜单完成适配，新增 Grok 4.3 与 Grok Build 0.1，按 Auto/Sonnet/Opus/Gemini/GPT/Grok/Kimi/DeepSeek 顺序重排模型默认热键，并迁移旧默认模型快捷键与显示顺序。
-// @update-log:en  1.2.0: Adapted against the current Notion AI web model menu, added Grok 4.3 and Grok Build 0.1, reordered default model hotkeys across Auto/Sonnet/Opus/Gemini/GPT/Grok/Kimi/DeepSeek, and migrated old default model hotkeys plus display order.
+// @version        [20260605] v1.0.0
+// @update-log     1.0.0: 修复 Research 模式快捷键改走 Notion 当前独立 Research 按钮路径，并配合 Template core 等待异步工具快捷键与当前 hotkey 重试暂停保护。
+// @update-log:en  1.0.0: Routed the Research mode shortcut through Notion's current dedicated Research button, paired with Template core async tool shortcut waiting and current-hotkey retry/pause protection.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -22,7 +22,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22notion-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.notion-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.notion-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Csvg%20x%3D%2216%22%20y%3D%2213%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%20150%20150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22currentColor%22%3E%3Cpath%20d%3D%22m135.3%2029.9c-5.2-9.6-15.2-17.5-28.3-17.9-14.6-0.5-27.7%209.2-35.3%2023.1-6.6%2011.8-42.6%2081.3-50.5%2097.9-1.8%203.7%200.2%207%203.8%207.5l45.4%205%201.5-12.4-37.6-3.9%2045.2-89.5c5-9.3%2014.4-17.9%2025.2-18%206.6-0.1%2016.1%203.6%2021.6%2012.4%201.3%202.3%204.2%203.5%206.7%202.3%202.4-1%203.6-4.1%202.3-6.5z%22%2F%3E%3Cpath%20d%3D%22m23.5%2027.6c4.2-4.8%2010.7-12.4%2024.2-13.6%208.7-0.6%2015%204.1%2018.9%2010.2%201.4%202.4%204.1%204.1%206.8%202.6%202.5-1.2%203.2-4.2%201.6-6.9-2.8-5.2-11.6-14.9-23.8-15.4-8.9-0.4-24.3%202.9-35.4%2017.1-1.7%202.1-1.7%205%200.4%206.8%201.9%201.9%205.4%201.6%207.3-0.8z%22%2F%3E%3Cpath%20d%3D%22m47.8%2036.2c-5.7%200.1-10.5%204.9-10.5%2010.7-0.2%206%204.1%2011.6%2010.5%2011.7%206.1-0.1%2010.5-5.2%2010.6-12-0.2-5.7-4.5-10.4-10.6-10.4z%22%2F%3E%3Cpath%20d%3D%22m94.7%2042.9c-5.6%200.1-10.6%204.8-10.7%2011.3%200%206.3%204.2%2011.9%2010.7%2011.8%205.9%200%2010.3-5.1%2010.4-11.8%200-5.7-3.9-11.2-10.4-11.3z%22%2F%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260604.1.0.1
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260605.1.0.0
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -534,6 +534,7 @@
       waitTimeoutMs: 3e3,
       openDelayMs: 120
     });
+    const RESEARCH_MODE_SETTLE_MS = 450;
     const NOTION_IMAGE_MODE_CLOSE_SELECTOR = '[data-testid="unified-chat-image-mode-pill-close"]';
     const NOTION_CONTEXT_MENU_TRIGGER_SELECTORS = [
       '[data-testid="unified-chat-plus-menu-button"]',
@@ -1760,6 +1761,57 @@
       });
       return candidates[0]?.element || null;
     }
+    function getExplicitResearchModeTriggerState(trigger) {
+      if (!trigger) return null;
+      const candidates = [trigger, ...safeQueryAll(trigger, [
+        "[aria-pressed]",
+        "[aria-checked]",
+        "[aria-selected]",
+        "[data-state]",
+        "[data-active]",
+        "[data-selected]"
+      ].join(", "))];
+      for (const element of candidates) {
+        if (!element) continue;
+        const ariaPressed = String(element.getAttribute?.("aria-pressed") || "").toLowerCase();
+        if (ariaPressed === "true") return true;
+        if (ariaPressed === "false") return false;
+        const ariaChecked = String(element.getAttribute?.("aria-checked") || "").toLowerCase();
+        if (ariaChecked === "true") return true;
+        if (ariaChecked === "false") return false;
+        const ariaSelected = String(element.getAttribute?.("aria-selected") || "").toLowerCase();
+        if (ariaSelected === "true") return true;
+        if (ariaSelected === "false") return false;
+        const dataState = String(element.getAttribute?.("data-state") || "").toLowerCase();
+        if (["active", "checked", "on", "pressed", "selected"].includes(dataState)) return true;
+        if (["inactive", "off", "unchecked", "unpressed"].includes(dataState)) return false;
+        const dataActive = String(element.getAttribute?.("data-active") || "").toLowerCase();
+        if (["1", "true", "yes"].includes(dataActive)) return true;
+        if (["0", "false", "no"].includes(dataActive)) return false;
+        const dataSelected = String(element.getAttribute?.("data-selected") || "").toLowerCase();
+        if (["1", "true", "yes"].includes(dataSelected)) return true;
+        if (["0", "false", "no"].includes(dataSelected)) return false;
+      }
+      return null;
+    }
+    async function waitForResearchModeTriggerState(expectedState, initialTrigger = null) {
+      const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+      while (Date.now() <= deadline) {
+        const trigger = findResearchModeTriggerElement() || (initialTrigger && isVisibleElement(initialTrigger) ? initialTrigger : null);
+        const currentState = getExplicitResearchModeTriggerState(trigger);
+        if (currentState === expectedState) {
+          return { ok: true, state: currentState, stateKnown: true };
+        }
+        await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+      }
+      const finalTrigger = findResearchModeTriggerElement() || (initialTrigger && isVisibleElement(initialTrigger) ? initialTrigger : null);
+      const finalState = getExplicitResearchModeTriggerState(finalTrigger);
+      return {
+        ok: finalState === expectedState,
+        state: finalState,
+        stateKnown: finalState !== null
+      };
+    }
     function findExplicitWebAccessToggleTarget(container) {
       if (!container) return null;
       const rowRole = String(container.getAttribute?.("role") || "").toLowerCase();
@@ -2069,8 +2121,8 @@
       if (byKey) return byKey;
       return NOTION_MODE_TARGETS.research;
     }
-    async function selectModeAction({ shortcut, engine: engine2, targetId = "" } = {}) {
-      const target = resolveModeSelectionTarget(shortcut, targetId);
+    async function selectModeViaSettingsMenuAction({ shortcut, engine: engine2, targetId = "", target: resolvedTarget = null } = {}) {
+      const target = resolvedTarget || resolveModeSelectionTarget(shortcut, targetId);
       const trigger = findSettingsTriggerElement();
       if (!trigger) return false;
       const root = await ensureSettingsMenuOpen(trigger);
@@ -2095,8 +2147,38 @@
       await closeSettingsMenu(trigger, { initialDelayMs: 30 });
       return true;
     }
-    async function toggleResearchModeAction(args = {}) {
-      return selectModeAction({ ...args, targetId: "research" });
+    async function toggleResearchModeAction({ shortcut, engine: engine2 } = {}) {
+      const trigger = findResearchModeTriggerElement();
+      if (trigger) {
+        const currentState = getExplicitResearchModeTriggerState(trigger);
+        if (currentState === true) return true;
+        if (!simulateClickElement(trigger, { nativeFallback: true })) {
+          console.warn(`${LOG_TAG} toggleResearchMode: Research mode button click failed; falling back to mode menu.`);
+        } else {
+          const stateResult = await waitForResearchModeTriggerState(true, trigger);
+          if (stateResult.ok) return true;
+          if (!stateResult.stateKnown) {
+            console.warn(`${LOG_TAG} toggleResearchMode: Research mode button state is not exposed; treating the successful click as complete after settle.`);
+            await sleep(RESEARCH_MODE_SETTLE_MS);
+            return true;
+          }
+          console.warn(`${LOG_TAG} toggleResearchMode: Research mode button did not report an active state; falling back to mode menu.`);
+        }
+      } else {
+        console.warn(`${LOG_TAG} toggleResearchMode: direct Research mode button not found; falling back to mode menu.`);
+      }
+      return selectModeViaSettingsMenuAction({
+        shortcut,
+        engine: engine2,
+        target: NOTION_MODE_TARGETS.research
+      });
+    }
+    async function selectModeAction(args = {}) {
+      const target = resolveModeSelectionTarget(args.shortcut, args.targetId);
+      if (target?.id === "research" || String(args.shortcut?.key || "").trim() === "toggleResearchMode") {
+        return toggleResearchModeAction(args);
+      }
+      return selectModeViaSettingsMenuAction({ ...args, target });
     }
     function textLooksLikeCreateImageMenuItem(value) {
       const text = normalizeNotionText(value);
@@ -5070,7 +5152,7 @@
         name: target.label,
         labelKey: target.labelKey,
         actionType: "custom",
-        customAction: "selectMode",
+        customAction: target?.id === "research" ? "toggleResearchMode" : "selectMode",
         hotkey: target.hotkey,
         icon: iconInfo.icon,
         iconDark: iconInfo.iconDark || "",
