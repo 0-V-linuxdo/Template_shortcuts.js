@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Gemini] 快捷键跳转 [20260601] v1.1.1
-// @name:en        [Gemini] Shortcut Jump [20260601] v1.1.1
+// @name           [Gemini] 快捷键跳转 [20260604] v1.0.1
+// @name:en        [Gemini] Shortcut Jump [20260604] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。
 // @description:en Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.
 
-// @version        [20260601] v1.1.1
-// @update-log     1.1.1: 将 Usage limits 快捷键改为 SPA route + history.pushState 跳转配置，避免整页刷新；继续使用 Gemini 网页原生 donut_large 图标，并自动迁移旧配置。
-// @update-log:en  1.1.1: Changed the Usage limits shortcut to SPA route + history.pushState navigation to avoid a full page reload; it still uses Gemini's native donut_large web icon and automatically migrates old configs.
+// @version        [20260604] v1.0.1
+// @update-log     1.0.1: 重做 Delete 确认流程：Enter 模拟动作在删除确认框可见时直接执行确认，常驻监听仅作兜底，并避免 Cancel 焦点误确认。
+// @update-log:en  1.0.1: Reworked Delete confirmation: simulated Enter actions confirm directly while the delete dialog is visible, with a persistent listener as fallback and Cancel focus protected.
 
 // @match          https://gemini.google.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22gemini-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.gemini-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.gemini-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Csvg%20x%3D%2213%22%20y%3D%2211%22%20width%3D%2238%22%20height%3D%2238%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cdefs%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-0%22%20x1%3D%227%22%20x2%3D%2211%22%20y1%3D%2215.5%22%20y2%3D%2212%22%3E%3Cstop%20stop-color%3D%22%2308B962%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2308B962%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-1%22%20x1%3D%228%22%20x2%3D%2211.5%22%20y1%3D%225.5%22%20y2%3D%2211%22%3E%3Cstop%20stop-color%3D%22%23F94543%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23F94543%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3ClinearGradient%20gradientUnits%3D%22userSpaceOnUse%22%20id%3D%22gemini-keycap-gradient-2%22%20x1%3D%223.5%22%20x2%3D%2217.5%22%20y1%3D%2213.5%22%20y2%3D%2212%22%3E%3Cstop%20stop-color%3D%22%23FABC12%22%3E%3C%2Fstop%3E%3Cstop%20offset%3D%22.46%22%20stop-color%3D%22%23FABC12%22%20stop-opacity%3D%220%22%3E%3C%2Fstop%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22%233186FF%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-0)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-1)%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M20.616%2010.835a14.147%2014.147%200%2001-4.45-3.001%2014.111%2014.111%200%2001-3.678-6.452.503.503%200%2000-.975%200%2014.134%2014.134%200%2001-3.679%206.452%2014.155%2014.155%200%2001-4.45%203.001c-.65.28-1.318.505-2.002.678a.502.502%200%20000%20.975c.684.172%201.35.397%202.002.677a14.147%2014.147%200%20014.45%203.001%2014.112%2014.112%200%20013.679%206.453.502.502%200%2000.975%200c.172-.685.397-1.351.677-2.003a14.145%2014.145%200%20013.001-4.45%2014.113%2014.113%200%20016.453-3.678.503.503%200%20000-.975%2013.245%2013.245%200%2001-2.003-.678z%22%20fill%3D%22url(%23gemini-keycap-gradient-2)%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260603.1.0.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260604.1.0.1
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -3809,53 +3809,83 @@
       const fallback = String(shortcut?.customAction || "").trim();
       return fallback || "conversationMenu";
     }
-    let deleteConfirmEnterBridgeCleanup = null;
+    let deleteConfirmEnterHandlerInstalled = false;
+    let deleteConfirmEnterHandling = false;
+    let deleteConfirmEnterEngine = null;
     function isUsableDeleteConfirmButton(button) {
       if (!button) return false;
       const ariaDisabled = String(button.getAttribute?.("aria-disabled") || "").trim().toLowerCase();
       if (button.disabled || ariaDisabled === "true") return false;
       return isElementVisible(button);
     }
+    function getButtonTextForDeleteConfirm(button) {
+      if (!button) return "";
+      try {
+        return [
+          getGeminiUiElementText(button),
+          button.getAttribute?.("aria-label"),
+          button.getAttribute?.("title"),
+          button.getAttribute?.("data-test-id")
+        ].filter(Boolean).join(" ");
+      } catch {
+        return "";
+      }
+    }
+    function isDeleteConfirmCancelButton(button) {
+      const text = normalizeGeminiUiText(getButtonTextForDeleteConfirm(button));
+      if (!text) return false;
+      if (textLooksLikeDelete(text)) return false;
+      return text.includes("cancel") || text.includes("取消");
+    }
+    function getDeleteConfirmDialogText(root) {
+      if (!root) return "";
+      try {
+        return [
+          root.getAttribute?.("aria-label"),
+          root.querySelector?.("[data-test-id='message-dialog-title']")?.textContent,
+          root.querySelector?.("h1,h2,h3,[role='heading']")?.textContent,
+          root.textContent
+        ].filter(Boolean).join(" ");
+      } catch {
+        return "";
+      }
+    }
     function findDeleteConfirmDialog() {
       let candidates = [];
+      const dialogSelector = "mat-dialog-container, mat-mdc-dialog-container, [role='dialog'], [aria-modal='true']";
       try {
-        candidates = Array.from(document.querySelectorAll("mat-dialog-container, [role='dialog'], .cdk-overlay-pane"));
+        candidates = Array.from(document.querySelectorAll(`${dialogSelector}, .cdk-overlay-pane`));
       } catch {
         return null;
       }
       for (const candidate of candidates) {
         if (!candidate || !isElementVisible(candidate)) continue;
-        const dialog = candidate.matches?.("mat-dialog-container, [role='dialog']") ? candidate : candidate.querySelector?.("mat-dialog-container, [role='dialog']") || null;
-        const root = dialog || candidate;
+        const dialog = candidate.matches?.(dialogSelector) ? candidate : candidate.querySelector?.(dialogSelector) || null;
+        if (!dialog) continue;
+        const root = dialog;
+        const dialogText = getDeleteConfirmDialogText(root);
+        if (!textLooksLikeDelete(dialogText)) continue;
         let confirmBtn = null;
         try {
           confirmBtn = root.querySelector?.("button[data-test-id='confirm-button']") || null;
         } catch {
           confirmBtn = null;
         }
-        if (isUsableDeleteConfirmButton(confirmBtn)) {
-          const ariaLabel = String(root.getAttribute?.("aria-label") || "");
-          const titleText = String(root.querySelector?.("[data-test-id='message-dialog-title']")?.textContent || "");
-          const dialogText = String(root.textContent || "");
-          if (textLooksLikeDelete(ariaLabel) || textLooksLikeDelete(titleText) || textLooksLikeDelete(dialogText)) {
-            return { dialog: root, confirmBtn };
-          }
-        }
+        let cancelBtn = null;
         let buttons = [];
         try {
-          buttons = Array.from(root.querySelectorAll("button"));
+          buttons = Array.from(root.querySelectorAll("button, [role='button']"));
         } catch {
           buttons = [];
         }
+        cancelBtn = buttons.find((btn) => isUsableDeleteConfirmButton(btn) && isDeleteConfirmCancelButton(btn)) || null;
+        if (isUsableDeleteConfirmButton(confirmBtn)) {
+          return { dialog: root, confirmBtn, cancelBtn };
+        }
         for (const btn of buttons) {
-          const buttonText = `${btn.textContent || ""} ${btn.getAttribute?.("aria-label") || ""}`;
+          const buttonText = getButtonTextForDeleteConfirm(btn);
           if (!isUsableDeleteConfirmButton(btn) || !textLooksLikeDelete(buttonText)) continue;
-          const ariaLabel = String(root.getAttribute?.("aria-label") || "");
-          const titleText = String(root.querySelector?.("[data-test-id='message-dialog-title']")?.textContent || "");
-          const dialogText = String(root.textContent || "");
-          if (textLooksLikeDelete(ariaLabel) || textLooksLikeDelete(titleText) || textLooksLikeDelete(dialogText)) {
-            return { dialog: root, confirmBtn: btn };
-          }
+          return { dialog: root, confirmBtn: btn, cancelBtn };
         }
       }
       return null;
@@ -3880,9 +3910,39 @@
       if (event.isComposing || event.keyCode === 229) return false;
       return !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
     }
+    function getActiveDeleteConfirmButton(target) {
+      const dialog = target?.dialog || null;
+      const active = document.activeElement || null;
+      if (!dialog || !active || typeof active.closest !== "function") return null;
+      const button = active.closest("button, [role='button']");
+      return button && dialog.contains?.(button) ? button : null;
+    }
+    function shouldLetDeleteConfirmEnterPassThrough(event, target) {
+      const button = getActiveDeleteConfirmButton(target);
+      if (!button) return false;
+      if (button === target?.confirmBtn) return false;
+      return isDeleteConfirmCancelButton(button);
+    }
+    function isPlainEnterHotkeyString(value) {
+      const parts = String(value || "").trim().toUpperCase().split("+").map((part) => part.trim()).filter(Boolean);
+      if (parts.length !== 1) return false;
+      return parts[0] === "ENTER" || parts[0] === "RETURN" || parts[0] === "NUMPADENTER";
+    }
+    function shortcutShouldConfirmDeleteWithEnter(shortcut) {
+      return isPlainEnterHotkeyString(shortcut?.simulateKeys) || isPlainEnterHotkeyString(shortcut?.hotkey);
+    }
+    function simulateGeminiShortcutKeystroke(keyString, { target = null } = {}) {
+      const simulate = ShortcutTemplate?.quickInput?.dom?.simulateKeystroke;
+      if (typeof simulate === "function") {
+        try {
+          return !!simulate(keyString, { target });
+        } catch {
+        }
+      }
+      return false;
+    }
     function clearDeleteConfirmEnterBridge() {
-      const cleanup = deleteConfirmEnterBridgeCleanup;
-      if (typeof cleanup === "function") cleanup();
+      deleteConfirmEnterHandling = false;
     }
     function getVisibleConversationMenuPanels() {
       let panels = [];
@@ -3922,81 +3982,149 @@
       }
       return !isConversationMenuClosingOrOpen(ctx);
     }
-    function armDeleteConfirmEnterBridge({ dialog, confirmBtn }, { engine: engine2 = null, timeoutMs = 3e4, closeCheckIntervalMs = 250 } = {}) {
-      if (!dialog || !confirmBtn) return false;
-      clearDeleteConfirmEnterBridge();
-      const doc = dialog.ownerDocument || document;
-      const win = doc.defaultView || window;
-      let cleaned = false;
-      let timeoutId = 0;
-      let closeCheckId = 0;
-      let handlingEnter = false;
-      const cleanup = () => {
-        if (cleaned) return;
-        cleaned = true;
-        try {
-          win?.removeEventListener?.("keydown", onKeydown, true);
-        } catch {
+    async function waitForDeleteConfirmDialogClosed({ timeoutMs = 4500, intervalMs = 80, settleMs = 120 } = {}) {
+      const timeout = Math.max(0, Number(timeoutMs) || 0);
+      const interval = Math.max(30, Number(intervalMs) || 80);
+      const settle = Math.max(0, Number(settleMs) || 0);
+      const deadline = Date.now() + timeout;
+      let closedSince = 0;
+      while (Date.now() <= deadline) {
+        if (!findDeleteConfirmDialog()?.dialog) {
+          if (!closedSince) closedSince = Date.now();
+          if (Date.now() - closedSince >= settle) return true;
+        } else {
+          closedSince = 0;
         }
-        try {
-          doc.removeEventListener("keydown", onKeydown, true);
-        } catch {
-        }
-        try {
-          clearTimeout(timeoutId);
-        } catch {
-        }
-        try {
-          clearInterval(closeCheckId);
-        } catch {
-        }
-        if (deleteConfirmEnterBridgeCleanup === cleanup) deleteConfirmEnterBridgeCleanup = null;
-      };
-      const onKeydown = (event) => {
-        if (!isPlainEnterKeyEvent(event)) return;
-        if (handlingEnter) return;
+        await sleep(interval);
+      }
+      return !findDeleteConfirmDialog()?.dialog;
+    }
+    async function waitForDeleteConfirmTarget({ timeoutMs = 2500, intervalMs = 70 } = {}) {
+      const timeout = Math.max(0, Number(timeoutMs) || 0);
+      const interval = Math.max(30, Number(intervalMs) || 70);
+      const deadline = Date.now() + timeout;
+      while (Date.now() <= deadline) {
+        const target = findDeleteConfirmDialog();
+        if (isUsableDeleteConfirmButton(target?.confirmBtn)) return target;
+        await sleep(interval);
+      }
+      return findDeleteConfirmDialog();
+    }
+    async function activateDeleteConfirmButton(confirmBtn = null) {
+      const fallback = isUsableDeleteConfirmButton(confirmBtn) ? confirmBtn : null;
+      const deadline = Date.now() + 3600;
+      while (Date.now() <= deadline) {
         const latest = findDeleteConfirmDialog();
-        const candidate = latest?.confirmBtn || confirmBtn;
-        if (!latest?.dialog && !isUsableDeleteConfirmButton(candidate)) {
-          cleanup();
-          return;
+        const button = isUsableDeleteConfirmButton(latest?.confirmBtn) ? latest.confirmBtn : fallback;
+        if (!isUsableDeleteConfirmButton(button)) {
+          await sleep(70);
+          continue;
         }
+        focusDeleteConfirmButton(button);
         try {
-          event.preventDefault();
+          button.scrollIntoView?.({ block: "nearest", inline: "nearest" });
         } catch {
         }
         try {
-          event.stopPropagation();
+          if (TemplateUtils?.events?.simulateClick?.(button, { nativeFallback: true })) {
+          }
         } catch {
         }
+        if (await waitForDeleteConfirmDialogClosed({ timeoutMs: 900, intervalMs: 70, settleMs: 100 })) return true;
         try {
-          event.stopImmediatePropagation?.();
+          button.click?.();
         } catch {
         }
-        handlingEnter = true;
-        cleanup();
-        void (async () => {
-          await waitForConversationMenusSettled({
-            engine: engine2,
-            timeoutMs: 650,
-            intervalMs: 35,
-            settleMs: 35
-          });
-          const settledLatest = findDeleteConfirmDialog();
-          const target = isUsableDeleteConfirmButton(settledLatest?.confirmBtn) ? settledLatest.confirmBtn : candidate;
-          if (!isUsableDeleteConfirmButton(target)) return;
-          focusDeleteConfirmButton(target);
-          simulateGeminiMenuClick(target);
-        })();
-      };
-      deleteConfirmEnterBridgeCleanup = cleanup;
+        if (await waitForDeleteConfirmDialogClosed({ timeoutMs: 900, intervalMs: 70, settleMs: 100 })) return true;
+        try {
+          simulateGeminiMenuClick(button);
+        } catch {
+        }
+        if (await waitForDeleteConfirmDialogClosed({ timeoutMs: 900, intervalMs: 70, settleMs: 100 })) return true;
+      }
+      return !findDeleteConfirmDialog()?.dialog;
+    }
+    function activateDeleteConfirmCancelButton(target) {
+      const button = getActiveDeleteConfirmButton(target) || target?.cancelBtn || null;
+      if (!isUsableDeleteConfirmButton(button) || !isDeleteConfirmCancelButton(button)) return false;
       try {
-        win?.addEventListener?.("keydown", onKeydown, true);
-        doc.addEventListener("keydown", onKeydown, true);
+        if (TemplateUtils?.events?.simulateClick?.(button, { nativeFallback: true })) return true;
       } catch {
-        cleanup();
+      }
+      try {
+        button.click?.();
+        return true;
+      } catch {
+      }
+      return false;
+    }
+    async function confirmVisibleDeleteDialog({ engine: engine2 = null, waitForDialogMs = 0, event = null, source = "" } = {}) {
+      const initial = waitForDialogMs > 0 ? await waitForDeleteConfirmTarget({ timeoutMs: waitForDialogMs }) : findDeleteConfirmDialog();
+      if (!isUsableDeleteConfirmButton(initial?.confirmBtn)) return false;
+      if (shouldLetDeleteConfirmEnterPassThrough(event, initial)) {
+        return activateDeleteConfirmCancelButton(initial);
+      }
+      if (deleteConfirmEnterHandling) return true;
+      deleteConfirmEnterHandling = true;
+      try {
+        await waitForConversationMenusSettled({
+          engine: engine2,
+          timeoutMs: 800,
+          intervalMs: 35,
+          settleMs: 45
+        });
+        const latest = findDeleteConfirmDialog();
+        const button = isUsableDeleteConfirmButton(latest?.confirmBtn) ? latest.confirmBtn : initial.confirmBtn;
+        const ok = await activateDeleteConfirmButton(button);
+        if (!ok) {
+          const stillOpen = findDeleteConfirmDialog();
+          if (isUsableDeleteConfirmButton(stillOpen?.confirmBtn)) focusDeleteConfirmButton(stillOpen.confirmBtn);
+          console.warn(`${LOG_TAG} Delete confirmation Enter did not close the dialog${source ? ` (${source})` : ""}.`);
+        }
+        return ok;
+      } finally {
+        deleteConfirmEnterHandling = false;
+      }
+    }
+    function handleDeleteConfirmEnter(event) {
+      if (!isPlainEnterKeyEvent(event)) return;
+      const target = findDeleteConfirmDialog();
+      if (!isUsableDeleteConfirmButton(target?.confirmBtn)) return;
+      if (shouldLetDeleteConfirmEnterPassThrough(event, target)) return;
+      try {
+        event.preventDefault();
+      } catch {
+      }
+      try {
+        event.stopPropagation();
+      } catch {
+      }
+      try {
+        event.stopImmediatePropagation?.();
+      } catch {
+      }
+      void confirmVisibleDeleteDialog({
+        engine: deleteConfirmEnterEngine,
+        event,
+        source: "keydown"
+      });
+    }
+    function setupDeleteConfirmEnterHandler(engine2 = null) {
+      deleteConfirmEnterEngine = engine2 || deleteConfirmEnterEngine;
+      if (deleteConfirmEnterHandlerInstalled) return true;
+      deleteConfirmEnterHandlerInstalled = true;
+      try {
+        window.addEventListener("keydown", handleDeleteConfirmEnter, true);
+        document.addEventListener("keydown", handleDeleteConfirmEnter, true);
+      } catch {
+        deleteConfirmEnterHandlerInstalled = false;
         return false;
       }
+      return true;
+    }
+    function armDeleteConfirmEnterBridge(target, { engine: engine2 = null } = {}) {
+      if (!isUsableDeleteConfirmButton(target?.confirmBtn)) return false;
+      setupDeleteConfirmEnterHandler(engine2);
       void (async () => {
         await waitForConversationMenusSettled({
           engine: engine2,
@@ -4004,28 +4132,31 @@
           intervalMs: 40,
           settleMs: 80
         });
-        if (cleaned) return;
         const latest = findDeleteConfirmDialog();
-        const target = isUsableDeleteConfirmButton(latest?.confirmBtn) ? latest.confirmBtn : confirmBtn;
-        if (isUsableDeleteConfirmButton(target)) focusDeleteConfirmButton(target);
+        const button = isUsableDeleteConfirmButton(latest?.confirmBtn) ? latest.confirmBtn : target.confirmBtn;
+        if (isUsableDeleteConfirmButton(button)) focusDeleteConfirmButton(button);
       })();
-      const timeout = Math.max(1e3, Number(timeoutMs) || 3e4);
-      const closeCheckInterval = Math.max(100, Number(closeCheckIntervalMs) || 250);
-      timeoutId = setTimeout(cleanup, timeout);
-      closeCheckId = setInterval(() => {
-        const latest = findDeleteConfirmDialog();
-        if (!latest?.dialog) cleanup();
-      }, closeCheckInterval);
       return true;
     }
-    async function prepareDeleteConfirmEnterBridge({ engine: engine2 = null, timeoutMs = 2500, intervalMs = 80 } = {}) {
-      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
-      const interval = Math.max(30, Number(intervalMs) || 80);
-      while (Date.now() <= deadline) {
-        const target = findDeleteConfirmDialog();
-        if (target?.confirmBtn) return armDeleteConfirmEnterBridge(target, { engine: engine2 });
-        await sleep(interval);
+    async function prepareDeleteConfirmEnterBridge({ engine: engine2 = null, timeoutMs = 2500 } = {}) {
+      setupDeleteConfirmEnterHandler(engine2);
+      const target = await waitForDeleteConfirmTarget({ timeoutMs });
+      if (isUsableDeleteConfirmButton(target?.confirmBtn)) return armDeleteConfirmEnterBridge(target, { engine: engine2 });
+      return false;
+    }
+    async function geminiSimulateAction({ shortcut, event, engine: engine2 }) {
+      if (shortcutShouldConfirmDeleteWithEnter(shortcut)) {
+        const handled = await confirmVisibleDeleteDialog({
+          engine: engine2,
+          event,
+          source: "simulate"
+        });
+        if (handled) return true;
       }
+      if (shortcut?.simulateKeys) {
+        return simulateGeminiShortcutKeystroke(shortcut.simulateKeys);
+      }
+      console.warn(`${LOG_TAG} Shortcut "${shortcut?.name || ""}" is type 'simulate' but has no simulateKeys defined.`);
       return false;
     }
     const topBarConversationMenuActionBase = createGeminiMenuAction({
@@ -6735,6 +6866,10 @@
       protectedIconUrls,
       defaultShortcuts,
       customActions: CUSTOM_ACTIONS,
+      allowOverrideBuiltinActions: true,
+      actionHandlers: {
+        simulate: geminiSimulateAction
+      },
       customActionDataAdapters: {
         toolsDrawer: createMenuDataAdapter({
           label: siteText("dataAdapters.toolsDrawer.label", "Menu keyword (or paste JSON, advanced):"),
@@ -6758,6 +6893,7 @@
       }
     });
     engine.init();
+    setupDeleteConfirmEnterHandler(engine);
     migrateGeminiManagedShortcuts(engine, { refreshPanel: true });
     setupKeepSidebarVisible();
     registerGeminiMenuCommands(engine);
