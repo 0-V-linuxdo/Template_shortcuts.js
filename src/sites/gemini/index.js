@@ -4447,24 +4447,27 @@
         return !findDeleteConfirmDialog()?.dialog;
     }
 
+    function getLatestDeleteConfirmButton(fallback = null) {
+        const latest = findDeleteConfirmDialog()?.confirmBtn || null;
+        if (isUsableDeleteConfirmButton(latest)) return latest;
+        return isUsableDeleteConfirmButton(fallback) ? fallback : null;
+    }
+
     async function activateDeleteConfirmButton(confirmBtn) {
-        const target = isUsableDeleteConfirmButton(confirmBtn)
-            ? { confirmBtn }
-            : findDeleteConfirmDialog();
-        const button = target?.confirmBtn || null;
-        if (!isUsableDeleteConfirmButton(button)) return false;
+        const fallback = isUsableDeleteConfirmButton(confirmBtn) ? confirmBtn : null;
+        if (!getLatestDeleteConfirmButton(fallback)) return false;
 
         const attempts = [
-            () => {
+            (button) => {
                 focusDeleteConfirmButton(button);
                 button.click?.();
                 return true;
             },
-            () => {
+            (button) => {
                 focusDeleteConfirmButton(button);
                 return simulateGeminiMenuClick(button);
             },
-            () => {
+            (button) => {
                 focusDeleteConfirmButton(button);
                 const doc = button.ownerDocument || document;
                 const win = doc.defaultView || window;
@@ -4480,7 +4483,8 @@
 
         for (const attempt of attempts) {
             try {
-                if (!attempt()) continue;
+                const button = getLatestDeleteConfirmButton(fallback);
+                if (!button || !attempt(button)) continue;
             } catch { }
             if (await waitForDeleteConfirmDialogClosed()) return true;
         }
