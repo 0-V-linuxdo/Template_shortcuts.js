@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260601] v1.0.0
-// @name:en        [ChatGPT] Shortcut Jump [20260601] v1.0.0
+// @name           [ChatGPT] 快捷键跳转 [20260604] v1.0.0
+// @name:en        [ChatGPT] Shortcut Jump [20260604] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
-// @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.
+// @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image/Create website）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
+// @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers including Create website, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260601] v1.0.0
-// @update-log     1.0.0: 新增独立 Schedules 快捷项，使用 SPA route + history.pushState 跳转到 chatgpt.com/schedules，并保留旧的 Settings: Schedules 设置页入口。
-// @update-log:en  1.0.0: Added a separate Schedules shortcut that uses SPA route + history.pushState navigation to chatgpt.com/schedules while keeping the old Settings: Schedules settings-page entry.
+// @version        [20260604] v1.0.0
+// @update-log     1.0.0: 新增 Create website 快捷项（默认 Ctrl+C），并将 Canvas 默认快捷键迁移为 Ctrl+Shift+C，适配当前 ChatGPT 的 + > More 工具菜单。
+// @update-log:en  1.0.0: Added a Create website shortcut (default Ctrl+C) and migrated the Canvas default shortcut to Ctrl+Shift+C for the current ChatGPT + > More tools menu.
 
 // @match          https://chatgpt.com/*
 
@@ -100,6 +100,7 @@
       temporaryChat: createChatgptShortcutIconSet('<path d="M21 12a9 9 0 1 1-9-9"/><path d="M12 7v5l3 2"/><path d="M17 3h4v4"/>'),
       model: createChatgptShortcutIconSet('<circle cx="12" cy="12" r="3"/><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M7.5 7.5 10 10"/><path d="M16.5 7.5 14 10"/><path d="M7.5 16.5 10 14"/><path d="M16.5 16.5 14 14"/>'),
       createImage: createChatgptShortcutIconSet('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>'),
+      createWebsite: createChatgptShortcutIconSet('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18"/><path d="M7 12h5"/><path d="M7 16h10"/><path d="M16 12h1"/>'),
       square: createChatgptShortcutIconSet('<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9z"/>'),
       deepResearch: createChatgptShortcutIconSet('<circle cx="11" cy="11" r="6"/><path d="m20 20-4.3-4.3"/><path d="M8.5 10h5"/><path d="M8.5 13h3"/>'),
       thinking: createChatgptShortcutIconSet('<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15 14c.2-1 .7-1.7 1.5-2.5A5 5 0 1 0 7.5 11.5c.8.8 1.3 1.5 1.5 2.5"/>'),
@@ -151,6 +152,7 @@
       "Temporary Chat": "temporaryChat",
       "Model: o3": "model",
       "Create image": "createImage",
+      "Create website": "createWebsite",
       "Square 1:1": "square",
       "Deep research": "deepResearch",
       "Thinking": "thinking",
@@ -172,6 +174,7 @@
           "chatgpt-settings-schedules": "设置：计划任务",
           "chatgpt-schedules": "计划任务",
           "chatgpt-settings-security": "设置：安全",
+          "chatgpt-create-website": "创建网站",
           "New Chat": "新建聊天",
           "Toggle Sidebar": "切换侧边栏",
           "Copy Last Code Block": "复制最后一个代码块",
@@ -181,6 +184,7 @@
           "Temporary Chat": "临时聊天",
           "Model: o3": "模型：o3",
           "Create image": "创建图片",
+          "Create website": "创建网站",
           "Deep research": "深度研究",
           "Thinking": "思考",
           "Canvas": "画布",
@@ -234,7 +238,8 @@
           "chatgpt-settings-data-controls": "Settings: Data Controls",
           "chatgpt-settings-schedules": "Settings: Schedules",
           "chatgpt-schedules": "Schedules",
-          "chatgpt-settings-security": "Settings: Security"
+          "chatgpt-settings-security": "Settings: Security",
+          "chatgpt-create-website": "Create website"
         },
         dataAdapters: {
           chatgptMenu: {
@@ -322,6 +327,12 @@
         matchIds: Object.freeze(["createimage"]),
         iconIds: Object.freeze(["266724"]),
         aliases: Object.freeze(["Create image", "创建图片"])
+      }),
+      createWebsite: Object.freeze({
+        id: "createWebsite",
+        matchIds: Object.freeze(["createwebsite", "website"]),
+        iconIds: Object.freeze([]),
+        aliases: Object.freeze(["Create website", "创建网站"])
       }),
       deepResearch: Object.freeze({
         id: "deepResearch",
@@ -3682,6 +3693,7 @@
     });
     const CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY = "chatgpt-aspect-square-1-1";
     const CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY = "chatgpt-native-set-custom-instructions";
+    const CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY = "chatgpt-create-website";
     const CHATGPT_SCHEDULES_SHORTCUT_KEY = "chatgpt-schedules";
     const CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY = "chatgpt-settings-general";
     const CHATGPT_SETTINGS_ACCOUNT_SHORTCUT_KEY = "chatgpt-settings-account";
@@ -3691,6 +3703,7 @@
     const CHATGPT_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
       CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY,
       CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY,
+      CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY,
       CHATGPT_SCHEDULES_SHORTCUT_KEY,
       CHATGPT_SETTINGS_GENERAL_SHORTCUT_KEY,
       CHATGPT_SETTINGS_ACCOUNT_SHORTCUT_KEY,
@@ -3707,6 +3720,16 @@
         data: { aspectRatio: { id: "square" } },
         hotkey: "CTRL+SHIFT+1"
       }, "square");
+    }
+    function createChatgptCreateWebsiteShortcut() {
+      return createShortcut({
+        key: CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY,
+        name: "Create website",
+        actionType: "custom",
+        customAction: "chatgptMenu",
+        data: { menu: { id: "createWebsite" } },
+        hotkey: "CTRL+C"
+      }, "createWebsite");
     }
     const defaultShortcuts = [
       // === ChatGPT 原生快捷键（simulate）===
@@ -3832,6 +3855,7 @@
         data: { menu: { id: "createImage" } },
         hotkey: "CTRL+I"
       }, "createImage"),
+      createChatgptCreateWebsiteShortcut(),
       createChatgptSquareAspectRatioShortcut(),
       createShortcut({
         name: "Deep research",
@@ -3852,7 +3876,7 @@
         actionType: "custom",
         customAction: "chatgptMenu",
         data: { menu: { id: "canvas" } },
-        hotkey: "CTRL+C"
+        hotkey: "CTRL+SHIFT+C"
       }, "canvas"),
       createShortcut({
         name: "Web",
@@ -3883,6 +3907,7 @@
       if (customAction === "chatgptAspectRatio") return "square";
       if (customAction === "chatgptMenu") {
         if (menuId === "createImage") return "createImage";
+        if (menuId === "createWebsite") return "createWebsite";
         if (menuId === "deepResearch") return "deepResearch";
         if (menuId === "thinking") return "thinking";
         if (menuId === "canvas") return "canvas";
@@ -3907,6 +3932,65 @@
       if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return null;
       const data = shortcut.data && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? JSON.parse(JSON.stringify(shortcut.data)) : {};
       return { ...shortcut, data };
+    }
+    function getChatgptStoredShortcutMenuId(shortcut) {
+      const data = shortcut?.data && typeof shortcut.data === "object" && !Array.isArray(shortcut.data) ? shortcut.data : {};
+      const menu = data.menu && typeof data.menu === "object" && !Array.isArray(data.menu) ? data.menu : {};
+      return String(menu.id || "").trim();
+    }
+    function isChatgptCanvasShortcutItem(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
+      if (String(shortcut.name || "").trim() === "Canvas") return true;
+      return getChatgptStoredShortcutMenuId(shortcut) === "canvas";
+    }
+    function isChatgptCreateWebsiteShortcutItem(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
+      const key = String(shortcut.key || "").trim();
+      if (key === CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY) return true;
+      const name = String(shortcut.name || "").trim();
+      if (name === "Create website" || name === "创建网站") return true;
+      return getChatgptStoredShortcutMenuId(shortcut) === "createWebsite";
+    }
+    function isChatgptHotkeyInUse(list, hotkey, exceptIndex = -1) {
+      const target = normalizeChatgptShortcutHotkey(hotkey);
+      if (!target || !Array.isArray(list)) return false;
+      return list.some((shortcut, index) => index !== exceptIndex && normalizeChatgptShortcutHotkey(shortcut?.hotkey) === target);
+    }
+    function migrateChatgptCreateWebsiteAndCanvasHotkeys() {
+      if (typeof GM_getValue !== "function" || typeof GM_setValue !== "function") return;
+      let stored = null;
+      try {
+        stored = GM_getValue(CHATGPT_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(stored)) return;
+      let changed = false;
+      const next = stored.map((shortcut) => cloneChatgptShortcutItem(shortcut) || shortcut);
+      const canvasIndex = next.findIndex(isChatgptCanvasShortcutItem);
+      if (canvasIndex >= 0 && normalizeChatgptShortcutHotkey(next[canvasIndex]?.hotkey) === "CTRL+C" && !isChatgptHotkeyInUse(next, "CTRL+SHIFT+C", canvasIndex)) {
+        next[canvasIndex].hotkey = "CTRL+SHIFT+C";
+        changed = true;
+      }
+      const createWebsiteIndex = next.findIndex(isChatgptCreateWebsiteShortcutItem);
+      if (createWebsiteIndex >= 0) {
+        const shortcut = next[createWebsiteIndex];
+        if (shortcut && typeof shortcut === "object" && !Array.isArray(shortcut)) {
+          if (String(shortcut.key || "").trim() !== CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY) {
+            shortcut.key = CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY;
+            changed = true;
+          }
+          if (!normalizeChatgptShortcutHotkey(shortcut.hotkey) && !isChatgptHotkeyInUse(next, "CTRL+C", createWebsiteIndex)) {
+            shortcut.hotkey = "CTRL+C";
+            changed = true;
+          }
+        }
+      }
+      if (!changed) return;
+      try {
+        GM_setValue(CHATGPT_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
+      } catch {
+      }
     }
     function createChatgptDefaultShortcutByKey(key) {
       const shortcutKey = String(key || "").trim();
@@ -3953,6 +4037,7 @@
       } catch {
       }
     }
+    migrateChatgptCreateWebsiteAndCanvasHotkeys();
     migrateChatgptDefaultShortcutIcons();
     const engine = ShortcutTemplate.createShortcutEngine({
       // 基本配置
@@ -4026,7 +4111,7 @@
       ensureChatgptManagedShortcut(engine, {
         key,
         createShortcutItem: () => createChatgptDefaultShortcutByKey(key),
-        avoidHotkeyConflict: key === CHATGPT_SCHEDULES_SHORTCUT_KEY
+        avoidHotkeyConflict: key === CHATGPT_SCHEDULES_SHORTCUT_KEY || key === CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY
       });
     }
     let quickInputMenuCommandId = null;
