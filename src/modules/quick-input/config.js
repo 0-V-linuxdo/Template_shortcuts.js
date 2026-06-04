@@ -178,9 +178,7 @@ const STEP_DELAY_MAX_MS = 30000;
                 textInserted: (ok) => (ok ? "已输入文字。" : "输入文字失败。"),
                 textRetrying: (stage, attempt = 1, maxAttempts = 1) => `文字校验失败${stage ? `（${stage}）` : ""}：准备自动重试 ${attempt}/${maxAttempts} 次。`,
                 textNotReady: (stage) => `文字未真正写入输入框${stage ? `（${stage}）` : ""}：自动补救后仍失败，已停止当前运行，避免发送空内容。`,
-                hotkeyTriggered: (hotkey, ok, detail = "") => (ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}${detail ? `（${detail}）` : ""}`),
-                hotkeyRetrying: (hotkey, attempt = 1, maxAttempts = 1, detail = "") => `工具快捷键失败${detail ? `（${detail}）` : ""}：准备自动重试 ${attempt}/${maxAttempts} 次（${hotkey}）。`,
-                hotkeyPausedAfterRetries: (hotkey, maxAttempts = 1, detail = "") => `工具快捷键连续失败 ${maxAttempts} 次${detail ? `（${detail}）` : ""}，已暂停；点击继续后仍将重试当前快捷键（${hotkey}），不会发送当前内容。`,
+                hotkeyTriggered: (hotkey, ok) => (ok ? `已触发快捷键：${hotkey}` : `触发快捷键失败：${hotkey}`),
                 waitingUploads: (count) => `等待图片上传完成…（${count} 张）`,
                 resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `图片就绪等待超时：当前识别到 ${currentCount} / ${expectedCount} 张，准备清空当前附件并整组重传（第 ${attempt}/${maxAttempts} 次）。`,
                 reuploadedImages: (count, expectedCount = count) => `已清空当前附件，并重新上传图片：${count} 张（目标共 ${expectedCount} 张）。`,
@@ -321,9 +319,7 @@ const STEP_DELAY_MAX_MS = 30000;
                     textInserted: (ok) => (ok ? "Text inserted." : "Failed to insert text."),
                     textRetrying: (stage, attempt = 1, maxAttempts = 1) => `Text verification failed${stage ? ` (${stage})` : ""}; retrying automatically ${attempt}/${maxAttempts}.`,
                     textNotReady: (stage) => `Text was not actually written to the input${stage ? ` (${stage})` : ""}; stopped to avoid sending empty content.`,
-                    hotkeyTriggered: (hotkey, ok, detail = "") => (ok ? `Triggered shortcut: ${hotkey}` : `Failed to trigger shortcut: ${hotkey}${detail ? ` (${detail})` : ""}`),
-                    hotkeyRetrying: (hotkey, attempt = 1, maxAttempts = 1, detail = "") => `Tool shortcut failed${detail ? ` (${detail})` : ""}; retrying automatically ${attempt}/${maxAttempts} (${hotkey}).`,
-                    hotkeyPausedAfterRetries: (hotkey, maxAttempts = 1, detail = "") => `Tool shortcut failed ${maxAttempts} times${detail ? ` (${detail})` : ""}; paused. Resume will retry the current shortcut and will not send the current content (${hotkey}).`,
+                    hotkeyTriggered: (hotkey, ok) => (ok ? `Triggered shortcut: ${hotkey}` : `Failed to trigger shortcut: ${hotkey}`),
                     waitingUploads: (count) => `Waiting for image uploads... (${count})`,
                     resettingImages: (currentCount, expectedCount, attempt = 1, maxAttempts = 1) => `Image readiness timed out: detected ${currentCount}/${expectedCount}; clearing attachments and re-uploading the group (${attempt}/${maxAttempts}).`,
                     reuploadedImages: (count, expectedCount = count) => `Cleared current attachments and re-uploaded images: ${count} (target ${expectedCount}).`,
@@ -509,42 +505,7 @@ const STEP_DELAY_MAX_MS = 30000;
             safeStoreSet(storageKey, payload);
         }
 
-        function getShortcutExecutionMessage(value) {
-            if (!value || typeof value !== "object") return "";
-            const raw = value.message ?? value.detail ?? value.reason ?? value.error;
-            if (raw instanceof Error) return String(raw.message || raw).trim();
-            if (raw && typeof raw === "object") {
-                try { return JSON.stringify(raw); } catch { return String(raw || "").trim(); }
-            }
-            return String(raw || "").trim();
-        }
-
-        function normalizeShortcutExecutionResult(value) {
-            if (value && typeof value === "object") {
-                const message = getShortcutExecutionMessage(value);
-                if (Object.prototype.hasOwnProperty.call(value, "ok")) {
-                    return { ok: !!value.ok, message };
-                }
-                if (Object.prototype.hasOwnProperty.call(value, "success")) {
-                    return { ok: !!value.success, message };
-                }
-                const status = String(value.status || "").trim().toLowerCase();
-                if (status === "failed" || status === "failure" || status === "error") {
-                    return { ok: false, message };
-                }
-            }
-            return { ok: value !== false, message: "" };
-        }
-
-        function createHotkeyExecutionReturn(ok, message, detailed) {
-            if (!detailed) return !!ok;
-            return {
-                ok: !!ok,
-                message: String(message || "").trim()
-            };
-        }
-
-        async function executeEngineShortcutByHotkey(engine, hotkey, { detailed = false } = {}) {
+        async function executeEngineShortcutByHotkey(engine, hotkey) {
             const api = engine || null;
             const core = api?.core || null;
             const normalize = core?.hotkeys?.normalize || core?.normalizeHotkey || null;
@@ -553,7 +514,7 @@ const STEP_DELAY_MAX_MS = 30000;
                 return typeof normalize === "function" ? normalize(raw) : normalizeHotkeyFallback(raw);
             };
             const norm = normalizeOne(hotkey);
-            if (!norm) return createHotkeyExecutionReturn(false, "Invalid hotkey.", detailed);
+            if (!norm) return false;
 
             let shortcut = core?.getShortcutByHotkeyNorm?.(norm) || null;
             if (!shortcut && typeof api?.getShortcuts === "function") {
@@ -562,31 +523,24 @@ const STEP_DELAY_MAX_MS = 30000;
                     shortcut = list.find(item => item && normalizeOne(item.hotkey) === norm) || null;
                 }
             }
-            if (!shortcut) return createHotkeyExecutionReturn(false, "Shortcut not found.", detailed);
-            if (typeof core?.executeShortcutAction !== "function") {
-                return createHotkeyExecutionReturn(false, "Shortcut executor not available.", detailed);
-            }
+            if (!shortcut) return false;
 
             try {
-                const res = core.executeShortcutAction(shortcut, null);
-                let executionResult = res;
+                const res = core?.executeShortcutAction?.(shortcut, null);
                 if (res && typeof res.then === "function") {
                     try {
-                        executionResult = await res;
-                    } catch (err) {
-                        const message = err instanceof Error ? err.message : String(err || "");
-                        return createHotkeyExecutionReturn(false, message || "Shortcut action rejected.", detailed);
+                        const awaited = await res;
+                        if (awaited === false) return false;
+                    } catch {
+                        return false;
                     }
+                } else if (res === false) {
+                    return false;
                 }
-                const normalizedResult = normalizeShortcutExecutionResult(executionResult);
-                if (!normalizedResult.ok) {
-                    return createHotkeyExecutionReturn(false, normalizedResult.message || "Shortcut action returned false.", detailed);
-                }
-            } catch (err) {
-                const message = err instanceof Error ? err.message : String(err || "");
-                return createHotkeyExecutionReturn(false, message || "Shortcut action failed.", detailed);
+            } catch {
+                return false;
             }
-            return createHotkeyExecutionReturn(true, "", detailed);
+            return true;
         }
 
         async function sleepWithCancel(totalMs, { shouldCancel = null, chunkMs = 160, runtime = null } = {}) {
