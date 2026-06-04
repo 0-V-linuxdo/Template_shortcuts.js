@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion AI] 快捷键跳转 [20260605] v1.0.0
-// @name:en        [Notion AI] Shortcut Jump [20260605] v1.0.0
+// @name           [Notion AI] 快捷键跳转 [20260604] v1.2.0
+// @name:en        [Notion AI] Shortcut Jump [20260604] v1.2.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260605] v1.0.0
-// @update-log     1.0.0: 修复 QuickInput 连续触发 Notion 工具快捷键时 Ctrl+R Research 模式可能被后续模型快捷键打断的问题，模式切换现在会等待选中状态确认后才继续。
-// @update-log:en  1.0.0: Fixed a QuickInput sequence issue where Ctrl+R Research mode could be interrupted by a following model shortcut; mode switching now waits for the selected state before continuing.
+// @version        [20260604] v1.2.0
+// @update-log     1.2.0: 对照 Notion AI 当前网页模型菜单完成适配，新增 Grok 4.3 与 Grok Build 0.1，按 Auto/Sonnet/Opus/Gemini/GPT/Grok/Kimi/DeepSeek 顺序重排模型默认热键，并迁移旧默认模型快捷键与显示顺序。
+// @update-log:en  1.2.0: Adapted against the current Notion AI web model menu, added Grok 4.3 and Grok Build 0.1, reordered default model hotkeys across Auto/Sonnet/Opus/Gemini/GPT/Grok/Kimi/DeepSeek, and migrated old default model hotkeys plus display order.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -22,7 +22,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22notion-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.notion-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.notion-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Csvg%20x%3D%2216%22%20y%3D%2213%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%20150%20150%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22currentColor%22%3E%3Cpath%20d%3D%22m135.3%2029.9c-5.2-9.6-15.2-17.5-28.3-17.9-14.6-0.5-27.7%209.2-35.3%2023.1-6.6%2011.8-42.6%2081.3-50.5%2097.9-1.8%203.7%200.2%207%203.8%207.5l45.4%205%201.5-12.4-37.6-3.9%2045.2-89.5c5-9.3%2014.4-17.9%2025.2-18%206.6-0.1%2016.1%203.6%2021.6%2012.4%201.3%202.3%204.2%203.5%206.7%202.3%202.4-1%203.6-4.1%202.3-6.5z%22%2F%3E%3Cpath%20d%3D%22m23.5%2027.6c4.2-4.8%2010.7-12.4%2024.2-13.6%208.7-0.6%2015%204.1%2018.9%2010.2%201.4%202.4%204.1%204.1%206.8%202.6%202.5-1.2%203.2-4.2%201.6-6.9-2.8-5.2-11.6-14.9-23.8-15.4-8.9-0.4-24.3%202.9-35.4%2017.1-1.7%202.1-1.7%205%200.4%206.8%201.9%201.9%205.4%201.6%207.3-0.8z%22%2F%3E%3Cpath%20d%3D%22m47.8%2036.2c-5.7%200.1-10.5%204.9-10.5%2010.7-0.2%206%204.1%2011.6%2010.5%2011.7%206.1-0.1%2010.5-5.2%2010.6-12-0.2-5.7-4.5-10.4-10.6-10.4z%22%2F%3E%3Cpath%20d%3D%22m94.7%2042.9c-5.6%200.1-10.6%204.8-10.7%2011.3%200%206.3%204.2%2011.9%2010.7%2011.8%205.9%200%2010.3-5.1%2010.4-11.8%200-5.7-3.9-11.2-10.4-11.3z%22%2F%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260605.1.0.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260604.1.0.1
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -1595,82 +1595,6 @@
       const root = findOpenModeMenuRoot();
       return root ? findSettingsMenuItemByText(root, (value) => textLooksLikeModeTargetMenuItem(value, target)) : null;
     }
-    function getExplicitBooleanState(element) {
-      if (!element) return null;
-      const explicitTargets = [
-        element,
-        ...safeQueryAll(element, [
-          'input[type="checkbox"]',
-          'input[type="radio"]',
-          "[aria-checked]",
-          "[aria-selected]",
-          "[aria-pressed]",
-          "[aria-current]",
-          "[data-state]",
-          "[data-selected]",
-          "[data-checked]",
-          "[data-active]"
-        ].join(", "))
-      ];
-      let sawFalse = false;
-      for (const target of explicitTargets) {
-        if (!target) continue;
-        const tag = String(target.tagName || "").toLowerCase();
-        const type = String(target.type || "").toLowerCase();
-        if (tag === "input" && (type === "checkbox" || type === "radio")) {
-          if (target.checked) return true;
-          sawFalse = true;
-          continue;
-        }
-        for (const attr of ["aria-checked", "aria-selected", "aria-pressed", "data-selected", "data-checked", "data-active"]) {
-          const raw = target.getAttribute?.(attr);
-          if (raw === null || raw === void 0) continue;
-          const value = String(raw).trim().toLowerCase();
-          if (value === "true" || value === "1" || value === "yes" || value === "checked" || value === "selected" || value === "active" || value === "on") return true;
-          if (value === "false" || value === "0" || value === "no" || value === "unchecked" || value === "unselected" || value === "inactive" || value === "off") sawFalse = true;
-        }
-        const ariaCurrent = String(target.getAttribute?.("aria-current") || "").trim().toLowerCase();
-        if (ariaCurrent && ariaCurrent !== "false") return true;
-        if (ariaCurrent === "false") sawFalse = true;
-        const dataState = String(target.getAttribute?.("data-state") || "").trim().toLowerCase();
-        if (dataState === "checked" || dataState === "on" || dataState === "active" || dataState === "selected" || dataState === "true") return true;
-        if (dataState === "unchecked" || dataState === "off" || dataState === "inactive" || dataState === "unselected" || dataState === "false") sawFalse = true;
-      }
-      return sawFalse ? false : null;
-    }
-    function getOpenModeMenuItemSelectionState(target) {
-      const row = findOpenModeMenuItem(target);
-      return row ? getExplicitBooleanState(row) : null;
-    }
-    function getResearchModeButtonSelectionState() {
-      const button = findResearchModeTriggerElement();
-      return button ? getExplicitBooleanState(button) : null;
-    }
-    function getModeSelectionState(target) {
-      if (!target) return null;
-      const rowState = getOpenModeMenuItemSelectionState(target);
-      if (rowState !== null) return rowState;
-      if (target.id === "research") return getResearchModeButtonSelectionState();
-      return null;
-    }
-    async function waitForModeSelection(target, {
-      trigger = null,
-      timeoutMs = SETTINGS_MENU_TIMING.waitTimeoutMs,
-      intervalMs = SETTINGS_MENU_TIMING.pollIntervalMs,
-      requireMenuClose = false
-    } = {}) {
-      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
-      const interval = Math.max(30, Number(intervalMs) || SETTINGS_MENU_TIMING.pollIntervalMs);
-      while (Date.now() <= deadline) {
-        const selected2 = getModeSelectionState(target) === true;
-        const menuClosed2 = !findSettingsMenuRoot(trigger) && !findOpenModeMenuRoot();
-        if (selected2 && (!requireMenuClose || menuClosed2)) return true;
-        await sleep(interval);
-      }
-      const selected = getModeSelectionState(target) === true;
-      const menuClosed = !findSettingsMenuRoot(trigger) && !findOpenModeMenuRoot();
-      return selected && (!requireMenuClose || menuClosed);
-    }
     function textLooksLikeModeMenuItem(value) {
       const text = normalizeNotionText(value);
       return !!text && (text === "mode" || text.startsWith("mode ") || text.includes(" mode ") || text === "模式" || text.includes("模式"));
@@ -2166,15 +2090,10 @@
         await closeSettingsMenu(trigger, { initialDelayMs: 0 });
         return false;
       }
-      const selected = await waitForModeSelection(target, { trigger, requireMenuClose: false });
+      await sleep(SETTINGS_MENU_TIMING.openDelayMs);
       syncNotionModeShortcutIconsFromOpenMenu(engine2);
-      const closed = await closeSettingsMenu(trigger, { initialDelayMs: 30 });
-      const settled = selected && closed;
-      if (!settled) {
-        const label = target?.label || target?.id || "mode";
-        console.warn(`${LOG_TAG} selectMode: selection did not settle for ${label}; mode state was not confirmed or the settings menu stayed open.`);
-      }
-      return settled;
+      await closeSettingsMenu(trigger, { initialDelayMs: 30 });
+      return true;
     }
     async function toggleResearchModeAction(args = {}) {
       return selectModeAction({ ...args, targetId: "research" });
