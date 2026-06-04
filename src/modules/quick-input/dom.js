@@ -133,7 +133,6 @@ function clampInt(value, { min = 0, max = 9999, fallback = 0 } = {}) {
                 code: props.code,
                 bubbles: true,
                 cancelable: true,
-                composed: true,
                 ctrlKey: modifiers.has("CTRL") || modifiers.has("CONTROL"),
                 shiftKey: modifiers.has("SHIFT"),
                 altKey: modifiers.has("ALT") || modifiers.has("OPTION") || modifiers.has("OPT"),
