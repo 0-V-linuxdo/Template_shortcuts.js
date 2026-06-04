@@ -699,45 +699,6 @@
         return dispatched;
     }
 
-    function simulatePointerHoverAt(target, x, y) {
-        if (!target || typeof target.dispatchEvent !== "function") return false;
-        const view = document?.defaultView || window;
-        const clientX = Number.isFinite(Number(x)) ? Number(x) : 1;
-        const clientY = Number.isFinite(Number(y)) ? Number(y) : 1;
-        const common = {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            view: view || null,
-            clientX,
-            clientY,
-            screenX: clientX,
-            screenY: clientY,
-            button: 0,
-            buttons: 0
-        };
-        const PointerEventCtor = getEventConstructor("PointerEvent");
-        const MouseEventCtor = getEventConstructor("MouseEvent");
-        const pointerOpts = { pointerId: 1, pointerType: "mouse", isPrimary: true };
-        const plans = [
-            PointerEventCtor && { ctor: PointerEventCtor, type: "pointerover", opts: { ...common, ...pointerOpts } },
-            PointerEventCtor && { ctor: PointerEventCtor, type: "pointerenter", opts: { ...common, ...pointerOpts } },
-            MouseEventCtor && { ctor: MouseEventCtor, type: "mouseover", opts: common },
-            MouseEventCtor && { ctor: MouseEventCtor, type: "mouseenter", opts: common },
-            PointerEventCtor && { ctor: PointerEventCtor, type: "pointermove", opts: { ...common, ...pointerOpts } },
-            MouseEventCtor && { ctor: MouseEventCtor, type: "mousemove", opts: common }
-        ].filter(Boolean);
-
-        let dispatched = false;
-        for (const plan of plans) {
-            try {
-                target.dispatchEvent(new plan.ctor(plan.type, plan.opts));
-                dispatched = true;
-            } catch { }
-        }
-        return dispatched;
-    }
-
     function getElementFromPointSafe(x, y) {
         try {
             return document?.elementFromPoint?.(x, y) || null;
@@ -1845,83 +1806,6 @@
         return root ? findSettingsMenuItemByText(root, value => textLooksLikeModeTargetMenuItem(value, target)) : null;
     }
 
-    function findAnyOpenModeMenuItem(target) {
-        if (!target) return null;
-        return findOpenModeMenuItem(target) ||
-            findOpenSettingsMenuItemByText(value => textLooksLikeModeTargetMenuItem(value, target));
-    }
-
-    function textLooksLikeModeSummaryForTarget(value, target) {
-        const text = normalizeNotionText(value);
-        if (!text || !target) return false;
-        const hasModeLabel = text === "mode" ||
-            text.startsWith("mode ") ||
-            text.includes(" mode ") ||
-            text === "模式" ||
-            text.includes("模式");
-        if (!hasModeLabel) return false;
-        const labels = getModeTargetComparableLabels(target);
-        return labels.some(label => (
-            text === `mode ${label}` ||
-            text === `mode: ${label}` ||
-            text === `mode：${label}` ||
-            text.includes(`mode ${label}`) ||
-            text.includes(`mode: ${label}`) ||
-            text.includes(`mode：${label}`) ||
-            text === `模式 ${label}` ||
-            text === `模式: ${label}` ||
-            text === `模式：${label}` ||
-            text.includes(`模式 ${label}`) ||
-            text.includes(`模式: ${label}`) ||
-            text.includes(`模式：${label}`)
-        ));
-    }
-
-    function settingsMenuShowsModeTarget(root, target) {
-        return !!findSettingsMenuItemByText(root, value => textLooksLikeModeSummaryForTarget(value, target));
-    }
-
-    function visiblePageShowsModeTarget(target) {
-        if (!target) return false;
-        const labels = getModeTargetComparableLabels(target);
-        const selector = [
-            "button",
-            '[role="button"]',
-            "span",
-            "div"
-        ].join(", ");
-        for (const element of safeQueryAll(document, selector)) {
-            if (!element || !isVisibleElement(element) || isInsideShortcutUi(element)) continue;
-            if (element.closest?.(NOTION_SETTINGS_MENU_ROOT_SELECTOR)) continue;
-            if (element.closest?.('[contenteditable="true"], [role="textbox"], textarea, input')) continue;
-            const text = normalizeNotionText(getElementSearchText(element));
-            if (!text || text.length > 48) continue;
-            const matches = labels.some(label => (
-                text === label ||
-                text === `mode ${label}` ||
-                text === `mode: ${label}` ||
-                text === `mode：${label}` ||
-                text === `模式 ${label}` ||
-                text === `模式: ${label}` ||
-                text === `模式：${label}`
-            ));
-            if (!matches) continue;
-            if (isLikelyComposerToolbarControl(element)) return true;
-        }
-        return false;
-    }
-
-    async function waitForModeSelectionTarget(target, trigger = null) {
-        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
-        while (Date.now() <= deadline) {
-            const currentRoot = findSettingsMenuRoot(trigger);
-            if (settingsMenuShowsModeTarget(currentRoot, target) || visiblePageShowsModeTarget(target)) return true;
-            await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
-        }
-        const finalRoot = findSettingsMenuRoot(trigger);
-        return settingsMenuShowsModeTarget(finalRoot, target) || visiblePageShowsModeTarget(target);
-    }
-
     function textLooksLikeModeMenuItem(value) {
         const text = normalizeNotionText(value);
         return !!text && (
@@ -2036,7 +1920,6 @@
         if (!row || !isVisibleElement(row) || isElementDisabled(row)) return false;
         const rect = getElementRect(row);
         const points = rect ? [
-            [rect.left + rect.width * 0.18, rect.top + rect.height * 0.5],
             [rect.left + rect.width * 0.52, rect.top + rect.height * 0.5],
             [rect.left + rect.width * 0.88, rect.top + rect.height * 0.5]
         ] : [[1, 1]];
@@ -2076,100 +1959,22 @@
     async function waitForModeMenuItem(target) {
         const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
         while (Date.now() <= deadline) {
-            const row = findAnyOpenModeMenuItem(target);
+            const row = findOpenModeMenuItem(target);
             if (row) return row;
             await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
         }
-        return findAnyOpenModeMenuItem(target);
-    }
-
-    function focusElementForMenuInteraction(element) {
-        if (!element) return;
-        try { element.focus?.({ preventScroll: true }); } catch {
-            try { element.focus?.(); } catch { }
-        }
-    }
-
-    function dispatchMenuKeyboardKey(target, key) {
-        if (!target || typeof target.dispatchEvent !== "function") return false;
-        const codeByKey = {
-            ArrowRight: "ArrowRight",
-            Enter: "Enter"
-        };
-        const keyCodeByKey = {
-            ArrowRight: 39,
-            Enter: 13
-        };
-        const code = codeByKey[key] || key;
-        const keyCode = keyCodeByKey[key] || 0;
-        const eventInit = {
-            key,
-            code,
-            keyCode,
-            which: keyCode,
-            bubbles: true,
-            cancelable: true,
-            composed: true
-        };
-        let dispatched = false;
-        try {
-            target.dispatchEvent(new KeyboardEvent("keydown", eventInit));
-            dispatched = true;
-        } catch { }
-        if (key === "Enter") {
-            try {
-                target.dispatchEvent(new KeyboardEvent("keypress", eventInit));
-                dispatched = true;
-            } catch { }
-        }
-        try {
-            target.dispatchEvent(new KeyboardEvent("keyup", eventInit));
-            dispatched = true;
-        } catch { }
-        return dispatched;
+        return findOpenModeMenuItem(target);
     }
 
     async function ensureModeMenuOpen(trigger, root, target) {
-        const existingTargetRow = findAnyOpenModeMenuItem(target);
+        const existingTargetRow = findOpenModeMenuItem(target);
         if (existingTargetRow) return existingTargetRow;
 
         const modeRow = findSettingsMenuItemByText(root, textLooksLikeModeMenuItem) ||
             findOpenSettingsMenuItemByText(textLooksLikeModeMenuItem);
         if (!modeRow) return null;
-        const clickable = getClickableActionElement(modeRow, root) || modeRow;
-        const rect = getElementRect(modeRow);
-        const centerY = rect ? rect.top + rect.height * 0.5 : 1;
-        const centerX = rect ? rect.left + rect.width * 0.52 : 1;
-        const rightX = rect ? rect.left + rect.width * 0.92 : centerX;
-        const attempts = [
-            () => {
-                focusElementForMenuInteraction(clickable);
-                return simulatePointerHoverAt(clickable, rightX, centerY) || simulatePointerHoverAt(modeRow, rightX, centerY);
-            },
-            () => activateSettingsMenuRow(modeRow, root),
-            () => {
-                focusElementForMenuInteraction(clickable);
-                return dispatchMenuKeyboardKey(clickable, "ArrowRight") || dispatchMenuKeyboardKey(modeRow, "ArrowRight");
-            },
-            () => {
-                focusElementForMenuInteraction(clickable);
-                return dispatchMenuKeyboardKey(clickable, "Enter") || dispatchMenuKeyboardKey(modeRow, "Enter");
-            },
-            () => {
-                const pointElement = getElementFromPointSafe(rightX, centerY);
-                const targetElement = getClickableActionElement(pointElement, root) || pointElement || clickable;
-                return simulatePointerActivationAt(targetElement, rightX, centerY) ||
-                    forceNativeClickElement(targetElement) ||
-                    simulateClickElement(targetElement, { nativeFallback: true });
-            }
-        ];
-
-        for (const attempt of attempts) {
-            try { attempt(); } catch { }
-            await sleep(SETTINGS_MENU_TIMING.openDelayMs);
-            const row = findAnyOpenModeMenuItem(target);
-            if (row) return row;
-        }
+        if (!activateSettingsMenuRow(modeRow, root)) return null;
+        await sleep(SETTINGS_MENU_TIMING.openDelayMs);
         return waitForModeMenuItem(target);
     }
 
@@ -2550,58 +2355,34 @@
         return NOTION_MODE_TARGETS.research;
     }
 
-    function createNotionActionFailure(action, stage, message) {
-        const detail = `${action}/${stage}: ${message}`;
-        console.warn(`${LOG_TAG} ${detail}`);
-        return { ok: false, message: detail };
-    }
-
     async function selectModeAction({ shortcut, engine, targetId = "" } = {}) {
         const target = resolveModeSelectionTarget(shortcut, targetId);
-        const actionName = target?.id === "research" ? "toggleResearchMode" : "selectMode";
-        if (!target) return createNotionActionFailure(actionName, "target", "Mode target not resolved.");
-
         const trigger = findSettingsTriggerElement();
-        if (!trigger) return createNotionActionFailure(actionName, "settings-trigger", "Settings button not found.");
+        if (!trigger) return false;
 
         const root = await ensureSettingsMenuOpen(trigger);
-        if (!root) return createNotionActionFailure(actionName, "settings-menu", "Settings menu did not open.");
-
-        if (settingsMenuShowsModeTarget(root, target) || visiblePageShowsModeTarget(target)) {
-            await closeSettingsMenu(trigger, { initialDelayMs: 30 });
-            return true;
-        }
+        if (!root) return false;
 
         const initialRow = await ensureModeMenuOpen(trigger, root, target);
         if (!initialRow) {
             await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-            return createNotionActionFailure(actionName, "mode-menu", `Mode menu item not found for ${target.id}.`);
+            return false;
         }
 
         syncNotionModeShortcutIconsFromOpenMenu(engine);
-        const row = findAnyOpenModeMenuItem(target) || initialRow;
+        const row = findOpenModeMenuItem(target) || initialRow;
         if (!row) {
             await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-            return createNotionActionFailure(actionName, "mode-row", `Resolved mode row disappeared for ${target.id}.`);
+            return false;
         }
 
         if (!activateSettingsMenuRow(row)) {
             await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-            return createNotionActionFailure(actionName, "mode-click", `Failed to activate mode row for ${target.id}.`);
+            return false;
         }
 
-        const selected = await waitForModeSelectionTarget(target, trigger);
+        await sleep(SETTINGS_MENU_TIMING.openDelayMs);
         syncNotionModeShortcutIconsFromOpenMenu(engine);
-        if (!selected) {
-            const verifyTrigger = findSettingsTriggerElement() || trigger;
-            const verifyRoot = verifyTrigger ? await ensureSettingsMenuOpen(verifyTrigger) : null;
-            const verified = settingsMenuShowsModeTarget(verifyRoot, target) || visiblePageShowsModeTarget(target);
-            await closeSettingsMenu(verifyTrigger || trigger, { initialDelayMs: 0 });
-            if (!verified) {
-                return createNotionActionFailure(actionName, "confirm", `Mode did not settle to ${target.label || target.id}.`);
-            }
-            return true;
-        }
         await closeSettingsMenu(trigger, { initialDelayMs: 30 });
         return true;
     }
@@ -5762,7 +5543,7 @@
             name: target.label,
             labelKey: target.labelKey,
             actionType: "custom",
-            customAction: target.id === "research" ? "toggleResearchMode" : "selectMode",
+            customAction: "selectMode",
             hotkey: target.hotkey,
             icon: iconInfo.icon,
             iconDark: iconInfo.iconDark || "",
