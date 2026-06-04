@@ -426,21 +426,23 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
             const key = (item && item.customAction) ? String(item.customAction) : "";
             if (!key) {
                 console.warn(`${options.consoleTag} Shortcut "${item?.name || ''}" is type 'custom' but has no customAction defined.`);
-                return;
+                return false;
             }
             const actions = options.customActions && typeof options.customActions === 'object' ? options.customActions : null;
             const fn = actions ? actions[key] : null;
             if (typeof fn !== 'function') {
                 console.warn(`${options.consoleTag} Custom action "${key}" not found or not a function.`);
-                return;
+                return false;
             }
             try {
                 const res = fn({ shortcut: item, event, engine: engineApi });
                 if (res && typeof res.then === 'function') {
                     res.catch(err => console.warn(`${options.consoleTag} Custom action "${key}" rejected:`, err));
                 }
+                return res;
             } catch (err) {
                 console.warn(`${options.consoleTag} Custom action "${key}" failed:`, err);
+                return false;
             }
         }
 
@@ -477,7 +479,7 @@ import { panelNormalizeActionType, panelBuildShortcutSearchHaystack, panelMatche
                 }, { label: options?.text?.stats?.simulate || "Key simulation", shortLabel: options?.text?.actionTypes?.simulateShortLabel || "Keys", color: "#2196F3", builtin: true });
 
                 actions.register("custom", ({ shortcut, event }) => {
-                    executeCustomAction(shortcut, event);
+                    return executeCustomAction(shortcut, event);
                 }, { label: options?.text?.stats?.custom || "Custom action", shortLabel: options?.text?.actionTypes?.customShortLabel || "Custom", color: "#607D8B", builtin: true });
             }
 
