@@ -208,16 +208,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260601] v1.0.0",
+            name: "[ChatGPT] 快捷键跳转 [20260604] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
-            description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260601] v1.0.0",
-            updateLog: "1.0.0: 新增独立 Schedules 快捷项，使用 SPA route + history.pushState 跳转到 chatgpt.com/schedules，并保留旧的 Settings: Schedules 设置页入口。",
+            description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image/Create website）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
+            version: "[20260604] v1.0.0",
+            updateLog: "1.0.0: 新增 Create website 快捷项（默认 Ctrl+C），并将 Canvas 默认快捷键迁移为 Ctrl+Shift+C，适配当前 ChatGPT 的 + > More 工具菜单。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260601] v1.0.0",
-                    description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.0.0: Added a separate Schedules shortcut that uses SPA route + history.pushState navigation to chatgpt.com/schedules while keeping the old Settings: Schedules settings-page entry."
+                    name: "[ChatGPT] Shortcut Jump [20260604] v1.0.0",
+                    description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers including Create website, and Quick Input for text, images, loops, and automatic new chats.",
+                    updateLog: "1.0.0: Added a Create website shortcut (default Ctrl+C) and migrated the Canvas default shortcut to Ctrl+Shift+C for the current ChatGPT + > More tools menu."
                 }
             },
             match: [
