@@ -4332,7 +4332,9 @@
         return fallback || "conversationMenu";
     }
 
-    let deleteConfirmEnterBridgeCleanup = null;
+    let deleteConfirmEnterHandlerInstalled = false;
+    let deleteConfirmEnterHandling = false;
+    let deleteConfirmEnterEngine = null;
 
     function isUsableDeleteConfirmButton(button) {
         if (!button) return false;
@@ -4396,6 +4398,96 @@
         return true;
     }
 
+    function getButtonTextForDeleteConfirm(button) {
+        if (!button) return "";
+        try {
+            return [
+                button.textContent,
+                button.getAttribute?.("aria-label"),
+                button.getAttribute?.("title")
+            ].filter(Boolean).join(" ");
+        } catch {
+            return "";
+        }
+    }
+
+    function isDeleteConfirmCancelButton(button) {
+        const text = normalizeGeminiUiText(getButtonTextForDeleteConfirm(button));
+        if (!text) return false;
+        if (textLooksLikeDelete(text)) return false;
+        return text.includes("cancel") || text.includes("取消");
+    }
+
+    function shouldLetDeleteConfirmEnterPassThrough(event, target) {
+        const dialog = target?.dialog || null;
+        if (!dialog || !event?.target || typeof event.target.closest !== "function") return false;
+        const button = event.target.closest("button, [role='button']");
+        if (!button || !dialog.contains?.(button)) return false;
+        if (button === target.confirmBtn) return false;
+        return isDeleteConfirmCancelButton(button);
+    }
+
+    async function waitForDeleteConfirmDialogClosed({ timeoutMs = 1400, intervalMs = 70, settleMs = 120 } = {}) {
+        const timeout = Math.max(0, Number(timeoutMs) || 0);
+        const interval = Math.max(25, Number(intervalMs) || 70);
+        const settle = Math.max(0, Number(settleMs) || 0);
+        const deadline = Date.now() + timeout;
+        let closedSince = 0;
+
+        while (Date.now() <= deadline) {
+            if (!findDeleteConfirmDialog()?.dialog) {
+                if (!closedSince) closedSince = Date.now();
+                if (Date.now() - closedSince >= settle) return true;
+            } else {
+                closedSince = 0;
+            }
+            await sleep(interval);
+        }
+
+        return !findDeleteConfirmDialog()?.dialog;
+    }
+
+    async function activateDeleteConfirmButton(confirmBtn) {
+        const target = isUsableDeleteConfirmButton(confirmBtn)
+            ? { confirmBtn }
+            : findDeleteConfirmDialog();
+        const button = target?.confirmBtn || null;
+        if (!isUsableDeleteConfirmButton(button)) return false;
+
+        const attempts = [
+            () => {
+                focusDeleteConfirmButton(button);
+                button.click?.();
+                return true;
+            },
+            () => {
+                focusDeleteConfirmButton(button);
+                return simulateGeminiMenuClick(button);
+            },
+            () => {
+                focusDeleteConfirmButton(button);
+                const doc = button.ownerDocument || document;
+                const win = doc.defaultView || window;
+                button.dispatchEvent(new MouseEvent("click", {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    view: win
+                }));
+                return true;
+            }
+        ];
+
+        for (const attempt of attempts) {
+            try {
+                if (!attempt()) continue;
+            } catch { }
+            if (await waitForDeleteConfirmDialogClosed()) return true;
+        }
+
+        return !findDeleteConfirmDialog()?.dialog;
+    }
+
     function isPlainEnterKeyEvent(event) {
         if (!event) return false;
         const key = String(event.key || "");
@@ -4406,8 +4498,7 @@
     }
 
     function clearDeleteConfirmEnterBridge() {
-        const cleanup = deleteConfirmEnterBridgeCleanup;
-        if (typeof cleanup === "function") cleanup();
+        deleteConfirmEnterHandling = false;
     }
 
     function getVisibleConversationMenuPanels() {
@@ -4443,93 +4534,61 @@
         return !isConversationMenuClosingOrOpen(ctx);
     }
 
-    function armDeleteConfirmEnterBridge({ dialog, confirmBtn }, { engine = null, timeoutMs = 30000, closeCheckIntervalMs = 250 } = {}) {
-        if (!dialog || !confirmBtn) return false;
-        clearDeleteConfirmEnterBridge();
+    function handleDeleteConfirmEnter(event) {
+        if (!isPlainEnterKeyEvent(event)) return;
 
-        const doc = dialog.ownerDocument || document;
-        const win = doc.defaultView || window;
-        let cleaned = false;
-        let timeoutId = 0;
-        let closeCheckId = 0;
-        let handlingEnter = false;
+        const target = findDeleteConfirmDialog();
+        if (!isUsableDeleteConfirmButton(target?.confirmBtn)) return;
+        if (shouldLetDeleteConfirmEnterPassThrough(event, target)) return;
 
-        const cleanup = () => {
-            if (cleaned) return;
-            cleaned = true;
-            try { win?.removeEventListener?.("keydown", onKeydown, true); } catch { }
-            try { doc.removeEventListener("keydown", onKeydown, true); } catch { }
-            try { clearTimeout(timeoutId); } catch { }
-            try { clearInterval(closeCheckId); } catch { }
-            if (deleteConfirmEnterBridgeCleanup === cleanup) deleteConfirmEnterBridgeCleanup = null;
-        };
+        try { event.preventDefault(); } catch { }
+        try { event.stopPropagation(); } catch { }
+        try { event.stopImmediatePropagation?.(); } catch { }
 
-        const onKeydown = (event) => {
-            if (!isPlainEnterKeyEvent(event)) return;
-
-            if (handlingEnter) return;
-
-            const latest = findDeleteConfirmDialog();
-            const candidate = latest?.confirmBtn || confirmBtn;
-            if (!latest?.dialog && !isUsableDeleteConfirmButton(candidate)) {
-                cleanup();
-                return;
-            }
-
-            try { event.preventDefault(); } catch { }
-            try { event.stopPropagation(); } catch { }
-            try { event.stopImmediatePropagation?.(); } catch { }
-
-            handlingEnter = true;
-            cleanup();
-            void (async () => {
-                await waitForConversationMenusSettled({
-                    engine,
-                    timeoutMs: 650,
-                    intervalMs: 35,
-                    settleMs: 35
-                });
-
-                const settledLatest = findDeleteConfirmDialog();
-                const target = isUsableDeleteConfirmButton(settledLatest?.confirmBtn)
-                    ? settledLatest.confirmBtn
-                    : candidate;
-                if (!isUsableDeleteConfirmButton(target)) return;
-                focusDeleteConfirmButton(target);
-                simulateGeminiMenuClick(target);
-            })();
-        };
-
-        deleteConfirmEnterBridgeCleanup = cleanup;
-        try {
-            win?.addEventListener?.("keydown", onKeydown, true);
-            doc.addEventListener("keydown", onKeydown, true);
-        } catch {
-            cleanup();
-            return false;
-        }
+        if (deleteConfirmEnterHandling) return;
+        deleteConfirmEnterHandling = true;
         void (async () => {
             await waitForConversationMenusSettled({
-                engine,
-                timeoutMs: 900,
-                intervalMs: 40,
-                settleMs: 80
+                engine: deleteConfirmEnterEngine,
+                timeoutMs: 650,
+                intervalMs: 35,
+                settleMs: 35
             });
-            if (cleaned) return;
-            const latest = findDeleteConfirmDialog();
-            const target = isUsableDeleteConfirmButton(latest?.confirmBtn)
-                ? latest.confirmBtn
-                : confirmBtn;
-            if (isUsableDeleteConfirmButton(target)) focusDeleteConfirmButton(target);
-        })();
 
-        const timeout = Math.max(1000, Number(timeoutMs) || 30000);
-        const closeCheckInterval = Math.max(100, Number(closeCheckIntervalMs) || 250);
-        timeoutId = setTimeout(cleanup, timeout);
-        closeCheckId = setInterval(() => {
             const latest = findDeleteConfirmDialog();
-            if (!latest?.dialog) cleanup();
-        }, closeCheckInterval);
+            const ok = await activateDeleteConfirmButton(
+                isUsableDeleteConfirmButton(latest?.confirmBtn) ? latest.confirmBtn : target.confirmBtn
+            );
+            if (!ok && isUsableDeleteConfirmButton(findDeleteConfirmDialog()?.confirmBtn)) {
+                focusDeleteConfirmButton(findDeleteConfirmDialog().confirmBtn);
+            }
+            deleteConfirmEnterHandling = false;
+        })();
+    }
+
+    function setupDeleteConfirmEnterHandler(engine = null) {
+        deleteConfirmEnterEngine = engine || deleteConfirmEnterEngine;
+        if (deleteConfirmEnterHandlerInstalled) return true;
+        deleteConfirmEnterHandlerInstalled = true;
+        try { window.addEventListener("keydown", handleDeleteConfirmEnter, true); } catch { }
+        try { document.addEventListener("keydown", handleDeleteConfirmEnter, true); } catch { }
+        return true;
+    }
+
+    async function armDeleteConfirmEnterBridge({ dialog, confirmBtn }, { engine = null } = {}) {
+        if (!dialog || !confirmBtn) return false;
+        setupDeleteConfirmEnterHandler(engine);
+        await waitForConversationMenusSettled({
+            engine,
+            timeoutMs: 900,
+            intervalMs: 40,
+            settleMs: 80
+        });
+        const latest = findDeleteConfirmDialog();
+        const target = isUsableDeleteConfirmButton(latest?.confirmBtn)
+            ? latest.confirmBtn
+            : confirmBtn;
+        if (isUsableDeleteConfirmButton(target)) focusDeleteConfirmButton(target);
         return true;
     }
 
@@ -7344,6 +7403,7 @@
     });
 
     engine.init();
+    setupDeleteConfirmEnterHandler(engine);
     migrateGeminiManagedShortcuts(engine, { refreshPanel: true });
     setupKeepSidebarVisible();
     registerGeminiMenuCommands(engine);

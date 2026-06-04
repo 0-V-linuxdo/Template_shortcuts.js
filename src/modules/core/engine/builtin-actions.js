@@ -241,6 +241,7 @@ import { simulateClick } from "../utils/events.js";
                     code: keyProps.code,
                     bubbles: true,
                     cancelable: true,
+                    composed: true,
                     ctrlKey: modifiers.includes("CTRL"),
                     shiftKey: modifiers.includes("SHIFT"),
                     altKey: modifiers.includes("ALT"),
