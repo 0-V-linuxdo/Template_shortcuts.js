@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260604] v1.0.1
-// @name:en        [Template] Shortcut Core [20260604] v1.0.1
+// @name           [Template] 快捷键跳转 [20260605] v1.0.0
+// @name:en        [Template] Shortcut Core [20260605] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260604] v1.0.1
-// @update-log     1.0.1: 为模拟按键事件补充 composed 事件属性，配合 Gemini 删除确认流程在模拟 Enter 时稳定触发站点级接管。
-// @update-log:en  1.0.1: Added the composed event flag to simulated keyboard events so Gemini's delete confirmation takeover receives simulated Enter reliably.
+// @version        [20260605] v1.0.0
+// @update-log     1.0.0: QuickInput 工具快捷键失败时自动重试，连续 3 次失败后暂停，并在继续后重试当前快捷键，避免后续工具快捷键抢跑。
+// @update-log:en  1.0.0: QuickInput now retries failed tool shortcuts automatically, pauses after 3 consecutive failures, and retries the current shortcut after resume to prevent later tool shortcuts from running early.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*

@@ -1806,6 +1806,91 @@
         return root ? findSettingsMenuItemByText(root, value => textLooksLikeModeTargetMenuItem(value, target)) : null;
     }
 
+    function getExplicitBooleanState(element) {
+        if (!element) return null;
+        const explicitTargets = [
+            element,
+            ...safeQueryAll(element, [
+                'input[type="checkbox"]',
+                'input[type="radio"]',
+                "[aria-checked]",
+                "[aria-selected]",
+                "[aria-pressed]",
+                "[aria-current]",
+                "[data-state]",
+                "[data-selected]",
+                "[data-checked]",
+                "[data-active]"
+            ].join(", "))
+        ];
+
+        let sawFalse = false;
+        for (const target of explicitTargets) {
+            if (!target) continue;
+            const tag = String(target.tagName || "").toLowerCase();
+            const type = String(target.type || "").toLowerCase();
+            if (tag === "input" && (type === "checkbox" || type === "radio")) {
+                if (target.checked) return true;
+                sawFalse = true;
+                continue;
+            }
+
+            for (const attr of ["aria-checked", "aria-selected", "aria-pressed", "data-selected", "data-checked", "data-active"]) {
+                const raw = target.getAttribute?.(attr);
+                if (raw === null || raw === undefined) continue;
+                const value = String(raw).trim().toLowerCase();
+                if (value === "true" || value === "1" || value === "yes" || value === "checked" || value === "selected" || value === "active" || value === "on") return true;
+                if (value === "false" || value === "0" || value === "no" || value === "unchecked" || value === "unselected" || value === "inactive" || value === "off") sawFalse = true;
+            }
+
+            const ariaCurrent = String(target.getAttribute?.("aria-current") || "").trim().toLowerCase();
+            if (ariaCurrent && ariaCurrent !== "false") return true;
+            if (ariaCurrent === "false") sawFalse = true;
+
+            const dataState = String(target.getAttribute?.("data-state") || "").trim().toLowerCase();
+            if (dataState === "checked" || dataState === "on" || dataState === "active" || dataState === "selected" || dataState === "true") return true;
+            if (dataState === "unchecked" || dataState === "off" || dataState === "inactive" || dataState === "unselected" || dataState === "false") sawFalse = true;
+        }
+        return sawFalse ? false : null;
+    }
+
+    function getOpenModeMenuItemSelectionState(target) {
+        const row = findOpenModeMenuItem(target);
+        return row ? getExplicitBooleanState(row) : null;
+    }
+
+    function getResearchModeButtonSelectionState() {
+        const button = findResearchModeTriggerElement();
+        return button ? getExplicitBooleanState(button) : null;
+    }
+
+    function getModeSelectionState(target) {
+        if (!target) return null;
+        const rowState = getOpenModeMenuItemSelectionState(target);
+        if (rowState !== null) return rowState;
+        if (target.id === "research") return getResearchModeButtonSelectionState();
+        return null;
+    }
+
+    async function waitForModeSelection(target, {
+        trigger = null,
+        timeoutMs = SETTINGS_MENU_TIMING.waitTimeoutMs,
+        intervalMs = SETTINGS_MENU_TIMING.pollIntervalMs,
+        requireMenuClose = false
+    } = {}) {
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        const interval = Math.max(30, Number(intervalMs) || SETTINGS_MENU_TIMING.pollIntervalMs);
+        while (Date.now() <= deadline) {
+            const selected = getModeSelectionState(target) === true;
+            const menuClosed = !findSettingsMenuRoot(trigger) && !findOpenModeMenuRoot();
+            if (selected && (!requireMenuClose || menuClosed)) return true;
+            await sleep(interval);
+        }
+        const selected = getModeSelectionState(target) === true;
+        const menuClosed = !findSettingsMenuRoot(trigger) && !findOpenModeMenuRoot();
+        return selected && (!requireMenuClose || menuClosed);
+    }
+
     function textLooksLikeModeMenuItem(value) {
         const text = normalizeNotionText(value);
         return !!text && (
@@ -2381,10 +2466,15 @@
             return false;
         }
 
-        await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+        const selected = await waitForModeSelection(target, { trigger, requireMenuClose: false });
         syncNotionModeShortcutIconsFromOpenMenu(engine);
-        await closeSettingsMenu(trigger, { initialDelayMs: 30 });
-        return true;
+        const closed = await closeSettingsMenu(trigger, { initialDelayMs: 30 });
+        const settled = selected && closed;
+        if (!settled) {
+            const label = target?.label || target?.id || "mode";
+            console.warn(`${LOG_TAG} selectMode: selection did not settle for ${label}; mode state was not confirmed or the settings menu stayed open.`);
+        }
+        return settled;
     }
 
     async function toggleResearchModeAction(args = {}) {
