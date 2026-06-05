@@ -104,8 +104,11 @@ export function createController(userOptions = {}) {
             let overlayEl = null;
             let overlayRootEl = null;
             let backdropEl = null;
+            let bubbleEl = null;
+            let bubbleStatusEl = null;
             let panelEl = null;
             let headerEl = null;
+            let minimizeBtnEl = null;
             let logEl = null;
             let inputBodyEl = null;
             let inputActionsEl = null;
@@ -136,6 +139,7 @@ export function createController(userOptions = {}) {
             const playPauseButtons = [];
             let activeTab = "input";
             let setActiveTab = null;
+            let minimized = false;
 
             let imageFiles = [];
             let draftImageEntries = [];
@@ -276,7 +280,7 @@ export function createController(userOptions = {}) {
             }
 
             function shouldGuardQuickInputFocus() {
-                return isQuickInputOpen() && !running && !ioBusy;
+                return isQuickInputOpen() && !minimized && !running && !ioBusy;
             }
 
             function scheduleQuickInputFocusRestore({ preferText = false } = {}) {
@@ -291,6 +295,17 @@ export function createController(userOptions = {}) {
                     }
                     focusPreferredOverlayTarget({ preferText: preferText || activeTab === "input" });
                 });
+            }
+
+            function blurQuickInputFocus() {
+                const shadowActive = getShadowActiveElement();
+                if (shadowActive && isInsideOverlay(shadowActive)) {
+                    try { shadowActive.blur?.(); } catch {}
+                }
+                const active = globalThis.document?.activeElement || null;
+                if (active && isInsideOverlay(active)) {
+                    try { active.blur?.(); } catch {}
+                }
             }
 
             function handleOverlayFocusIn(event) {
@@ -535,6 +550,63 @@ export function createController(userOptions = {}) {
             function getPrimaryButtonAction() {
                 if (!running) return lastTerminalStatus === "ok" ? "replay" : "run";
                 return paused ? "resume" : "pause";
+            }
+
+            function getBubbleStatusLabel() {
+                if (running) {
+                    if (cancelRun) {
+                        return labels.messages?.bubbleStopping
+                            || DEFAULT_LABELS.messages.bubbleStopping
+                            || labels.buttons?.stop
+                            || DEFAULT_LABELS.buttons.stop;
+                    }
+                    if (paused) {
+                        return labels.messages?.bubblePaused
+                            || DEFAULT_LABELS.messages.bubblePaused
+                            || labels.messages?.paused
+                            || DEFAULT_LABELS.messages.paused;
+                    }
+                    return labels.messages?.bubbleRunning
+                        || DEFAULT_LABELS.messages.bubbleRunning
+                        || labels.buttons?.run
+                        || DEFAULT_LABELS.buttons.run;
+                }
+
+                if (lastTerminalStatus === "ok") {
+                    return labels.messages?.bubbleFinished
+                        || DEFAULT_LABELS.messages.bubbleFinished
+                        || labels.messages?.finished
+                        || DEFAULT_LABELS.messages.finished;
+                }
+                if (lastTerminalStatus === "error") {
+                    return labels.messages?.bubbleFailed
+                        || DEFAULT_LABELS.messages.bubbleFailed
+                        || labels.messages?.failed
+                        || DEFAULT_LABELS.messages.failed;
+                }
+                if (lastTerminalStatus === "warn") {
+                    return labels.messages?.bubbleStopped
+                        || DEFAULT_LABELS.messages.bubbleStopped
+                        || labels.messages?.stopped
+                        || DEFAULT_LABELS.messages.stopped;
+                }
+                return labels.title || DEFAULT_LABELS.title;
+            }
+
+            function syncBubbleState() {
+                if (!overlayEl || !bubbleEl) return;
+                const status = getBubbleStatusLabel();
+                const restoreLabel = labels.aria?.restore
+                    || DEFAULT_LABELS.aria.restore
+                    || labels.title
+                    || DEFAULT_LABELS.title;
+                const title = `${restoreLabel} - ${status}`;
+                bubbleEl.title = title;
+                bubbleEl.setAttribute("aria-label", title);
+                bubbleEl.setAttribute("data-running", running ? "1" : "0");
+                bubbleEl.setAttribute("data-paused", paused ? "1" : "0");
+                bubbleEl.setAttribute("data-status", lastTerminalStatus || "idle");
+                if (bubbleStatusEl) bubbleStatusEl.textContent = status;
             }
 
             async function handlePrimaryAction() {
@@ -825,6 +897,12 @@ export function createController(userOptions = {}) {
                     btn.disabled = isCancelling;
                     setPlayerActionButtonVisual(btn, getPrimaryButtonAction());
                 }
+                if (minimizeBtnEl) {
+                    minimizeBtnEl.disabled = !isBusy || isCancelling;
+                    minimizeBtnEl.hidden = !isBusy;
+                    minimizeBtnEl.setAttribute("aria-hidden", isBusy ? "false" : "true");
+                    minimizeBtnEl.style.display = isBusy ? "" : "none";
+                }
                 for (const input of hotkeyInputs) {
                     if (input) input.disabled = isBusy;
                 }
@@ -866,6 +944,7 @@ export function createController(userOptions = {}) {
                         if (btn) btn.disabled = isBusy;
                     }
                 } catch {}
+                syncBubbleState();
             }
 
             function setPausedState(nextPaused, { log = true } = {}) {
@@ -892,6 +971,7 @@ export function createController(userOptions = {}) {
                 }
 
                 syncRunControls();
+                syncBubbleState();
             }
 
             function pauseRun() {
@@ -1424,8 +1504,20 @@ export function createController(userOptions = {}) {
 
             function setOverlayVisibility(isOpen) {
                 if (!overlayEl) return;
+                if (!isOpen) minimized = false;
                 overlayEl.setAttribute("data-open", isOpen ? "1" : "0");
+                overlayEl.setAttribute("data-minimized", isOpen && minimized ? "1" : "0");
                 setImportantStyle(overlayEl, "display", isOpen ? "block" : "none");
+                setImportantStyle(overlayEl, "pointer-events", isOpen && minimized ? "none" : "auto");
+                syncBubbleState();
+            }
+
+            function setOverlayMinimized(nextMinimized) {
+                minimized = !!nextMinimized;
+                if (!overlayEl) return;
+                overlayEl.setAttribute("data-minimized", minimized ? "1" : "0");
+                setImportantStyle(overlayEl, "pointer-events", minimized ? "none" : "auto");
+                syncBubbleState();
             }
 
             function getLogTimestamp(date = new Date()) {
@@ -2541,6 +2633,13 @@ export function createController(userOptions = {}) {
                 if (clamped.left !== pos.left || clamped.top !== pos.top) persistPanelPos(clamped.left, clamped.top, { force: true });
             }
 
+            function persistCurrentPanelPos({ force = true } = {}) {
+                if (!panelEl) return;
+                const rect = panelEl.getBoundingClientRect();
+                const clamped = clampPanelPos(rect.left, rect.top, rect.width, rect.height);
+                persistPanelPos(clamped.left, clamped.top, { force });
+            }
+
             function stopDrag() {
                 if (dragRaf) {
                     cancelAnimationFrameSafe(dragRaf);
@@ -2562,7 +2661,7 @@ export function createController(userOptions = {}) {
             function onHeaderPointerDown(e) {
                 if (!e || dragPointerId !== null) return;
                 if (e.button !== 0) return;
-                if (e.target && typeof e.target.closest === "function" && e.target.closest(".qi-close, .qi-tabs, .qi-tab")) return;
+                if (e.target && typeof e.target.closest === "function" && e.target.closest(".qi-window-btn, .qi-close, .qi-minimize, .qi-tabs, .qi-tab")) return;
                 if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
                 if (!panelEl) return;
 
@@ -2628,7 +2727,7 @@ export function createController(userOptions = {}) {
                 panelEl.style.left = `${clamped.left}px`;
                 panelEl.style.top = `${clamped.top}px`;
                 panelEl.style.transform = "none";
-                persistPanelPos(clamped.left, clamped.top, { force: true });
+                persistCurrentPanelPos({ force: true });
             }
 
             function normalizeEngineHotkey(value) {
@@ -4091,6 +4190,37 @@ export function createController(userOptions = {}) {
                 setActiveTab?.("log");
                 pendingFinalStatusDetail = labels.messages?.stopRequested || DEFAULT_LABELS.messages.stopRequested;
                 syncRunControls();
+                syncBubbleState();
+            }
+
+            function minimize() {
+                ensureUi();
+                if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
+                if (!running && !minimized) return;
+                if (dragPointerId !== null && dragMoved) persistCurrentPanelPos({ force: true });
+                stopDrag();
+                void persistDraftText();
+                cancelFocusGuardRestore();
+                blurQuickInputFocus();
+                lastOverlayFocusEl = null;
+                setOverlayMinimized(true);
+            }
+
+            function restoreFromMinimized() {
+                ensureUi();
+                if (!overlayEl) return;
+                labels = resolveLabels();
+                titleText = resolveTitleText();
+                setOverlayVisibility(true);
+                setOverlayMinimized(false);
+                refreshHotkeySelects();
+                startThemeAutoSync();
+                requestAnimationFrameSafe(() => {
+                    applyStoredPanelPos();
+                    schedulePanelLayout({ scrollLogToBottom: activeTab === "log", followupPasses: 2 });
+                });
+                focusPreferredOverlayTarget({ preferText: activeTab === "input" });
+                scheduleQuickInputFocusRestore({ preferText: activeTab === "input" });
             }
 
             function ensureUi() {
@@ -4120,7 +4250,12 @@ export function createController(userOptions = {}) {
                 backdropEl = globalThis.document.createElement("div");
                 backdropEl.className = "qi-backdrop";
                 backdropEl.addEventListener("click", (e) => {
-                    if (e.target === backdropEl) close();
+                    if (e.target !== backdropEl) return;
+                    if (running && !cancelRun) {
+                        minimize();
+                        return;
+                    }
+                    close();
                 });
 
                 panelEl = globalThis.document.createElement("div");
@@ -4136,14 +4271,21 @@ export function createController(userOptions = {}) {
                 const title = globalThis.document.createElement("div");
                 title.className = "qi-title";
                 title.textContent = titleText;
+                minimizeBtnEl = globalThis.document.createElement("button");
+                minimizeBtnEl.className = "qi-window-btn qi-minimize";
+                minimizeBtnEl.type = "button";
+                minimizeBtnEl.title = labels.aria?.minimize || DEFAULT_LABELS.aria.minimize;
+                minimizeBtnEl.setAttribute("aria-label", labels.aria?.minimize || DEFAULT_LABELS.aria.minimize);
+                minimizeBtnEl.addEventListener("click", () => minimize());
                 const closeBtn = globalThis.document.createElement("button");
-                closeBtn.className = "qi-close";
+                closeBtn.className = "qi-window-btn qi-close";
                 closeBtn.type = "button";
                 closeBtn.textContent = "×";
                 closeBtn.title = labels.aria?.close || DEFAULT_LABELS.aria.close;
                 closeBtn.setAttribute("aria-label", labels.aria?.close || DEFAULT_LABELS.aria.close);
                 closeBtn.addEventListener("click", () => close());
                 headerEl.appendChild(title);
+                headerEl.appendChild(minimizeBtnEl);
                 headerEl.appendChild(closeBtn);
 
                 const tabs = globalThis.document.createElement("div");
@@ -4163,7 +4305,7 @@ export function createController(userOptions = {}) {
 
                 tabs.appendChild(tabInputBtn);
                 tabs.appendChild(tabLogBtn);
-                headerEl.insertBefore(tabs, closeBtn);
+                headerEl.insertBefore(tabs, minimizeBtnEl);
 
                 const content = globalThis.document.createElement("div");
                 content.className = "qi-content";
@@ -4470,6 +4612,26 @@ export function createController(userOptions = {}) {
 
                 backdropEl.appendChild(panelEl);
                 overlayRootEl.appendChild(backdropEl);
+
+                bubbleEl = globalThis.document.createElement("button");
+                bubbleEl.type = "button";
+                bubbleEl.className = "qi-bubble";
+                bindOverlayEventIsolation(bubbleEl);
+                bubbleEl.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    restoreFromMinimized();
+                });
+                const bubbleIconEl = globalThis.document.createElement("span");
+                bubbleIconEl.className = "qi-bubble-icon";
+                bubbleIconEl.setAttribute("aria-hidden", "true");
+                bubbleStatusEl = globalThis.document.createElement("span");
+                bubbleStatusEl.className = "qi-bubble-status";
+                bubbleEl.appendChild(bubbleIconEl);
+                bubbleEl.appendChild(bubbleStatusEl);
+                syncBubbleState();
+                overlayRootEl.appendChild(bubbleEl);
+
                 globalThis.document.body.appendChild(overlayEl);
 
                 globalThis.document.addEventListener("keydown", (e) => {
@@ -4501,6 +4663,7 @@ export function createController(userOptions = {}) {
                 labels = resolveLabels();
                 titleText = resolveTitleText();
                 ensureUi();
+                setOverlayMinimized(false);
                 refreshHotkeySelects();
                 stopDrag();
                 setOverlayVisibility(true);
@@ -4522,11 +4685,7 @@ export function createController(userOptions = {}) {
 
             function close() {
                 if (!overlayEl) return;
-                if (dragPointerId !== null && dragMoved && panelEl) {
-                    const rect = panelEl.getBoundingClientRect();
-                    const clamped = clampPanelPos(rect.left, rect.top, rect.width, rect.height);
-                    persistPanelPos(clamped.left, clamped.top, { force: true });
-                }
+                if (dragPointerId !== null && dragMoved && panelEl) persistCurrentPanelPos({ force: true });
                 if (running && !cancelRun && !paused) pauseRun();
                 stopDrag();
                 void persistDraftText();
@@ -4540,8 +4699,11 @@ export function createController(userOptions = {}) {
                 overlayEl = null;
                 overlayRootEl = null;
                 backdropEl = null;
+                bubbleEl = null;
+                bubbleStatusEl = null;
                 panelEl = null;
                 headerEl = null;
+                minimizeBtnEl = null;
                 logEl = null;
                 inputBodyEl = null;
                 inputActionsEl = null;
@@ -4571,6 +4733,7 @@ export function createController(userOptions = {}) {
                 stopButtons.length = 0;
                 playPauseButtons.length = 0;
                 setActiveTab = null;
+                minimized = false;
                 ioBusy = false;
                 usesShadowUi = false;
                 cancelFocusGuardRestore();
@@ -4591,6 +4754,10 @@ export function createController(userOptions = {}) {
             }
 
             function toggle() {
+                if (isOpen() && minimized) {
+                    restoreFromMinimized();
+                    return;
+                }
                 if (isOpen()) {
                     close();
                     return;

@@ -114,6 +114,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 }
                 const hostSelector = usesShadowUi ? ":host" : `#${overlayId}`;
                 const lightSelector = usesShadowUi ? ":host([data-theme='light'])" : `#${overlayId}[data-theme='light']`;
+                const minimizedSelector = usesShadowUi ? ":host([data-minimized='1'])" : `#${overlayId}[data-minimized='1']`;
                 const resolvedThemeColors = resolveQuickInputThemeColors(primaryColor, themeColors);
                 const darkColors = resolvedThemeColors.dark;
                 const lightColors = resolvedThemeColors.light;
@@ -230,6 +231,9 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     padding: 18px;
                     box-sizing: border-box;
                 }
+                ${minimizedSelector} .qi-backdrop {
+                    display: none;
+                }
                 ${hostSelector} .qi-panel {
                     position: fixed;
                     left: 50%;
@@ -267,8 +271,12 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     font-weight: 700;
                     letter-spacing: 0.2px;
                     color: var(--qi-text-strong);
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
-                ${hostSelector} .qi-close {
+                ${hostSelector} .qi-window-btn {
                     position: relative;
                     border: 1px solid transparent;
                     background: transparent;
@@ -285,6 +293,26 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     flex: 0 0 32px;
                     border-radius: 50%;
                 }
+                ${hostSelector} .qi-window-btn:hover {
+                    background: var(--qi-hover);
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-window-btn:focus-visible {
+                    outline: none;
+                    border-color: var(--qi-accent);
+                    box-shadow: 0 0 0 2px var(--qi-focus-ring);
+                }
+                ${hostSelector} .qi-minimize::before {
+                    content: "";
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 14px;
+                    height: 2px;
+                    background: currentColor;
+                    border-radius: 999px;
+                    transform: translate(-50%, -50%);
+                }
                 ${hostSelector} .qi-close::before,
                 ${hostSelector} .qi-close::after {
                     content: "";
@@ -299,13 +327,111 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 }
                 ${hostSelector} .qi-close::before { transform: translate(-50%, -50%) rotate(45deg); }
                 ${hostSelector} .qi-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                ${hostSelector} .qi-close:hover { background: var(--qi-hover); color: var(--qi-text-strong); }
                 ${hostSelector} .qi-tabs {
                     display: flex;
                     gap: 8px;
                     flex: 1;
                     justify-content: center;
                     padding: 0;
+                }
+                ${hostSelector} .qi-bubble {
+                    position: fixed;
+                    right: max(18px, env(safe-area-inset-right));
+                    bottom: max(18px, env(safe-area-inset-bottom));
+                    min-width: 72px;
+                    max-width: min(210px, calc(100vw - 36px));
+                    height: 54px;
+                    padding: 0 14px 0 12px;
+                    border: 1px solid color-mix(in srgb, var(--qi-accent) 34%, var(--qi-border));
+                    border-radius: 999px;
+                    background: color-mix(in srgb, var(--qi-accent) 18%, var(--qi-surface));
+                    color: var(--qi-text-strong);
+                    box-shadow: 0 14px 36px rgba(0,0,0,0.32);
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 9px;
+                    pointer-events: auto;
+                    cursor: pointer;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    touch-action: manipulation;
+                    z-index: 1;
+                    font-size: 12px;
+                    font-weight: 750;
+                    line-height: 1;
+                    letter-spacing: 0;
+                    backdrop-filter: blur(10px);
+                    -webkit-backdrop-filter: blur(10px);
+                    transition:
+                        transform 160ms ease,
+                        box-shadow 160ms ease,
+                        background 160ms ease,
+                        border-color 160ms ease;
+                }
+                ${minimizedSelector} .qi-bubble {
+                    display: inline-flex;
+                }
+                ${hostSelector} .qi-bubble:hover {
+                    transform: translateY(-1px);
+                    background: color-mix(in srgb, var(--qi-accent) 24%, var(--qi-surface));
+                    border-color: color-mix(in srgb, var(--qi-accent) 48%, var(--qi-border));
+                    box-shadow: 0 18px 42px rgba(0,0,0,0.38);
+                }
+                ${hostSelector} .qi-bubble:focus-visible {
+                    outline: none;
+                    border-color: var(--qi-accent);
+                    box-shadow: 0 0 0 3px var(--qi-focus-ring-strong), 0 18px 42px rgba(0,0,0,0.38);
+                }
+                ${hostSelector} .qi-bubble-icon {
+                    position: relative;
+                    width: 22px;
+                    height: 22px;
+                    flex: 0 0 22px;
+                    border-radius: 50%;
+                    background: var(--qi-accent);
+                    color: var(--qi-accent-text);
+                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+                }
+                ${hostSelector} .qi-bubble-icon::before {
+                    content: "";
+                    position: absolute;
+                    left: 7px;
+                    top: 5px;
+                    width: 8px;
+                    height: 12px;
+                    border-left: 3px solid currentColor;
+                    border-right: 3px solid currentColor;
+                    border-radius: 1px;
+                }
+                ${hostSelector} .qi-bubble[data-running="1"]:not([data-paused="1"]) .qi-bubble-icon::before {
+                    left: 8px;
+                    top: 5px;
+                    width: 0;
+                    height: 0;
+                    border-left: 9px solid currentColor;
+                    border-top: 6px solid transparent;
+                    border-bottom: 6px solid transparent;
+                    border-right: 0;
+                    border-radius: 0;
+                }
+                ${hostSelector} .qi-bubble[data-running="0"] .qi-bubble-icon::before {
+                    left: 6px;
+                    top: 11px;
+                    width: 11px;
+                    height: 6px;
+                    border: 0;
+                    border-left: 3px solid currentColor;
+                    border-bottom: 3px solid currentColor;
+                    border-radius: 0;
+                    transform: rotate(-45deg);
+                }
+                ${hostSelector} .qi-bubble-status {
+                    min-width: 0;
+                    max-width: 142px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
                 ${hostSelector} .qi-tab {
                     flex: 1;
