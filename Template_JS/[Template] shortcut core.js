@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260605] v1.1.0
-// @name:en        [Template] Shortcut Core [20260605] v1.1.0
+// @name           [Template] 快捷键跳转 [20260605] v1.1.1
+// @name:en        [Template] Shortcut Core [20260605] v1.1.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260605] v1.1.0
-// @update-log     1.1.0: QuickInput 运行中支持最小化为悬浮球；点击弹窗外部不再暂停任务，点击悬浮球可恢复完整弹窗。
-// @update-log:en  1.1.0: QuickInput can now minimize to a floating bubble while running; outside clicks no longer pause the task, and clicking the bubble restores the full popup.
+// @version        [20260605] v1.1.1
+// @update-log     1.1.1: QuickInput 悬浮球左侧按钮支持暂停/继续当前任务，右侧状态区域用于恢复完整弹窗。
+// @update-log:en  1.1.1: The QuickInput bubble now has a real pause/resume button on the left, while the status area restores the full popup.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -11029,7 +11029,7 @@ ${displayTargetText}`;
                     min-width: 72px;
                     max-width: min(210px, calc(100vw - 36px));
                     height: 54px;
-                    padding: 0 14px 0 12px;
+                    padding: 0 8px 0 7px;
                     border: 1px solid color-mix(in srgb, var(--qi-accent) 34%, var(--qi-border));
                     border-radius: 999px;
                     background: color-mix(in srgb, var(--qi-accent) 18%, var(--qi-surface));
@@ -11038,9 +11038,9 @@ ${displayTargetText}`;
                     display: none;
                     align-items: center;
                     justify-content: center;
-                    gap: 9px;
+                    gap: 5px;
                     pointer-events: auto;
-                    cursor: pointer;
+                    cursor: default;
                     user-select: none;
                     -webkit-user-select: none;
                     touch-action: manipulation;
@@ -11060,16 +11060,69 @@ ${displayTargetText}`;
                 ${minimizedSelector} .qi-bubble {
                     display: inline-flex;
                 }
-                ${hostSelector} .qi-bubble:hover {
+                ${hostSelector} .qi-bubble:hover,
+                ${hostSelector} .qi-bubble:focus-within {
                     transform: translateY(-1px);
                     background: color-mix(in srgb, var(--qi-accent) 24%, var(--qi-surface));
                     border-color: color-mix(in srgb, var(--qi-accent) 48%, var(--qi-border));
                     box-shadow: 0 18px 42px rgba(0,0,0,0.38);
                 }
-                ${hostSelector} .qi-bubble:focus-visible {
+                ${hostSelector} .qi-bubble-action,
+                ${hostSelector} .qi-bubble-restore {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    border: 0;
+                    margin: 0;
+                    background: transparent;
+                    color: inherit;
+                    font: inherit;
+                    letter-spacing: inherit;
+                    cursor: pointer;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    touch-action: manipulation;
+                }
+                ${hostSelector} .qi-bubble-action {
+                    position: relative;
+                    width: 40px;
+                    height: 40px;
+                    flex: 0 0 40px;
+                    padding: 0;
+                    border-radius: 50%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--qi-accent-text);
+                    background: transparent;
+                }
+                ${hostSelector} .qi-bubble-action[hidden] {
+                    display: none !important;
+                }
+                ${hostSelector} .qi-bubble-action:not(:disabled):hover .qi-bubble-icon,
+                ${hostSelector} .qi-bubble-action:not(:disabled):focus-visible .qi-bubble-icon {
+                    transform: scale(1.04);
+                    box-shadow: 0 0 0 3px var(--qi-focus-ring), inset 0 0 0 1px rgba(255,255,255,0.18);
+                }
+                ${hostSelector} .qi-bubble-action:focus-visible,
+                ${hostSelector} .qi-bubble-restore:focus-visible {
                     outline: none;
-                    border-color: var(--qi-accent);
-                    box-shadow: 0 0 0 3px var(--qi-focus-ring-strong), 0 18px 42px rgba(0,0,0,0.38);
+                }
+                ${hostSelector} .qi-bubble-restore:focus-visible {
+                    box-shadow: 0 0 0 3px var(--qi-focus-ring);
+                }
+                ${hostSelector} .qi-bubble-restore {
+                    min-width: 0;
+                    max-width: 154px;
+                    height: 40px;
+                    padding: 0 9px;
+                    border-radius: 999px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-bubble-restore:hover {
+                    background: color-mix(in srgb, var(--qi-accent) 12%, transparent);
                 }
                 ${hostSelector} .qi-bubble-icon {
                     position: relative;
@@ -11080,6 +11133,9 @@ ${displayTargetText}`;
                     background: var(--qi-accent);
                     color: var(--qi-accent-text);
                     box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+                    transition:
+                        transform 140ms ease,
+                        box-shadow 140ms ease;
                 }
                 ${hostSelector} .qi-bubble-icon::before {
                     content: "";
@@ -11092,7 +11148,7 @@ ${displayTargetText}`;
                     border-right: 3px solid currentColor;
                     border-radius: 1px;
                 }
-                ${hostSelector} .qi-bubble[data-running="1"]:not([data-paused="1"]) .qi-bubble-icon::before {
+                ${hostSelector} .qi-bubble[data-paused="1"] .qi-bubble-icon::before {
                     left: 8px;
                     top: 5px;
                     width: 0;
@@ -11103,7 +11159,7 @@ ${displayTargetText}`;
                     border-right: 0;
                     border-radius: 0;
                 }
-                ${hostSelector} .qi-bubble[data-running="0"] .qi-bubble-icon::before {
+                ${hostSelector} .qi-bubble[data-actionable="0"] .qi-bubble-icon::before {
                     left: 6px;
                     top: 11px;
                     width: 11px;
@@ -11117,6 +11173,7 @@ ${displayTargetText}`;
                 ${hostSelector} .qi-bubble-status {
                     min-width: 0;
                     max-width: 142px;
+                    display: block;
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
@@ -12266,6 +12323,8 @@ ${displayTargetText}`;
     let overlayRootEl = null;
     let backdropEl = null;
     let bubbleEl = null;
+    let bubbleActionEl = null;
+    let bubbleRestoreEl = null;
     let bubbleStatusEl = null;
     let panelEl = null;
     let headerEl = null;
@@ -12719,11 +12778,38 @@ ${displayTargetText}`;
       const restoreLabel = labels.aria?.restore || DEFAULT_LABELS.aria.restore || labels.title || DEFAULT_LABELS.title;
       const title = `${restoreLabel} - ${status}`;
       bubbleEl.title = title;
-      bubbleEl.setAttribute("aria-label", title);
       bubbleEl.setAttribute("data-running", running ? "1" : "0");
       bubbleEl.setAttribute("data-paused", paused ? "1" : "0");
+      bubbleEl.setAttribute("data-actionable", running && !cancelRun ? "1" : "0");
       bubbleEl.setAttribute("data-status", lastTerminalStatus || "idle");
+      if (bubbleRestoreEl) {
+        bubbleRestoreEl.title = title;
+        bubbleRestoreEl.setAttribute("aria-label", title);
+      }
+      if (bubbleActionEl) {
+        const action = paused ? "resume" : "pause";
+        const actionLabel = getPlayerActionLabel(action);
+        bubbleActionEl.title = actionLabel;
+        bubbleActionEl.setAttribute("aria-label", actionLabel);
+        bubbleActionEl.setAttribute("data-action", action);
+        bubbleActionEl.disabled = !running || cancelRun;
+        bubbleActionEl.hidden = !running || cancelRun;
+        bubbleActionEl.setAttribute("aria-hidden", running && !cancelRun ? "false" : "true");
+      }
       if (bubbleStatusEl) bubbleStatusEl.textContent = status;
+    }
+    function handleBubbleActionClick(event) {
+      try {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+      } catch {
+      }
+      if (!running || cancelRun) return;
+      if (paused) {
+        resumeRun();
+        return;
+      }
+      pauseRun();
     }
     async function handlePrimaryAction() {
       if (!running) {
@@ -16280,22 +16366,32 @@ ${displayTargetText}`;
       panelEl.appendChild(content);
       backdropEl.appendChild(panelEl);
       overlayRootEl.appendChild(backdropEl);
-      bubbleEl = globalThis.document.createElement("button");
-      bubbleEl.type = "button";
+      bubbleEl = globalThis.document.createElement("div");
       bubbleEl.className = "qi-bubble";
       bindOverlayEventIsolation(bubbleEl);
-      bubbleEl.addEventListener("click", (event) => {
+      bubbleActionEl = globalThis.document.createElement("button");
+      bubbleActionEl.type = "button";
+      bubbleActionEl.className = "qi-bubble-action";
+      bindOverlayEventIsolation(bubbleActionEl);
+      bubbleActionEl.addEventListener("click", handleBubbleActionClick);
+      const bubbleIconEl = globalThis.document.createElement("span");
+      bubbleIconEl.className = "qi-bubble-icon";
+      bubbleIconEl.setAttribute("aria-hidden", "true");
+      bubbleActionEl.appendChild(bubbleIconEl);
+      bubbleRestoreEl = globalThis.document.createElement("button");
+      bubbleRestoreEl.type = "button";
+      bubbleRestoreEl.className = "qi-bubble-restore";
+      bindOverlayEventIsolation(bubbleRestoreEl);
+      bubbleRestoreEl.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         restoreFromMinimized();
       });
-      const bubbleIconEl = globalThis.document.createElement("span");
-      bubbleIconEl.className = "qi-bubble-icon";
-      bubbleIconEl.setAttribute("aria-hidden", "true");
       bubbleStatusEl = globalThis.document.createElement("span");
       bubbleStatusEl.className = "qi-bubble-status";
-      bubbleEl.appendChild(bubbleIconEl);
-      bubbleEl.appendChild(bubbleStatusEl);
+      bubbleRestoreEl.appendChild(bubbleStatusEl);
+      bubbleEl.appendChild(bubbleActionEl);
+      bubbleEl.appendChild(bubbleRestoreEl);
       syncBubbleState();
       overlayRootEl.appendChild(bubbleEl);
       globalThis.document.body.appendChild(overlayEl);
@@ -16360,6 +16456,8 @@ ${displayTargetText}`;
       overlayRootEl = null;
       backdropEl = null;
       bubbleEl = null;
+      bubbleActionEl = null;
+      bubbleRestoreEl = null;
       bubbleStatusEl = null;
       panelEl = null;
       headerEl = null;
