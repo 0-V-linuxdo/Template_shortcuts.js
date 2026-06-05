@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260605] v1.0.0
-// @name:en        [Template] Shortcut Core [20260605] v1.0.0
+// @name           [Template] 快捷键跳转 [20260605] v1.1.0
+// @name:en        [Template] Shortcut Core [20260605] v1.1.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260605] v1.0.0
-// @update-log     1.0.0: 修复 custom action Promise 返回链；QuickInput 工具快捷键失败会停在当前 hotkey 重试/暂停，未成功前绝不进入发送流程。
-// @update-log:en  1.0.0: Fixed custom action Promise propagation; failed QuickInput tool shortcuts now retry/pause on the current hotkey and never proceed to send before success.
+// @version        [20260605] v1.1.0
+// @update-log     1.1.0: QuickInput 运行中支持最小化为悬浮球；点击弹窗外部不再暂停任务，点击悬浮球可恢复完整弹窗。
+// @update-log:en  1.1.0: QuickInput can now minimize to a floating bubble while running; outside clicks no longer pause the task, and clicking the bubble restores the full popup.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -9517,6 +9517,8 @@ ${displayTargetText}`;
     }),
     aria: Object.freeze({
       close: "关闭",
+      minimize: "最小化",
+      restore: "恢复快捷输入",
       exportToClipboard: "导出当前快捷输入到剪贴板",
       importFromClipboard: "从剪贴板导入快捷输入",
       deleteHotkey: "删除该快捷键",
@@ -9583,6 +9585,12 @@ ${displayTargetText}`;
       stopped: "已停止！",
       failed: "失败！",
       finished: "完成！",
+      bubbleRunning: "运行中",
+      bubblePaused: "已暂停",
+      bubbleStopping: "停止中",
+      bubbleFinished: "已完成",
+      bubbleFailed: "失败",
+      bubbleStopped: "已停止",
       stopRequested: "收到停止请求，将尽快停止…",
       exportSuccess: "已导出快捷输入到剪贴板。",
       exportFailed: "导出失败：请检查剪贴板权限后重试。",
@@ -9659,6 +9667,8 @@ ${displayTargetText}`;
       }),
       aria: Object.freeze({
         close: "Close",
+        minimize: "Minimize",
+        restore: "Restore Quick Input",
         exportToClipboard: "Export this Quick Input session to clipboard",
         importFromClipboard: "Import Quick Input from clipboard",
         deleteHotkey: "Delete this shortcut",
@@ -9725,6 +9735,12 @@ ${displayTargetText}`;
         stopped: "Stopped.",
         failed: "Failed.",
         finished: "Finished.",
+        bubbleRunning: "Running",
+        bubblePaused: "Paused",
+        bubbleStopping: "Stopping",
+        bubbleFinished: "Finished",
+        bubbleFailed: "Failed",
+        bubbleStopped: "Stopped",
         stopRequested: "Stop requested; stopping as soon as possible...",
         exportSuccess: "Quick Input exported to clipboard.",
         exportFailed: "Export failed. Check clipboard permission and try again.",
@@ -10786,6 +10802,7 @@ ${displayTargetText}`;
     }
     const hostSelector = usesShadowUi ? ":host" : `#${overlayId}`;
     const lightSelector = usesShadowUi ? ":host([data-theme='light'])" : `#${overlayId}[data-theme='light']`;
+    const minimizedSelector = usesShadowUi ? ":host([data-minimized='1'])" : `#${overlayId}[data-minimized='1']`;
     const resolvedThemeColors = resolveQuickInputThemeColors(primaryColor, themeColors);
     const darkColors = resolvedThemeColors.dark;
     const lightColors = resolvedThemeColors.light;
@@ -10902,6 +10919,9 @@ ${displayTargetText}`;
                     padding: 18px;
                     box-sizing: border-box;
                 }
+                ${minimizedSelector} .qi-backdrop {
+                    display: none;
+                }
                 ${hostSelector} .qi-panel {
                     position: fixed;
                     left: 50%;
@@ -10939,8 +10959,12 @@ ${displayTargetText}`;
                     font-weight: 700;
                     letter-spacing: 0.2px;
                     color: var(--qi-text-strong);
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
-                ${hostSelector} .qi-close {
+                ${hostSelector} .qi-window-btn {
                     position: relative;
                     border: 1px solid transparent;
                     background: transparent;
@@ -10957,6 +10981,26 @@ ${displayTargetText}`;
                     flex: 0 0 32px;
                     border-radius: 50%;
                 }
+                ${hostSelector} .qi-window-btn:hover {
+                    background: var(--qi-hover);
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-window-btn:focus-visible {
+                    outline: none;
+                    border-color: var(--qi-accent);
+                    box-shadow: 0 0 0 2px var(--qi-focus-ring);
+                }
+                ${hostSelector} .qi-minimize::before {
+                    content: "";
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 14px;
+                    height: 2px;
+                    background: currentColor;
+                    border-radius: 999px;
+                    transform: translate(-50%, -50%);
+                }
                 ${hostSelector} .qi-close::before,
                 ${hostSelector} .qi-close::after {
                     content: "";
@@ -10971,13 +11015,111 @@ ${displayTargetText}`;
                 }
                 ${hostSelector} .qi-close::before { transform: translate(-50%, -50%) rotate(45deg); }
                 ${hostSelector} .qi-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
-                ${hostSelector} .qi-close:hover { background: var(--qi-hover); color: var(--qi-text-strong); }
                 ${hostSelector} .qi-tabs {
                     display: flex;
                     gap: 8px;
                     flex: 1;
                     justify-content: center;
                     padding: 0;
+                }
+                ${hostSelector} .qi-bubble {
+                    position: fixed;
+                    right: max(18px, env(safe-area-inset-right));
+                    bottom: max(18px, env(safe-area-inset-bottom));
+                    min-width: 72px;
+                    max-width: min(210px, calc(100vw - 36px));
+                    height: 54px;
+                    padding: 0 14px 0 12px;
+                    border: 1px solid color-mix(in srgb, var(--qi-accent) 34%, var(--qi-border));
+                    border-radius: 999px;
+                    background: color-mix(in srgb, var(--qi-accent) 18%, var(--qi-surface));
+                    color: var(--qi-text-strong);
+                    box-shadow: 0 14px 36px rgba(0,0,0,0.32);
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 9px;
+                    pointer-events: auto;
+                    cursor: pointer;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    touch-action: manipulation;
+                    z-index: 1;
+                    font-size: 12px;
+                    font-weight: 750;
+                    line-height: 1;
+                    letter-spacing: 0;
+                    backdrop-filter: blur(10px);
+                    -webkit-backdrop-filter: blur(10px);
+                    transition:
+                        transform 160ms ease,
+                        box-shadow 160ms ease,
+                        background 160ms ease,
+                        border-color 160ms ease;
+                }
+                ${minimizedSelector} .qi-bubble {
+                    display: inline-flex;
+                }
+                ${hostSelector} .qi-bubble:hover {
+                    transform: translateY(-1px);
+                    background: color-mix(in srgb, var(--qi-accent) 24%, var(--qi-surface));
+                    border-color: color-mix(in srgb, var(--qi-accent) 48%, var(--qi-border));
+                    box-shadow: 0 18px 42px rgba(0,0,0,0.38);
+                }
+                ${hostSelector} .qi-bubble:focus-visible {
+                    outline: none;
+                    border-color: var(--qi-accent);
+                    box-shadow: 0 0 0 3px var(--qi-focus-ring-strong), 0 18px 42px rgba(0,0,0,0.38);
+                }
+                ${hostSelector} .qi-bubble-icon {
+                    position: relative;
+                    width: 22px;
+                    height: 22px;
+                    flex: 0 0 22px;
+                    border-radius: 50%;
+                    background: var(--qi-accent);
+                    color: var(--qi-accent-text);
+                    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+                }
+                ${hostSelector} .qi-bubble-icon::before {
+                    content: "";
+                    position: absolute;
+                    left: 7px;
+                    top: 5px;
+                    width: 8px;
+                    height: 12px;
+                    border-left: 3px solid currentColor;
+                    border-right: 3px solid currentColor;
+                    border-radius: 1px;
+                }
+                ${hostSelector} .qi-bubble[data-running="1"]:not([data-paused="1"]) .qi-bubble-icon::before {
+                    left: 8px;
+                    top: 5px;
+                    width: 0;
+                    height: 0;
+                    border-left: 9px solid currentColor;
+                    border-top: 6px solid transparent;
+                    border-bottom: 6px solid transparent;
+                    border-right: 0;
+                    border-radius: 0;
+                }
+                ${hostSelector} .qi-bubble[data-running="0"] .qi-bubble-icon::before {
+                    left: 6px;
+                    top: 11px;
+                    width: 11px;
+                    height: 6px;
+                    border: 0;
+                    border-left: 3px solid currentColor;
+                    border-bottom: 3px solid currentColor;
+                    border-radius: 0;
+                    transform: rotate(-45deg);
+                }
+                ${hostSelector} .qi-bubble-status {
+                    min-width: 0;
+                    max-width: 142px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
                 ${hostSelector} .qi-tab {
                     flex: 1;
@@ -12123,8 +12265,11 @@ ${displayTargetText}`;
     let overlayEl = null;
     let overlayRootEl = null;
     let backdropEl = null;
+    let bubbleEl = null;
+    let bubbleStatusEl = null;
     let panelEl = null;
     let headerEl = null;
+    let minimizeBtnEl = null;
     let logEl = null;
     let inputBodyEl = null;
     let inputActionsEl = null;
@@ -12155,6 +12300,7 @@ ${displayTargetText}`;
     const playPauseButtons = [];
     let activeTab = "input";
     let setActiveTab = null;
+    let minimized = false;
     let imageFiles = [];
     let draftImageEntries = [];
     let imageObjectUrls = [];
@@ -12290,7 +12436,7 @@ ${displayTargetText}`;
       focusGuardRaf = 0;
     }
     function shouldGuardQuickInputFocus() {
-      return isQuickInputOpen() && !running && !ioBusy;
+      return isQuickInputOpen() && !minimized && !running && !ioBusy;
     }
     function scheduleQuickInputFocusRestore({ preferText = false } = {}) {
       if (!shouldGuardQuickInputFocus()) return;
@@ -12304,6 +12450,22 @@ ${displayTargetText}`;
         }
         focusPreferredOverlayTarget({ preferText: preferText || activeTab === "input" });
       });
+    }
+    function blurQuickInputFocus() {
+      const shadowActive = getShadowActiveElement();
+      if (shadowActive && isInsideOverlay(shadowActive)) {
+        try {
+          shadowActive.blur?.();
+        } catch {
+        }
+      }
+      const active = globalThis.document?.activeElement || null;
+      if (active && isInsideOverlay(active)) {
+        try {
+          active.blur?.();
+        } catch {
+        }
+      }
     }
     function handleOverlayFocusIn(event) {
       rememberOverlayFocusTarget(event?.target || getShadowActiveElement());
@@ -12529,6 +12691,39 @@ ${displayTargetText}`;
     function getPrimaryButtonAction() {
       if (!running) return lastTerminalStatus === "ok" ? "replay" : "run";
       return paused ? "resume" : "pause";
+    }
+    function getBubbleStatusLabel() {
+      if (running) {
+        if (cancelRun) {
+          return labels.messages?.bubbleStopping || DEFAULT_LABELS.messages.bubbleStopping || labels.buttons?.stop || DEFAULT_LABELS.buttons.stop;
+        }
+        if (paused) {
+          return labels.messages?.bubblePaused || DEFAULT_LABELS.messages.bubblePaused || labels.messages?.paused || DEFAULT_LABELS.messages.paused;
+        }
+        return labels.messages?.bubbleRunning || DEFAULT_LABELS.messages.bubbleRunning || labels.buttons?.run || DEFAULT_LABELS.buttons.run;
+      }
+      if (lastTerminalStatus === "ok") {
+        return labels.messages?.bubbleFinished || DEFAULT_LABELS.messages.bubbleFinished || labels.messages?.finished || DEFAULT_LABELS.messages.finished;
+      }
+      if (lastTerminalStatus === "error") {
+        return labels.messages?.bubbleFailed || DEFAULT_LABELS.messages.bubbleFailed || labels.messages?.failed || DEFAULT_LABELS.messages.failed;
+      }
+      if (lastTerminalStatus === "warn") {
+        return labels.messages?.bubbleStopped || DEFAULT_LABELS.messages.bubbleStopped || labels.messages?.stopped || DEFAULT_LABELS.messages.stopped;
+      }
+      return labels.title || DEFAULT_LABELS.title;
+    }
+    function syncBubbleState() {
+      if (!overlayEl || !bubbleEl) return;
+      const status = getBubbleStatusLabel();
+      const restoreLabel = labels.aria?.restore || DEFAULT_LABELS.aria.restore || labels.title || DEFAULT_LABELS.title;
+      const title = `${restoreLabel} - ${status}`;
+      bubbleEl.title = title;
+      bubbleEl.setAttribute("aria-label", title);
+      bubbleEl.setAttribute("data-running", running ? "1" : "0");
+      bubbleEl.setAttribute("data-paused", paused ? "1" : "0");
+      bubbleEl.setAttribute("data-status", lastTerminalStatus || "idle");
+      if (bubbleStatusEl) bubbleStatusEl.textContent = status;
     }
     async function handlePrimaryAction() {
       if (!running) {
@@ -12794,6 +12989,12 @@ ${displayTargetText}`;
         btn.disabled = isCancelling;
         setPlayerActionButtonVisual(btn, getPrimaryButtonAction());
       }
+      if (minimizeBtnEl) {
+        minimizeBtnEl.disabled = !isBusy || isCancelling;
+        minimizeBtnEl.hidden = !isBusy;
+        minimizeBtnEl.setAttribute("aria-hidden", isBusy ? "false" : "true");
+        minimizeBtnEl.style.display = isBusy ? "" : "none";
+      }
       for (const input of hotkeyInputs) {
         if (input) input.disabled = isBusy;
       }
@@ -12837,6 +13038,7 @@ ${displayTargetText}`;
         }
       } catch {
       }
+      syncBubbleState();
     }
     function setPausedState(nextPaused, { log = true } = {}) {
       if (!running) return;
@@ -12860,6 +13062,7 @@ ${displayTargetText}`;
         }
       }
       syncRunControls();
+      syncBubbleState();
     }
     function pauseRun() {
       if (!running || cancelRun) return;
@@ -13341,8 +13544,19 @@ ${displayTargetText}`;
     }
     function setOverlayVisibility(isOpen2) {
       if (!overlayEl) return;
+      if (!isOpen2) minimized = false;
       overlayEl.setAttribute("data-open", isOpen2 ? "1" : "0");
+      overlayEl.setAttribute("data-minimized", isOpen2 && minimized ? "1" : "0");
       setImportantStyle(overlayEl, "display", isOpen2 ? "block" : "none");
+      setImportantStyle(overlayEl, "pointer-events", isOpen2 && minimized ? "none" : "auto");
+      syncBubbleState();
+    }
+    function setOverlayMinimized(nextMinimized) {
+      minimized = !!nextMinimized;
+      if (!overlayEl) return;
+      overlayEl.setAttribute("data-minimized", minimized ? "1" : "0");
+      setImportantStyle(overlayEl, "pointer-events", minimized ? "none" : "auto");
+      syncBubbleState();
     }
     function getLogTimestamp(date = /* @__PURE__ */ new Date()) {
       return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
@@ -14364,6 +14578,12 @@ ${displayTargetText}`;
       panelEl.style.transform = "none";
       if (clamped.left !== pos.left || clamped.top !== pos.top) persistPanelPos(clamped.left, clamped.top, { force: true });
     }
+    function persistCurrentPanelPos({ force = true } = {}) {
+      if (!panelEl) return;
+      const rect = panelEl.getBoundingClientRect();
+      const clamped = clampPanelPos(rect.left, rect.top, rect.width, rect.height);
+      persistPanelPos(clamped.left, clamped.top, { force });
+    }
     function stopDrag() {
       if (dragRaf) {
         cancelAnimationFrameSafe(dragRaf);
@@ -14390,7 +14610,7 @@ ${displayTargetText}`;
     function onHeaderPointerDown(e) {
       if (!e || dragPointerId !== null) return;
       if (e.button !== 0) return;
-      if (e.target && typeof e.target.closest === "function" && e.target.closest(".qi-close, .qi-tabs, .qi-tab")) return;
+      if (e.target && typeof e.target.closest === "function" && e.target.closest(".qi-window-btn, .qi-close, .qi-minimize, .qi-tabs, .qi-tab")) return;
       if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
       if (!panelEl) return;
       const rect = panelEl.getBoundingClientRect();
@@ -14460,7 +14680,7 @@ ${displayTargetText}`;
       panelEl.style.left = `${clamped.left}px`;
       panelEl.style.top = `${clamped.top}px`;
       panelEl.style.transform = "none";
-      persistPanelPos(clamped.left, clamped.top, { force: true });
+      persistCurrentPanelPos({ force: true });
     }
     function normalizeEngineHotkey(value) {
       const raw = String(value ?? "").trim().replace(/\s+/g, "");
@@ -15677,6 +15897,35 @@ ${displayTargetText}`;
       setActiveTab?.("log");
       pendingFinalStatusDetail = labels.messages?.stopRequested || DEFAULT_LABELS.messages.stopRequested;
       syncRunControls();
+      syncBubbleState();
+    }
+    function minimize() {
+      ensureUi();
+      if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
+      if (!running && !minimized) return;
+      if (dragPointerId !== null && dragMoved) persistCurrentPanelPos({ force: true });
+      stopDrag();
+      void persistDraftText();
+      cancelFocusGuardRestore();
+      blurQuickInputFocus();
+      lastOverlayFocusEl = null;
+      setOverlayMinimized(true);
+    }
+    function restoreFromMinimized() {
+      ensureUi();
+      if (!overlayEl) return;
+      labels = resolveLabels();
+      titleText = resolveTitleText();
+      setOverlayVisibility(true);
+      setOverlayMinimized(false);
+      refreshHotkeySelects();
+      startThemeAutoSync();
+      requestAnimationFrameSafe(() => {
+        applyStoredPanelPos();
+        schedulePanelLayout({ scrollLogToBottom: activeTab === "log", followupPasses: 2 });
+      });
+      focusPreferredOverlayTarget({ preferText: activeTab === "input" });
+      scheduleQuickInputFocusRestore({ preferText: activeTab === "input" });
     }
     function ensureUi() {
       if (overlayEl) return;
@@ -15706,7 +15955,12 @@ ${displayTargetText}`;
       backdropEl = globalThis.document.createElement("div");
       backdropEl.className = "qi-backdrop";
       backdropEl.addEventListener("click", (e) => {
-        if (e.target === backdropEl) close();
+        if (e.target !== backdropEl) return;
+        if (running && !cancelRun) {
+          minimize();
+          return;
+        }
+        close();
       });
       panelEl = globalThis.document.createElement("div");
       panelEl.className = "qi-panel";
@@ -15720,14 +15974,21 @@ ${displayTargetText}`;
       const title = globalThis.document.createElement("div");
       title.className = "qi-title";
       title.textContent = titleText;
+      minimizeBtnEl = globalThis.document.createElement("button");
+      minimizeBtnEl.className = "qi-window-btn qi-minimize";
+      minimizeBtnEl.type = "button";
+      minimizeBtnEl.title = labels.aria?.minimize || DEFAULT_LABELS.aria.minimize;
+      minimizeBtnEl.setAttribute("aria-label", labels.aria?.minimize || DEFAULT_LABELS.aria.minimize);
+      minimizeBtnEl.addEventListener("click", () => minimize());
       const closeBtn = globalThis.document.createElement("button");
-      closeBtn.className = "qi-close";
+      closeBtn.className = "qi-window-btn qi-close";
       closeBtn.type = "button";
       closeBtn.textContent = "×";
       closeBtn.title = labels.aria?.close || DEFAULT_LABELS.aria.close;
       closeBtn.setAttribute("aria-label", labels.aria?.close || DEFAULT_LABELS.aria.close);
       closeBtn.addEventListener("click", () => close());
       headerEl.appendChild(title);
+      headerEl.appendChild(minimizeBtnEl);
       headerEl.appendChild(closeBtn);
       const tabs = globalThis.document.createElement("div");
       tabs.className = "qi-tabs";
@@ -15743,7 +16004,7 @@ ${displayTargetText}`;
       tabLogBtn.setAttribute("data-active", "0");
       tabs.appendChild(tabInputBtn);
       tabs.appendChild(tabLogBtn);
-      headerEl.insertBefore(tabs, closeBtn);
+      headerEl.insertBefore(tabs, minimizeBtnEl);
       const content = globalThis.document.createElement("div");
       content.className = "qi-content";
       const inputPanel = globalThis.document.createElement("div");
@@ -16019,6 +16280,24 @@ ${displayTargetText}`;
       panelEl.appendChild(content);
       backdropEl.appendChild(panelEl);
       overlayRootEl.appendChild(backdropEl);
+      bubbleEl = globalThis.document.createElement("button");
+      bubbleEl.type = "button";
+      bubbleEl.className = "qi-bubble";
+      bindOverlayEventIsolation(bubbleEl);
+      bubbleEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        restoreFromMinimized();
+      });
+      const bubbleIconEl = globalThis.document.createElement("span");
+      bubbleIconEl.className = "qi-bubble-icon";
+      bubbleIconEl.setAttribute("aria-hidden", "true");
+      bubbleStatusEl = globalThis.document.createElement("span");
+      bubbleStatusEl.className = "qi-bubble-status";
+      bubbleEl.appendChild(bubbleIconEl);
+      bubbleEl.appendChild(bubbleStatusEl);
+      syncBubbleState();
+      overlayRootEl.appendChild(bubbleEl);
       globalThis.document.body.appendChild(overlayEl);
       globalThis.document.addEventListener("keydown", (e) => {
         if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
@@ -16047,6 +16326,7 @@ ${displayTargetText}`;
       labels = resolveLabels();
       titleText = resolveTitleText();
       ensureUi();
+      setOverlayMinimized(false);
       refreshHotkeySelects();
       stopDrag();
       setOverlayVisibility(true);
@@ -16066,11 +16346,7 @@ ${displayTargetText}`;
     }
     function close() {
       if (!overlayEl) return;
-      if (dragPointerId !== null && dragMoved && panelEl) {
-        const rect = panelEl.getBoundingClientRect();
-        const clamped = clampPanelPos(rect.left, rect.top, rect.width, rect.height);
-        persistPanelPos(clamped.left, clamped.top, { force: true });
-      }
+      if (dragPointerId !== null && dragMoved && panelEl) persistCurrentPanelPos({ force: true });
       if (running && !cancelRun && !paused) pauseRun();
       stopDrag();
       void persistDraftText();
@@ -16083,8 +16359,11 @@ ${displayTargetText}`;
       overlayEl = null;
       overlayRootEl = null;
       backdropEl = null;
+      bubbleEl = null;
+      bubbleStatusEl = null;
       panelEl = null;
       headerEl = null;
+      minimizeBtnEl = null;
       logEl = null;
       inputBodyEl = null;
       inputActionsEl = null;
@@ -16114,6 +16393,7 @@ ${displayTargetText}`;
       stopButtons.length = 0;
       playPauseButtons.length = 0;
       setActiveTab = null;
+      minimized = false;
       ioBusy = false;
       usesShadowUi = false;
       cancelFocusGuardRestore();
@@ -16135,6 +16415,10 @@ ${displayTargetText}`;
       if (wasOpen) open();
     }
     function toggle() {
+      if (isOpen() && minimized) {
+        restoreFromMinimized();
+        return;
+      }
       if (isOpen()) {
         close();
         return;
