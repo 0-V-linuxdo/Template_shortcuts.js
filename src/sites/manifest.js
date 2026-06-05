@@ -208,16 +208,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260605] v1.1.0",
+            name: "[ChatGPT] 快捷键跳转 [20260605] v1.1.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image/Create website）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260605] v1.1.0",
-            updateLog: "1.1.0: 更新 Template core require；QuickInput 运行中点击外部会最小化为悬浮球并继续执行，点击悬浮球可恢复弹窗。",
+            version: "[20260605] v1.1.1",
+            updateLog: "1.1.1: 更新 Template core require；QuickInput 悬浮球左侧按钮可暂停/继续当前任务，右侧状态区域恢复弹窗。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260605] v1.1.0",
+                    name: "[ChatGPT] Shortcut Jump [20260605] v1.1.1",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers including Create website, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.1.0: Updated the Template core require; QuickInput now minimizes to a floating bubble on outside clicks while continuing the running task, and the bubble restores the popup."
+                    updateLog: "1.1.1: Updated the Template core require; the QuickInput bubble's left button now pauses/resumes the current task, while the status area restores the popup."
                 }
             },
             match: [
@@ -369,16 +369,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Gemini] 快捷键跳转",
         sourceEntry: "src/sites/gemini/index.js",
         metadata: {
-            name: "[Gemini] 快捷键跳转 [20260605] v1.1.0",
+            name: "[Gemini] 快捷键跳转 [20260605] v1.1.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Gemini 提供可视化自定义快捷键：快速新建会话、切换模型、打开工具、Pin/Delete 对话与快捷输入发送，支持按键和图标自定义。",
-            version: "[20260605] v1.1.0",
-            updateLog: "1.1.0: 更新 Template core require；QuickInput 运行中点击外部会最小化为悬浮球并继续执行，点击悬浮球可恢复弹窗。",
+            version: "[20260605] v1.1.1",
+            updateLog: "1.1.1: 更新 Template core require；QuickInput 悬浮球左侧按钮可暂停/继续当前任务，右侧状态区域恢复弹窗。",
             localized: {
                 "en-US": {
-                    name: "[Gemini] Shortcut Jump [20260605] v1.1.0",
+                    name: "[Gemini] Shortcut Jump [20260605] v1.1.1",
                     description: "Visual custom shortcuts for Gemini: new chats, model switching, tools, pin/delete conversation actions, Quick Input, and customizable keys and icons.",
-                    updateLog: "1.1.0: Updated the Template core require; QuickInput now minimizes to a floating bubble on outside clicks while continuing the running task, and the bubble restores the popup."
+                    updateLog: "1.1.1: Updated the Template core require; the QuickInput bubble's left button now pauses/resumes the current task, while the status area restores the popup."
                 }
             },
             match: [
@@ -532,16 +532,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion AI] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion AI] 快捷键跳转 [20260605] v1.1.0",
+            name: "[Notion AI] 快捷键跳转 [20260605] v1.1.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260605] v1.1.0",
-            updateLog: "1.1.0: 更新 Template core require；QuickInput 运行中点击外部会最小化为悬浮球并继续执行，点击悬浮球可恢复弹窗。",
+            version: "[20260605] v1.1.1",
+            updateLog: "1.1.1: 更新 Template core require；QuickInput 悬浮球左侧按钮可暂停/继续当前任务，右侧状态区域恢复弹窗。",
             localized: {
                 "en-US": {
-                    name: "[Notion AI] Shortcut Jump [20260605] v1.1.0",
+                    name: "[Notion AI] Shortcut Jump [20260605] v1.1.1",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.1.0: Updated the Template core require; QuickInput now minimizes to a floating bubble on outside clicks while continuing the running task, and the bubble restores the popup."
+                    updateLog: "1.1.1: Updated the Template core require; the QuickInput bubble's left button now pauses/resumes the current task, while the status area restores the popup."
                 }
             },
             match: [

@@ -105,6 +105,8 @@ export function createController(userOptions = {}) {
             let overlayRootEl = null;
             let backdropEl = null;
             let bubbleEl = null;
+            let bubbleActionEl = null;
+            let bubbleRestoreEl = null;
             let bubbleStatusEl = null;
             let panelEl = null;
             let headerEl = null;
@@ -602,11 +604,38 @@ export function createController(userOptions = {}) {
                     || DEFAULT_LABELS.title;
                 const title = `${restoreLabel} - ${status}`;
                 bubbleEl.title = title;
-                bubbleEl.setAttribute("aria-label", title);
                 bubbleEl.setAttribute("data-running", running ? "1" : "0");
                 bubbleEl.setAttribute("data-paused", paused ? "1" : "0");
+                bubbleEl.setAttribute("data-actionable", running && !cancelRun ? "1" : "0");
                 bubbleEl.setAttribute("data-status", lastTerminalStatus || "idle");
+                if (bubbleRestoreEl) {
+                    bubbleRestoreEl.title = title;
+                    bubbleRestoreEl.setAttribute("aria-label", title);
+                }
+                if (bubbleActionEl) {
+                    const action = paused ? "resume" : "pause";
+                    const actionLabel = getPlayerActionLabel(action);
+                    bubbleActionEl.title = actionLabel;
+                    bubbleActionEl.setAttribute("aria-label", actionLabel);
+                    bubbleActionEl.setAttribute("data-action", action);
+                    bubbleActionEl.disabled = !running || cancelRun;
+                    bubbleActionEl.hidden = !running || cancelRun;
+                    bubbleActionEl.setAttribute("aria-hidden", running && !cancelRun ? "false" : "true");
+                }
                 if (bubbleStatusEl) bubbleStatusEl.textContent = status;
+            }
+
+            function handleBubbleActionClick(event) {
+                try {
+                    event?.preventDefault?.();
+                    event?.stopPropagation?.();
+                } catch {}
+                if (!running || cancelRun) return;
+                if (paused) {
+                    resumeRun();
+                    return;
+                }
+                pauseRun();
             }
 
             async function handlePrimaryAction() {
@@ -4613,22 +4642,35 @@ export function createController(userOptions = {}) {
                 backdropEl.appendChild(panelEl);
                 overlayRootEl.appendChild(backdropEl);
 
-                bubbleEl = globalThis.document.createElement("button");
-                bubbleEl.type = "button";
+                bubbleEl = globalThis.document.createElement("div");
                 bubbleEl.className = "qi-bubble";
                 bindOverlayEventIsolation(bubbleEl);
-                bubbleEl.addEventListener("click", (event) => {
+
+                bubbleActionEl = globalThis.document.createElement("button");
+                bubbleActionEl.type = "button";
+                bubbleActionEl.className = "qi-bubble-action";
+                bindOverlayEventIsolation(bubbleActionEl);
+                bubbleActionEl.addEventListener("click", handleBubbleActionClick);
+                const bubbleIconEl = globalThis.document.createElement("span");
+                bubbleIconEl.className = "qi-bubble-icon";
+                bubbleIconEl.setAttribute("aria-hidden", "true");
+                bubbleActionEl.appendChild(bubbleIconEl);
+
+                bubbleRestoreEl = globalThis.document.createElement("button");
+                bubbleRestoreEl.type = "button";
+                bubbleRestoreEl.className = "qi-bubble-restore";
+                bindOverlayEventIsolation(bubbleRestoreEl);
+                bubbleRestoreEl.addEventListener("click", (event) => {
                     event.preventDefault();
                     event.stopPropagation();
                     restoreFromMinimized();
                 });
-                const bubbleIconEl = globalThis.document.createElement("span");
-                bubbleIconEl.className = "qi-bubble-icon";
-                bubbleIconEl.setAttribute("aria-hidden", "true");
                 bubbleStatusEl = globalThis.document.createElement("span");
                 bubbleStatusEl.className = "qi-bubble-status";
-                bubbleEl.appendChild(bubbleIconEl);
-                bubbleEl.appendChild(bubbleStatusEl);
+                bubbleRestoreEl.appendChild(bubbleStatusEl);
+
+                bubbleEl.appendChild(bubbleActionEl);
+                bubbleEl.appendChild(bubbleRestoreEl);
                 syncBubbleState();
                 overlayRootEl.appendChild(bubbleEl);
 
@@ -4700,6 +4742,8 @@ export function createController(userOptions = {}) {
                 overlayRootEl = null;
                 backdropEl = null;
                 bubbleEl = null;
+                bubbleActionEl = null;
+                bubbleRestoreEl = null;
                 bubbleStatusEl = null;
                 panelEl = null;
                 headerEl = null;

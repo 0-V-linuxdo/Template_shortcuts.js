@@ -341,7 +341,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     min-width: 72px;
                     max-width: min(210px, calc(100vw - 36px));
                     height: 54px;
-                    padding: 0 14px 0 12px;
+                    padding: 0 8px 0 7px;
                     border: 1px solid color-mix(in srgb, var(--qi-accent) 34%, var(--qi-border));
                     border-radius: 999px;
                     background: color-mix(in srgb, var(--qi-accent) 18%, var(--qi-surface));
@@ -350,9 +350,9 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     display: none;
                     align-items: center;
                     justify-content: center;
-                    gap: 9px;
+                    gap: 5px;
                     pointer-events: auto;
-                    cursor: pointer;
+                    cursor: default;
                     user-select: none;
                     -webkit-user-select: none;
                     touch-action: manipulation;
@@ -372,16 +372,69 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 ${minimizedSelector} .qi-bubble {
                     display: inline-flex;
                 }
-                ${hostSelector} .qi-bubble:hover {
+                ${hostSelector} .qi-bubble:hover,
+                ${hostSelector} .qi-bubble:focus-within {
                     transform: translateY(-1px);
                     background: color-mix(in srgb, var(--qi-accent) 24%, var(--qi-surface));
                     border-color: color-mix(in srgb, var(--qi-accent) 48%, var(--qi-border));
                     box-shadow: 0 18px 42px rgba(0,0,0,0.38);
                 }
-                ${hostSelector} .qi-bubble:focus-visible {
+                ${hostSelector} .qi-bubble-action,
+                ${hostSelector} .qi-bubble-restore {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    border: 0;
+                    margin: 0;
+                    background: transparent;
+                    color: inherit;
+                    font: inherit;
+                    letter-spacing: inherit;
+                    cursor: pointer;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    touch-action: manipulation;
+                }
+                ${hostSelector} .qi-bubble-action {
+                    position: relative;
+                    width: 40px;
+                    height: 40px;
+                    flex: 0 0 40px;
+                    padding: 0;
+                    border-radius: 50%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--qi-accent-text);
+                    background: transparent;
+                }
+                ${hostSelector} .qi-bubble-action[hidden] {
+                    display: none !important;
+                }
+                ${hostSelector} .qi-bubble-action:not(:disabled):hover .qi-bubble-icon,
+                ${hostSelector} .qi-bubble-action:not(:disabled):focus-visible .qi-bubble-icon {
+                    transform: scale(1.04);
+                    box-shadow: 0 0 0 3px var(--qi-focus-ring), inset 0 0 0 1px rgba(255,255,255,0.18);
+                }
+                ${hostSelector} .qi-bubble-action:focus-visible,
+                ${hostSelector} .qi-bubble-restore:focus-visible {
                     outline: none;
-                    border-color: var(--qi-accent);
-                    box-shadow: 0 0 0 3px var(--qi-focus-ring-strong), 0 18px 42px rgba(0,0,0,0.38);
+                }
+                ${hostSelector} .qi-bubble-restore:focus-visible {
+                    box-shadow: 0 0 0 3px var(--qi-focus-ring);
+                }
+                ${hostSelector} .qi-bubble-restore {
+                    min-width: 0;
+                    max-width: 154px;
+                    height: 40px;
+                    padding: 0 9px;
+                    border-radius: 999px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--qi-text-strong);
+                }
+                ${hostSelector} .qi-bubble-restore:hover {
+                    background: color-mix(in srgb, var(--qi-accent) 12%, transparent);
                 }
                 ${hostSelector} .qi-bubble-icon {
                     position: relative;
@@ -392,6 +445,9 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     background: var(--qi-accent);
                     color: var(--qi-accent-text);
                     box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
+                    transition:
+                        transform 140ms ease,
+                        box-shadow 140ms ease;
                 }
                 ${hostSelector} .qi-bubble-icon::before {
                     content: "";
@@ -404,7 +460,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     border-right: 3px solid currentColor;
                     border-radius: 1px;
                 }
-                ${hostSelector} .qi-bubble[data-running="1"]:not([data-paused="1"]) .qi-bubble-icon::before {
+                ${hostSelector} .qi-bubble[data-paused="1"] .qi-bubble-icon::before {
                     left: 8px;
                     top: 5px;
                     width: 0;
@@ -415,7 +471,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                     border-right: 0;
                     border-radius: 0;
                 }
-                ${hostSelector} .qi-bubble[data-running="0"] .qi-bubble-icon::before {
+                ${hostSelector} .qi-bubble[data-actionable="0"] .qi-bubble-icon::before {
                     left: 6px;
                     top: 11px;
                     width: 11px;
@@ -429,6 +485,7 @@ export function ensureQuickInputStyle({ overlayRootEl, usesShadowUi, overlayId, 
                 ${hostSelector} .qi-bubble-status {
                     min-width: 0;
                     max-width: 142px;
+                    display: block;
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
