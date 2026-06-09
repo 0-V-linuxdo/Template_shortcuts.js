@@ -536,12 +536,12 @@ export const SITE_MANIFEST = Object.freeze([
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
             version: "[20260609] v1.0.0",
-            updateLog: "1.0.0: 重写 Notion AI Quick Input 文本验证，支持 Notion 将 Markdown 代码块、行内代码、标题、列表、引用、链接与强调标记渲染后的整段文本匹配，避免 Arc 中文本已写入却被误判失败。",
+            updateLog: "1.0.0: 重写 Notion AI Quick Input 提交验证，按 Notion 在 Arc 中对代码围栏、行内代码、自动链接、链接、标题/列表/引用与强调标记的渲染结果生成整段候选，修复文本已写入却因近似长度差被误判失败。",
             localized: {
                 "en-US": {
                     name: "[Notion AI] Shortcut Jump [20260609] v1.0.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.0: Rewrote Notion AI Quick Input text verification to accept whole-text matches after Notion renders Markdown code blocks, inline code, headings, lists, quotes, links, and emphasis markers, preventing false failures in Arc after text is inserted."
+                    updateLog: "1.0.0: Rewrote Notion AI Quick Input commit verification to generate whole-text candidates from Arc's Notion rendering of fenced code, inline code, autolinks, links, headings/lists/quotes, and emphasis markers, fixing false failures after text is inserted."
                 }
             },
             match: [

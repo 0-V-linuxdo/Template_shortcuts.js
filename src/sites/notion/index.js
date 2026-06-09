@@ -4464,6 +4464,7 @@
                 .replace(/\u00A0/g, " ")
                 .replace(/[\u2028\u2029]/g, "\n");
             text = genericNormalizeComposerText(text, { trimTrailingEditorNewlines });
+            text = normalizeNotionLinkTokenBoundaryText(text);
             text = text.replace(/[ \t\f\v]+$/gm, "");
             if (trimTrailingEditorNewlines) text = text.replace(/\n+$/g, "");
             return text;
@@ -4471,6 +4472,17 @@
 
         function normalizeNotionCommittedText(value) {
             return normalizeNotionComposerReadText(value, { trimTrailingEditorNewlines: true });
+        }
+
+        function normalizeNotionLinkTokenBoundaryText(value) {
+            let text = String(value ?? "");
+            const urlText = "((?:https?:\\/\\/|mailto:)[^\\s<>\"'`]+)";
+            try {
+                text = text.replace(new RegExp(`([<="'(\\[])[\\n]+${urlText}([>"')\\]])`, "gi"), "$1$2$3");
+                text = text.replace(new RegExp(`([<="'(\\[])[\\n]+${urlText}`, "gi"), "$1$2");
+                text = text.replace(new RegExp(`${urlText}[\\n]+([>"')\\]])`, "gi"), "$1$2");
+            } catch { }
+            return text;
         }
 
         function addNotionRenderedTextVariant(variants, seen, value) {
@@ -4499,7 +4511,46 @@
             };
         }
 
-        function renderNotionFencedCodeBlocks(value, { separateBlocks = false } = {}) {
+        function splitNotionAutolinkTrailingPunctuation(url) {
+            let head = String(url ?? "");
+            let tail = "";
+            while (head && /[.,;:!?]/.test(head.charAt(head.length - 1))) {
+                tail = `${head.charAt(head.length - 1)}${tail}`;
+                head = head.slice(0, -1);
+            }
+            return { head, tail };
+        }
+
+        function stripNotionAutolinkAngleMarkers(value) {
+            return String(value ?? "").replace(/<((?:https?:\/\/|mailto:)[^<>\s]+)>/gi, "$1");
+        }
+
+        function wrapNotionBareAutolinkText(value) {
+            return String(value ?? "").replace(/(^|[^\w/<])((?:https?:\/\/|mailto:)[^\s<>"')\]}]+)/gi, (match, prefix, url) => {
+                const { head, tail } = splitNotionAutolinkTrailingPunctuation(url);
+                if (!head) return match;
+                return `${prefix}<${head}>${tail}`;
+            });
+        }
+
+        function getNotionRenderedCodeLines(lines, opener, { collapseCodeLines = false, keepInfoPrefix = false, wrapCodeAutolinks = false } = {}) {
+            let codeLines = Array.from(lines || [], line => String(line ?? ""));
+            if (wrapCodeAutolinks) codeLines = codeLines.map(line => wrapNotionBareAutolinkText(line));
+
+            if (keepInfoPrefix && opener?.info) {
+                if (codeLines.length > 0) codeLines[0] = `${opener.info} ${codeLines[0]}`;
+                else codeLines.push(opener.info);
+            }
+
+            if (!collapseCodeLines) return codeLines;
+            const renderedLine = codeLines
+                .map(line => String(line ?? "").trim())
+                .filter(Boolean)
+                .join(" ");
+            return renderedLine ? [renderedLine] : [];
+        }
+
+        function renderNotionFencedCodeBlocks(value, { separateBlocks = false, collapseCodeLines = false, keepInfoPrefix = false, wrapCodeAutolinks = false } = {}) {
             const lines = String(value ?? "").replace(/\r\n?/g, "\n").split("\n");
             const rendered = [];
             let changed = false;
@@ -4525,22 +4576,30 @@
                 }
 
                 pushBlockSeparator();
-                rendered.push(...codeLines);
-                if (separateBlocks && index < lines.length - 1) pushBlockSeparator();
+                rendered.push(...getNotionRenderedCodeLines(codeLines, opener, { collapseCodeLines, keepInfoPrefix, wrapCodeAutolinks }));
+                if (separateBlocks && index < lines.length - 1 && String(lines[index + 1] || "").trim()) pushBlockSeparator();
             }
 
             return changed ? rendered.join("\n") : String(value ?? "");
         }
 
-        function stripNotionInlineCodeMarkers(value) {
+        function renderNotionInlineCodeSpans(value, { wrapCodeAutolinks = false } = {}) {
             let text = String(value ?? "");
             let previous = "";
             const inlineCodeMarkerPattern = /(^|[^`])(`{1,2})([^`\n]*?\S[^`\n]*?)\2(?=[^`]|$)/g;
             while (text !== previous) {
                 previous = text;
-                text = text.replace(inlineCodeMarkerPattern, "$1$3");
+                text = text.replace(inlineCodeMarkerPattern, (match, prefix, marker, code) => {
+                    void marker;
+                    const renderedCode = wrapCodeAutolinks ? wrapNotionBareAutolinkText(code) : code;
+                    return `${prefix}${renderedCode}`;
+                });
             }
             return text;
+        }
+
+        function stripNotionInlineCodeMarkers(value) {
+            return renderNotionInlineCodeSpans(value);
         }
 
         function stripNotionMarkdownLinkMarkers(value) {
@@ -4580,14 +4639,36 @@
             if (!source) return variants;
 
             const transformGroups = [
+                [stripNotionAutolinkAngleMarkers],
                 [
                     text => renderNotionFencedCodeBlocks(text),
-                    text => renderNotionFencedCodeBlocks(text, { separateBlocks: true })
+                    text => renderNotionFencedCodeBlocks(text, { separateBlocks: true }),
+                    text => renderNotionFencedCodeBlocks(text, { collapseCodeLines: true }),
+                    text => renderNotionFencedCodeBlocks(text, { collapseCodeLines: true, separateBlocks: true }),
+                    text => renderNotionFencedCodeBlocks(text, { wrapCodeAutolinks: true }),
+                    text => renderNotionFencedCodeBlocks(text, { wrapCodeAutolinks: true, separateBlocks: true }),
+                    text => renderNotionFencedCodeBlocks(text, { wrapCodeAutolinks: true, collapseCodeLines: true }),
+                    text => renderNotionFencedCodeBlocks(text, { wrapCodeAutolinks: true, collapseCodeLines: true, separateBlocks: true }),
+                    text => renderNotionFencedCodeBlocks(text, { keepInfoPrefix: true }),
+                    text => renderNotionFencedCodeBlocks(text, { keepInfoPrefix: true, separateBlocks: true }),
+                    text => renderNotionFencedCodeBlocks(text, { keepInfoPrefix: true, collapseCodeLines: true }),
+                    text => renderNotionFencedCodeBlocks(text, { keepInfoPrefix: true, collapseCodeLines: true, separateBlocks: true }),
+                    text => renderNotionFencedCodeBlocks(text, { keepInfoPrefix: true, wrapCodeAutolinks: true }),
+                    text => renderNotionFencedCodeBlocks(text, { keepInfoPrefix: true, wrapCodeAutolinks: true, separateBlocks: true }),
+                    text => renderNotionFencedCodeBlocks(text, { keepInfoPrefix: true, wrapCodeAutolinks: true, collapseCodeLines: true }),
+                    text => renderNotionFencedCodeBlocks(text, { keepInfoPrefix: true, wrapCodeAutolinks: true, collapseCodeLines: true, separateBlocks: true })
                 ],
-                [stripNotionInlineCodeMarkers],
+                [
+                    stripNotionInlineCodeMarkers,
+                    text => renderNotionInlineCodeSpans(text, { wrapCodeAutolinks: true })
+                ],
                 [stripNotionMarkdownLinkMarkers],
                 [stripNotionInlineMarkdownMarkers],
-                [stripNotionBlockMarkdownMarkers]
+                [stripNotionBlockMarkdownMarkers],
+                [
+                    stripNotionAutolinkAngleMarkers,
+                    wrapNotionBareAutolinkText
+                ]
             ];
 
             for (const transforms of transformGroups) {
