@@ -437,7 +437,7 @@ export const SITE_MANIFEST = Object.freeze([
         sourceEntry: "src/sites/kagi/index.js",
         metadata: {
             name: "[Kagi] 快捷键跳转 [20260609] v1.0.0",
-            namespace: "0_V userscripts/[Kagi] shortcut",
+            namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025",
             version: "[20260609] v1.0.0",
             updateLog: "1.0.0: 适配 assistant.kagi.com 新版 Kagi Assistant UI，更新助手入口、原生快捷键和模型/Lens/上传/语音/Web 访问控件动作，并自动迁移旧默认配置。",
