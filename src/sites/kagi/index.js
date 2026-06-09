@@ -25,6 +25,7 @@
         userIcons: "kagi_user_icons_v1"
     });
     const DEFAULTS_MIGRATION_KEY = "kagi_defaults_migrated_20260609_assistant_ui_v1";
+    const PAGE_SWITCH_MIGRATION_KEY = "kagi_page_switch_migrated_20260609_replace_v1";
     const TemplateUtils = ShortcutTemplate?.utils || {};
     const TemplateDomUtils = TemplateUtils?.dom || {};
     const TemplateEventUtils = TemplateUtils?.events || {};
@@ -462,7 +463,7 @@
             actionType: "url",
             url: "https://kagi.com/",
             urlMethod: "current",
-            urlAdvanced: "href",
+            urlAdvanced: "replace",
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+1",
@@ -473,7 +474,7 @@
             actionType: "url",
             url: KAGI_ASSISTANT_URL,
             urlMethod: "current",
-            urlAdvanced: "href",
+            urlAdvanced: "replace",
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+2",
@@ -484,7 +485,7 @@
             actionType: "url",
             url: "https://kagi.com/summarizer",
             urlMethod: "current",
-            urlAdvanced: "href",
+            urlAdvanced: "replace",
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+3",
@@ -495,7 +496,7 @@
             actionType: "url",
             url: "https://kagi.com/fastgpt",
             urlMethod: "current",
-            urlAdvanced: "href",
+            urlAdvanced: "replace",
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+4",
@@ -535,6 +536,14 @@
         }
     ].map(createShortcut);
 
+    const KAGI_PAGE_SWITCH_KEYS = Object.freeze([
+        "goToSearch",
+        "goToAssistant",
+        "goToSummarizer",
+        "goToFastgpt",
+        "goToTranslate"
+    ]);
+
     const KAGI_MANAGED_DEFAULT_KEYS = Object.freeze([
         "toggleSidebar",
         "newThread",
@@ -544,7 +553,11 @@
         "voiceInput",
         "modelChooser",
         "lensSelect",
-        "goToAssistant"
+        "goToSearch",
+        "goToAssistant",
+        "goToSummarizer",
+        "goToFastgpt",
+        "goToTranslate"
     ]);
 
     const DEFAULT_SHORTCUTS_BY_KEY = Object.freeze(defaultShortcuts.reduce((acc, shortcut) => {
@@ -627,6 +640,18 @@
         return false;
     }
 
+    function shortcutMatchesPageSwitchDefault(shortcut, managedKey) {
+        if (!KAGI_PAGE_SWITCH_KEYS.includes(managedKey) || !shortcut || typeof shortcut !== "object") return false;
+        const replacement = DEFAULT_SHORTCUTS_BY_KEY[managedKey];
+        if (!replacement) return false;
+
+        if (normalizeKagiToken(shortcut.actionType) !== "url") return false;
+        const urls = [replacement.url];
+        if (managedKey === "goToAssistant") urls.push(...KAGI_ASSISTANT_LEGACY_URLS);
+        const url = normalizeKagiUrl(shortcut.url);
+        return urls.some(candidate => normalizeKagiUrl(candidate) === url);
+    }
+
     function migrateKagiStoredShortcuts() {
         if (gmGetValueLocal(DEFAULTS_MIGRATION_KEY, false) === true) return;
         const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
@@ -664,6 +689,40 @@
         gmSetValueLocal(DEFAULTS_MIGRATION_KEY, true);
     }
 
+    function migrateKagiPageSwitchShortcuts() {
+        if (gmGetValueLocal(PAGE_SWITCH_MIGRATION_KEY, false) === true) return;
+        const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
+        if (!Array.isArray(stored) || stored.length === 0) {
+            gmSetValueLocal(PAGE_SWITCH_MIGRATION_KEY, true);
+            return;
+        }
+
+        let changed = false;
+        const next = stored.map((shortcut) => {
+            const managedKey = getKagiManagedShortcutKey(shortcut);
+            const replacement = DEFAULT_SHORTCUTS_BY_KEY[managedKey];
+            if (!managedKey || !replacement || !shortcutMatchesPageSwitchDefault(shortcut, managedKey)) return shortcut;
+
+            const source = shortcut && typeof shortcut === "object" ? shortcut : {};
+            changed = true;
+            return {
+                ...source,
+                key: String(source.key || replacement.key || "").trim(),
+                name: String(source.name || replacement.name || "").trim(),
+                actionType: "url",
+                url: replacement.url || "",
+                urlMethod: "current",
+                urlAdvanced: "replace",
+                selector: "",
+                simulateKeys: "",
+                customAction: ""
+            };
+        });
+
+        if (changed) gmSetValueLocal(STORAGE_KEYS.shortcuts, next);
+        gmSetValueLocal(PAGE_SWITCH_MIGRATION_KEY, true);
+    }
+
     const CUSTOM_ACTIONS = {
         kagiToggleWebAccess: () => clickAssistantSearchToggle() || warnMissingActionTarget("kagiToggleWebAccess"),
         kagiUploadFiles: () => clickAssistantUploadFiles() || warnMissingActionTarget("kagiUploadFiles"),
@@ -673,6 +732,7 @@
     };
 
     migrateKagiStoredShortcuts();
+    migrateKagiPageSwitchShortcuts();
 
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: "Kagi - 设置快捷键",

@@ -436,16 +436,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Kagi] 快捷键跳转",
         sourceEntry: "src/sites/kagi/index.js",
         metadata: {
-            name: "[Kagi] 快捷键跳转 [20260609] v1.0.0",
+            name: "[Kagi] 快捷键跳转 [20260609] v1.0.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025",
-            version: "[20260609] v1.0.0",
-            updateLog: "1.0.0: 适配 assistant.kagi.com 新版 Kagi Assistant UI，更新助手入口、原生快捷键和模型/Lens/上传/语音/Web 访问控件动作，并自动迁移旧默认配置。",
+            version: "[20260609] v1.0.1",
+            updateLog: "1.0.1: 统一 Kagi 1-5 页面切换为当前窗口的 location.replace 跳转，并自动迁移旧默认页面切换配置。",
             localized: {
                 "en-US": {
-                    name: "[Kagi] Shortcut Jump [20260609] v1.0.0",
+                    name: "[Kagi] Shortcut Jump [20260609] v1.0.1",
                     description: "Custom shortcuts for Kagi Assistant and Kagi Search with a visual settings panel, icon library, type filters, and dark mode support.",
-                    updateLog: "1.0.0: Adapted the script to the new assistant.kagi.com Kagi Assistant UI, updated the Assistant entry, native shortcuts, and model/lens/upload/voice/web-access actions, and migrates old default settings automatically."
+                    updateLog: "1.0.1: Unified Kagi 1-5 page switching to current-window location.replace navigation and migrates old default page-switch settings automatically."
                 }
             },
             match: [
