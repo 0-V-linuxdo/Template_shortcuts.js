@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Kagi] 快捷键跳转 [20260609] v1.1.0
-// @name:en        [Kagi] Shortcut Jump [20260609] v1.1.0
+// @name           [Kagi] 快捷键跳转 [20260610] v1.0.0
+// @name:en        [Kagi] Shortcut Jump [20260610] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025
 // @description:en Custom shortcuts for Kagi Assistant and Kagi Search with a visual settings panel, icon library, type filters, and dark mode support.
 
-// @version        [20260609] v1.1.0
-// @update-log     1.1.0: 调整 Kagi Assistant 快捷键：New Thread 改为助手 URL 跳转，Lens Select 改为点击联网按钮右侧下拉按钮，Voice Input 默认快捷键改为 Ctrl+V，并自动迁移旧默认配置。
-// @update-log:en  1.1.0: Updated Kagi Assistant shortcuts: New Thread now jumps to the Assistant URL, Lens Select opens the dropdown next to the web-access button, Voice Input defaults to Ctrl+V, and old default settings migrate automatically.
+// @version        [20260610] v1.0.0
+// @update-log     1.0.0: 修复 Kagi Assistant Lens Select（Ctrl+L）在新 UI 中无法点击联网按钮右侧下拉按钮的问题，改用可见 prompt-box 内联网按钮的几何定位并模拟真实点击事件。
+// @update-log:en  1.0.0: Fixed Kagi Assistant Lens Select (Ctrl+L) on the new UI by locating the dropdown next to the visible web-access button by position and dispatching a real user-like click sequence.
 
 // @match          https://*.kagi.com/*
 
@@ -257,6 +257,23 @@
         return false;
       }
     }
+    function clickElementLikeUserLocal(element, { allowHidden = false } = {}) {
+      if (!element || !allowHidden && !isElementVisibleLocal(element)) return false;
+      if (isElementDisabled(element)) return false;
+      try {
+        for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+          element.dispatchEvent(new MouseEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            view: window
+          }));
+        }
+        return true;
+      } catch {
+        return clickElementLocal(element, { allowHidden });
+      }
+    }
     function clickFirstElement(selectors, options = {}) {
       const element = findFirstElement(selectors, options);
       return clickElementLocal(element, { allowHidden: !!options.includeHidden });
@@ -297,18 +314,27 @@
       }
       return clickFirstElement('button[id="profile-select"]');
     }
+    function findAssistantLensDropdownByPosition(root) {
+      const buttons = safeQuerySelectorAllLocal(root || document, "button").filter(isElementVisibleLocal);
+      const webButton = buttons.find(
+        (button) => button.matches?.("[aria-pressed]") || /entire web|web/i.test(button.textContent || "") || /联网|网页/.test(button.textContent || "")
+      );
+      if (!webButton || typeof webButton.getBoundingClientRect !== "function") return null;
+      const webRect = webButton.getBoundingClientRect();
+      const candidates = buttons.filter((button) => button !== webButton).map((button) => ({ button, rect: button.getBoundingClientRect() })).filter(
+        ({ rect }) => rect.left >= webRect.right - 4 && rect.top < webRect.bottom && rect.bottom > webRect.top && rect.width <= 48
+      );
+      const match = candidates.find(
+        ({ button }) => button.matches?.('[aria-haspopup="true"], [aria-expanded], .part, .dropdown, .select-btn') || !String(button.textContent || "").trim()
+      );
+      return match?.button || null;
+    }
     function clickAssistantLensSelect() {
       const promptBox = getActivePromptBox();
-      const roots = promptBox ? [promptBox, document] : [document];
-      for (const root of roots) {
-        const splitButtons = safeQuerySelectorAllLocal(root, ".split-btn").filter(isElementVisibleLocal);
-        for (const splitButton of splitButtons) {
-          const webAccessButton = findFirstElement("button[aria-pressed]", { root: splitButton });
-          const dropdownButton = findFirstElement('button[aria-haspopup="true"]', { root: splitButton });
-          if (webAccessButton && dropdownButton && clickElementLocal(dropdownButton)) return true;
-        }
-      }
+      const positionedDropdown = findAssistantLensDropdownByPosition(promptBox || document);
+      if (clickElementLikeUserLocal(positionedDropdown)) return true;
       if (promptBox && clickFirstElement('.split-btn button[aria-haspopup="true"]', { root: promptBox })) return true;
+      if (clickFirstElement('.split-btn button[aria-haspopup="true"]')) return true;
       return clickFirstElement('button[id="lens-select"]');
     }
     function warnMissingActionTarget(actionName) {
