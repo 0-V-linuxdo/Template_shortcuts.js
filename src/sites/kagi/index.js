@@ -239,6 +239,25 @@
         }
     }
 
+    function clickElementLikeUserLocal(element, { allowHidden = false } = {}) {
+        if (!element || (!allowHidden && !isElementVisibleLocal(element))) return false;
+        if (isElementDisabled(element)) return false;
+
+        try {
+            for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+                element.dispatchEvent(new MouseEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    view: window
+                }));
+            }
+            return true;
+        } catch {
+            return clickElementLocal(element, { allowHidden });
+        }
+    }
+
     function clickFirstElement(selectors, options = {}) {
         const element = findFirstElement(selectors, options);
         return clickElementLocal(element, { allowHidden: !!options.includeHidden });
@@ -288,18 +307,39 @@
         return clickFirstElement('button[id="profile-select"]');
     }
 
+    function findAssistantLensDropdownByPosition(root) {
+        const buttons = safeQuerySelectorAllLocal(root || document, "button").filter(isElementVisibleLocal);
+        const webButton = buttons.find(button =>
+            button.matches?.("[aria-pressed]") ||
+            /entire web|web/i.test(button.textContent || "") ||
+            /联网|网页/.test(button.textContent || "")
+        );
+        if (!webButton || typeof webButton.getBoundingClientRect !== "function") return null;
+
+        const webRect = webButton.getBoundingClientRect();
+        const candidates = buttons
+            .filter(button => button !== webButton)
+            .map(button => ({ button, rect: button.getBoundingClientRect() }))
+            .filter(({ rect }) =>
+                rect.left >= webRect.right - 4 &&
+                rect.top < webRect.bottom &&
+                rect.bottom > webRect.top &&
+                rect.width <= 48
+            );
+
+        const match = candidates.find(({ button }) =>
+            button.matches?.('[aria-haspopup="true"], [aria-expanded], .part, .dropdown, .select-btn') ||
+            !String(button.textContent || "").trim()
+        );
+        return match?.button || null;
+    }
+
     function clickAssistantLensSelect() {
         const promptBox = getActivePromptBox();
-        const roots = promptBox ? [promptBox, document] : [document];
-        for (const root of roots) {
-            const splitButtons = safeQuerySelectorAllLocal(root, ".split-btn").filter(isElementVisibleLocal);
-            for (const splitButton of splitButtons) {
-                const webAccessButton = findFirstElement('button[aria-pressed]', { root: splitButton });
-                const dropdownButton = findFirstElement('button[aria-haspopup="true"]', { root: splitButton });
-                if (webAccessButton && dropdownButton && clickElementLocal(dropdownButton)) return true;
-            }
-        }
+        const positionedDropdown = findAssistantLensDropdownByPosition(promptBox || document);
+        if (clickElementLikeUserLocal(positionedDropdown)) return true;
         if (promptBox && clickFirstElement('.split-btn button[aria-haspopup="true"]', { root: promptBox })) return true;
+        if (clickFirstElement('.split-btn button[aria-haspopup="true"]')) return true;
         return clickFirstElement('button[id="lens-select"]');
     }
 
