@@ -6,8 +6,8 @@
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
 // @version        [20260609] v1.0.0
-// @update-log     1.0.0: 修复 Arc 中 Notion AI Quick Input 文本已写入但检测长度异常导致任务停止的问题。
-// @update-log:en  1.0.0: Fixed Notion AI Quick Input in Arc stopping after text insertion because verification read a mismatched text length.
+// @update-log     1.0.0: 重写 Notion AI Quick Input 文本验证，支持 Notion 将 Markdown 代码块、行内代码、标题、列表、引用、链接与强调标记渲染后的整段文本匹配，避免 Arc 中文本已写入却被误判失败。
+// @update-log:en  1.0.0: Rewrote Notion AI Quick Input text verification to accept whole-text matches after Notion renders Markdown code blocks, inline code, headings, lists, quotes, links, and emphasis markers, preventing false failures in Arc after text is inserted.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -3049,7 +3049,6 @@
         "aria-hidden",
         "hidden"
       ]);
-      let lastNotionTextTarget = null;
       function qiText(key, vars = {}, fallback = "") {
         return engine2?.i18n?.t?.(`quickInput.${key}`, vars, fallback) || fallback;
       }
@@ -3449,30 +3448,6 @@
         }
         return true;
       }
-      function rememberNotionTextTarget(element) {
-        if (isNotionEditableComposerElement(element, { requireVisible: false })) {
-          lastNotionTextTarget = element;
-        }
-      }
-      function getRememberedNotionTextTarget(root = null, { requireVisible = false } = {}) {
-        const target = lastNotionTextTarget || null;
-        if (!target) return null;
-        if (!isNotionEditableComposerElement(target, { requireVisible })) {
-          lastNotionTextTarget = null;
-          return null;
-        }
-        if (!root || target === root) return target;
-        try {
-          if (root.contains?.(target) || target.contains?.(root)) return target;
-        } catch {
-        }
-        const rootContainer = findNotionComposerContainer(root);
-        try {
-          if (rootContainer?.contains?.(target)) return target;
-        } catch {
-        }
-        return null;
-      }
       function scoreNotionComposerCandidate(element) {
         if (!element) return -Infinity;
         const text = normalizeNotionText(getNotionComposerSearchText(element));
@@ -3682,7 +3657,6 @@
         const textValue = getNotionComposerTextValue(element, { trimTrailingEditorNewlines: true });
         const searchText = normalizeNotionText(getNotionComposerSearchText(element));
         const rect = getElementRect(element);
-        if (element === lastNotionTextTarget) score += 1400;
         if (textValue) score += 900 + Math.min(500, textValue.length);
         if (isNotionNativeTextInputElement(element)) score += 650;
         if (hasNotionValueProperty(element)) score += 520;
@@ -3738,7 +3712,6 @@
         } catch {
           active = null;
         }
-        pushTarget(getRememberedNotionTextTarget(root, { requireVisible }));
         if (active && !isInsideQuickInputOverlay(active) && !isInsideShortcutUi(active)) {
           pushTarget(active);
           try {
@@ -4035,38 +4008,66 @@
       function normalizeNotionCommittedText(value) {
         return normalizeNotionComposerReadText(value, { trimTrailingEditorNewlines: true });
       }
-      function stripNotionMarkdownFenceMarkerLines(value) {
-        return String(value ?? "").replace(/\r\n?/g, "\n").split("\n").filter((line) => !/^\s*```/.test(String(line ?? ""))).join("\n");
+      function addNotionRenderedTextVariant(variants, seen, value) {
+        const normalized = normalizeNotionCommittedText(value);
+        if (!normalized || seen.has(normalized)) return;
+        seen.add(normalized);
+        variants.push(normalized);
+      }
+      function parseNotionMarkdownFenceLine(line, opener = null) {
+        const text = String(line ?? "");
+        const match = text.match(/^[ \t]*(`{3,}|~{3,})(.*)$/);
+        if (!match) return null;
+        const marker = match[1];
+        const markerChar = marker.charAt(0);
+        if (opener) {
+          if (markerChar !== opener.markerChar || marker.length < opener.length) return null;
+          if (String(match[2] || "").trim()) return null;
+          return { markerChar, length: marker.length, info: "" };
+        }
+        if (markerChar === "`" && String(match[2] || "").includes("`")) return null;
+        return {
+          markerChar,
+          length: marker.length,
+          info: String(match[2] || "").trim()
+        };
+      }
+      function renderNotionFencedCodeBlocks(value, { separateBlocks = false } = {}) {
+        const lines = String(value ?? "").replace(/\r\n?/g, "\n").split("\n");
+        const rendered = [];
+        let changed = false;
+        const pushBlockSeparator = () => {
+          if (!separateBlocks) return;
+          if (rendered.length > 0 && rendered[rendered.length - 1] !== "") rendered.push("");
+        };
+        for (let index = 0; index < lines.length; index += 1) {
+          const opener = parseNotionMarkdownFenceLine(lines[index]);
+          if (!opener) {
+            rendered.push(lines[index]);
+            continue;
+          }
+          changed = true;
+          const codeLines = [];
+          index += 1;
+          for (; index < lines.length; index += 1) {
+            if (parseNotionMarkdownFenceLine(lines[index], opener)) break;
+            codeLines.push(lines[index]);
+          }
+          pushBlockSeparator();
+          rendered.push(...codeLines);
+          if (separateBlocks && index < lines.length - 1) pushBlockSeparator();
+        }
+        return changed ? rendered.join("\n") : String(value ?? "");
       }
       function stripNotionInlineCodeMarkers(value) {
         let text = String(value ?? "");
         let previous = "";
-        const inlineCodeMarkerPattern = /(^|[^`])(`{1,2})([^`\n]+)\2(?=[^`]|$)/g;
+        const inlineCodeMarkerPattern = /(^|[^`])(`{1,2})([^`\n]*?\S[^`\n]*?)\2(?=[^`]|$)/g;
         while (text !== previous) {
           previous = text;
           text = text.replace(inlineCodeMarkerPattern, "$1$3");
         }
         return text;
-      }
-      function getNotionCodeMarkerTextVariants(value) {
-        const source = normalizeNotionCommittedText(value);
-        const variants = [];
-        const seen = /* @__PURE__ */ new Set([source]);
-        const pushVariant = (nextValue, { requiresRenderedCode = false } = {}) => {
-          const normalized = normalizeNotionCommittedText(nextValue);
-          if (!normalized || seen.has(normalized)) return;
-          seen.add(normalized);
-          variants.push({ text: normalized, requiresRenderedCode: !!requiresRenderedCode });
-        };
-        if (!source.includes("`")) return variants;
-        const withoutFenceMarkers = source.includes("```") ? stripNotionMarkdownFenceMarkerLines(source) : source;
-        pushVariant(withoutFenceMarkers);
-        const withoutInlineMarkers = stripNotionInlineCodeMarkers(withoutFenceMarkers);
-        pushVariant(withoutInlineMarkers);
-        if (withoutInlineMarkers.includes("`")) {
-          pushVariant(withoutInlineMarkers.replace(/`/g, ""), { requiresRenderedCode: true });
-        }
-        return variants;
       }
       function stripNotionMarkdownLinkMarkers(value) {
         return String(value ?? "").replace(/\[([^\]\n]+)\]\((?:[^()\n]|\([^()\n]*\))*\)/g, "$1");
@@ -4090,112 +4091,33 @@
       function stripNotionBlockMarkdownMarkers(value) {
         return String(value ?? "").replace(/^([ \t]{0,3})#{1,6}[ \t]+/gm, "$1").replace(/^([ \t]{0,3})>[ \t]?/gm, "$1").replace(/^([ \t]*)[-*+][ \t]+\[(?: |x|X)\][ \t]+/gm, "$1").replace(/^([ \t]*)[-*+][ \t]+(?=\S)/gm, "$1").replace(/^([ \t]*)(?:\d+|[A-Za-z])[.)][ \t]+(?=\S)/gm, "$1");
       }
-      function getNotionMarkdownMarkerTextVariants(value) {
+      function getNotionRenderedMarkdownTextVariants(value) {
         const source = normalizeNotionCommittedText(value);
         const variants = [];
         const seen = /* @__PURE__ */ new Set([source]);
-        const pushVariant = (nextValue) => {
-          const normalized = normalizeNotionCommittedText(nextValue);
-          if (!normalized || seen.has(normalized)) return;
-          seen.add(normalized);
-          variants.push({ text: normalized, requiresRenderedMarkdown: true });
-        };
-        let next = stripNotionMarkdownLinkMarkers(source);
-        next = stripNotionInlineMarkdownMarkers(next);
-        next = stripNotionBlockMarkdownMarkers(next);
-        pushVariant(next);
-        next = stripNotionBlockMarkdownMarkers(source);
-        next = stripNotionMarkdownLinkMarkers(next);
-        next = stripNotionInlineMarkdownMarkers(next);
-        pushVariant(next);
-        return variants;
-      }
-      function hasNotionRenderedCodeMarkup(composerEl) {
-        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
-        if (!composer || typeof composer.querySelector !== "function") return false;
-        try {
-          if (composer.querySelector([
-            "pre",
-            "code",
-            "[data-content-type*='code' i]",
-            "[data-block-type*='code' i]",
-            "[data-node-type*='code' i]",
-            "[data-testid*='code' i]",
-            "[class*='code' i]"
-          ].join(","))) {
-            return true;
-          }
-        } catch {
-        }
-        let elements = [];
-        try {
-          elements = Array.from(composer.querySelectorAll("*")).slice(0, 500);
-        } catch {
-          elements = [];
-        }
-        for (const element of elements) {
-          if (!normalizeNotionCommittedText(element?.textContent || "")) continue;
-          try {
-            const fontFamily = String(globalThis.getComputedStyle?.(element)?.fontFamily || "").toLowerCase();
-            if (fontFamily.includes("monospace") || fontFamily.includes("menlo") || fontFamily.includes("consolas") || fontFamily.includes("sfmono") || fontFamily.includes("monaco")) {
-              return true;
+        if (!source) return variants;
+        const transformGroups = [
+          [
+            (text) => renderNotionFencedCodeBlocks(text),
+            (text) => renderNotionFencedCodeBlocks(text, { separateBlocks: true })
+          ],
+          [stripNotionInlineCodeMarkers],
+          [stripNotionMarkdownLinkMarkers],
+          [stripNotionInlineMarkdownMarkers],
+          [stripNotionBlockMarkdownMarkers]
+        ];
+        for (const transforms of transformGroups) {
+          const baseVariants = [source, ...variants];
+          for (const baseText of baseVariants) {
+            for (const transform of transforms) {
+              try {
+                addNotionRenderedTextVariant(variants, seen, transform(baseText));
+              } catch {
+              }
             }
-          } catch {
           }
         }
-        return false;
-      }
-      function hasNotionRenderedMarkdownMarkup(composerEl) {
-        const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
-        if (!composer || typeof composer.querySelector !== "function") return false;
-        try {
-          if (composer.querySelector([
-            "strong",
-            "b",
-            "em",
-            "i",
-            "s",
-            "del",
-            "h1",
-            "h2",
-            "h3",
-            "h4",
-            "ul",
-            "ol",
-            "li",
-            "blockquote",
-            "a[href]",
-            "[role='list']",
-            "[role='listitem']",
-            "[class*='bold' i]",
-            "[class*='italic' i]",
-            "[class*='quote' i]",
-            "[class*='list' i]"
-          ].join(","))) {
-            return true;
-          }
-        } catch {
-        }
-        let elements = [];
-        try {
-          elements = Array.from(composer.querySelectorAll("*")).slice(0, 500);
-        } catch {
-          elements = [];
-        }
-        for (const element of elements) {
-          if (!normalizeNotionCommittedText(element?.textContent || "")) continue;
-          try {
-            const style = globalThis.getComputedStyle?.(element);
-            if (!style) continue;
-            const fontWeight = Number.parseInt(String(style.fontWeight || ""), 10);
-            if (Number.isFinite(fontWeight) && fontWeight >= 600) return true;
-            if (String(style.fontStyle || "").toLowerCase() === "italic") return true;
-            if (String(style.textDecorationLine || style.textDecoration || "").toLowerCase().includes("line-through")) return true;
-            if (String(style.display || "").toLowerCase() === "list-item") return true;
-          } catch {
-          }
-        }
-        return false;
+        return variants;
       }
       function isNotionTextCommitMatch({ composer, expectedText, actualText, normalizeText = null } = {}) {
         const normalize = (value) => normalizeNotionCommittedText(
@@ -4204,18 +4126,8 @@
         const expected = normalize(expectedText);
         const actual = normalize(actualText);
         if (actual === expected) return true;
-        const renderedCode = expected.includes("`") && hasNotionRenderedCodeMarkup(composer);
-        const renderedMarkdown = hasNotionRenderedMarkdownMarkup(composer);
-        const variants = [
-          ...getNotionCodeMarkerTextVariants(expected),
-          ...getNotionMarkdownMarkerTextVariants(expected)
-        ];
-        return variants.some((variant) => {
-          if (actual !== variant.text) return false;
-          if (variant.requiresRenderedCode && !renderedCode) return false;
-          if (variant.requiresRenderedMarkdown && !renderedMarkdown) return false;
-          return true;
-        });
+        void composer;
+        return getNotionRenderedMarkdownTextVariants(expected).some((variant) => actual === variant);
       }
       function isNotionComposerTextMatch(composer, text) {
         const actual = getNotionComposerPlainText(composer, { trimTrailingEditorNewlines: true });
@@ -4274,21 +4186,14 @@
           simulateClickElement(composer, { nativeFallback: true });
         } catch {
         }
-        if (isNotionComposerTextMatch(composer, text)) {
-          rememberNotionTextTarget(composer);
-          return true;
-        }
+        if (isNotionComposerTextMatch(composer, text)) return true;
         if (hasNativeValue && genericSetInputValue && genericSetInputValue(composer, text) && await waitForNotionTextMutationSettle(composer, text)) {
-          rememberNotionTextTarget(composer);
           return true;
         }
         if (hasNativeValue) {
           if (setNotionComposerNativeValue(composer, text)) {
             dispatchNotionComposerInput(composer, { inputType, data: text || null });
-            if (await waitForNotionTextMutationSettle(composer, text)) {
-              rememberNotionTextTarget(composer);
-              return true;
-            }
+            if (await waitForNotionTextMutationSettle(composer, text)) return true;
           }
         }
         if (canUseEditing) {
@@ -4297,10 +4202,7 @@
             const command = text ? "insertText" : "delete";
             if (document.execCommand?.(command, false, text)) {
               dispatchNotionComposerInput(composer, { inputType, data: text || null });
-              if (await waitForNotionTextMutationSettle(composer, text)) {
-                rememberNotionTextTarget(composer);
-                return true;
-              }
+              if (await waitForNotionTextMutationSettle(composer, text)) return true;
             }
           } catch {
           }
@@ -4309,10 +4211,7 @@
           selectNotionComposerContent(composer);
           if (tryPasteNotionText(composer, text)) {
             dispatchNotionComposerInput(composer, { inputType: "insertFromPaste", data: text });
-            if (await waitForNotionTextMutationSettle(composer, text)) {
-              rememberNotionTextTarget(composer);
-              return true;
-            }
+            if (await waitForNotionTextMutationSettle(composer, text)) return true;
           }
         }
         return false;
