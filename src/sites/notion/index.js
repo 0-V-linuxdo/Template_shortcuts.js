@@ -3535,6 +3535,7 @@
             "aria-hidden",
             "hidden"
         ]);
+        let lastNotionTextTarget = null;
 
         function qiText(key, vars = {}, fallback = "") {
             return engine?.i18n?.t?.(`quickInput.${key}`, vars, fallback) || fallback;
@@ -3948,6 +3949,31 @@
             return true;
         }
 
+        function rememberNotionTextTarget(element) {
+            if (isNotionEditableComposerElement(element, { requireVisible: false })) {
+                lastNotionTextTarget = element;
+            }
+        }
+
+        function getRememberedNotionTextTarget(root = null, { requireVisible = false } = {}) {
+            const target = lastNotionTextTarget || null;
+            if (!target) return null;
+            if (!isNotionEditableComposerElement(target, { requireVisible })) {
+                lastNotionTextTarget = null;
+                return null;
+            }
+            if (!root || target === root) return target;
+            try {
+                if (root.contains?.(target) || target.contains?.(root)) return target;
+            } catch { }
+
+            const rootContainer = findNotionComposerContainer(root);
+            try {
+                if (rootContainer?.contains?.(target)) return target;
+            } catch { }
+            return null;
+        }
+
         function scoreNotionComposerCandidate(element) {
             if (!element) return -Infinity;
             const text = normalizeNotionText(getNotionComposerSearchText(element));
@@ -4087,7 +4113,7 @@
             if (!element) return "";
             const candidates = [];
             const push = (value) => {
-                const normalized = genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines });
+                const normalized = normalizeNotionComposerReadText(value, { trimTrailingEditorNewlines });
                 if (normalized) candidates.push(normalized);
             };
 
@@ -4104,10 +4130,11 @@
                 try { push(element.textContent); } catch { }
             }
 
-            const placeholder = genericNormalizeComposerText(getNotionComposerPlaceholderText(element), { trimTrailingEditorNewlines });
+            const placeholder = normalizeNotionComposerReadText(getNotionComposerPlaceholderText(element), { trimTrailingEditorNewlines });
             for (const candidate of candidates) {
                 if (!candidate) continue;
                 if (placeholder && candidate === placeholder) continue;
+                if (textLooksLikeNotionPageSelection(candidate)) continue;
                 if (placeholder && candidate.startsWith(`${placeholder}\n`)) {
                     return candidate.slice(placeholder.length).replace(/^\n+/, "");
                 }
@@ -4141,6 +4168,7 @@
             const searchText = normalizeNotionText(getNotionComposerSearchText(element));
             const rect = getElementRect(element);
 
+            if (element === lastNotionTextTarget) score += 1400;
             if (textValue) score += 900 + Math.min(500, textValue.length);
             if (isNotionNativeTextInputElement(element)) score += 650;
             if (hasNotionValueProperty(element)) score += 520;
@@ -4200,6 +4228,7 @@
 
             let active = null;
             try { active = document.activeElement || null; } catch { active = null; }
+            pushTarget(getRememberedNotionTextTarget(root, { requireVisible }));
             if (active && !isInsideQuickInputOverlay(active) && !isInsideShortcutUi(active)) {
                 pushTarget(active);
                 try { pushScope(active.parentElement || null); } catch { }
@@ -4264,9 +4293,10 @@
             if (!genericGetComposerText) return "";
 
             for (const target of targets) {
-                const fallback = genericNormalizeComposerText(genericGetComposerText(target), { trimTrailingEditorNewlines });
-                const placeholder = genericNormalizeComposerText(getNotionComposerPlaceholderText(target), { trimTrailingEditorNewlines });
+                const fallback = normalizeNotionComposerReadText(genericGetComposerText(target), { trimTrailingEditorNewlines });
+                const placeholder = normalizeNotionComposerReadText(getNotionComposerPlaceholderText(target), { trimTrailingEditorNewlines });
                 if (!fallback || (placeholder && fallback === placeholder)) continue;
+                if (textLooksLikeNotionPageSelection(fallback)) continue;
                 return fallback;
             }
             return "";
@@ -4401,8 +4431,8 @@
 
             collapseNotionComposerSelectionToEnd(composer);
 
-            const normalized = genericNormalizeComposerText(selectedText, { trimTrailingEditorNewlines });
-            const placeholder = genericNormalizeComposerText(getNotionComposerPlaceholderText(composer), { trimTrailingEditorNewlines });
+            const normalized = normalizeNotionComposerReadText(selectedText, { trimTrailingEditorNewlines });
+            const placeholder = normalizeNotionComposerReadText(getNotionComposerPlaceholderText(composer), { trimTrailingEditorNewlines });
             if (!normalized || (placeholder && normalized === placeholder)) return "";
             if (textLooksLikeNotionPageSelection(normalized)) return "";
             return normalized;
@@ -4457,8 +4487,18 @@
             return fired;
         }
 
+        function normalizeNotionComposerReadText(value, { trimTrailingEditorNewlines = false } = {}) {
+            let text = String(value ?? "")
+                .replace(/\u00A0/g, " ")
+                .replace(/[\u2028\u2029]/g, "\n");
+            text = genericNormalizeComposerText(text, { trimTrailingEditorNewlines });
+            text = text.replace(/[ \t\f\v]+$/gm, "");
+            if (trimTrailingEditorNewlines) text = text.replace(/\n+$/g, "");
+            return text;
+        }
+
         function normalizeNotionCommittedText(value) {
-            return genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines: true });
+            return normalizeNotionComposerReadText(value, { trimTrailingEditorNewlines: true });
         }
 
         function stripNotionMarkdownFenceMarkerLines(value) {
@@ -4508,6 +4548,60 @@
             return variants;
         }
 
+        function stripNotionMarkdownLinkMarkers(value) {
+            return String(value ?? "").replace(/\[([^\]\n]+)\]\((?:[^()\n]|\([^()\n]*\))*\)/g, "$1");
+        }
+
+        function stripNotionInlineMarkdownMarkers(value) {
+            let text = String(value ?? "");
+            let previous = "";
+            const pairedPatterns = [
+                /(^|[\s([{"'“‘])(\*\*|__)([^\n]*?\S[^\n]*?)\2(?=$|[\s)\]}",.!?:;])/g,
+                /(^|[\s([{"'“‘])(~~)([^\n]*?\S[^\n]*?)\2(?=$|[\s)\]}",.!?:;])/g,
+                /(^|[\s([{"'“‘])(\*|_)([^\s*_~`][^\n]*?[^\s*_~`]|[^\s*_~`])\2(?=$|[\s)\]}",.!?:;])/g
+            ];
+            while (text !== previous) {
+                previous = text;
+                for (const pattern of pairedPatterns) {
+                    text = text.replace(pattern, "$1$3");
+                }
+            }
+            return text;
+        }
+
+        function stripNotionBlockMarkdownMarkers(value) {
+            return String(value ?? "")
+                .replace(/^([ \t]{0,3})#{1,6}[ \t]+/gm, "$1")
+                .replace(/^([ \t]{0,3})>[ \t]?/gm, "$1")
+                .replace(/^([ \t]*)[-*+][ \t]+\[(?: |x|X)\][ \t]+/gm, "$1")
+                .replace(/^([ \t]*)[-*+][ \t]+(?=\S)/gm, "$1")
+                .replace(/^([ \t]*)(?:\d+|[A-Za-z])[.)][ \t]+(?=\S)/gm, "$1");
+        }
+
+        function getNotionMarkdownMarkerTextVariants(value) {
+            const source = normalizeNotionCommittedText(value);
+            const variants = [];
+            const seen = new Set([source]);
+            const pushVariant = (nextValue) => {
+                const normalized = normalizeNotionCommittedText(nextValue);
+                if (!normalized || seen.has(normalized)) return;
+                seen.add(normalized);
+                variants.push({ text: normalized, requiresRenderedMarkdown: true });
+            };
+
+            let next = stripNotionMarkdownLinkMarkers(source);
+            next = stripNotionInlineMarkdownMarkers(next);
+            next = stripNotionBlockMarkdownMarkers(next);
+            pushVariant(next);
+
+            next = stripNotionBlockMarkdownMarkers(source);
+            next = stripNotionMarkdownLinkMarkers(next);
+            next = stripNotionInlineMarkdownMarkers(next);
+            pushVariant(next);
+
+            return variants;
+        }
+
         function hasNotionRenderedCodeMarkup(composerEl) {
             const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
             if (!composer || typeof composer.querySelector !== "function") return false;
@@ -4547,17 +4641,76 @@
             return false;
         }
 
+        function hasNotionRenderedMarkdownMarkup(composerEl) {
+            const composer = resolveNotionComposerElement(composerEl, { requireVisible: false }) || composerEl || null;
+            if (!composer || typeof composer.querySelector !== "function") return false;
+
+            try {
+                if (composer.querySelector([
+                    "strong",
+                    "b",
+                    "em",
+                    "i",
+                    "s",
+                    "del",
+                    "h1",
+                    "h2",
+                    "h3",
+                    "h4",
+                    "ul",
+                    "ol",
+                    "li",
+                    "blockquote",
+                    "a[href]",
+                    "[role='list']",
+                    "[role='listitem']",
+                    "[class*='bold' i]",
+                    "[class*='italic' i]",
+                    "[class*='quote' i]",
+                    "[class*='list' i]"
+                ].join(","))) {
+                    return true;
+                }
+            } catch { }
+
+            let elements = [];
+            try { elements = Array.from(composer.querySelectorAll("*")).slice(0, 500); } catch { elements = []; }
+            for (const element of elements) {
+                if (!normalizeNotionCommittedText(element?.textContent || "")) continue;
+                try {
+                    const style = globalThis.getComputedStyle?.(element);
+                    if (!style) continue;
+                    const fontWeight = Number.parseInt(String(style.fontWeight || ""), 10);
+                    if (Number.isFinite(fontWeight) && fontWeight >= 600) return true;
+                    if (String(style.fontStyle || "").toLowerCase() === "italic") return true;
+                    if (String(style.textDecorationLine || style.textDecoration || "").toLowerCase().includes("line-through")) return true;
+                    if (String(style.display || "").toLowerCase() === "list-item") return true;
+                } catch { }
+            }
+
+            return false;
+        }
+
         function isNotionTextCommitMatch({ composer, expectedText, actualText, normalizeText = null } = {}) {
-            const normalize = typeof normalizeText === "function" ? normalizeText : normalizeNotionCommittedText;
+            const normalize = (value) => normalizeNotionCommittedText(
+                typeof normalizeText === "function" ? normalizeText(value) : value
+            );
             const expected = normalize(expectedText);
             const actual = normalize(actualText);
             if (actual === expected) return true;
-            if (!expected.includes("`")) return false;
 
-            const renderedCode = hasNotionRenderedCodeMarkup(composer);
-            return getNotionCodeMarkerTextVariants(expected).some(variant => {
+            const renderedCode = expected.includes("`") && hasNotionRenderedCodeMarkup(composer);
+            const renderedMarkdown = hasNotionRenderedMarkdownMarkup(composer);
+            const variants = [
+                ...getNotionCodeMarkerTextVariants(expected),
+                ...getNotionMarkdownMarkerTextVariants(expected)
+            ];
+
+            return variants.some(variant => {
                 if (actual !== variant.text) return false;
-                return !variant.requiresRenderedCode || renderedCode;
+                if (variant.requiresRenderedCode && !renderedCode) return false;
+                if (variant.requiresRenderedMarkdown && !renderedMarkdown) return false;
+                return true;
             });
         }
 
@@ -4614,16 +4767,23 @@
             }
             try { simulateClickElement(composer, { nativeFallback: true }); } catch { }
 
-            if (isNotionComposerTextMatch(composer, text)) return true;
+            if (isNotionComposerTextMatch(composer, text)) {
+                rememberNotionTextTarget(composer);
+                return true;
+            }
 
             if (hasNativeValue && genericSetInputValue && genericSetInputValue(composer, text) && (await waitForNotionTextMutationSettle(composer, text))) {
+                rememberNotionTextTarget(composer);
                 return true;
             }
 
             if (hasNativeValue) {
                 if (setNotionComposerNativeValue(composer, text)) {
                     dispatchNotionComposerInput(composer, { inputType, data: text || null });
-                    if (await waitForNotionTextMutationSettle(composer, text)) return true;
+                    if (await waitForNotionTextMutationSettle(composer, text)) {
+                        rememberNotionTextTarget(composer);
+                        return true;
+                    }
                 }
             }
 
@@ -4633,7 +4793,10 @@
                     const command = text ? "insertText" : "delete";
                     if (document.execCommand?.(command, false, text)) {
                         dispatchNotionComposerInput(composer, { inputType, data: text || null });
-                        if (await waitForNotionTextMutationSettle(composer, text)) return true;
+                        if (await waitForNotionTextMutationSettle(composer, text)) {
+                            rememberNotionTextTarget(composer);
+                            return true;
+                        }
                     }
                 } catch { }
             }
@@ -4642,7 +4805,10 @@
                 selectNotionComposerContent(composer);
                 if (tryPasteNotionText(composer, text)) {
                     dispatchNotionComposerInput(composer, { inputType: "insertFromPaste", data: text });
-                    if (await waitForNotionTextMutationSettle(composer, text)) return true;
+                    if (await waitForNotionTextMutationSettle(composer, text)) {
+                        rememberNotionTextTarget(composer);
+                        return true;
+                    }
                 }
             }
 

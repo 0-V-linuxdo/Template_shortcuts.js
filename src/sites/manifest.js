@@ -532,16 +532,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion AI] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion AI] 快捷键跳转 [20260605] v1.1.1",
+            name: "[Notion AI] 快捷键跳转 [20260609] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260605] v1.1.1",
-            updateLog: "1.1.1: 更新 Template core require；QuickInput 悬浮球左侧按钮可暂停/继续当前任务，右侧状态区域恢复弹窗。",
+            version: "[20260609] v1.0.0",
+            updateLog: "1.0.0: 修复 Arc 中 Notion AI Quick Input 文本已写入但检测长度异常导致任务停止的问题。",
             localized: {
                 "en-US": {
-                    name: "[Notion AI] Shortcut Jump [20260605] v1.1.1",
+                    name: "[Notion AI] Shortcut Jump [20260609] v1.0.0",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.1.1: Updated the Template core require; the QuickInput bubble's left button now pauses/resumes the current task, while the status area restores the popup."
+                    updateLog: "1.0.0: Fixed Notion AI Quick Input in Arc stopping after text insertion because verification read a mismatched text length."
                 }
             },
             match: [
