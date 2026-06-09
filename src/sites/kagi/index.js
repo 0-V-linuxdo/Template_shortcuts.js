@@ -14,6 +14,20 @@
 
     const LOG_TAG = "[Kagi Shortcut Script]";
     const defaultIconURL = "https://kagi.com/favicon-32x32.png";
+    const KAGI_ASSISTANT_URL = "https://assistant.kagi.com/";
+    const KAGI_ASSISTANT_LEGACY_URLS = Object.freeze([
+        "https://kagi.com/assistant",
+        "https://kagi.com/assistant/"
+    ]);
+    const STORAGE_KEYS = Object.freeze({
+        shortcuts: "kagi_shortcuts_v1",
+        iconCachePrefix: "kagi_icon_cache_v1::",
+        userIcons: "kagi_user_icons_v1"
+    });
+    const DEFAULTS_MIGRATION_KEY = "kagi_defaults_migrated_20260609_assistant_ui_v1";
+    const TemplateUtils = ShortcutTemplate?.utils || {};
+    const TemplateDomUtils = TemplateUtils?.dom || {};
+    const TemplateEventUtils = TemplateUtils?.events || {};
     const kagiTranslateLightIconDataURL = "data:image/svg+xml,%3Csvg%20width%3D%2218.92%22%20height%3D%2218.92%22%20viewBox%3D%220%200%2018.92%2018.92%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%3Cg%20clip-path%3D%22url(%23clip0)%22%3E%0A%20%20%20%20%3Cg%20transform%3D%22translate(-69.5864%20-5.79022)%22%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M71.2966%2019.3925C71.299%2019.9998%2071.5413%2020.5814%2071.9706%2021.0108C72.4%2021.4402%2072.9817%2021.6824%2073.5889%2021.6848H75.0103%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M75.6796%2021.684L74.4574%2020.1416%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M75.6796%2021.6843L74.4574%2023.2266%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M86.2522%2010.2939C86.2522%209.68399%2086.0101%209.09901%2085.579%208.66752C85.1479%208.23602%2084.5632%207.99331%2083.9532%207.99272H82.543%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M81.8715%207.99272L83.0915%209.5373%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M81.8715%207.99574L83.0915%206.45116%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%20d%3D%22M87.9702%2015.6488V20.8779C87.9705%2021.2578%2087.8959%2021.634%2087.7507%2021.9851C87.6055%2022.3361%2087.3924%2022.655%2087.1238%2022.9237C86.8552%2023.1923%2086.5363%2023.4053%2086.1852%2023.5505C85.8342%2023.6958%2085.458%2023.7704%2085.0781%2023.7701H81.218C80.4512%2023.7694%2079.7159%2023.4645%2079.1737%2022.9223C78.6314%2022.38%2078.3265%2021.6448%2078.3259%2020.8779V15.6488C78.3259%2014.8815%2078.6306%2014.1457%2079.1729%2013.6029C79.7152%2013.0602%2080.4508%2012.755%2081.218%2012.7543H85.0781C85.8454%2012.755%2086.581%2013.0602%2087.1233%2013.6029C87.6656%2014.1457%2087.9702%2014.8815%2087.9702%2015.6488Z%22%20fill%3D%22%2374BD44%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%221.1%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M81.2157%2020.9341V16.9341C81.2157%2016.4207%2081.4196%2015.9283%2081.7827%2015.5652C82.1457%2015.2022%2082.6381%2014.9982%2083.1516%2014.9982C83.665%2014.9982%2084.1574%2015.2022%2084.5204%2015.5652C84.8834%2015.9283%2085.0874%2016.4207%2085.0874%2016.9341V20.9341%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M81.2181%2018.688H85.0899%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%20d%3D%22M79.7556%209.84415V15.0733C79.7556%2015.8405%2079.451%2016.5764%2078.9087%2017.1192C78.3663%2017.6619%2077.6307%2017.9671%2076.8635%2017.9677H73.0034C72.237%2017.9659%2071.5026%2017.6601%2070.9613%2017.1175C70.42%2016.5749%2070.116%2015.8397%2070.116%2015.0733V9.84415C70.1157%209.46426%2070.1903%209.08805%2070.3355%208.73702C70.4807%208.38599%2070.6938%208.06705%2070.9624%207.79843C71.231%207.52981%2071.5499%207.31679%2071.901%207.17155C72.252%207.02632%2072.6282%206.95172%2073.0081%206.95203H76.8565C77.6233%206.95264%2078.3586%207.25755%2078.9008%207.79979C79.4431%208.34204%2079.748%209.0773%2079.7486%209.84415H79.7556Z%22%20fill%3D%22white%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%221.1%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M74.8671%209.18591L76.8169%2013.6524L75.6064%2013.5964%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M77.1995%209.75357L72.4298%2010.3786%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M77.0804%2015.439H74.1417C73.7204%2015.439%2073.3164%2015.2717%2073.0185%2014.9738C72.7207%2014.6759%2072.5533%2014.2719%2072.5533%2013.8507%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M77.442%2011.5177L72.6816%2012.1428%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%3C%2Fg%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3CclipPath%20id%3D%22clip0%22%3E%0A%20%20%20%20%20%20%3Crect%20width%3D%2218.92%22%20height%3D%2218.92%22%20fill%3D%22white%22%2F%3E%0A%20%20%20%20%3C%2FclipPath%3E%0A%20%20%3C%2Fdefs%3E%0A%3C%2Fsvg%3E";
     const kagiTranslateDarkIconDataURL = "data:image/svg+xml,%3Csvg%20width%3D%2218.92%22%20height%3D%2218.92%22%20viewBox%3D%220%200%2018.92%2018.92%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%3Cg%20clip-path%3D%22url(%23clip0)%22%3E%0A%20%20%20%20%3Cg%20transform%3D%22translate(-69.5865%20-5.79022)%22%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M71.2967%2019.3925C71.2991%2019.9998%2071.5413%2020.5814%2071.9707%2021.0108C72.4001%2021.4402%2072.9817%2021.6824%2073.589%2021.6848H75.0104%22%20stroke%3D%22white%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M75.6797%2021.684L74.4575%2020.1416%22%20stroke%3D%22white%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M75.6797%2021.6843L74.4575%2023.2266%22%20stroke%3D%22white%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M86.2523%2010.2939C86.2523%209.68399%2086.0102%209.09901%2085.5791%208.66752C85.148%208.23602%2084.5633%207.99331%2083.9533%207.99272H82.5431%22%20stroke%3D%22white%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M81.8715%207.99272L83.0915%209.5373%22%20stroke%3D%22white%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M81.8715%207.99574L83.0915%206.45116%22%20stroke%3D%22white%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%20d%3D%22M87.9703%2015.6488V20.8779C87.9706%2021.2578%2087.896%2021.634%2087.7508%2021.9851C87.6055%2022.3361%2087.3925%2022.655%2087.1239%2022.9237C86.8553%2023.1923%2086.5363%2023.4053%2086.1853%2023.5505C85.8343%2023.6958%2085.4581%2023.7704%2085.0782%2023.7701H81.2181C80.4513%2023.7694%2079.716%2023.4645%2079.1738%2022.9223C78.6315%2022.38%2078.3266%2021.6448%2078.326%2020.8779V15.6488C78.326%2014.8815%2078.6306%2014.1457%2079.1729%2013.6029C79.7153%2013.0602%2080.4509%2012.755%2081.2181%2012.7543H85.0782C85.8454%2012.755%2086.581%2013.0602%2087.1233%2013.6029C87.6657%2014.1457%2087.9703%2014.8815%2087.9703%2015.6488Z%22%20fill%3D%22%2374BD44%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%221.1%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M81.2158%2020.9341V16.9341C81.2158%2016.4207%2081.4197%2015.9283%2081.7827%2015.5652C82.1458%2015.2022%2082.6382%2014.9982%2083.1516%2014.9982C83.665%2014.9982%2084.1574%2015.2022%2084.5205%2015.5652C84.8835%2015.9283%2085.0875%2016.4207%2085.0875%2016.9341V20.9341%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M81.2181%2018.688H85.0898%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%20d%3D%22M79.7557%209.84415V15.0733C79.7557%2015.8405%2079.451%2016.5764%2078.9087%2017.1192C78.3664%2017.6619%2077.6308%2017.9671%2076.8636%2017.9677H73.0035C72.2371%2017.9659%2071.5026%2017.6601%2070.9613%2017.1175C70.42%2016.5749%2070.116%2015.8397%2070.116%2015.0733V9.84415C70.1157%209.46426%2070.1903%209.08805%2070.3356%208.73702C70.4808%208.38599%2070.6938%208.06705%2070.9624%207.79843C71.2311%207.52981%2071.55%207.31679%2071.901%207.17155C72.2521%207.02632%2072.6283%206.95172%2073.0082%206.95203H76.8566C77.6234%206.95264%2078.3587%207.25755%2078.9009%207.79979C79.4432%208.34204%2079.7481%209.0773%2079.7487%209.84415H79.7557Z%22%20fill%3D%22white%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%221.1%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M74.8671%209.18591L76.8169%2013.6524L75.6064%2013.5964%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M77.1995%209.75357L72.4298%2010.3786%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M77.0804%2015.439H74.1417C73.7204%2015.439%2073.3164%2015.2717%2073.0185%2014.9738C72.7207%2014.6759%2072.5533%2014.2719%2072.5533%2013.8507%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%20%20%3Cpath%20d%3D%22M77.4419%2011.5177L72.6816%2012.1428%22%20stroke%3D%22%2318181A%22%20stroke-width%3D%220.88%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%20%20%3C%2Fg%3E%0A%20%20%3C%2Fg%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3CclipPath%20id%3D%22clip0%22%3E%0A%20%20%20%20%20%20%3Crect%20width%3D%2218.92%22%20height%3D%2218.92%22%20fill%3D%22white%22%2F%3E%0A%20%20%20%20%3C%2FclipPath%3E%0A%20%20%3C%2Fdefs%3E%0A%3C%2Fsvg%3E";
 
@@ -114,6 +128,175 @@
         return shortcut;
     };
 
+    function gmGetValueLocal(key, fallback) {
+        if (typeof GM_getValue !== "function") return fallback;
+        try {
+            const value = GM_getValue(key, fallback);
+            if (value && typeof value.then === "function") return fallback;
+            return value === undefined ? fallback : value;
+        } catch {
+            return fallback;
+        }
+    }
+
+    function gmSetValueLocal(key, value) {
+        if (typeof GM_setValue !== "function") return;
+        try {
+            GM_setValue(key, value);
+        } catch { }
+    }
+
+    function safeQuerySelectorAllLocal(root, selector) {
+        if (!selector) return [];
+        if (typeof TemplateDomUtils.safeQuerySelectorAll === "function") {
+            try {
+                return TemplateDomUtils.safeQuerySelectorAll(root || document, selector) || [];
+            } catch { }
+        }
+        const base = root && typeof root.querySelectorAll === "function" ? root : document;
+        try {
+            return Array.from(base.querySelectorAll(selector));
+        } catch {
+            return [];
+        }
+    }
+
+    function isElementVisibleLocal(element) {
+        if (!element || typeof element.getBoundingClientRect !== "function") return false;
+        if (typeof TemplateDomUtils.isVisible === "function") {
+            try {
+                if (!TemplateDomUtils.isVisible(element)) return false;
+            } catch { }
+        }
+        const rect = element.getBoundingClientRect();
+        if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+        const style = window.getComputedStyle ? window.getComputedStyle(element) : null;
+        return !style || (style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0");
+    }
+
+    function isElementDisabled(element) {
+        if (!element) return true;
+        if (element.disabled === true) return true;
+        if (String(element.getAttribute?.("aria-disabled") || "").toLowerCase() === "true") return true;
+        return false;
+    }
+
+    function findFirstElement(selectors, { root = document, includeHidden = false } = {}) {
+        const list = Array.isArray(selectors) ? selectors : [selectors];
+        let firstMatch = null;
+        for (const selector of list) {
+            const matches = safeQuerySelectorAllLocal(root, selector);
+            for (const element of matches) {
+                if (!firstMatch) firstMatch = element;
+                if (includeHidden || isElementVisibleLocal(element)) return element;
+            }
+        }
+        return includeHidden ? firstMatch : null;
+    }
+
+    function getActivePromptBox() {
+        const boxes = safeQuerySelectorAllLocal(document, ".prompt-box");
+        const visible = boxes.filter(isElementVisibleLocal);
+        const pool = visible.length ? visible : boxes;
+        if (pool.length === 0) return null;
+        return pool[pool.length - 1];
+    }
+
+    function clickElementLocal(element, { allowHidden = false } = {}) {
+        if (!element || (!allowHidden && !isElementVisibleLocal(element))) return false;
+        if (isElementDisabled(element)) return false;
+
+        const tagName = String(element.tagName || "").toUpperCase();
+        const inputType = String(element.getAttribute?.("type") || "").toLowerCase();
+        if ((tagName === "INPUT" && (inputType === "file" || inputType === "checkbox")) || tagName === "LABEL") {
+            try {
+                element.click();
+                return true;
+            } catch { }
+        }
+
+        if (typeof TemplateEventUtils.simulateClick === "function") {
+            try {
+                if (TemplateEventUtils.simulateClick(element, { nativeFallback: true })) return true;
+            } catch { }
+        }
+
+        try {
+            if (typeof element.click === "function") {
+                element.click();
+                return true;
+            }
+        } catch { }
+
+        try {
+            const event = new MouseEvent("click", { bubbles: true, cancelable: true, composed: true, view: window });
+            element.dispatchEvent(event);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function clickFirstElement(selectors, options = {}) {
+        const element = findFirstElement(selectors, options);
+        return clickElementLocal(element, { allowHidden: !!options.includeHidden });
+    }
+
+    function clickAssistantSearchToggle() {
+        const promptBox = getActivePromptBox();
+        if (promptBox && clickFirstElement(".split-btn button[aria-pressed]", { root: promptBox })) return true;
+        return clickFirstElement('input[type="checkbox"][aria-label="Web access"]');
+    }
+
+    function clickAssistantUploadFiles() {
+        const promptBox = getActivePromptBox();
+        if (promptBox && clickFirstElement('input[type="file"][multiple]', { root: promptBox, includeHidden: true })) return true;
+        if (promptBox && clickFirstElement([
+            'button[aria-label="Add attachment"]',
+            'button[aria-label*="attachment" i]',
+            'button[aria-label*="上传"]'
+        ], { root: promptBox })) return true;
+        return clickFirstElement('label[for="fileInput"]');
+    }
+
+    function clickAssistantVoiceInput() {
+        const promptBox = getActivePromptBox();
+        const selectors = [
+            'button[aria-label="Voice input"]',
+            'button[aria-label*="voice" i]',
+            'button[aria-label*="microphone" i]',
+            'button[aria-label*="语音"]',
+            'button[aria-label*="麦克风"]'
+        ];
+        if (promptBox && clickFirstElement(selectors, { root: promptBox })) return true;
+        return clickFirstElement(selectors);
+    }
+
+    function clickAssistantModelChooser() {
+        const promptBox = getActivePromptBox();
+        if (promptBox) {
+            const buttons = safeQuerySelectorAllLocal(promptBox, "button")
+                .filter(isElementVisibleLocal)
+                .filter(button => !isElementDisabled(button))
+                .filter(button => !button.classList?.contains("icon-btn"))
+                .filter(button => !button.classList?.contains("part"));
+            const button = buttons.find(candidate => String(candidate.textContent || "").trim()) || buttons[0];
+            if (clickElementLocal(button)) return true;
+        }
+        return clickFirstElement('button[id="profile-select"]');
+    }
+
+    function clickAssistantLensSelect() {
+        const promptBox = getActivePromptBox();
+        if (promptBox && clickFirstElement('.split-btn button[aria-haspopup="true"]', { root: promptBox })) return true;
+        return clickFirstElement('button[id="lens-select"]');
+    }
+
+    function warnMissingActionTarget(actionName) {
+        console.warn(`${LOG_TAG} ${actionName} target not found.`);
+        return false;
+    }
+
     const defaultShortcuts = [
         {
             name: "All Search",
@@ -188,7 +371,7 @@
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
-            simulateKeys: "CMD+SHIFT+S",
+            simulateKeys: "CTRL+SHIFT+S",
             hotkey: "CTRL+B",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
@@ -199,7 +382,7 @@
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
-            simulateKeys: "CMD+K",
+            simulateKeys: "CTRL+K",
             hotkey: "CTRL+N",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
@@ -210,62 +393,67 @@
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
-            simulateKeys: "CMD+SHIFT+BACKSPACE",
+            simulateKeys: "CTRL+SHIFT+BACKSPACE",
             hotkey: "CTRL+BACKSPACE",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
             name: "Toggle Web Access",
-            actionType: "selector",
-            selector: 'input[type="checkbox"][aria-label="Web access"]',
+            actionType: "custom",
+            selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
             simulateKeys: "",
+            customAction: "kagiToggleWebAccess",
             hotkey: "CTRL+W",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
             name: "Upload Files",
-            actionType: "selector",
-            selector: 'label[for="fileInput"]',
+            actionType: "custom",
+            selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
             simulateKeys: "",
+            customAction: "kagiUploadFiles",
             hotkey: "CTRL+F",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
             name: "Voice Input",
-            actionType: "selector",
-            selector: 'button[aria-label="Voice input"]',
+            actionType: "custom",
+            selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
             simulateKeys: "",
+            customAction: "kagiVoiceInput",
             hotkey: "CTRL+SHIFT+V",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
             name: "Model Chooser",
-            actionType: "selector",
-            selector: 'button[id="profile-select"]',
+            actionType: "custom",
+            selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
             simulateKeys: "",
+            customAction: "kagiOpenModelChooser",
             hotkey: "CTRL+M",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
             name: "Lens Select",
-            actionType: "selector",
-            selector: 'button[id="lens-select"]',
+            actionType: "custom",
+            selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
             simulateKeys: "",
+            customAction: "kagiOpenLensSelect",
             hotkey: "CTRL+L",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
@@ -283,7 +471,7 @@
         {
             name: "Go to Assistant",
             actionType: "url",
-            url: "https://kagi.com/assistant",
+            url: KAGI_ASSISTANT_URL,
             urlMethod: "current",
             urlAdvanced: "href",
             selector: "",
@@ -347,16 +535,149 @@
         }
     ].map(createShortcut);
 
-    const CUSTOM_ACTIONS = {};
+    const KAGI_MANAGED_DEFAULT_KEYS = Object.freeze([
+        "toggleSidebar",
+        "newThread",
+        "deleteCurrentThread",
+        "toggleWebAccess",
+        "uploadFiles",
+        "voiceInput",
+        "modelChooser",
+        "lensSelect",
+        "goToAssistant"
+    ]);
+
+    const DEFAULT_SHORTCUTS_BY_KEY = Object.freeze(defaultShortcuts.reduce((acc, shortcut) => {
+        if (shortcut?.key) acc[shortcut.key] = shortcut;
+        return acc;
+    }, {}));
+
+    const KAGI_LEGACY_DEFAULTS_BY_KEY = Object.freeze({
+        toggleSidebar: Object.freeze({ actionType: "simulate", simulateKeys: "CMD+SHIFT+S" }),
+        newThread: Object.freeze({ actionType: "simulate", simulateKeys: "CMD+K" }),
+        deleteCurrentThread: Object.freeze({ actionType: "simulate", simulateKeys: "CMD+SHIFT+BACKSPACE" }),
+        toggleWebAccess: Object.freeze({ actionType: "selector", selector: 'input[type="checkbox"][aria-label="Web access"]' }),
+        uploadFiles: Object.freeze({ actionType: "selector", selector: 'label[for="fileInput"]' }),
+        voiceInput: Object.freeze({ actionType: "selector", selector: 'button[aria-label="Voice input"]' }),
+        modelChooser: Object.freeze({ actionType: "selector", selector: 'button[id="profile-select"]' }),
+        lensSelect: Object.freeze({ actionType: "selector", selector: 'button[id="lens-select"]' }),
+        goToAssistant: Object.freeze({ actionType: "url", urls: KAGI_ASSISTANT_LEGACY_URLS })
+    });
+
+    const KAGI_MANAGED_NAMES_BY_KEY = Object.freeze(KAGI_MANAGED_DEFAULT_KEYS.reduce((acc, key) => {
+        const shortcut = DEFAULT_SHORTCUTS_BY_KEY[key];
+        if (!shortcut) return acc;
+        const names = new Set();
+        if (shortcut.name) names.add(shortcut.name);
+        const zhName = SITE_MESSAGES["zh-CN"]?.shortcuts?.[shortcut.name];
+        if (zhName) names.add(zhName);
+        acc[key] = Array.from(names);
+        return acc;
+    }, {}));
+
+    function normalizeKagiToken(value) {
+        return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+    }
+
+    function normalizeKagiHotkey(value) {
+        return normalizeKagiToken(value).replace(/\s+/g, "");
+    }
+
+    function normalizeKagiUrl(value) {
+        return String(value ?? "").trim().replace(/\/+$/, "");
+    }
+
+    function getKagiManagedShortcutKey(shortcut) {
+        if (!shortcut || typeof shortcut !== "object") return "";
+        const rawKeys = [
+            shortcut.key,
+            String(shortcut.id || "").replace(/^key:/, "")
+        ];
+        for (const rawKey of rawKeys) {
+            const key = String(rawKey || "").trim();
+            if (KAGI_MANAGED_DEFAULT_KEYS.includes(key)) return key;
+        }
+
+        const name = normalizeKagiToken(shortcut.name);
+        if (!name) return "";
+        for (const key of KAGI_MANAGED_DEFAULT_KEYS) {
+            const names = KAGI_MANAGED_NAMES_BY_KEY[key] || [];
+            if (names.some(knownName => normalizeKagiToken(knownName) === name)) return key;
+        }
+        return "";
+    }
+
+    function shortcutMatchesLegacyDefault(shortcut, managedKey) {
+        const legacy = KAGI_LEGACY_DEFAULTS_BY_KEY[managedKey];
+        if (!legacy || !shortcut || typeof shortcut !== "object") return false;
+
+        const actionType = normalizeKagiToken(shortcut.actionType);
+        if (legacy.actionType && actionType !== normalizeKagiToken(legacy.actionType)) return false;
+
+        if (legacy.simulateKeys) {
+            return normalizeKagiHotkey(shortcut.simulateKeys) === normalizeKagiHotkey(legacy.simulateKeys);
+        }
+        if (legacy.selector) {
+            return normalizeKagiToken(shortcut.selector) === normalizeKagiToken(legacy.selector);
+        }
+        if (Array.isArray(legacy.urls)) {
+            const url = normalizeKagiUrl(shortcut.url);
+            return legacy.urls.some(legacyUrl => normalizeKagiUrl(legacyUrl) === url);
+        }
+        return false;
+    }
+
+    function migrateKagiStoredShortcuts() {
+        if (gmGetValueLocal(DEFAULTS_MIGRATION_KEY, false) === true) return;
+        const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
+        if (!Array.isArray(stored) || stored.length === 0) {
+            gmSetValueLocal(DEFAULTS_MIGRATION_KEY, true);
+            return;
+        }
+
+        let changed = false;
+        const next = stored.map((shortcut) => {
+            const managedKey = getKagiManagedShortcutKey(shortcut);
+            const replacement = DEFAULT_SHORTCUTS_BY_KEY[managedKey];
+            if (!managedKey || !replacement || !shortcutMatchesLegacyDefault(shortcut, managedKey)) return shortcut;
+
+            const source = shortcut && typeof shortcut === "object" ? shortcut : {};
+            changed = true;
+            return {
+                ...source,
+                key: String(source.key || replacement.key || "").trim(),
+                name: String(source.name || replacement.name || "").trim(),
+                actionType: replacement.actionType || "",
+                url: replacement.url || "",
+                urlMethod: replacement.urlMethod || "current",
+                urlAdvanced: replacement.urlAdvanced || "href",
+                selector: replacement.selector || "",
+                simulateKeys: replacement.simulateKeys || "",
+                customAction: replacement.customAction || "",
+                data: source.data && typeof source.data === "object" && !Array.isArray(source.data)
+                    ? { ...source.data }
+                    : (replacement.data || {})
+            };
+        });
+
+        if (changed) gmSetValueLocal(STORAGE_KEYS.shortcuts, next);
+        gmSetValueLocal(DEFAULTS_MIGRATION_KEY, true);
+    }
+
+    const CUSTOM_ACTIONS = {
+        kagiToggleWebAccess: () => clickAssistantSearchToggle() || warnMissingActionTarget("kagiToggleWebAccess"),
+        kagiUploadFiles: () => clickAssistantUploadFiles() || warnMissingActionTarget("kagiUploadFiles"),
+        kagiVoiceInput: () => clickAssistantVoiceInput() || warnMissingActionTarget("kagiVoiceInput"),
+        kagiOpenModelChooser: () => clickAssistantModelChooser() || warnMissingActionTarget("kagiOpenModelChooser"),
+        kagiOpenLensSelect: () => clickAssistantLensSelect() || warnMissingActionTarget("kagiOpenLensSelect")
+    };
+
+    migrateKagiStoredShortcuts();
 
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: "Kagi - 设置快捷键",
         panelTitle: "Kagi - 自定义快捷键",
-        storageKeys: {
-            shortcuts: "kagi_shortcuts_v1",
-            iconCachePrefix: "kagi_icon_cache_v1::",
-            userIcons: "kagi_user_icons_v1"
-        },
+        storageKeys: STORAGE_KEYS,
         ui: {
             idPrefix: "kagi",
             cssPrefix: "kagi",
@@ -375,7 +696,11 @@
             primary: "#0066cc"
         },
         shouldBypassIconCache: (url) => {
-            return url && (url.startsWith('https://kagi.com/') || url.startsWith('https://translate.kagi.com/'));
+            return url && (
+                url.startsWith('https://kagi.com/') ||
+                url.startsWith('https://assistant.kagi.com/') ||
+                url.startsWith('https://translate.kagi.com/')
+            );
         },
         getCurrentSearchTerm: () => {
             const urlParams = new URL(location.href).searchParams;

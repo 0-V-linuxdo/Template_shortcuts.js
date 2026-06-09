@@ -436,16 +436,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Kagi] 快捷键跳转",
         sourceEntry: "src/sites/kagi/index.js",
         metadata: {
-            name: "[Kagi] 快捷键跳转 [20260508] v1.0.0",
+            name: "[Kagi] 快捷键跳转 [20260609] v1.0.0",
             namespace: "0_V userscripts/[Kagi] shortcut",
             description: "为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025",
-            version: "[20260508] v1.0.0",
-            updateLog: "1.0.0: 保留原键帽样式，将 Kagi 脚本图标键帽改为普通模式黑色、黑暗模式白色自适应。",
+            version: "[20260609] v1.0.0",
+            updateLog: "1.0.0: 适配 assistant.kagi.com 新版 Kagi Assistant UI，更新助手入口、原生快捷键和模型/Lens/上传/语音/Web 访问控件动作，并自动迁移旧默认配置。",
             localized: {
                 "en-US": {
-                    name: "[Kagi] Shortcut Jump [20260508] v1.0.0",
+                    name: "[Kagi] Shortcut Jump [20260609] v1.0.0",
                     description: "Custom shortcuts for Kagi Assistant and Kagi Search with a visual settings panel, icon library, type filters, and dark mode support.",
-                    updateLog: "1.0.0: Kept the original keycap style and made the Kagi script icon keycap adapt to black in light mode and white in dark mode."
+                    updateLog: "1.0.0: Adapted the script to the new assistant.kagi.com Kagi Assistant UI, updated the Assistant entry, native shortcuts, and model/lens/upload/voice/web-access actions, and migrates old default settings automatically."
                 }
             },
             match: [
