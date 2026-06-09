@@ -26,6 +26,7 @@
     });
     const DEFAULTS_MIGRATION_KEY = "kagi_defaults_migrated_20260609_assistant_ui_v1";
     const PAGE_SWITCH_MIGRATION_KEY = "kagi_page_switch_migrated_20260609_replace_v1";
+    const ASSISTANT_SHORTCUTS_MIGRATION_KEY = "kagi_assistant_shortcuts_migrated_20260609_v110";
     const TemplateUtils = ShortcutTemplate?.utils || {};
     const TemplateDomUtils = TemplateUtils?.dom || {};
     const TemplateEventUtils = TemplateUtils?.events || {};
@@ -289,6 +290,15 @@
 
     function clickAssistantLensSelect() {
         const promptBox = getActivePromptBox();
+        const roots = promptBox ? [promptBox, document] : [document];
+        for (const root of roots) {
+            const splitButtons = safeQuerySelectorAllLocal(root, ".split-btn").filter(isElementVisibleLocal);
+            for (const splitButton of splitButtons) {
+                const webAccessButton = findFirstElement('button[aria-pressed]', { root: splitButton });
+                const dropdownButton = findFirstElement('button[aria-haspopup="true"]', { root: splitButton });
+                if (webAccessButton && dropdownButton && clickElementLocal(dropdownButton)) return true;
+            }
+        }
         if (promptBox && clickFirstElement('.split-btn button[aria-haspopup="true"]', { root: promptBox })) return true;
         return clickFirstElement('button[id="lens-select"]');
     }
@@ -378,12 +388,12 @@
         },
         {
             name: "New Thread",
-            actionType: "simulate",
+            actionType: "url",
             selector: "",
-            url: "",
+            url: KAGI_ASSISTANT_URL,
             urlMethod: "current",
-            urlAdvanced: "href",
-            simulateKeys: "CTRL+K",
+            urlAdvanced: "replace",
+            simulateKeys: "",
             hotkey: "CTRL+N",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
@@ -431,7 +441,7 @@
             urlAdvanced: "href",
             simulateKeys: "",
             customAction: "kagiVoiceInput",
-            hotkey: "CTRL+SHIFT+V",
+            hotkey: "CTRL+V",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
@@ -652,6 +662,31 @@
         return urls.some(candidate => normalizeKagiUrl(candidate) === url);
     }
 
+    function shortcutMatchesAssistantDefault(shortcut, managedKey) {
+        if (!shortcut || typeof shortcut !== "object") return false;
+        const actionType = normalizeKagiToken(shortcut.actionType);
+        const customAction = normalizeKagiToken(shortcut.customAction);
+        const selector = normalizeKagiToken(shortcut.selector);
+
+        if (managedKey === "newThread") {
+            return actionType === "simulate" && ["ctrl+k", "cmd+k"].includes(normalizeKagiHotkey(shortcut.simulateKeys));
+        }
+        if (managedKey === "voiceInput") {
+            const isDefaultTarget = (
+                (actionType === "custom" && customAction === "kagivoiceinput") ||
+                (actionType === "selector" && selector === normalizeKagiToken('button[aria-label="Voice input"]'))
+            );
+            return isDefaultTarget;
+        }
+        if (managedKey === "lensSelect") {
+            return (
+                (actionType === "custom" && customAction === "kagiopenlensselect") ||
+                (actionType === "selector" && selector === normalizeKagiToken('button[id="lens-select"]'))
+            );
+        }
+        return false;
+    }
+
     function migrateKagiStoredShortcuts() {
         if (gmGetValueLocal(DEFAULTS_MIGRATION_KEY, false) === true) return;
         const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
@@ -723,6 +758,77 @@
         gmSetValueLocal(PAGE_SWITCH_MIGRATION_KEY, true);
     }
 
+    function migrateKagiAssistantShortcuts() {
+        if (gmGetValueLocal(ASSISTANT_SHORTCUTS_MIGRATION_KEY, false) === true) return;
+        const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
+        if (!Array.isArray(stored) || stored.length === 0) {
+            gmSetValueLocal(ASSISTANT_SHORTCUTS_MIGRATION_KEY, true);
+            return;
+        }
+
+        let changed = false;
+        const next = stored.map((shortcut) => {
+            const managedKey = getKagiManagedShortcutKey(shortcut);
+            const replacement = DEFAULT_SHORTCUTS_BY_KEY[managedKey];
+            if (!managedKey || !replacement || !shortcutMatchesAssistantDefault(shortcut, managedKey)) return shortcut;
+
+            const source = shortcut && typeof shortcut === "object" ? shortcut : {};
+            changed = true;
+            const nextShortcut = {
+                ...source,
+                key: String(source.key || replacement.key || "").trim(),
+                name: String(source.name || replacement.name || "").trim()
+            };
+
+            if (managedKey === "newThread") {
+                return {
+                    ...nextShortcut,
+                    actionType: "url",
+                    url: replacement.url || "",
+                    urlMethod: "current",
+                    urlAdvanced: "replace",
+                    selector: "",
+                    simulateKeys: "",
+                    customAction: ""
+                };
+            }
+
+            if (managedKey === "voiceInput") {
+                const hasStoredHotkey = Object.prototype.hasOwnProperty.call(source, "hotkey");
+                const shouldMigrateHotkey = normalizeKagiHotkey(source.hotkey) === "ctrl+shift+v";
+                return {
+                    ...nextShortcut,
+                    actionType: "custom",
+                    url: "",
+                    urlMethod: "current",
+                    urlAdvanced: "href",
+                    selector: "",
+                    simulateKeys: "",
+                    customAction: "kagiVoiceInput",
+                    hotkey: shouldMigrateHotkey ? "CTRL+V" : (hasStoredHotkey ? source.hotkey : replacement.hotkey)
+                };
+            }
+
+            if (managedKey === "lensSelect") {
+                return {
+                    ...nextShortcut,
+                    actionType: "custom",
+                    url: "",
+                    urlMethod: "current",
+                    urlAdvanced: "href",
+                    selector: "",
+                    simulateKeys: "",
+                    customAction: "kagiOpenLensSelect"
+                };
+            }
+
+            return shortcut;
+        });
+
+        if (changed) gmSetValueLocal(STORAGE_KEYS.shortcuts, next);
+        gmSetValueLocal(ASSISTANT_SHORTCUTS_MIGRATION_KEY, true);
+    }
+
     const CUSTOM_ACTIONS = {
         kagiToggleWebAccess: () => clickAssistantSearchToggle() || warnMissingActionTarget("kagiToggleWebAccess"),
         kagiUploadFiles: () => clickAssistantUploadFiles() || warnMissingActionTarget("kagiUploadFiles"),
@@ -733,6 +839,7 @@
 
     migrateKagiStoredShortcuts();
     migrateKagiPageSwitchShortcuts();
+    migrateKagiAssistantShortcuts();
 
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: "Kagi - 设置快捷键",

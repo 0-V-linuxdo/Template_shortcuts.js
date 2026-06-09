@@ -436,16 +436,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Kagi] 快捷键跳转",
         sourceEntry: "src/sites/kagi/index.js",
         metadata: {
-            name: "[Kagi] 快捷键跳转 [20260609] v1.0.1",
+            name: "[Kagi] 快捷键跳转 [20260609] v1.1.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025",
-            version: "[20260609] v1.0.1",
-            updateLog: "1.0.1: 统一 Kagi 1-5 页面切换为当前窗口的 location.replace 跳转，并自动迁移旧默认页面切换配置。",
+            version: "[20260609] v1.1.0",
+            updateLog: "1.1.0: 调整 Kagi Assistant 快捷键：New Thread 改为助手 URL 跳转，Lens Select 改为点击联网按钮右侧下拉按钮，Voice Input 默认快捷键改为 Ctrl+V，并自动迁移旧默认配置。",
             localized: {
                 "en-US": {
-                    name: "[Kagi] Shortcut Jump [20260609] v1.0.1",
+                    name: "[Kagi] Shortcut Jump [20260609] v1.1.0",
                     description: "Custom shortcuts for Kagi Assistant and Kagi Search with a visual settings panel, icon library, type filters, and dark mode support.",
-                    updateLog: "1.0.1: Unified Kagi 1-5 page switching to current-window location.replace navigation and migrates old default page-switch settings automatically."
+                    updateLog: "1.1.0: Updated Kagi Assistant shortcuts: New Thread now jumps to the Assistant URL, Lens Select opens the dropdown next to the web-access button, Voice Input defaults to Ctrl+V, and old default settings migrate automatically."
                 }
             },
             match: [
