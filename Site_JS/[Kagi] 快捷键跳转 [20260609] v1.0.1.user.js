@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Kagi] 快捷键跳转 [20260609] v1.0.0
-// @name:en        [Kagi] Shortcut Jump [20260609] v1.0.0
+// @name           [Kagi] 快捷键跳转 [20260609] v1.0.1
+// @name:en        [Kagi] Shortcut Jump [20260609] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025
 // @description:en Custom shortcuts for Kagi Assistant and Kagi Search with a visual settings panel, icon library, type filters, and dark mode support.
 
-// @version        [20260609] v1.0.0
-// @update-log     1.0.0: 适配 assistant.kagi.com 新版 Kagi Assistant UI，更新助手入口、原生快捷键和模型/Lens/上传/语音/Web 访问控件动作，并自动迁移旧默认配置。
-// @update-log:en  1.0.0: Adapted the script to the new assistant.kagi.com Kagi Assistant UI, updated the Assistant entry, native shortcuts, and model/lens/upload/voice/web-access actions, and migrates old default settings automatically.
+// @version        [20260609] v1.0.1
+// @update-log     1.0.1: 统一 Kagi 1-5 页面切换为当前窗口的 location.replace 跳转，并自动迁移旧默认页面切换配置。
+// @update-log:en  1.0.1: Unified Kagi 1-5 page switching to current-window location.replace navigation and migrates old default page-switch settings automatically.
 
 // @match          https://*.kagi.com/*
 
@@ -63,6 +63,7 @@
       userIcons: "kagi_user_icons_v1"
     });
     const DEFAULTS_MIGRATION_KEY = "kagi_defaults_migrated_20260609_assistant_ui_v1";
+    const PAGE_SWITCH_MIGRATION_KEY = "kagi_page_switch_migrated_20260609_replace_v1";
     const TemplateUtils = ShortcutTemplate?.utils || {};
     const TemplateDomUtils = TemplateUtils?.dom || {};
     const TemplateEventUtils = TemplateUtils?.events || {};
@@ -469,7 +470,7 @@
         actionType: "url",
         url: "https://kagi.com/",
         urlMethod: "current",
-        urlAdvanced: "href",
+        urlAdvanced: "replace",
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+1",
@@ -480,7 +481,7 @@
         actionType: "url",
         url: KAGI_ASSISTANT_URL,
         urlMethod: "current",
-        urlAdvanced: "href",
+        urlAdvanced: "replace",
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+2",
@@ -491,7 +492,7 @@
         actionType: "url",
         url: "https://kagi.com/summarizer",
         urlMethod: "current",
-        urlAdvanced: "href",
+        urlAdvanced: "replace",
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+3",
@@ -502,7 +503,7 @@
         actionType: "url",
         url: "https://kagi.com/fastgpt",
         urlMethod: "current",
-        urlAdvanced: "href",
+        urlAdvanced: "replace",
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+4",
@@ -541,6 +542,13 @@
         icon: ""
       }
     ].map(createShortcut);
+    const KAGI_PAGE_SWITCH_KEYS = Object.freeze([
+      "goToSearch",
+      "goToAssistant",
+      "goToSummarizer",
+      "goToFastgpt",
+      "goToTranslate"
+    ]);
     const KAGI_MANAGED_DEFAULT_KEYS = Object.freeze([
       "toggleSidebar",
       "newThread",
@@ -550,7 +558,11 @@
       "voiceInput",
       "modelChooser",
       "lensSelect",
-      "goToAssistant"
+      "goToSearch",
+      "goToAssistant",
+      "goToSummarizer",
+      "goToFastgpt",
+      "goToTranslate"
     ]);
     const DEFAULT_SHORTCUTS_BY_KEY = Object.freeze(defaultShortcuts.reduce((acc, shortcut) => {
       if (shortcut?.key) acc[shortcut.key] = shortcut;
@@ -621,6 +633,16 @@
       }
       return false;
     }
+    function shortcutMatchesPageSwitchDefault(shortcut, managedKey) {
+      if (!KAGI_PAGE_SWITCH_KEYS.includes(managedKey) || !shortcut || typeof shortcut !== "object") return false;
+      const replacement = DEFAULT_SHORTCUTS_BY_KEY[managedKey];
+      if (!replacement) return false;
+      if (normalizeKagiToken(shortcut.actionType) !== "url") return false;
+      const urls = [replacement.url];
+      if (managedKey === "goToAssistant") urls.push(...KAGI_ASSISTANT_LEGACY_URLS);
+      const url = normalizeKagiUrl(shortcut.url);
+      return urls.some((candidate) => normalizeKagiUrl(candidate) === url);
+    }
     function migrateKagiStoredShortcuts() {
       if (gmGetValueLocal(DEFAULTS_MIGRATION_KEY, false) === true) return;
       const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
@@ -652,6 +674,36 @@
       if (changed) gmSetValueLocal(STORAGE_KEYS.shortcuts, next);
       gmSetValueLocal(DEFAULTS_MIGRATION_KEY, true);
     }
+    function migrateKagiPageSwitchShortcuts() {
+      if (gmGetValueLocal(PAGE_SWITCH_MIGRATION_KEY, false) === true) return;
+      const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
+      if (!Array.isArray(stored) || stored.length === 0) {
+        gmSetValueLocal(PAGE_SWITCH_MIGRATION_KEY, true);
+        return;
+      }
+      let changed = false;
+      const next = stored.map((shortcut) => {
+        const managedKey = getKagiManagedShortcutKey(shortcut);
+        const replacement = DEFAULT_SHORTCUTS_BY_KEY[managedKey];
+        if (!managedKey || !replacement || !shortcutMatchesPageSwitchDefault(shortcut, managedKey)) return shortcut;
+        const source = shortcut && typeof shortcut === "object" ? shortcut : {};
+        changed = true;
+        return {
+          ...source,
+          key: String(source.key || replacement.key || "").trim(),
+          name: String(source.name || replacement.name || "").trim(),
+          actionType: "url",
+          url: replacement.url || "",
+          urlMethod: "current",
+          urlAdvanced: "replace",
+          selector: "",
+          simulateKeys: "",
+          customAction: ""
+        };
+      });
+      if (changed) gmSetValueLocal(STORAGE_KEYS.shortcuts, next);
+      gmSetValueLocal(PAGE_SWITCH_MIGRATION_KEY, true);
+    }
     const CUSTOM_ACTIONS = {
       kagiToggleWebAccess: () => clickAssistantSearchToggle() || warnMissingActionTarget("kagiToggleWebAccess"),
       kagiUploadFiles: () => clickAssistantUploadFiles() || warnMissingActionTarget("kagiUploadFiles"),
@@ -660,6 +712,7 @@
       kagiOpenLensSelect: () => clickAssistantLensSelect() || warnMissingActionTarget("kagiOpenLensSelect")
     };
     migrateKagiStoredShortcuts();
+    migrateKagiPageSwitchShortcuts();
     const engine = ShortcutTemplate.createShortcutEngine({
       menuCommandLabel: "Kagi - 设置快捷键",
       panelTitle: "Kagi - 自定义快捷键",
