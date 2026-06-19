@@ -28,6 +28,7 @@
     const PAGE_SWITCH_MIGRATION_KEY = "kagi_page_switch_migrated_20260609_replace_v1";
     const ASSISTANT_SHORTCUTS_MIGRATION_KEY = "kagi_assistant_shortcuts_migrated_20260609_v110";
     const TABBIT_NATIVE_SHORTCUTS_MIGRATION_KEY = "kagi_tabbit_native_shortcuts_migrated_20260619_v100";
+    const V101_CLEANUP_MIGRATION_KEY = "kagi_v101_cleanup_migrated_20260619_v101";
     const TemplateUtils = ShortcutTemplate?.utils || {};
     const TemplateDomUtils = TemplateUtils?.dom || {};
     const TemplateEventUtils = TemplateUtils?.events || {};
@@ -86,8 +87,7 @@
                 "Go to Summarizer": "前往摘要",
                 "Go to FastGPT": "前往 FastGPT",
                 "Go to Translate": "前往翻译",
-                "billing": "账单",
-                "Ki -Flag": "Ki 标志"
+                "billing": "账单"
             }
         },
         "en-US": {
@@ -495,7 +495,7 @@
             urlMethod: "current",
             urlAdvanced: "href",
             simulateKeys: "CMD+SHIFT+G",
-            hotkey: "CTRL+SHIFT+G",
+            hotkey: "CTRL+R",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
@@ -632,16 +632,6 @@
             simulateKeys: "",
             hotkey: "CTRL+SHIFT+B",
             icon: "data:image/svg+xml,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http://www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M3%2010H21M7%2015H7.01M11%2015H13M3%208A3%203%200%20016%205H18A3%203%200%200121%208V16A3%203%200%200118%2019H6A3%203%200%20013%2016V8Z%22%20stroke%3D%22currentColor%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E"
-        },
-        {
-            name: "Ki -Flag",
-            actionType: "url",
-            url: "https://kagi.com/flag/ki_lime_pie",
-            urlMethod: "current",
-            selector: "",
-            simulateKeys: "",
-            hotkey: "CTRL+SHIFT+K",
-            icon: ""
         }
     ].map(createShortcut);
 
@@ -891,6 +881,21 @@
         return shortcuts.some(shortcut => normalizeKagiHotkey(shortcut?.hotkey) === normalized);
     }
 
+    function shortcutHotkeyExistsExcept(shortcuts, hotkey, excludeIndex) {
+        const normalized = normalizeKagiHotkey(hotkey);
+        if (!normalized) return false;
+        return shortcuts.some((shortcut, index) => index !== excludeIndex && normalizeKagiHotkey(shortcut?.hotkey) === normalized);
+    }
+
+    function shortcutLooksLikeKiFlag(shortcut) {
+        if (!shortcut || typeof shortcut !== "object") return false;
+        const key = String(shortcut.key || shortcut.id || "").replace(/^key:/, "").trim();
+        if (key === "kiFlag") return true;
+        const name = normalizeKagiToken(shortcut.name);
+        if (name === normalizeKagiToken("Ki -Flag") || name === normalizeKagiToken("Ki 标志")) return true;
+        return normalizeKagiUrl(shortcut.url) === normalizeKagiUrl("https://kagi.com/flag/ki_lime_pie");
+    }
+
     function migrateKagiStoredShortcuts() {
         if (gmGetValueLocal(DEFAULTS_MIGRATION_KEY, false) === true) return;
         const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
@@ -1075,6 +1080,34 @@
         gmSetValueLocal(TABBIT_NATIVE_SHORTCUTS_MIGRATION_KEY, true);
     }
 
+    function migrateKagiV101Cleanup() {
+        if (gmGetValueLocal(V101_CLEANUP_MIGRATION_KEY, false) === true) return;
+        const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
+        if (!Array.isArray(stored) || stored.length === 0) {
+            gmSetValueLocal(V101_CLEANUP_MIGRATION_KEY, true);
+            return;
+        }
+
+        let changed = false;
+        const next = stored.filter((shortcut) => {
+            if (!shortcutLooksLikeKiFlag(shortcut)) return true;
+            changed = true;
+            return false;
+        }).map((shortcut, index, list) => {
+            if (getKagiManagedShortcutKey(shortcut) !== "regenerateLastMessage") return shortcut;
+            const oldDefaultHotkey = normalizeKagiHotkey(shortcut.hotkey) === "ctrl+shift+g";
+            if (!oldDefaultHotkey || shortcutHotkeyExistsExcept(list, "CTRL+R", index)) return shortcut;
+            changed = true;
+            return {
+                ...shortcut,
+                hotkey: "CTRL+R"
+            };
+        });
+
+        if (changed) gmSetValueLocal(STORAGE_KEYS.shortcuts, next);
+        gmSetValueLocal(V101_CLEANUP_MIGRATION_KEY, true);
+    }
+
     const CUSTOM_ACTIONS = {
         kagiToggleWebAccess: () => clickAssistantSearchToggle() || warnMissingActionTarget("kagiToggleWebAccess"),
         kagiUploadFiles: () => clickAssistantUploadFiles() || warnMissingActionTarget("kagiUploadFiles"),
@@ -1087,6 +1120,7 @@
     migrateKagiPageSwitchShortcuts();
     migrateKagiAssistantShortcuts();
     migrateKagiTabbitNativeShortcuts();
+    migrateKagiV101Cleanup();
 
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: "Kagi - 设置快捷键",
