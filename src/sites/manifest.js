@@ -436,16 +436,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Kagi] 快捷键跳转",
         sourceEntry: "src/sites/kagi/index.js",
         metadata: {
-            name: "[Kagi] 快捷键跳转 [20260610] v1.0.0",
+            name: "[Kagi] 快捷键跳转 [20260619] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Kagi Assistant 与 Kagi Search 提供自定义快捷键、可视化设置面板、图标库、按类型筛选、深色模式适配等增强功能（依赖 Template 模块）。#refactor2025",
-            version: "[20260610] v1.0.0",
-            updateLog: "1.0.0: 修复 Kagi Assistant Lens Select（Ctrl+L）在新 UI 中无法点击联网按钮右侧下拉按钮的问题，改用可见 prompt-box 内联网按钮的几何定位并模拟真实点击事件。",
+            version: "[20260619] v1.0.0",
+            updateLog: "1.0.0: 对照 Tabbit 中 Kagi Assistant 当前 Shortcuts 设置，将 New Thread、Toggle Sidebar、Delete Thread、Upload Files、Model Chooser 升级为原生快捷键模拟，并新增 Focus Prompt、Copy/Edit/Regenerate Last Message、Keyboard Shortcuts 等原生快捷键入口。",
             localized: {
                 "en-US": {
-                    name: "[Kagi] Shortcut Jump [20260610] v1.0.0",
+                    name: "[Kagi] Shortcut Jump [20260619] v1.0.0",
                     description: "Custom shortcuts for Kagi Assistant and Kagi Search with a visual settings panel, icon library, type filters, and dark mode support.",
-                    updateLog: "1.0.0: Fixed Kagi Assistant Lens Select (Ctrl+L) on the new UI by locating the dropdown next to the visible web-access button by position and dispatching a real user-like click sequence."
+                    updateLog: "1.0.0: Matched Kagi Assistant shortcuts shown in Tabbit, upgrading New Thread, Toggle Sidebar, Delete Thread, Upload Files, and Model Chooser to native key simulation, and adding native entries for Focus Prompt, Copy/Edit/Regenerate Last Message, and Keyboard Shortcuts."
                 }
             },
             match: [

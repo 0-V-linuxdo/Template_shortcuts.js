@@ -27,6 +27,7 @@
     const DEFAULTS_MIGRATION_KEY = "kagi_defaults_migrated_20260609_assistant_ui_v1";
     const PAGE_SWITCH_MIGRATION_KEY = "kagi_page_switch_migrated_20260609_replace_v1";
     const ASSISTANT_SHORTCUTS_MIGRATION_KEY = "kagi_assistant_shortcuts_migrated_20260609_v110";
+    const TABBIT_NATIVE_SHORTCUTS_MIGRATION_KEY = "kagi_tabbit_native_shortcuts_migrated_20260619_v100";
     const TemplateUtils = ShortcutTemplate?.utils || {};
     const TemplateDomUtils = TemplateUtils?.dom || {};
     const TemplateEventUtils = TemplateUtils?.events || {};
@@ -67,14 +68,19 @@
                 "News Search": "新闻搜索",
                 "Podcasts Search": "播客搜索",
                 "Maps Search": "地图搜索",
+                "Focus Prompt": "聚焦输入框",
                 "Toggle Sidebar": "切换侧边栏",
                 "New Thread": "新建会话",
                 "Delete Current Thread": "删除当前会话",
+                "Copy Last Response": "复制上一条回复",
+                "Edit Last Message": "编辑上一条消息",
+                "Regenerate Last Message": "重新生成上一条回复",
                 "Toggle Web Access": "切换网页访问",
                 "Upload Files": "上传文件",
                 "Voice Input": "语音输入",
                 "Model Chooser": "模型选择器",
                 "Lens Select": "选择 Lens",
+                "Keyboard Shortcuts": "键盘快捷键",
                 "Go to Search": "前往搜索",
                 "Go to Assistant": "前往助手",
                 "Go to Summarizer": "前往摘要",
@@ -416,24 +422,24 @@
             icon: "https://kagi.com/favicon-32x32.png"
         },
         {
-            name: "Toggle Sidebar",
+            name: "Focus Prompt",
             actionType: "simulate",
             selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
-            simulateKeys: "CTRL+SHIFT+S",
-            hotkey: "CTRL+B",
+            simulateKeys: "/",
+            hotkey: "CTRL+/",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
             name: "New Thread",
-            actionType: "url",
+            actionType: "simulate",
             selector: "",
-            url: KAGI_ASSISTANT_URL,
+            url: "",
             urlMethod: "current",
-            urlAdvanced: "replace",
-            simulateKeys: "",
+            urlAdvanced: "href",
+            simulateKeys: "CMD+K",
             hotkey: "CTRL+N",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
@@ -444,8 +450,52 @@
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
-            simulateKeys: "CTRL+SHIFT+BACKSPACE",
+            simulateKeys: "CMD+SHIFT+BACKSPACE",
             hotkey: "CTRL+BACKSPACE",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Toggle Sidebar",
+            actionType: "simulate",
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "CMD+SHIFT+S",
+            hotkey: "CTRL+B",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Copy Last Response",
+            actionType: "simulate",
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "CMD+SHIFT+C",
+            hotkey: "CTRL+SHIFT+C",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Edit Last Message",
+            actionType: "simulate",
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "CMD+SHIFT+E",
+            hotkey: "CTRL+SHIFT+E",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Regenerate Last Message",
+            actionType: "simulate",
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "CMD+SHIFT+G",
+            hotkey: "CTRL+SHIFT+G",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
@@ -462,13 +512,12 @@
         },
         {
             name: "Upload Files",
-            actionType: "custom",
+            actionType: "simulate",
             selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
-            simulateKeys: "",
-            customAction: "kagiUploadFiles",
+            simulateKeys: "CMD+U",
             hotkey: "CTRL+F",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
@@ -486,13 +535,12 @@
         },
         {
             name: "Model Chooser",
-            actionType: "custom",
+            actionType: "simulate",
             selector: "",
             url: "",
             urlMethod: "current",
             urlAdvanced: "href",
-            simulateKeys: "",
-            customAction: "kagiOpenModelChooser",
+            simulateKeys: "CMD+SHIFT+M",
             hotkey: "CTRL+M",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
@@ -506,6 +554,17 @@
             simulateKeys: "",
             customAction: "kagiOpenLensSelect",
             hotkey: "CTRL+L",
+            icon: "https://kagi.com/favicon-assistant-32x32.png"
+        },
+        {
+            name: "Keyboard Shortcuts",
+            actionType: "simulate",
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "CMD+.",
+            hotkey: "CTRL+.",
             icon: "https://kagi.com/favicon-assistant-32x32.png"
         },
         {
@@ -595,14 +654,19 @@
     ]);
 
     const KAGI_MANAGED_DEFAULT_KEYS = Object.freeze([
-        "toggleSidebar",
+        "focusPrompt",
         "newThread",
         "deleteCurrentThread",
+        "toggleSidebar",
+        "copyLastResponse",
+        "editLastMessage",
+        "regenerateLastMessage",
         "toggleWebAccess",
         "uploadFiles",
         "voiceInput",
         "modelChooser",
         "lensSelect",
+        "keyboardShortcuts",
         "goToSearch",
         "goToAssistant",
         "goToSummarizer",
@@ -626,6 +690,22 @@
         lensSelect: Object.freeze({ actionType: "selector", selector: 'button[id="lens-select"]' }),
         goToAssistant: Object.freeze({ actionType: "url", urls: KAGI_ASSISTANT_LEGACY_URLS })
     });
+
+    const KAGI_TABBIT_NATIVE_MIGRATION_KEYS = Object.freeze([
+        "newThread",
+        "toggleSidebar",
+        "deleteCurrentThread",
+        "uploadFiles",
+        "modelChooser"
+    ]);
+
+    const KAGI_TABBIT_NATIVE_ADDED_KEYS = Object.freeze([
+        "focusPrompt",
+        "copyLastResponse",
+        "editLastMessage",
+        "regenerateLastMessage",
+        "keyboardShortcuts"
+    ]);
 
     const KAGI_MANAGED_NAMES_BY_KEY = Object.freeze(KAGI_MANAGED_DEFAULT_KEYS.reduce((acc, key) => {
         const shortcut = DEFAULT_SHORTCUTS_BY_KEY[key];
@@ -727,6 +807,90 @@
         return false;
     }
 
+    function shortcutMatchesTabbitNativeDefault(shortcut, managedKey) {
+        if (!shortcut || typeof shortcut !== "object") return false;
+        const actionType = normalizeKagiToken(shortcut.actionType);
+        const customAction = normalizeKagiToken(shortcut.customAction);
+        const selector = normalizeKagiToken(shortcut.selector);
+        const simulateKeys = normalizeKagiHotkey(shortcut.simulateKeys);
+
+        if (managedKey === "newThread") {
+            const assistantUrl = normalizeKagiUrl(KAGI_ASSISTANT_URL);
+            return (
+                (actionType === "url" && normalizeKagiUrl(shortcut.url) === assistantUrl) ||
+                (actionType === "simulate" && ["ctrl+k", "cmd+k"].includes(simulateKeys))
+            );
+        }
+
+        if (managedKey === "toggleSidebar") {
+            return actionType === "simulate" && ["ctrl+shift+s", "cmd+shift+s"].includes(simulateKeys);
+        }
+
+        if (managedKey === "deleteCurrentThread") {
+            return actionType === "simulate" && ["ctrl+shift+backspace", "cmd+shift+backspace"].includes(simulateKeys);
+        }
+
+        if (managedKey === "uploadFiles") {
+            return (
+                (actionType === "custom" && customAction === "kagiuploadfiles") ||
+                (actionType === "selector" && [
+                    normalizeKagiToken('label[for="fileInput"]'),
+                    normalizeKagiToken('.prompt-box input[type="file"][multiple]'),
+                    normalizeKagiToken('button[aria-label="Add attachment"]')
+                ].includes(selector)) ||
+                (actionType === "simulate" && simulateKeys === "cmd+u")
+            );
+        }
+
+        if (managedKey === "modelChooser") {
+            return (
+                (actionType === "custom" && customAction === "kagiopenmodelchooser") ||
+                (actionType === "selector" && selector === normalizeKagiToken('button[id="profile-select"]')) ||
+                (actionType === "simulate" && simulateKeys === "cmd+shift+m")
+            );
+        }
+
+        return false;
+    }
+
+    function buildKagiNativeShortcutFromDefault(source, replacement) {
+        const current = source && typeof source === "object" ? source : {};
+        const data = current.data && typeof current.data === "object" && !Array.isArray(current.data)
+            ? { ...current.data }
+            : (replacement.data || {});
+        const next = {
+            ...current,
+            key: String(current.key || replacement.key || "").trim(),
+            name: String(current.name || replacement.name || "").trim(),
+            actionType: "simulate",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            selector: "",
+            simulateKeys: replacement.simulateKeys || "",
+            customAction: "",
+            data
+        };
+
+        if (!Object.prototype.hasOwnProperty.call(current, "hotkey")) next.hotkey = replacement.hotkey || "";
+        if (!current.icon && replacement.icon) next.icon = replacement.icon;
+        if (!current.iconDark && replacement.iconDark) next.iconDark = replacement.iconDark;
+        return next;
+    }
+
+    function shortcutHasManagedKeyOrName(shortcut, managedKey) {
+        if (getKagiManagedShortcutKey(shortcut) === managedKey) return true;
+        const names = KAGI_MANAGED_NAMES_BY_KEY[managedKey] || [];
+        const shortcutName = normalizeKagiToken(shortcut?.name);
+        return !!shortcutName && names.some(name => normalizeKagiToken(name) === shortcutName);
+    }
+
+    function shortcutHotkeyExists(shortcuts, hotkey) {
+        const normalized = normalizeKagiHotkey(hotkey);
+        if (!normalized) return false;
+        return shortcuts.some(shortcut => normalizeKagiHotkey(shortcut?.hotkey) === normalized);
+    }
+
     function migrateKagiStoredShortcuts() {
         if (gmGetValueLocal(DEFAULTS_MIGRATION_KEY, false) === true) return;
         const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
@@ -823,13 +987,13 @@
             if (managedKey === "newThread") {
                 return {
                     ...nextShortcut,
-                    actionType: "url",
+                    actionType: replacement.actionType || "simulate",
                     url: replacement.url || "",
-                    urlMethod: "current",
-                    urlAdvanced: "replace",
-                    selector: "",
-                    simulateKeys: "",
-                    customAction: ""
+                    urlMethod: replacement.urlMethod || "current",
+                    urlAdvanced: replacement.urlAdvanced || "href",
+                    selector: replacement.selector || "",
+                    simulateKeys: replacement.simulateKeys || "",
+                    customAction: replacement.customAction || ""
                 };
             }
 
@@ -869,6 +1033,48 @@
         gmSetValueLocal(ASSISTANT_SHORTCUTS_MIGRATION_KEY, true);
     }
 
+    function migrateKagiTabbitNativeShortcuts() {
+        if (gmGetValueLocal(TABBIT_NATIVE_SHORTCUTS_MIGRATION_KEY, false) === true) return;
+        const stored = gmGetValueLocal(STORAGE_KEYS.shortcuts, null);
+        if (!Array.isArray(stored) || stored.length === 0) {
+            gmSetValueLocal(TABBIT_NATIVE_SHORTCUTS_MIGRATION_KEY, true);
+            return;
+        }
+
+        let changed = false;
+        const next = stored.map((shortcut) => {
+            const managedKey = getKagiManagedShortcutKey(shortcut);
+            const replacement = DEFAULT_SHORTCUTS_BY_KEY[managedKey];
+            if (
+                !KAGI_TABBIT_NATIVE_MIGRATION_KEYS.includes(managedKey) ||
+                !replacement ||
+                !shortcutMatchesTabbitNativeDefault(shortcut, managedKey)
+            ) {
+                return shortcut;
+            }
+
+            changed = true;
+            return buildKagiNativeShortcutFromDefault(shortcut, replacement);
+        });
+
+        for (const managedKey of KAGI_TABBIT_NATIVE_ADDED_KEYS) {
+            const replacement = DEFAULT_SHORTCUTS_BY_KEY[managedKey];
+            if (!replacement) continue;
+            if (next.some(shortcut => shortcutHasManagedKeyOrName(shortcut, managedKey))) continue;
+            if (shortcutHotkeyExists(next, replacement.hotkey)) continue;
+            next.push({
+                ...replacement,
+                data: replacement.data && typeof replacement.data === "object" && !Array.isArray(replacement.data)
+                    ? { ...replacement.data }
+                    : {}
+            });
+            changed = true;
+        }
+
+        if (changed) gmSetValueLocal(STORAGE_KEYS.shortcuts, next);
+        gmSetValueLocal(TABBIT_NATIVE_SHORTCUTS_MIGRATION_KEY, true);
+    }
+
     const CUSTOM_ACTIONS = {
         kagiToggleWebAccess: () => clickAssistantSearchToggle() || warnMissingActionTarget("kagiToggleWebAccess"),
         kagiUploadFiles: () => clickAssistantUploadFiles() || warnMissingActionTarget("kagiUploadFiles"),
@@ -880,6 +1086,7 @@
     migrateKagiStoredShortcuts();
     migrateKagiPageSwitchShortcuts();
     migrateKagiAssistantShortcuts();
+    migrateKagiTabbitNativeShortcuts();
 
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: "Kagi - 设置快捷键",
