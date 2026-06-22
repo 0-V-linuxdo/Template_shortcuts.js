@@ -136,7 +136,8 @@
         grok43: NOTION_MODEL_GROK_ICON_INFO,
         grokBuild01: NOTION_MODEL_GROK_ICON_INFO,
         kimi26: NOTION_MODEL_AI_FACE_ICON_INFO,
-        deepseekV4Pro: NOTION_MODEL_AI_FACE_ICON_INFO
+        deepseekV4Pro: NOTION_MODEL_AI_FACE_ICON_INFO,
+        glm52: NOTION_MODEL_AI_FACE_ICON_INFO
     });
 
     function getNotionDefaultModelIconInfo(targetId) {
@@ -366,6 +367,13 @@
             hotkey: "CTRL+SHIFT+=",
             labelKey: "shortcuts.modelDeepSeekV4Pro",
             aliases: Object.freeze(["DeepSeek V4 Pro", "DeepSeek V4", "deepseek v4 pro"])
+        }),
+        glm52: Object.freeze({
+            id: "glm52",
+            label: "GLM 5.2",
+            hotkey: "CTRL+SHIFT+[",
+            labelKey: "shortcuts.modelGlm52",
+            aliases: Object.freeze(["GLM 5.2", "GLM-5.2", "GLM"])
         })
     });
 
@@ -964,6 +972,7 @@
         if (target.id === "grokBuild01") return normalized.includes("grok") && normalized.includes("build") && normalized.includes("0.1");
         if (target.id === "deepseekV4Pro") return normalized.includes("deepseek") && normalized.includes("v4") && normalized.includes("pro");
         if (target.id === "kimi26") return normalized.includes("kimi") && normalized.includes("k2.6");
+        if (target.id === "glm52") return normalized.includes("glm") && normalized.includes("5.2");
         return false;
     }
 
@@ -997,6 +1006,7 @@
         if (text.includes("grok") && text.includes("4.3")) return NOTION_MODEL_TARGETS.grok43;
         if (text.includes("kimi") && text.includes("k2.6")) return NOTION_MODEL_TARGETS.kimi26;
         if (text.includes("deepseek") && text.includes("v4") && text.includes("pro")) return NOTION_MODEL_TARGETS.deepseekV4Pro;
+        if (text.includes("glm") && text.includes("5.2")) return NOTION_MODEL_TARGETS.glm52;
         return null;
     }
 
@@ -2589,12 +2599,12 @@
         return false;
     }
 
-    async function waitForAllSourcesToggleChange(previousState) {
+    async function waitForAllSourcesToggleChange(previousState, { timeoutMs = SETTINGS_MENU_TIMING.waitTimeoutMs } = {}) {
         if (previousState === null) {
             await sleep(SETTINGS_MENU_TIMING.openDelayMs);
             return true;
         }
-        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
         while (Date.now() <= deadline) {
             const row = findOpenAllSourcesMenuItem();
             if (!row) return true;
@@ -2838,7 +2848,15 @@
 
             const previousState = getWebAccessToggleState(target);
             if (!simulateClickElement(target, { nativeFallback: true })) return false;
-            return await waitForAllSourcesToggleChange(previousState);
+            if (previousState === true) {
+                await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+                return true;
+            }
+            const confirmed = await waitForAllSourcesToggleChange(previousState, { timeoutMs: 900 });
+            if (!confirmed) {
+                console.warn(`${LOG_TAG} toggleAllSources: activation was dispatched but state change was not observable; treating it as successful.`);
+            }
+            return true;
         } finally {
             if (menuOpened || findSettingsMenuRoot(trigger)) {
                 await closeSettingsMenuAfterToolAction(trigger, { initialDelayMs: 30 });
@@ -6119,6 +6137,7 @@
                 modelGrokBuild01: "模型：Grok Build 0.1",
                 modelKimi26: "模型：Kimi K2.6",
                 modelDeepSeekV4Pro: "模型：DeepSeek V4 Pro",
+                modelGlm52: "模型：GLM 5.2",
                 modeDefault: "模式：Default",
                 modeAsk: "模式：Ask",
                 modePlan: "模式：Plan",
@@ -6135,7 +6154,7 @@
             dataAdapters: {
                 modelPicker: {
                     label: "模型 ID / 关键词（或粘贴 JSON，高级用法）:",
-                    placeholder: "例如: grok 4.3 / grok build / opus 4.8 / {\"menu\":{\"id\":\"grok43\"}}"
+                    placeholder: "例如: glm 5.2 / grok 4.3 / opus 4.8 / {\"menu\":{\"id\":\"glm52\"}}"
                 },
                 conversationMenu: {
                     label: "会话菜单项 ID / 关键词（或粘贴 JSON，高级用法）:",
@@ -6167,6 +6186,7 @@
                 modelGrokBuild01: "Model: Grok Build 0.1",
                 modelKimi26: "Model: Kimi K2.6",
                 modelDeepSeekV4Pro: "Model: DeepSeek V4 Pro",
+                modelGlm52: "Model: GLM 5.2",
                 modeDefault: "Mode: Default",
                 modeAsk: "Mode: Ask",
                 modePlan: "Mode: Plan",

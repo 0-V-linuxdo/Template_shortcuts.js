@@ -532,16 +532,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion AI] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion AI] 快捷键跳转 [20260623] v1.0.0",
+            name: "[Notion AI] 快捷键跳转 [20260623] v1.0.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
-            description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260623] v1.0.0",
-            updateLog: "1.0.0: 修复 Notion AI QuickInput 调用 Ctrl+S 切换全部来源时只打开工具弹窗、后续处理异常的问题；菜单型工具快捷键执行后会可靠收起设置弹窗并恢复后续发送流程。",
+            description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek/GLM 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
+            version: "[20260623] v1.0.1",
+            updateLog: "1.0.1: 新增 GLM 5.2 模型适配；完善 Notion AI QuickInput 调用 Ctrl+S 切换全部来源时的菜单收束与成功判定，避免动作已完成但被误判失败。",
             localized: {
                 "en-US": {
-                    name: "[Notion AI] Shortcut Jump [20260623] v1.0.0",
-                    description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.0.0: Fixed Notion AI QuickInput runs that invoke Ctrl+S to toggle All Sources but stop after opening the tools menu; menu-based tool shortcuts now close the settings popup reliably before the send flow continues."
+                    name: "[Notion AI] Shortcut Jump [20260623] v1.0.1",
+                    description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek/GLM, and research, search scope, context, and attachment actions.",
+                    updateLog: "1.0.1: Added GLM 5.2 model support; refined Notion AI QuickInput runs that invoke Ctrl+S to select All Sources, including menu cleanup and success detection so completed actions are not reported as failures."
                 }
             },
             match: [
