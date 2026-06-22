@@ -2062,15 +2062,12 @@
         return false;
     }
 
-    async function waitForModeSelectionTarget(target, trigger = null, {
-        timeoutMs = SETTINGS_MENU_TIMING.waitTimeoutMs,
-        intervalMs = SETTINGS_MENU_TIMING.pollIntervalMs
-    } = {}) {
-        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+    async function waitForModeSelectionTarget(target, trigger = null) {
+        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
         while (Date.now() <= deadline) {
             const currentRoot = findSettingsMenuRoot(trigger);
             if (settingsMenuShowsModeTarget(currentRoot, target) || visiblePageShowsModeTarget(target)) return true;
-            await sleep(intervalMs);
+            await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
         }
         const finalRoot = findSettingsMenuRoot(trigger);
         return settingsMenuShowsModeTarget(finalRoot, target) || visiblePageShowsModeTarget(target);
@@ -2896,19 +2893,17 @@
         const target = resolveModeSelectionTarget(shortcut, targetId);
         const actionName = target?.id === "research" ? "toggleResearchMode" : "selectMode";
         const restoreOverlayPointerEvents = temporarilyDisableQuickInputOverlayPointerEvents();
-        let trigger = null;
-        let menuOpened = false;
         try {
             if (!target) return createNotionActionFailure(actionName, "target", "Mode target not resolved.");
 
-            trigger = findSettingsTriggerElement();
+            const trigger = findSettingsTriggerElement();
             if (!trigger) return createNotionActionFailure(actionName, "settings-trigger", "Settings button not found.", { target });
 
             const root = await ensureSettingsMenuOpen(trigger);
             if (!root) return createNotionActionFailure(actionName, "settings-menu", "Settings menu did not open.", { target });
-            menuOpened = true;
 
             if (settingsMenuShowsModeTarget(root, target) || visiblePageShowsModeTarget(target)) {
+                await closeSettingsMenu(trigger, { initialDelayMs: 30 });
                 return true;
             }
 
@@ -2917,6 +2912,7 @@
                 findOpenSettingsMenuItemByText(textLooksLikeModeMenuItem);
             const diagnostics = { target, modeRow, modeRowText: getElementSearchText(modeRow) };
             if (!modeRow) {
+                await closeSettingsMenu(trigger, { initialDelayMs: 0 });
                 return createNotionActionFailure(actionName, "mode-row", "Mode row not found in Settings menu.", diagnostics);
             }
 
@@ -2924,6 +2920,7 @@
             if (!initialRow) {
                 diagnostics.submenuRoots = countModeMenuCandidates(target, modeRow);
                 diagnostics.targetVisible = hasVisibleModeTargetText(target);
+                await closeSettingsMenu(trigger, { initialDelayMs: 0 });
                 return createNotionActionFailure(actionName, "mode-menu", `Mode submenu item not found for ${target.id}.`, diagnostics);
             }
 
@@ -2932,6 +2929,7 @@
             if (!row) {
                 diagnostics.submenuRoots = countModeMenuCandidates(target, modeRow);
                 diagnostics.targetVisible = hasVisibleModeTargetText(target);
+                await closeSettingsMenu(trigger, { initialDelayMs: 0 });
                 return createNotionActionFailure(actionName, "mode-target", `Mode submenu target disappeared for ${target.id}.`, diagnostics);
             }
 
@@ -2939,24 +2937,27 @@
             if (!activateSettingsMenuRow(row, modeMenuRoot)) {
                 diagnostics.submenuRoots = countModeMenuCandidates(target, modeRow);
                 diagnostics.targetVisible = hasVisibleModeTargetText(target);
+                await closeSettingsMenu(trigger, { initialDelayMs: 0 });
                 return createNotionActionFailure(actionName, "mode-click", `Failed to activate submenu target for ${target.id}.`, diagnostics);
             }
 
-            const selected = await waitForModeSelectionTarget(target, trigger, { timeoutMs: 900 });
+            const selected = await waitForModeSelectionTarget(target, trigger);
             syncNotionModeShortcutIconsFromOpenMenu(engine);
             if (!selected) {
+                await closeSettingsMenu(trigger, { initialDelayMs: 0 });
                 await sleep(SETTINGS_MENU_TIMING.openDelayMs);
-                const verifyRoot = findSettingsMenuRoot(trigger);
+                const verifyTrigger = findSettingsTriggerElement() || trigger;
+                const verifyRoot = verifyTrigger ? await ensureSettingsMenuOpen(verifyTrigger) : null;
                 const verified = settingsMenuShowsModeTarget(verifyRoot, target) || visiblePageShowsModeTarget(target);
+                await closeSettingsMenu(verifyTrigger || trigger, { initialDelayMs: 0 });
                 if (!verified) {
-                    console.warn(`${LOG_TAG} ${actionName}/confirm: activation was dispatched but mode state was not observable for ${target.label || target.id}; treating it as successful.`);
+                    return createNotionActionFailure(actionName, "confirm", `Mode did not settle to ${target.label || target.id}.`, diagnostics);
                 }
+                return true;
             }
+            await closeSettingsMenu(trigger, { initialDelayMs: 30 });
             return true;
         } finally {
-            if (menuOpened || (trigger && findSettingsMenuRoot(trigger))) {
-                await closeSettingsMenuAfterToolAction(trigger, { initialDelayMs: 30 });
-            }
             restoreOverlayPointerEvents();
         }
     }

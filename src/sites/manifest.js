@@ -532,16 +532,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Notion AI] 快捷键跳转",
         sourceEntry: "src/sites/notion/index.js",
         metadata: {
-            name: "[Notion AI] 快捷键跳转 [20260623] v1.1.0",
+            name: "[Notion AI] 快捷键跳转 [20260623] v1.1.1",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek/GLM 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。",
-            version: "[20260623] v1.1.0",
-            updateLog: "1.1.0: 完善 Notion AI QuickInput 调用 Ctrl+R 切换 Research 模式时的成功判定与菜单收束，避免动作已完成但流程被误暂停。",
+            version: "[20260623] v1.1.1",
+            updateLog: "1.1.1: 修复 Notion AI QuickInput 调用 Ctrl+R 成功后被脚本合成 Esc 误暂停的问题，并撤销上一版错误的 Research 模式确认逻辑调整。",
             localized: {
                 "en-US": {
-                    name: "[Notion AI] Shortcut Jump [20260623] v1.1.0",
+                    name: "[Notion AI] Shortcut Jump [20260623] v1.1.1",
                     description: "Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek/GLM, and research, search scope, context, and attachment actions.",
-                    updateLog: "1.1.0: Refined Notion AI QuickInput runs that invoke Ctrl+R to switch Research mode, including menu cleanup and success detection so completed actions no longer pause the flow."
+                    updateLog: "1.1.1: Fixed Notion AI QuickInput runs that invoke Ctrl+R successfully but pause after a script-dispatched Escape, and reverted the previous incorrect Research mode confirmation change."
                 }
             },
             match: [

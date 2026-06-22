@@ -4679,6 +4679,8 @@ export function createController(userOptions = {}) {
                 globalThis.document.addEventListener("keydown", (e) => {
                     if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
                     if (e.key === "Escape") {
+                        // Site adapters may dispatch Escape to close their own menus; only user Esc closes QuickInput.
+                        if (e.isTrusted === false) return;
                         e.preventDefault();
                         close();
                     }
