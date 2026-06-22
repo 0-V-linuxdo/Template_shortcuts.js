@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion AI] 快捷键跳转 [20260609] v1.0.0
-// @name:en        [Notion AI] Shortcut Jump [20260609] v1.0.0
+// @name           [Notion AI] 快捷键跳转 [20260623] v1.0.0
+// @name:en        [Notion AI] Shortcut Jump [20260623] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
 
-// @version        [20260609] v1.0.0
-// @update-log     1.0.0: 重写 Notion AI Quick Input 提交验证，按 Notion 在 Arc 中对代码围栏、行内代码、自动链接、链接、标题/列表/引用与强调标记的渲染结果生成整段候选，修复文本已写入却因近似长度差被误判失败。
-// @update-log:en  1.0.0: Rewrote Notion AI Quick Input commit verification to generate whole-text candidates from Arc's Notion rendering of fenced code, inline code, autolinks, links, headings/lists/quotes, and emphasis markers, fixing false failures after text is inserted.
+// @version        [20260623] v1.0.0
+// @update-log     1.0.0: 修复 Notion AI QuickInput 调用 Ctrl+S 切换全部来源时只打开工具弹窗、后续处理异常的问题；菜单型工具快捷键执行后会可靠收起设置弹窗并恢复后续发送流程。
+// @update-log:en  1.0.0: Fixed Notion AI QuickInput runs that invoke Ctrl+S to toggle All Sources but stop after opening the tools menu; menu-based tool shortcuts now close the settings popup reliably before the send flow continues.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -2420,62 +2420,74 @@
       }
       return false;
     }
+    async function closeSettingsMenuAfterToolAction(trigger, { initialDelayMs = 30 } = {}) {
+      const root = findSettingsMenuRoot(trigger);
+      if (!root) return true;
+      const closed = await closeSettingsMenu(trigger, { initialDelayMs });
+      if (closed) return true;
+      return closeSettingsMenu(findSettingsTriggerElement() || trigger, { initialDelayMs: 0 });
+    }
     async function toggleWebAccessAction({ engine: engine2 } = {}) {
-      const trigger = findSettingsTriggerElement();
-      const root = await ensureSettingsMenuOpen(trigger);
-      if (!root) return false;
-      const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
-      do {
-        const currentRoot = findSettingsMenuRoot(trigger) || root;
-        const row = findWebAccessMenuItem(currentRoot);
-        const target = findWebAccessToggleTarget(row);
-        if (target) {
-          syncNotionWebAccessShortcutIconFromElement(engine2, row);
-          const previousState = getWebAccessToggleState(target);
-          if (!simulateClickElement(target, { nativeFallback: true })) return false;
-          const closePromise = closeSettingsMenu(trigger, { initialDelayMs: 30 });
-          const changed = await waitForWebAccessToggleChange(trigger, previousState);
-          const closed = await closePromise;
-          if (!closed) await closeSettingsMenu(findSettingsTriggerElement(), { initialDelayMs: 0 });
-          return changed;
+      const restoreOverlayPointerEvents = temporarilyDisableQuickInputOverlayPointerEvents();
+      let trigger = null;
+      let menuOpened = false;
+      try {
+        trigger = findSettingsTriggerElement();
+        const root = await ensureSettingsMenuOpen(trigger);
+        if (!root) return false;
+        menuOpened = true;
+        const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+        do {
+          const currentRoot = findSettingsMenuRoot(trigger) || root;
+          const row = findWebAccessMenuItem(currentRoot);
+          const target = findWebAccessToggleTarget(row);
+          if (target) {
+            syncNotionWebAccessShortcutIconFromElement(engine2, row);
+            const previousState = getWebAccessToggleState(target);
+            if (!simulateClickElement(target, { nativeFallback: true })) return false;
+            return await waitForWebAccessToggleChange(trigger, previousState);
+          }
+          if (Date.now() >= deadline) break;
+          await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
+        } while (true);
+        return false;
+      } finally {
+        if (menuOpened || findSettingsMenuRoot(trigger)) {
+          await closeSettingsMenuAfterToolAction(trigger, { initialDelayMs: 30 });
         }
-        if (Date.now() >= deadline) break;
-        await sleep(SETTINGS_MENU_TIMING.pollIntervalMs);
-      } while (true);
-      return false;
+        restoreOverlayPointerEvents();
+      }
     }
     async function toggleAllSourcesAction({ engine: engine2 } = {}) {
-      const trigger = findSettingsTriggerElement();
-      if (!trigger) return false;
-      const root = await ensureSettingsMenuOpen(trigger);
-      if (!root) return false;
-      let row = findOpenAllSourcesMenuItem();
-      if (!row) {
-        const mySourcesRow = findSettingsMenuItemByText(root, textLooksLikeMySourcesMenuItem);
-        if (!activateSettingsMenuRow(mySourcesRow, root)) {
-          await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-          return false;
+      const restoreOverlayPointerEvents = temporarilyDisableQuickInputOverlayPointerEvents();
+      let trigger = null;
+      let menuOpened = false;
+      try {
+        trigger = findSettingsTriggerElement();
+        if (!trigger) return false;
+        const root = await ensureSettingsMenuOpen(trigger);
+        if (!root) return false;
+        menuOpened = true;
+        let row = findOpenAllSourcesMenuItem();
+        if (!row) {
+          const mySourcesRow = findSettingsMenuItemByText(root, textLooksLikeMySourcesMenuItem);
+          if (!activateSettingsMenuRow(mySourcesRow, root)) return false;
+          await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+          row = await waitForAllSourcesMenuItem();
         }
-        await sleep(SETTINGS_MENU_TIMING.openDelayMs);
-        row = await waitForAllSourcesMenuItem();
+        if (!row) return false;
+        syncNotionShortcutIconFromElement(engine2, "selectSearchScope", row);
+        const target = findWebAccessToggleTarget(row);
+        if (!target) return false;
+        const previousState = getWebAccessToggleState(target);
+        if (!simulateClickElement(target, { nativeFallback: true })) return false;
+        return await waitForAllSourcesToggleChange(previousState);
+      } finally {
+        if (menuOpened || findSettingsMenuRoot(trigger)) {
+          await closeSettingsMenuAfterToolAction(trigger, { initialDelayMs: 30 });
+        }
+        restoreOverlayPointerEvents();
       }
-      if (!row) {
-        await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-        return false;
-      }
-      syncNotionShortcutIconFromElement(engine2, "selectSearchScope", row);
-      const target = findWebAccessToggleTarget(row);
-      if (!target) {
-        await closeSettingsMenu(trigger, { initialDelayMs: 0 });
-        return false;
-      }
-      const previousState = getWebAccessToggleState(target);
-      if (!simulateClickElement(target, { nativeFallback: true })) return false;
-      const closePromise = closeSettingsMenu(trigger, { initialDelayMs: 30 });
-      const changed = await waitForAllSourcesToggleChange(previousState);
-      const closed = await closePromise;
-      if (!closed) await closeSettingsMenu(findSettingsTriggerElement(), { initialDelayMs: 0 });
-      return changed;
     }
     function resolveModeSelectionTarget(shortcut, targetId = "") {
       const explicitTarget = inferModeTargetFromText(targetId);
