@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260605] v1.1.1
-// @name:en        [Template] Shortcut Core [20260605] v1.1.1
+// @name           [Template] 快捷键跳转 [20260623] v1.1.0
+// @name:en        [Template] Shortcut Core [20260623] v1.1.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260605] v1.1.1
-// @update-log     1.1.1: QuickInput 悬浮球左侧按钮支持暂停/继续当前任务，右侧状态区域用于恢复完整弹窗。
-// @update-log:en  1.1.1: The QuickInput bubble now has a real pause/resume button on the left, while the status area restores the full popup.
+// @version        [20260623] v1.1.0
+// @update-log     1.1.0: QuickInput 仅响应用户真实 Esc 关闭弹窗，避免站点脚本合成 Esc 关闭菜单时误暂停运行流程。
+// @update-log:en  1.1.0: QuickInput now only closes on trusted user Escape events, preventing site-dispatched Escape events from pausing active runs while closing menus.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
