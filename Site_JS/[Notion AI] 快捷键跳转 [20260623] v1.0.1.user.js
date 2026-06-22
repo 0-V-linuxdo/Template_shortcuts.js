@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Notion AI] 快捷键跳转 [20260623] v1.0.0
-// @name:en        [Notion AI] Shortcut Jump [20260623] v1.0.0
+// @name           [Notion AI] 快捷键跳转 [20260623] v1.0.1
+// @name:en        [Notion AI] Shortcut Jump [20260623] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
-// @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek, and research, search scope, context, and attachment actions.
+// @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek/GLM 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
+// @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek/GLM, and research, search scope, context, and attachment actions.
 
-// @version        [20260623] v1.0.0
-// @update-log     1.0.0: 修复 Notion AI QuickInput 调用 Ctrl+S 切换全部来源时只打开工具弹窗、后续处理异常的问题；菜单型工具快捷键执行后会可靠收起设置弹窗并恢复后续发送流程。
-// @update-log:en  1.0.0: Fixed Notion AI QuickInput runs that invoke Ctrl+S to toggle All Sources but stop after opening the tools menu; menu-based tool shortcuts now close the settings popup reliably before the send flow continues.
+// @version        [20260623] v1.0.1
+// @update-log     1.0.1: 新增 GLM 5.2 模型适配；完善 Notion AI QuickInput 调用 Ctrl+S 切换全部来源时的菜单收束与成功判定，避免动作已完成但被误判失败。
+// @update-log:en  1.0.1: Added GLM 5.2 model support; refined Notion AI QuickInput runs that invoke Ctrl+S to select All Sources, including menu cleanup and success detection so completed actions are not reported as failures.
 
 // @match          https://app.notion.com/*
 // @match          https://*.notion.so/*
@@ -165,7 +165,8 @@
       grok43: NOTION_MODEL_GROK_ICON_INFO,
       grokBuild01: NOTION_MODEL_GROK_ICON_INFO,
       kimi26: NOTION_MODEL_AI_FACE_ICON_INFO,
-      deepseekV4Pro: NOTION_MODEL_AI_FACE_ICON_INFO
+      deepseekV4Pro: NOTION_MODEL_AI_FACE_ICON_INFO,
+      glm52: NOTION_MODEL_AI_FACE_ICON_INFO
     });
     function getNotionDefaultModelIconInfo(targetId) {
       const key = String(targetId || "").trim();
@@ -381,6 +382,13 @@
         hotkey: "CTRL+SHIFT+=",
         labelKey: "shortcuts.modelDeepSeekV4Pro",
         aliases: Object.freeze(["DeepSeek V4 Pro", "DeepSeek V4", "deepseek v4 pro"])
+      }),
+      glm52: Object.freeze({
+        id: "glm52",
+        label: "GLM 5.2",
+        hotkey: "CTRL+SHIFT+[",
+        labelKey: "shortcuts.modelGlm52",
+        aliases: Object.freeze(["GLM 5.2", "GLM-5.2", "GLM"])
       })
     });
     const NOTION_MODEL_TARGET_LIST = Object.freeze(Object.values(NOTION_MODEL_TARGETS));
@@ -942,6 +950,7 @@
       if (target.id === "grokBuild01") return normalized.includes("grok") && normalized.includes("build") && normalized.includes("0.1");
       if (target.id === "deepseekV4Pro") return normalized.includes("deepseek") && normalized.includes("v4") && normalized.includes("pro");
       if (target.id === "kimi26") return normalized.includes("kimi") && normalized.includes("k2.6");
+      if (target.id === "glm52") return normalized.includes("glm") && normalized.includes("5.2");
       return false;
     }
     function inferModelTargetFromText(value) {
@@ -971,6 +980,7 @@
       if (text.includes("grok") && text.includes("4.3")) return NOTION_MODEL_TARGETS.grok43;
       if (text.includes("kimi") && text.includes("k2.6")) return NOTION_MODEL_TARGETS.kimi26;
       if (text.includes("deepseek") && text.includes("v4") && text.includes("pro")) return NOTION_MODEL_TARGETS.deepseekV4Pro;
+      if (text.includes("glm") && text.includes("5.2")) return NOTION_MODEL_TARGETS.glm52;
       return null;
     }
     function getModeTargetComparableLabels(target) {
@@ -2253,12 +2263,12 @@
       }
       return false;
     }
-    async function waitForAllSourcesToggleChange(previousState) {
+    async function waitForAllSourcesToggleChange(previousState, { timeoutMs = SETTINGS_MENU_TIMING.waitTimeoutMs } = {}) {
       if (previousState === null) {
         await sleep(SETTINGS_MENU_TIMING.openDelayMs);
         return true;
       }
-      const deadline = Date.now() + SETTINGS_MENU_TIMING.waitTimeoutMs;
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
       while (Date.now() <= deadline) {
         const row = findOpenAllSourcesMenuItem();
         if (!row) return true;
@@ -2481,7 +2491,15 @@
         if (!target) return false;
         const previousState = getWebAccessToggleState(target);
         if (!simulateClickElement(target, { nativeFallback: true })) return false;
-        return await waitForAllSourcesToggleChange(previousState);
+        if (previousState === true) {
+          await sleep(SETTINGS_MENU_TIMING.openDelayMs);
+          return true;
+        }
+        const confirmed = await waitForAllSourcesToggleChange(previousState, { timeoutMs: 900 });
+        if (!confirmed) {
+          console.warn(`${LOG_TAG} toggleAllSources: activation was dispatched but state change was not observable; treating it as successful.`);
+        }
+        return true;
       } finally {
         if (menuOpened || findSettingsMenuRoot(trigger)) {
           await closeSettingsMenuAfterToolAction(trigger, { initialDelayMs: 30 });
@@ -5553,6 +5571,7 @@
           modelGrokBuild01: "模型：Grok Build 0.1",
           modelKimi26: "模型：Kimi K2.6",
           modelDeepSeekV4Pro: "模型：DeepSeek V4 Pro",
+          modelGlm52: "模型：GLM 5.2",
           modeDefault: "模式：Default",
           modeAsk: "模式：Ask",
           modePlan: "模式：Plan",
@@ -5569,7 +5588,7 @@
         dataAdapters: {
           modelPicker: {
             label: "模型 ID / 关键词（或粘贴 JSON，高级用法）:",
-            placeholder: '例如: grok 4.3 / grok build / opus 4.8 / {"menu":{"id":"grok43"}}'
+            placeholder: '例如: glm 5.2 / grok 4.3 / opus 4.8 / {"menu":{"id":"glm52"}}'
           },
           conversationMenu: {
             label: "会话菜单项 ID / 关键词（或粘贴 JSON，高级用法）:",
@@ -5601,6 +5620,7 @@
           modelGrokBuild01: "Model: Grok Build 0.1",
           modelKimi26: "Model: Kimi K2.6",
           modelDeepSeekV4Pro: "Model: DeepSeek V4 Pro",
+          modelGlm52: "Model: GLM 5.2",
           modeDefault: "Mode: Default",
           modeAsk: "Mode: Ask",
           modePlan: "Mode: Plan",
