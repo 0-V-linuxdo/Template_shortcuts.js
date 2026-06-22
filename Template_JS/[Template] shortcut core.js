@@ -16398,6 +16398,7 @@ ${displayTargetText}`;
       globalThis.document.addEventListener("keydown", (e) => {
         if (!overlayEl || overlayEl.getAttribute("data-open") !== "1") return;
         if (e.key === "Escape") {
+          if (e.isTrusted === false) return;
           e.preventDefault();
           close();
         }
