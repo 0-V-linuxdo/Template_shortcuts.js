@@ -402,20 +402,20 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260518] v1.2.1",
+            name: "[Grok] 快捷键跳转 [20260625] v1.0.0",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260518] v1.2.1",
-            updateLog: "1.2.1: 修正删除确认弹窗焦点，默认聚焦确认删除按钮；删除流程继续采用当前会话接口优先、菜单点击兜底。",
+            version: "[20260625] v1.0.0",
+            updateLog: "1.0.0: 将 dairoot 镜像站 URL 迁移至 gk.dairoot.cn。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260518] v1.2.1",
+                    name: "[Grok] Shortcut Jump [20260625] v1.0.0",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.2.1: Fixed delete confirmation focus so the Delete Chat button is focused by default; the delete flow remains API-first with menu clicking as fallback."
+                    updateLog: "1.0.0: Migrated the dairoot mirror URL to gk.dairoot.cn."
                 }
             },
             match: [
-                "https://grok.dairoot.cn/*",
+                "https://gk.dairoot.cn/*",
                 "https://grok.com/*"
             ],
             grant: [

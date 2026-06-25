@@ -62,7 +62,7 @@
         return source ? `data:image/svg+xml,${encodeURIComponent(source)}` : "";
     }
 
-    const GROK_ADMIN_URL = "https://grok.dairoot.cn/admin";
+    const GROK_ADMIN_URL = "https://gk.dairoot.cn/admin";
     const GROK_LEGACY_SWITCH_USER_NAME_ZH = "用户切换";
     const GROK_LEGACY_SWITCH_USER_NAME_EN = ["Switch", "user"].join(" ");
     const GROK_LEGACY_SWITCH_USER_SELECTOR = ["#", "floatingBall"].join("");
