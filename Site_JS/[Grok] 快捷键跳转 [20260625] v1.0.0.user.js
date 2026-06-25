@@ -1,15 +1,15 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260518] v1.2.1
-// @name:en        [Grok] Shortcut Jump [20260518] v1.2.1
+// @name           [Grok] 快捷键跳转 [20260625] v1.0.0
+// @name:en        [Grok] Shortcut Jump [20260625] v1.0.0
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260518] v1.2.1
-// @update-log     1.2.1: 修正删除确认弹窗焦点，默认聚焦确认删除按钮；删除流程继续采用当前会话接口优先、菜单点击兜底。
-// @update-log:en  1.2.1: Fixed delete confirmation focus so the Delete Chat button is focused by default; the delete flow remains API-first with menu clicking as fallback.
+// @version        [20260625] v1.0.0
+// @update-log     1.0.0: 将 dairoot 镜像站 URL 迁移至 gk.dairoot.cn。
+// @update-log:en  1.0.0: Migrated the dairoot mirror URL to gk.dairoot.cn.
 
-// @match          https://grok.dairoot.cn/*
+// @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
 
 // @grant          GM_registerMenuCommand
@@ -95,7 +95,7 @@
       const source = String(svgText || "").trim().replace(/\s+/g, " ");
       return source ? `data:image/svg+xml,${encodeURIComponent(source)}` : "";
     }
-    const GROK_ADMIN_URL = "https://grok.dairoot.cn/admin";
+    const GROK_ADMIN_URL = "https://gk.dairoot.cn/admin";
     const GROK_LEGACY_SWITCH_USER_NAME_ZH = "用户切换";
     const GROK_LEGACY_SWITCH_USER_NAME_EN = ["Switch", "user"].join(" ");
     const GROK_LEGACY_SWITCH_USER_SELECTOR = ["#", "floatingBall"].join("");
