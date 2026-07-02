@@ -272,16 +272,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[DeepSeek] 快捷键跳转",
         sourceEntry: "src/sites/deepseek/index.js",
         metadata: {
-            name: "[DeepSeek] 快捷键跳转 [20260520] v1.1.1",
+            name: "[DeepSeek] 快捷键跳转 [20260702] v1.2.0",
             namespace: "0_V userscripts/[DeepSeek] shortcut",
-            description: "为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025",
-            version: "[20260520] v1.1.1",
-            updateLog: "1.1.1: 修复 DeepSeek 默认快捷键 SVG 图标在深色面板中仍显示黑色的问题，为 New Chat/Search/DeepThink/Sidebar 默认图标启用普通/黑暗模式自适应迁移。",
+            description: "为 DeepSeek Chat 添加自定义快捷键(跳转/点击/模拟按键、删除当前聊天、可视化设置面板、按类型筛选、深色模式、自适应布局、图标缓存、快捷键捕获等功能)，基于模版重构。#refactor2025",
+            version: "[20260702] v1.2.0",
+            updateLog: "1.2.0: 新增删除当前聊天动作，默认快捷键 Ctrl+Backspace，并对既有配置进行一次性追加迁移。",
             localized: {
                 "en-US": {
-                    name: "[DeepSeek] Shortcut Jump [20260520] v1.1.1",
-                    description: "Adds custom shortcuts for DeepSeek Chat with URL jumps, clicks, simulated keys, a visual settings panel, filters, dark mode, responsive layout, icon cache, and shortcut capture.",
-                    updateLog: "1.1.1: Fixed DeepSeek default shortcut SVG icons staying black in the dark settings panel by enabling light/dark adaptive migration for New Chat/Search/DeepThink/Sidebar default icons."
+                    name: "[DeepSeek] Shortcut Jump [20260702] v1.2.0",
+                    description: "Adds custom shortcuts for DeepSeek Chat with URL jumps, clicks, simulated keys, current-chat deletion, a visual settings panel, filters, dark mode, responsive layout, icon cache, and shortcut capture.",
+                    updateLog: "1.2.0: Added a delete-current-chat action with Ctrl+Backspace by default and a one-time migration for existing shortcut configs."
                 }
             },
             match: [

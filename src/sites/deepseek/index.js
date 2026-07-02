@@ -83,6 +83,7 @@
     const ICON_CACHE_PREFIX = "deepseek_icon_cache_v1::";
     const USER_ICONS_STORAGE_KEY = "deepseek_user_icons_v1";
     const DEFAULTS_MIGRATION_KEY = "deepseek_defaults_migrated_20260520_cmdj_adaptive_icons_v1";
+    const DELETE_CURRENT_CHAT_SHORTCUT_MIGRATION_KEY = "deepseek_delete_current_chat_shortcut_added_20260702_v1";
     const DEFAULT_EXPERT_MODE_STORAGE_KEY = "deepseek_default_expert_mode_v1";
     const DEFAULT_EXPERT_MODE_ENABLED = true;
     const DEFAULT_EXPERT_MODE_REQUEST_COOLDOWN_MS = 1200;
@@ -306,6 +307,913 @@
         return buttons[indexFromLeft] || buttons[0] || buttons[buttons.length - 1] || null;
     }
 
+    function sleepDeepSeek(ms) {
+        return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+    }
+
+    function queryDeepSeekAll(selector, root = document) {
+        const raw = Array.isArray(selector) ? selector.join(", ") : String(selector || "").trim();
+        if (!raw || !root || typeof root.querySelectorAll !== "function") return [];
+        try {
+            return Array.from(root.querySelectorAll(raw));
+        } catch {
+            return [];
+        }
+    }
+
+    function getDeepSeekEventView(element = null) {
+        try {
+            return element?.ownerDocument?.defaultView || window;
+        } catch {
+            return window;
+        }
+    }
+
+    function getDeepSeekEventConstructor(name, element = null) {
+        try {
+            const view = getDeepSeekEventView(element);
+            return view?.[name] || window?.[name] || null;
+        } catch {
+            return null;
+        }
+    }
+
+    function getDeepSeekRect(element) {
+        try {
+            const rect = element?.getBoundingClientRect?.();
+            if (!rect) return null;
+            return {
+                top: Number(rect.top || 0),
+                right: Number(rect.right || 0),
+                bottom: Number(rect.bottom || 0),
+                left: Number(rect.left || 0),
+                width: Math.max(0, Number(rect.width || 0)),
+                height: Math.max(0, Number(rect.height || 0))
+            };
+        } catch {
+            return null;
+        }
+    }
+
+    function getDeepSeekElementArea(element) {
+        const rect = getDeepSeekRect(element);
+        return rect ? rect.width * rect.height : Number.MAX_SAFE_INTEGER;
+    }
+
+    function getDeepSeekCenterPoint(element) {
+        const rect = getDeepSeekRect(element);
+        if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+        const viewportWidth = Math.max(1, Number(window.innerWidth) || Number(document.documentElement?.clientWidth) || 1);
+        const viewportHeight = Math.max(1, Number(window.innerHeight) || Number(document.documentElement?.clientHeight) || 1);
+        return {
+            x: Math.min(Math.max(rect.left + rect.width / 2, 1), viewportWidth - 1),
+            y: Math.min(Math.max(rect.top + rect.height / 2, 1), viewportHeight - 1)
+        };
+    }
+
+    function getDeepSeekElementFromPoint(point, element = null) {
+        if (!point) return null;
+        try {
+            const doc = element?.ownerDocument || document;
+            return doc.elementFromPoint?.(point.x, point.y) || null;
+        } catch {
+            return null;
+        }
+    }
+
+    function hasDeepSeekLayoutBox(element) {
+        const rect = getDeepSeekRect(element);
+        if (!rect || rect.width < 2 || rect.height < 2) return false;
+        try {
+            const style = getComputedStyle(element);
+            return style.display !== "none" && style.visibility !== "hidden";
+        } catch {
+            return true;
+        }
+    }
+
+    function isDeepSeekDisabledElement(element) {
+        if (!element) return true;
+        if (element.disabled === true) return true;
+        const ariaDisabled = String(element.getAttribute?.("aria-disabled") || "").trim().toLowerCase();
+        if (ariaDisabled === "true") return true;
+        const dataDisabled = String(element.getAttribute?.("data-disabled") || "").trim().toLowerCase();
+        return dataDisabled === "true" || dataDisabled === "1";
+    }
+
+    function getDeepSeekClassText(element) {
+        const value = element?.getAttribute?.("class") || element?.className || "";
+        if (typeof value === "string") return value;
+        return value?.baseVal || "";
+    }
+
+    function getDeepSeekAttrReferenceText(element, attr) {
+        try {
+            return String(element?.getAttribute?.(attr) || "")
+                .split(/\s+/)
+                .map((id) => id && document.getElementById(id))
+                .filter(Boolean)
+                .map((node) => node.innerText || node.textContent || "")
+                .join(" ");
+        } catch {
+            return "";
+        }
+    }
+
+    function getDeepSeekDeleteText(element) {
+        if (!element) return "";
+        return [
+            element.getAttribute?.("aria-label"),
+            getDeepSeekAttrReferenceText(element, "aria-labelledby"),
+            getDeepSeekAttrReferenceText(element, "aria-describedby"),
+            element.getAttribute?.("aria-description"),
+            element.getAttribute?.("title"),
+            element.getAttribute?.("data-testid"),
+            element.getAttribute?.("data-test-id"),
+            element.getAttribute?.("data-tooltip"),
+            element.id ? Array.from(document.querySelectorAll("label"))
+                .filter(label => label.getAttribute?.("for") === element.id)
+                .map(label => label.textContent || "")
+                .join(" ") : "",
+            element.closest?.("label")?.textContent,
+            element.innerText || element.textContent || ""
+        ].filter(Boolean).join(" ");
+    }
+
+    function getDeepSeekDeleteTextToken(value) {
+        return normalizeDeepSeekToken(value).replace(/\s+/g, " ").trim();
+    }
+
+    function getDeepSeekDeleteCompactToken(value) {
+        return String(value ?? "").toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "");
+    }
+
+    function isRepeatedDeepSeekCompactToken(value, token) {
+        if (!value || !token || value.length % token.length !== 0) return false;
+        for (let index = 0; index < value.length; index += token.length) {
+            if (value.slice(index, index + token.length) !== token) return false;
+        }
+        return true;
+    }
+
+    function deepSeekDeleteLabelMatches(value, labels, { exact = false } = {}) {
+        const textValue = getDeepSeekDeleteTextToken(value);
+        const compactValue = getDeepSeekDeleteCompactToken(value);
+        if (!textValue && !compactValue) return false;
+        return (labels || []).some((label) => {
+            const textLabel = getDeepSeekDeleteTextToken(label);
+            const compactLabel = getDeepSeekDeleteCompactToken(label);
+            if (!textLabel && !compactLabel) return false;
+            if (exact) {
+                return textValue === textLabel
+                    || compactValue === compactLabel
+                    || isRepeatedDeepSeekCompactToken(compactValue, compactLabel);
+            }
+            return (textLabel && textValue.includes(textLabel)) || (compactLabel && compactValue.includes(compactLabel));
+        });
+    }
+
+    function getDeepSeekSvgSignature(element) {
+        return normalizeDeepSeekToken([
+            element,
+            ...queryDeepSeekAll("svg,path,rect,line,polyline,polygon,use,img,[data-icon],[class]", element).slice(0, 80)
+        ].map((node) => [
+            getDeepSeekClassText(node),
+            node?.getAttribute?.("data-icon"),
+            node?.getAttribute?.("aria-label"),
+            node?.getAttribute?.("title"),
+            node?.getAttribute?.("alt"),
+            node?.getAttribute?.("src"),
+            node?.getAttribute?.("href"),
+            node?.getAttribute?.("xlink:href"),
+            node?.getAttribute?.("viewBox"),
+            node?.getAttribute?.("d"),
+            node?.getAttribute?.("width"),
+            node?.getAttribute?.("height")
+        ].filter(Boolean).join(" ")).join(" "));
+    }
+
+    const DEEPSEEK_DELETE_CLICKABLE_SELECTOR = "button,[role='button'],[role='menuitem'],[role='option'],a[href],[aria-haspopup],[tabindex]:not([tabindex='-1']),[class*='button' i],[class*='btn' i]";
+
+    function getDeepSeekDeleteClickableTarget(element) {
+        if (!element || typeof element.closest !== "function") return element || null;
+        try {
+            return element.closest(DEEPSEEK_DELETE_CLICKABLE_SELECTOR) || element;
+        } catch {
+            return getClickableTarget(element);
+        }
+    }
+
+    function createDeepSeekFakeReactEvent(target, type = "click") {
+        let defaultPrevented = false;
+        let propagationStopped = false;
+        return {
+            type,
+            target,
+            currentTarget: target,
+            bubbles: true,
+            cancelable: true,
+            button: 0,
+            buttons: type.includes("down") ? 1 : 0,
+            nativeEvent: { type, target, currentTarget: target, button: 0 },
+            preventDefault() {
+                defaultPrevented = true;
+                this.defaultPrevented = true;
+            },
+            stopPropagation() {
+                propagationStopped = true;
+            },
+            isDefaultPrevented() {
+                return defaultPrevented;
+            },
+            isPropagationStopped() {
+                return propagationStopped;
+            },
+            persist() { },
+            defaultPrevented
+        };
+    }
+
+    function getDeepSeekReactPropBags(element) {
+        const bags = [];
+        const seen = new Set();
+        const addBag = (bag) => {
+            if (!bag || typeof bag !== "object" || seen.has(bag)) return;
+            seen.add(bag);
+            bags.push(bag);
+        };
+        for (let current = element, depth = 0; current && current !== document && depth < 8; current = current.parentElement, depth += 1) {
+            addBag(current);
+            let names = [];
+            try { names = Object.getOwnPropertyNames(current); } catch { names = []; }
+            for (const name of names) {
+                if (!/react|props|fiber/i.test(name)) continue;
+                let value = null;
+                try { value = current[name]; } catch { value = null; }
+                addBag(value);
+                addBag(value?.memoizedProps);
+                addBag(value?.pendingProps);
+                for (let fiber = value?.return, fiberDepth = 0; fiber && fiberDepth < 6; fiber = fiber.return, fiberDepth += 1) {
+                    addBag(fiber.memoizedProps);
+                    addBag(fiber.pendingProps);
+                }
+            }
+        }
+        return bags;
+    }
+
+    function invokeDeepSeekReactHandlers(element, handlerNames = ["onClick", "onPointerUp", "onMouseUp", "onPointerDown", "onMouseDown"]) {
+        const target = getDeepSeekDeleteClickableTarget(element);
+        if (!target || isDeepSeekDisabledElement(target)) return false;
+        try { target.focus?.({ preventScroll: true }); } catch {
+            try { target.focus?.(); } catch { }
+        }
+        for (const bag of getDeepSeekReactPropBags(target)) {
+            for (const handlerName of handlerNames) {
+                const handler = bag?.[handlerName];
+                if (typeof handler !== "function") continue;
+                try {
+                    const eventType = handlerName.replace(/^on/, "").toLowerCase() || "click";
+                    handler.call(target, createDeepSeekFakeReactEvent(target, eventType));
+                    return true;
+                } catch { }
+            }
+        }
+        return false;
+    }
+
+    function dispatchDeepSeekPointerActivation(target, point = null) {
+        if (!target) return false;
+        const PointerEventCtor = getDeepSeekEventConstructor("PointerEvent", target);
+        const MouseEventCtor = getDeepSeekEventConstructor("MouseEvent", target);
+        if (typeof PointerEventCtor !== "function" && typeof MouseEventCtor !== "function") return false;
+        const center = point || getDeepSeekCenterPoint(target) || { x: 1, y: 1 };
+        const clientX = Number(center.x) || 1;
+        const clientY = Number(center.y) || 1;
+        const view = getDeepSeekEventView(target);
+        const common = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            view: view || window,
+            clientX,
+            clientY,
+            screenX: clientX,
+            screenY: clientY,
+            button: 0
+        };
+        const pointerCommon = { ...common, pointerId: 1, pointerType: "mouse", isPrimary: true };
+        const plans = [
+            typeof PointerEventCtor === "function" && { ctor: PointerEventCtor, type: "pointerover", opts: { ...pointerCommon, buttons: 0 } },
+            typeof MouseEventCtor === "function" && { ctor: MouseEventCtor, type: "mouseover", opts: { ...common, buttons: 0, detail: 0 } },
+            typeof PointerEventCtor === "function" && { ctor: PointerEventCtor, type: "pointerenter", opts: { ...pointerCommon, bubbles: false, buttons: 0 } },
+            typeof MouseEventCtor === "function" && { ctor: MouseEventCtor, type: "mouseenter", opts: { ...common, bubbles: false, buttons: 0, detail: 0 } },
+            typeof PointerEventCtor === "function" && { ctor: PointerEventCtor, type: "pointermove", opts: { ...pointerCommon, buttons: 0 } },
+            typeof MouseEventCtor === "function" && { ctor: MouseEventCtor, type: "mousemove", opts: { ...common, buttons: 0, detail: 0 } },
+            typeof PointerEventCtor === "function" && { ctor: PointerEventCtor, type: "pointerdown", opts: { ...pointerCommon, buttons: 1 } },
+            typeof MouseEventCtor === "function" && { ctor: MouseEventCtor, type: "mousedown", opts: { ...common, buttons: 1, detail: 1 } },
+            typeof PointerEventCtor === "function" && { ctor: PointerEventCtor, type: "pointerup", opts: { ...pointerCommon, buttons: 0 } },
+            typeof MouseEventCtor === "function" && { ctor: MouseEventCtor, type: "mouseup", opts: { ...common, buttons: 0, detail: 1 } },
+            typeof MouseEventCtor === "function" && { ctor: MouseEventCtor, type: "click", opts: { ...common, buttons: 0, detail: 1 } }
+        ].filter(Boolean);
+        let dispatched = false;
+        for (const plan of plans) {
+            try {
+                target.dispatchEvent(new plan.ctor(plan.type, plan.opts));
+                dispatched = true;
+            } catch { }
+        }
+        return dispatched;
+    }
+
+    function nativeDeepSeekClick(target) {
+        if (!target || typeof target.click !== "function") return false;
+        try {
+            target.click();
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function activateDeepSeekElement(element, handlerNames, { allowHidden = false } = {}) {
+        const target = getDeepSeekDeleteClickableTarget(element);
+        if (!target || isDeepSeekDisabledElement(target)) return false;
+        if (allowHidden ? !hasDeepSeekLayoutBox(target) : !isVisibleElement(target)) return false;
+        try { target.scrollIntoView?.({ block: "center", inline: "nearest" }); } catch { }
+        try { target.focus?.({ preventScroll: true }); } catch {
+            try { target.focus?.(); } catch { }
+        }
+        const point = getDeepSeekCenterPoint(target);
+        return invokeDeepSeekReactHandlers(target, handlerNames)
+            || dispatchDeepSeekPointerActivation(target, point)
+            || nativeDeepSeekClick(target)
+            || clickDeepSeekElement(target);
+    }
+
+    async function waitForDeepSeek(getter, timeoutMs = 2500, intervalMs = 120) {
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() <= deadline) {
+            const value = getter();
+            if (value) return value;
+            await sleepDeepSeek(Math.max(30, Number(intervalMs) || 30));
+        }
+        return getter();
+    }
+
+    function visibleDeepSeekSelectorElements(selector, root = document) {
+        return queryDeepSeekAll(selector, root).filter(isVisibleElement);
+    }
+
+    function firstVisibleDeepSeekBySelectors(selectors, root = document) {
+        for (const selector of selectors || []) {
+            const found = visibleDeepSeekSelectorElements(selector, root)[0] || null;
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function getDeepSeekChatIdFromHref(value) {
+        const match = String(value || "").match(/\/(?:a\/)?chat\/s\/([^/?#]+)/i);
+        return match?.[1] || "";
+    }
+
+    function getDeepSeekTitleToken(value) {
+        const raw = String(value || "")
+            .replace(/\s*[-|–]\s*DeepSeek.*$/i, "")
+            .replace(/\s*-\s*深度求索.*$/i, "");
+        const token = getDeepSeekDeleteCompactToken(raw);
+        return /^(deepseek|deepseekintotheunknown|intotheunknown|newchat|新聊天)$/.test(token) ? "" : token;
+    }
+
+    function deepSeekChatLinks(root = document) {
+        return queryDeepSeekAll("a[href*='/chat/s/'],a[href*='/a/chat/s/']", root)
+            .filter((link) => isVisibleElement(link) && getDeepSeekRect(link));
+    }
+
+    function getDeepSeekDeleteHints(data = {}) {
+        const hrefs = [
+            location.href,
+            data.currentThreadHref,
+            data.currentHref,
+            data.cachedHref,
+            data.href,
+            data.url
+        ].filter(Boolean);
+        const ids = new Set(hrefs.map(getDeepSeekChatIdFromHref).filter(Boolean));
+        const titleTokens = new Set([
+            document.title,
+            data.currentTitle,
+            data.title
+        ].map(getDeepSeekTitleToken).filter(Boolean));
+        return {
+            ids: Array.from(ids),
+            titleTokens: Array.from(titleTokens),
+            hasTarget: ids.size > 0 || titleTokens.size > 0
+        };
+    }
+
+    function deepSeekSidebarRootFromLinks() {
+        const links = deepSeekChatLinks(document)
+            .filter((link) => {
+                const rect = getDeepSeekRect(link);
+                return rect && rect.left <= 470 && rect.width >= 100 && rect.height >= 20 && rect.height <= 96;
+            });
+        if (!links.length) return null;
+        const currentId = getDeepSeekChatIdFromHref(location.href);
+        const current = currentId ? links.find((link) => getDeepSeekChatIdFromHref(link.href || link.getAttribute?.("href")).includes(currentId)) : null;
+        const seeds = current ? [current] : links.slice(0, 4);
+        const candidates = [];
+        const seen = new Set();
+        const scoreRoot = (root) => {
+            if (!root || !root.isConnected) return null;
+            const rect = getDeepSeekRect(root);
+            if (!rect || rect.left > 470 || rect.width < 120 || rect.width > 360 || rect.height < 40) return null;
+            const rootLinks = deepSeekChatLinks(root).length;
+            if (rootLinks < (current ? 1 : 2)) return null;
+            const value = getDeepSeekDeleteText(root);
+            const className = getDeepSeekClassText(root);
+            const hasHistoryText = /today|yesterday|pinned|new chat|今天|昨天|新聊天|置顶/i.test(value);
+            const looksScrollable = /scroll|history|sidebar|sider/i.test(className);
+            if (!hasHistoryText && !looksScrollable && rootLinks < 3) return null;
+            return (looksScrollable ? 900 : 0) + Math.min(rootLinks, 12) * 80 + Math.min(rect.height, 900) * 0.02 - rect.left;
+        };
+        for (const seed of seeds) {
+            for (let node = seed; node && node !== document.body; node = node.parentElement) {
+                if (seen.has(node)) continue;
+                seen.add(node);
+                const score = scoreRoot(node);
+                if (score == null) continue;
+                candidates.push({ element: node, score, area: getDeepSeekElementArea(node) });
+            }
+        }
+        candidates.sort((a, b) => b.score - a.score || a.area - b.area);
+        return candidates[0]?.element || null;
+    }
+
+    function deepSeekSidebarRoot() {
+        const linkRoot = deepSeekSidebarRootFromLinks();
+        if (linkRoot) return linkRoot;
+        const roots = visibleDeepSeekSelectorElements([
+            "aside",
+            "nav",
+            "[class*='sidebar' i]",
+            "[class*='sider' i]",
+            "[class*='history' i]"
+        ]).filter((root) => {
+            const rect = getDeepSeekRect(root);
+            if (!rect || rect.width < 120 || rect.left > 460) return false;
+            const value = getDeepSeekDeleteText(root);
+            return /today|yesterday|new chat|新聊天|昨天|今天|rename|pin|share|delete|删除/i.test(value);
+        });
+        roots.sort((a, b) => (getDeepSeekRect(b)?.width || 0) - (getDeepSeekRect(a)?.width || 0));
+        return roots[0] || null;
+    }
+
+    function findDeepSeekSidebarToggle() {
+        const direct = firstVisibleDeepSeekBySelectors([
+            "button[aria-label*='sidebar' i]",
+            "[role='button'][aria-label*='sidebar' i]",
+            "button[title*='sidebar' i]",
+            "[role='button'][title*='sidebar' i]",
+            "button:has(svg path[d*='M9.67269'])",
+            "[role='button']:has(svg path[d*='M9.67269'])"
+        ]);
+        if (direct) return direct;
+        const candidates = visibleDeepSeekSelectorElements("button,[role='button']")
+            .map((element) => ({ element, rect: getDeepSeekRect(element), text: getDeepSeekDeleteText(element), svg: getDeepSeekSvgSignature(element) }))
+            .filter((item) => item.rect && item.rect.top <= 90 && item.rect.left <= 130 && item.rect.width >= 20 && item.rect.width <= 64 && item.rect.height >= 20 && item.rect.height <= 64)
+            .filter((item) => /sidebar|menu|panel|sider|侧边栏|菜单/i.test(item.text) || /sidebar|panel|menu|m9\.67269/i.test(item.svg));
+        candidates.sort((a, b) => a.rect.left - b.rect.left || a.rect.top - b.rect.top);
+        return candidates[0]?.element || findTopHeaderIconButton(0) || findTopHeaderIconButton(1) || null;
+    }
+
+    async function clickDeepSeekSidebarToggleByPoint() {
+        const points = [
+            { x: 22, y: 28 },
+            { x: 22, y: 44 },
+            { x: 22, y: 60 },
+            { x: 46, y: 28 },
+            { x: 46, y: 44 },
+            { x: 46, y: 60 }
+        ];
+        for (const point of points) {
+            const target = getDeepSeekElementFromPoint(point);
+            const button = getDeepSeekDeleteClickableTarget(target);
+            const rect = getDeepSeekRect(button);
+            if (!button || !rect || !hasDeepSeekLayoutBox(button) || isDeepSeekDisabledElement(button)) continue;
+            if (rect.top > 96 || rect.left > 110 || rect.width > 80 || rect.height > 80) continue;
+            if (!dispatchDeepSeekPointerActivation(button, point) && !nativeDeepSeekClick(button) && !activateDeepSeekElement(button, undefined, { allowHidden: true })) continue;
+            if (await waitForDeepSeek(deepSeekSidebarRoot, 1400, 100)) return true;
+        }
+        return false;
+    }
+
+    async function ensureDeepSeekSidebarOpen() {
+        if (deepSeekSidebarRoot()) return true;
+        const toggle = findDeepSeekSidebarToggle();
+        if (toggle && activateDeepSeekElement(toggle) && await waitForDeepSeek(deepSeekSidebarRoot, 3200, 120)) return true;
+        return clickDeepSeekSidebarToggleByPoint();
+    }
+
+    function deepSeekTopicRows(root, hints = getDeepSeekDeleteHints()) {
+        const candidates = [];
+        const seen = new Set();
+        for (const element of queryDeepSeekAll("a,button,[role='button'],li,div", root || document)) {
+            if (!element || seen.has(element) || !isVisibleElement(element)) continue;
+            const rect = getDeepSeekRect(element);
+            if (!rect || rect.left > 470 || rect.width < 120 || rect.height < 26 || rect.height > 96) continue;
+            const value = getDeepSeekDeleteText(element);
+            const compact = getDeepSeekDeleteCompactToken(value);
+            if (!compact || compact.length < 2 || compact.length > 120) continue;
+            if (/^(today|yesterday|newchat|threads|history|今天|昨天|新聊天|历史)$/.test(compact)) continue;
+            if (/rename|pin|share|delete|cancel|搜索|设置|删除|重命名|分享|置顶/i.test(value)) continue;
+            const target = getDeepSeekDeleteClickableTarget(element);
+            if (!target || seen.has(target)) continue;
+            seen.add(target);
+            const href = String(element.href || element.getAttribute?.("href") || target.href || target.getAttribute?.("href") || "");
+            const hrefToken = getDeepSeekDeleteCompactToken(href);
+            const className = `${getDeepSeekClassText(target)} ${getDeepSeekClassText(element)}`;
+            const active = /\b(active|selected|current)\b/i.test(className) || String(target.getAttribute?.("aria-current") || "").toLowerCase() === "page";
+            const titleMatch = hints.titleTokens?.some((token) => compact.includes(token) || token.includes(compact));
+            const urlMatch = hints.ids?.some((id) => href.includes(id) || hrefToken.includes(getDeepSeekDeleteCompactToken(id)));
+            candidates.push({
+                element: target,
+                score: (urlMatch ? 1100 : 0) + (titleMatch ? 900 : 0) + (active ? 520 : 0) + (rect.top < 180 ? 120 : 0) - rect.top * 0.02,
+                rect
+            });
+        }
+        candidates.sort((a, b) => b.score - a.score || a.rect.top - b.rect.top);
+        return candidates.filter((item) => item.score >= 500).map((item) => item.element);
+    }
+
+    function findDeepSeekCurrentTopicRow(root, hints = getDeepSeekDeleteHints()) {
+        const links = deepSeekChatLinks(root || document);
+        const currentId = hints.ids?.[0] || getDeepSeekChatIdFromHref(location.href);
+        if (currentId) {
+            const exact = links.find((link) => getDeepSeekChatIdFromHref(link.href || link.getAttribute?.("href")) === currentId);
+            if (exact) return exact;
+        }
+        const selected = links.find((link) => {
+            const className = getDeepSeekClassText(link);
+            const ariaCurrent = String(link.getAttribute?.("aria-current") || "").toLowerCase();
+            return /\b(active|selected|current)\b/i.test(className) || ariaCurrent === "page";
+        });
+        if (selected) return selected;
+        return deepSeekTopicRows(root, hints)[0] || null;
+    }
+
+    function hoverDeepSeekTopicRow(row) {
+        const rect = getDeepSeekRect(row);
+        if (!rect) return;
+        try { row.scrollIntoView?.({ block: "center", inline: "nearest" }); } catch { }
+        const point = { x: Math.max(rect.left + 16, Math.min(rect.right - 16, rect.right - 24)), y: rect.top + rect.height / 2 };
+        const targets = [];
+        for (let node = row; node && node !== document.body && targets.length < 5; node = node.parentElement) targets.push(node);
+        for (const target of targets) {
+            const PointerEventCtor = getDeepSeekEventConstructor("PointerEvent", target);
+            const MouseEventCtor = getDeepSeekEventConstructor("MouseEvent", target);
+            for (const type of ["pointerover", "mouseover", "mouseenter", "mousemove", "pointermove"]) {
+                try {
+                    const EventCtor = type.startsWith("pointer") ? PointerEventCtor : MouseEventCtor;
+                    if (typeof EventCtor !== "function") continue;
+                    target.dispatchEvent(new EventCtor(type, {
+                        bubbles: type !== "mouseenter",
+                        cancelable: true,
+                        composed: true,
+                        view: getDeepSeekEventView(target),
+                        pointerId: 1,
+                        pointerType: "mouse",
+                        isPrimary: true,
+                        clientX: point.x,
+                        clientY: point.y,
+                        screenX: point.x,
+                        screenY: point.y
+                    }));
+                } catch { }
+            }
+        }
+    }
+
+    function deepSeekTopicMoreButton(row) {
+        if (!row) return null;
+        const rowRect = getDeepSeekRect(row);
+        if (!rowRect) return null;
+        hoverDeepSeekTopicRow(row);
+        const candidates = [];
+        const seen = new Set();
+        const add = (button, source = "", extraScore = 0) => {
+            const target = getDeepSeekDeleteClickableTarget(button);
+            if (!target || seen.has(target) || target === row || isDeepSeekDisabledElement(target)) return;
+            const rect = getDeepSeekRect(target);
+            if (!rect || rect.width < 10 || rect.height < 10 || rect.width > 72 || rect.height > 72) return;
+            const overlaps = rect.top < rowRect.bottom + 10 && rect.bottom > rowRect.top - 10;
+            const nearRight = rect.left >= rowRect.right - 120 && rect.left <= rowRect.right + 80;
+            if (!overlaps || !nearRight) return;
+            const value = getDeepSeekDeleteText(target);
+            const compact = getDeepSeekDeleteCompactToken(value);
+            if (compact && !/more|options|menu|ellipsis|dots|更多|菜单|选项/.test(compact)) return;
+            if (String(target.href || target.getAttribute?.("href") || "").match(/\/(?:a\/)?chat\/s\//i)) return;
+            const signature = getDeepSeekSvgSignature(target);
+            const iconish = !compact || /more|options|menu|ellipsis|dots|circle/.test(signature) || queryDeepSeekAll("circle", target).length >= 2 || rect.width <= 44;
+            if (!iconish) return;
+            seen.add(target);
+            candidates.push({
+                element: target,
+                score: extraScore
+                    + (hasDeepSeekLayoutBox(target) ? 140 : 40)
+                    + (!compact ? 180 : 0)
+                    + (/more|options|menu|更多|菜单|选项/.test(compact) ? 220 : 0)
+                    + (/ellipsis|more|dots|circle/.test(signature) ? 120 : 0)
+                    + Math.max(0, 80 - Math.abs((rect.left + rect.right) / 2 - (rowRect.right - 28))),
+                right: rect.right,
+                source
+            });
+        };
+        const scopes = [];
+        for (let node = row; node && node !== document.body && scopes.length < 5; node = node.parentElement) scopes.push(node);
+        for (const scope of scopes) {
+            for (const button of queryDeepSeekAll("button,[role='button'],[aria-haspopup],[tabindex]:not([tabindex='-1']),[class*='button' i]", scope)) add(button, "scope", 80);
+        }
+        for (const offset of [8, 18, 32, 48, 64, 84]) {
+            const point = { x: Math.max(rowRect.left + 16, rowRect.right - offset), y: rowRect.top + rowRect.height / 2 };
+            const pointTarget = getDeepSeekElementFromPoint(point, row);
+            if (pointTarget) add(pointTarget, "point", 160 - offset);
+            const pointButton = pointTarget && getDeepSeekDeleteClickableTarget(pointTarget);
+            if (pointButton) add(pointButton, "point-button", 180 - offset);
+        }
+        for (const button of queryDeepSeekAll("button,[role='button'],[aria-haspopup],[tabindex]:not([tabindex='-1']),[class*='button' i]", document)) add(button, "nearby", 0);
+        candidates.sort((a, b) => b.score - a.score || b.right - a.right);
+        return candidates[0]?.element || null;
+    }
+
+    const DEEPSEEK_DELETE_MENU_ROOT_SELECTORS = Object.freeze([
+        "[role='menu']",
+        "[role='listbox']",
+        "[role='dialog']",
+        "[data-radix-menu-content]",
+        "[data-radix-popper-content-wrapper]",
+        "[data-floating-ui-portal]",
+        "[data-slot='dropdown-menu-content']",
+        "[class*='dropdown' i]",
+        "[class*='popover' i]",
+        "[class*='popper' i]",
+        "[class*='menu' i]",
+        "body > div"
+    ]);
+
+    function deepSeekMenuRootsWithDelete(labels) {
+        const roots = visibleDeepSeekSelectorElements(DEEPSEEK_DELETE_MENU_ROOT_SELECTORS)
+            .filter((root) => {
+                const rect = getDeepSeekRect(root);
+                const area = rect ? rect.width * rect.height : 0;
+                if (area > 450000) return false;
+                const value = getDeepSeekDeleteText(root);
+                return deepSeekDeleteLabelMatches(value, labels) || /rename|pin|share|重命名|置顶|分享/i.test(value);
+            })
+            .sort((a, b) => {
+                const ar = getDeepSeekRect(a);
+                const br = getDeepSeekRect(b);
+                return (br?.right || 0) - (ar?.right || 0) || (ar?.top || 0) - (br?.top || 0);
+            });
+        const pushRoot = (root) => {
+            if (!root || !isVisibleElement(root)) return;
+            const rect = getDeepSeekRect(root);
+            if (!rect || rect.width < 72 || rect.height < 28 || rect.width > 520 || rect.height > 620) return;
+            const value = getDeepSeekDeleteText(root);
+            if (!deepSeekDeleteLabelMatches(value, labels) && !/rename|pin|share|重命名|置顶|分享/i.test(value)) return;
+            if (!roots.some((item) => item === root || item.contains?.(root) || root.contains?.(item))) roots.push(root);
+        };
+        for (const item of visibleDeepSeekSelectorElements(DEEPSEEK_DELETE_CLICKABLE_SELECTOR)) {
+            if (!deepSeekDeleteLabelMatches(getDeepSeekDeleteText(item), labels)) continue;
+            for (let node = item; node && node !== document.body; node = node.parentElement) {
+                pushRoot(node);
+                if (roots.some((root) => root === node)) break;
+            }
+        }
+        roots.sort((a, b) => {
+            const ar = getDeepSeekRect(a);
+            const br = getDeepSeekRect(b);
+            return (br?.right || 0) - (ar?.right || 0) || (ar?.top || 0) - (br?.top || 0) || getDeepSeekElementArea(a) - getDeepSeekElementArea(b);
+        });
+        return roots;
+    }
+
+    function findDeepSeekDeleteMenuItem(root, labels) {
+        const candidates = [];
+        const cancelLabels = ["Cancel", "取消"];
+        for (const element of visibleDeepSeekSelectorElements(DEEPSEEK_DELETE_CLICKABLE_SELECTOR, root || document)) {
+            const value = getDeepSeekDeleteText(element);
+            if (!deepSeekDeleteLabelMatches(value, labels, { exact: true })) continue;
+            if (deepSeekDeleteLabelMatches(value, cancelLabels)) continue;
+            const target = getDeepSeekDeleteClickableTarget(element);
+            if (!target || !isVisibleElement(target) || isDeepSeekDisabledElement(target)) continue;
+            const rect = getDeepSeekRect(target);
+            candidates.push({
+                element: target,
+                score: deepSeekDeleteLabelMatches(value, labels, { exact: true }) ? 500 : 0,
+                top: rect?.top || 0,
+                area: rect ? rect.width * rect.height : 0
+            });
+        }
+        candidates.sort((a, b) => b.score - a.score || a.top - b.top || a.area - b.area);
+        return candidates[0]?.element || null;
+    }
+
+    async function openDeepSeekTriggerAndClickDelete(trigger, labels, { timeoutMs = 3200, allowHiddenTrigger = false } = {}) {
+        if (!trigger || (!allowHiddenTrigger && !isVisibleElement(trigger))) return false;
+        const existingRoot = deepSeekMenuRootsWithDelete(labels)[0] || null;
+        if (!existingRoot && !activateDeepSeekElement(trigger, ["onClick", "onPointerUp", "onMouseUp", "onPointerDown", "onMouseDown"], { allowHidden: allowHiddenTrigger })) return false;
+        await sleepDeepSeek(140);
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() <= deadline) {
+            const root = deepSeekMenuRootsWithDelete(labels)[0] || existingRoot;
+            const item = root ? findDeepSeekDeleteMenuItem(root, labels) : null;
+            if (item && activateDeepSeekElement(item, ["onClick", "onPointerUp", "onMouseUp"])) return true;
+            await sleepDeepSeek(120);
+        }
+        return false;
+    }
+
+    function deepSeekDeleteDialogTextMatches(value) {
+        const text = String(value || "").toLowerCase();
+        const token = getDeepSeekDeleteCompactToken(value);
+        return /are you sure|chat can(?:'|’)?t be recovered|chat cant be recovered|share links from it will be disabled|recover|recovered|confirm|cancel|cannot be undone|permanently|确定|确认|取消|恢复|不可恢复|无法恢复|不能恢复/.test(text)
+            || /areyousure|chatcantberecovered|sharelinksfromitwillbedisabled|recover|recovered|confirm|cancel|cannotbeundone|permanently|确定|确认|取消|恢复|不可恢复|无法恢复|不能恢复/.test(token);
+    }
+
+    function deepSeekDeleteDialogConfirmContextMatches(value) {
+        const text = String(value || "").toLowerCase();
+        const token = getDeepSeekDeleteCompactToken(value);
+        return /are you sure|chat can(?:'|’)?t be recovered|chat cant be recovered|share links from it will be disabled|recover|recovered|confirm|cannot be undone|permanently|确定|确认|恢复|不可恢复|无法恢复|不能恢复/.test(text)
+            || /areyousure|chatcantberecovered|sharelinksfromitwillbedisabled|recover|recovered|confirm|cannotbeundone|permanently|确定|确认|恢复|不可恢复|无法恢复|不能恢复/.test(token);
+    }
+
+    function deepSeekDeleteDialogHasCancel(value) {
+        const text = String(value || "").toLowerCase();
+        const token = getDeepSeekDeleteCompactToken(value);
+        return /cancel|取消/.test(text) || /cancel|取消/.test(token);
+    }
+
+    function deepSeekDeleteDialogRoots() {
+        return visibleDeepSeekSelectorElements([
+            "[role='alertdialog']",
+            "[role='dialog']",
+            "[data-radix-dialog-content]",
+            "[data-state='open']",
+            "[class*='modal' i]",
+            "body > div"
+        ]).filter((root) => {
+            const rect = getDeepSeekRect(root);
+            const area = rect ? rect.width * rect.height : 0;
+            const semantic = (() => {
+                try {
+                    return root.matches?.("[role='alertdialog'],[role='dialog'],[data-radix-dialog-content]") || false;
+                } catch {
+                    return false;
+                }
+            })();
+            if (!semantic && (area < 1200 || area > 380000)) return false;
+            return deepSeekDeleteDialogTextMatches(getDeepSeekDeleteText(root));
+        }).sort((a, b) => getDeepSeekElementArea(a) - getDeepSeekElementArea(b));
+    }
+
+    function isDeepSeekDeleteConfirmText(value) {
+        const token = getDeepSeekDeleteCompactToken(value);
+        if (!token || /cancel|取消|keep|保留/.test(token)) return false;
+        return token === "deletechat"
+            || token === "delete"
+            || token === "confirm"
+            || token === "confirmdelete"
+            || token === "删除"
+            || token === "确认"
+            || token === "确认删除"
+            || token === "删除聊天";
+    }
+
+    function findDeepSeekConfirmDialogFor(node) {
+        for (let root = node, depth = 0; root && root !== document.body && depth < 8; root = root.parentElement, depth += 1) {
+            if (!isVisibleElement(root)) continue;
+            const rootText = getDeepSeekDeleteText(root);
+            if (deepSeekDeleteDialogHasCancel(rootText) && deepSeekDeleteDialogConfirmContextMatches(rootText)) return { element: root, text: rootText };
+        }
+        return null;
+    }
+
+    function findDeepSeekDeleteConfirmButtonInfo() {
+        const candidates = [];
+        for (const node of visibleDeepSeekSelectorElements(`${DEEPSEEK_DELETE_CLICKABLE_SELECTOR},[class*='button' i],[class*='btn' i]`)) {
+            if (isDeepSeekDisabledElement(node)) continue;
+            const value = getDeepSeekDeleteText(node);
+            if (!isDeepSeekDeleteConfirmText(value)) continue;
+            const dialog = findDeepSeekConfirmDialogFor(node);
+            if (!dialog) continue;
+            const target = getDeepSeekDeleteClickableTarget(node);
+            if (!target || isDeepSeekDisabledElement(target)) continue;
+            const rect = getDeepSeekRect(target);
+            const token = getDeepSeekDeleteCompactToken(value);
+            candidates.push({
+                element: target,
+                root: dialog.element,
+                score: token === "deletechat" || token === "删除聊天" ? 700 : 0,
+                area: rect ? rect.width * rect.height : 0,
+                right: rect?.right || 0
+            });
+        }
+        if (!candidates.length) {
+            for (const root of deepSeekDeleteDialogRoots()) {
+                const rootText = getDeepSeekDeleteText(root);
+                if (!deepSeekDeleteDialogTextMatches(rootText)) continue;
+                for (const node of visibleDeepSeekSelectorElements(`${DEEPSEEK_DELETE_CLICKABLE_SELECTOR},div`, root)) {
+                    if (isDeepSeekDisabledElement(node)) continue;
+                    const value = getDeepSeekDeleteText(node);
+                    if (!isDeepSeekDeleteConfirmText(value)) continue;
+                    const target = getDeepSeekDeleteClickableTarget(node);
+                    const rect = getDeepSeekRect(target);
+                    candidates.push({
+                        element: target,
+                        root,
+                        score: getDeepSeekDeleteCompactToken(value) === "deletechat" || getDeepSeekDeleteCompactToken(value) === "删除聊天" ? 600 : 0,
+                        area: rect ? rect.width * rect.height : 0,
+                        right: rect?.right || 0
+                    });
+                }
+            }
+        }
+        candidates.sort((a, b) => b.score - a.score || a.area - b.area || b.right - a.right);
+        return candidates[0] || null;
+    }
+
+    function deepSeekDeleteConfirmClosed(root, button) {
+        if (button && (!button.isConnected || !isVisibleElement(button))) return true;
+        if (root && (!root.isConnected || !isVisibleElement(root))) return true;
+        return !findDeepSeekDeleteConfirmButtonInfo();
+    }
+
+    async function clickDeepSeekDeleteConfirmIfPresent(timeoutMs = 4200) {
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        let clickedRoot = null;
+        let clickedButton = null;
+        let clickedAt = 0;
+        while (Date.now() <= deadline) {
+            if (clickedButton && deepSeekDeleteConfirmClosed(clickedRoot, clickedButton)) return true;
+            const info = findDeepSeekDeleteConfirmButtonInfo();
+            const button = info?.element || null;
+            if (button && (button !== clickedButton || Date.now() - clickedAt > 900) && activateDeepSeekElement(button, ["onClick", "onPointerUp", "onMouseUp"])) {
+                clickedRoot = info.root || null;
+                clickedButton = button;
+                clickedAt = Date.now();
+                await sleepDeepSeek(220);
+                if (deepSeekDeleteConfirmClosed(clickedRoot, clickedButton)) return true;
+            }
+            await sleepDeepSeek(120);
+        }
+        return !!(clickedButton && deepSeekDeleteConfirmClosed(clickedRoot, clickedButton));
+    }
+
+    async function deleteCurrentDeepSeekChat({ shortcut = null, engine = null } = {}) {
+        const data = shortcut?.data && typeof shortcut.data === "object" ? shortcut.data : {};
+        if (data.skipConfirm !== true) {
+            const message = siteMessage(engine, "deleteCurrentChatConfirm", {}, "Delete the current chat? This cannot be undone.");
+            if (!window.confirm(message)) return false;
+        }
+
+        if (await clickDeepSeekDeleteConfirmIfPresent(500)) return true;
+
+        if (!await ensureDeepSeekSidebarOpen()) {
+            console.warn(`${LOG_TAG} deleteCurrentChat: sidebar could not be opened.`);
+            return false;
+        }
+
+        const root = deepSeekSidebarRoot();
+        const hints = getDeepSeekDeleteHints(data);
+        const row = findDeepSeekCurrentTopicRow(root, hints);
+        if (!row) {
+            console.warn(`${LOG_TAG} deleteCurrentChat: current topic row not found.`);
+            return false;
+        }
+
+        const moreButton = await waitForDeepSeek(() => deepSeekTopicMoreButton(row), 1800, 80);
+        if (!moreButton) {
+            console.warn(`${LOG_TAG} deleteCurrentChat: topic menu trigger not found.`);
+            return false;
+        }
+
+        const labels = ["Delete", "Delete Chat", "删除", "删除聊天"];
+        if (!await openDeepSeekTriggerAndClickDelete(moreButton, labels, { timeoutMs: 3000, allowHiddenTrigger: true })) {
+            console.warn(`${LOG_TAG} deleteCurrentChat: delete menu item not found.`);
+            return false;
+        }
+
+        const confirmed = await clickDeepSeekDeleteConfirmIfPresent(6500);
+        if (!confirmed) {
+            console.warn(`${LOG_TAG} deleteCurrentChat: delete confirmation button not found or did not close.`);
+            return false;
+        }
+
+        return true;
+    }
+
     function formatDeepSeekTemplateText(text, params = {}) {
         return String(text || "").replace(/\{([^{}]+)\}/g, (match, key) => {
             return Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : match;
@@ -350,10 +1258,12 @@
             menuCommandLabel: "DeepSeek - 设置快捷键",
             panelTitle: "DeepSeek - 自定义快捷键",
             defaultExpertModeLabel: "DeepSeek - 默认 Expert 模式: {state}",
+            deleteCurrentChatConfirm: "确认删除当前聊天？此操作不可撤销。",
             on: "开",
             off: "关",
             shortcuts: {
                 "新聊天": "新聊天",
+                "删除当前聊天": "删除当前聊天",
                 "Search 按钮": "Search 按钮",
                 "DeepThink 按钮": "DeepThink 按钮",
                 "侧边栏": "侧边栏"
@@ -363,10 +1273,12 @@
             menuCommandLabel: "DeepSeek - Shortcut settings",
             panelTitle: "DeepSeek - Custom shortcuts",
             defaultExpertModeLabel: "DeepSeek - Default Expert mode: {state}",
+            deleteCurrentChatConfirm: "Delete the current chat? This cannot be undone.",
             on: "On",
             off: "Off",
             shortcuts: {
                 "新聊天": "New chat",
+                "删除当前聊天": "Delete Current Chat",
                 "Search 按钮": "Search button",
                 "DeepThink 按钮": "DeepThink button",
                 "侧边栏": "Sidebar"
@@ -384,6 +1296,16 @@
         </svg>
     `);
 
+    const DEEPSEEK_DELETE_CURRENT_CHAT_ICON = createDeepSeekSvgIcon(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"/>
+            <path d="M8 6V4h8v2"/>
+            <path d="M6 6l1 14h10l1-14"/>
+            <path d="M10 11v6"/>
+            <path d="M14 11v6"/>
+        </svg>
+    `);
+
     const DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY = Object.freeze({
         newChat: {
             name: "新聊天",
@@ -392,6 +1314,14 @@
             simulateKeys: "CMD+J",
             hotkey: "CTRL+N",
             icon: DEEPSEEK_NEW_CHAT_ICON,
+            iconAdaptive: true
+        },
+        deleteCurrentChat: {
+            name: "删除当前聊天",
+            actionType: "custom",
+            customAction: "deleteCurrentChat",
+            hotkey: "CTRL+BACKSPACE",
+            icon: DEEPSEEK_DELETE_CURRENT_CHAT_ICON,
             iconAdaptive: true
         },
         searchToggle: {
@@ -422,6 +1352,7 @@
 
     const DEEPSEEK_SHORTCUT_KEY_ALIASES = Object.freeze({
         newChat: Object.freeze(["新聊天", "New chat"]),
+        deleteCurrentChat: Object.freeze(["删除当前聊天", "删除聊天", "Delete Current Chat", "Delete Chat"]),
         searchToggle: Object.freeze(["Search 按钮", "Search button"]),
         deepThinkToggle: Object.freeze(["DeepThink 按钮", "DeepThink button"]),
         sidebarToggle: Object.freeze(["侧边栏", "Sidebar"])
@@ -429,6 +1360,7 @@
 
     const DEEPSEEK_LEGACY_SELECTOR_HINTS = Object.freeze({
         newChat: Object.freeze([".ds-icon", "M8 0.599609", "a[href='/']"]),
+        deleteCurrentChat: Object.freeze([]),
         searchToggle: Object.freeze(["_020ab5b", "ec4f5d61", "a567dba3", "M7.00003", "aria-label*='Search'"]),
         deepThinkToggle: Object.freeze(["DeepThink", "M7.06431"]),
         sidebarToggle: Object.freeze(["sidebar", "M9.67269"])
@@ -539,6 +1471,66 @@
         gmSetValueLocal(DEFAULTS_MIGRATION_KEY, true);
     }
 
+    function isDeepSeekDeleteCurrentChatShortcut(shortcut) {
+        if (getDeepSeekManagedShortcutKey(shortcut) === "deleteCurrentChat") return true;
+        const customAction = normalizeDeepSeekToken(shortcut?.customAction);
+        if (customAction === "deletecurrentchat") return true;
+        const name = normalizeDeepSeekToken(shortcut?.name);
+        return name === normalizeDeepSeekToken("删除当前聊天")
+            || name === normalizeDeepSeekToken("删除聊天")
+            || name === normalizeDeepSeekToken("Delete Current Chat")
+            || name === normalizeDeepSeekToken("Delete Chat");
+    }
+
+    function normalizeDeepSeekHotkeyForMigration(value) {
+        return String(value || "")
+            .replace(/\s+/g, "")
+            .toUpperCase()
+            .replace(/\bCONTROL\b/g, "CTRL")
+            .replace(/\bCOMMAND\b/g, "CMD")
+            .replace(/\bOPTION\b/g, "ALT");
+    }
+
+    function migrateDeepSeekDeleteCurrentChatShortcut() {
+        const migratedRaw = gmGetValueLocal(DELETE_CURRENT_CHAT_SHORTCUT_MIGRATION_KEY, false);
+        const migrated = migratedRaw === true || migratedRaw === "true";
+        if (migrated) return;
+
+        const stored = gmGetValueLocal(SHORTCUTS_STORAGE_KEY, null);
+        if (!Array.isArray(stored)) {
+            gmSetValueLocal(DELETE_CURRENT_CHAT_SHORTCUT_MIGRATION_KEY, true);
+            return;
+        }
+
+        if (stored.some(isDeepSeekDeleteCurrentChatShortcut)) {
+            gmSetValueLocal(DELETE_CURRENT_CHAT_SHORTCUT_MIGRATION_KEY, true);
+            return;
+        }
+
+        const template = cloneShortcutRecord(DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.deleteCurrentChat);
+        if (!template) {
+            gmSetValueLocal(DELETE_CURRENT_CHAT_SHORTCUT_MIGRATION_KEY, true);
+            return;
+        }
+
+        const hotkeyTaken = stored.some((shortcut) => normalizeDeepSeekHotkeyForMigration(shortcut?.hotkey) === "CTRL+BACKSPACE");
+        const next = stored.slice();
+        next.push({
+            ...template,
+            key: "deleteCurrentChat",
+            id: "key:deleteCurrentChat",
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: hotkeyTaken ? "" : template.hotkey,
+            data: {}
+        });
+        gmSetValueLocal(SHORTCUTS_STORAGE_KEY, next);
+        gmSetValueLocal(DELETE_CURRENT_CHAT_SHORTCUT_MIGRATION_KEY, true);
+    }
+
     const defaultShortcuts = [
         // === DeepSeek 核心功能快捷键 ===
         {
@@ -553,6 +1545,20 @@
             hotkey: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.newChat.hotkey,
             icon: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.newChat.icon,
             iconAdaptive: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.newChat.iconAdaptive
+        },
+        {
+            key: "deleteCurrentChat",
+            name: "删除当前聊天",
+            actionType: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.deleteCurrentChat.actionType,
+            customAction: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.deleteCurrentChat.customAction,
+            selector: "",
+            url: "",
+            urlMethod: "current",
+            urlAdvanced: "href",
+            simulateKeys: "",
+            hotkey: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.deleteCurrentChat.hotkey,
+            icon: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.deleteCurrentChat.icon,
+            iconAdaptive: DEEPSEEK_DEFAULT_SHORTCUTS_BY_KEY.deleteCurrentChat.iconAdaptive
         },
         {
             key: "searchToggle",
@@ -990,6 +1996,7 @@
     }
 
     migrateDeepSeekShortcuts();
+    migrateDeepSeekDeleteCurrentChatShortcut();
 
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: "DeepSeek - 设置快捷键",
@@ -1006,6 +2013,9 @@
         },
         i18n: {
             messages: SITE_MESSAGES
+        },
+        customActions: {
+            deleteCurrentChat: ({ shortcut, engine }) => deleteCurrentDeepSeekChat({ shortcut, engine })
         },
         actionHandlers: {
             selector: ({ shortcut }) => handleDeepSeekSelectorAction(shortcut)
