@@ -449,6 +449,7 @@
       ].filter(Boolean).join(" ")).join(" "));
     }
     const DEEPSEEK_DELETE_CLICKABLE_SELECTOR = "button,[role='button'],[role='menuitem'],[role='option'],a[href],[aria-haspopup],[tabindex]:not([tabindex='-1']),[class*='button' i],[class*='btn' i]";
+    const DEEPSEEK_DELETE_MENU_ITEM_SELECTOR = `${DEEPSEEK_DELETE_CLICKABLE_SELECTOR},div,span`;
     function getDeepSeekDeleteClickableTarget(element) {
       if (!element || typeof element.closest !== "function") return element || null;
       try {
@@ -456,6 +457,31 @@
       } catch {
         return getClickableTarget(element);
       }
+    }
+    function getDeepSeekDeleteMenuItemTarget(element, root, labels, cancelLabels) {
+      const candidates = [];
+      for (let node = element, depth = 0; node && node !== document.body && depth < 8; node = node.parentElement, depth += 1) {
+        if (root && root !== document && node !== root && !root.contains?.(node)) break;
+        if (!isVisibleElement(node) || isDeepSeekDisabledElement(node)) continue;
+        const value = getDeepSeekDeleteText(node);
+        if (!deepSeekDeleteLabelMatches(value, labels, { exact: true })) continue;
+        if (deepSeekDeleteLabelMatches(value, cancelLabels)) continue;
+        const target = getDeepSeekDeleteClickableTarget(node) || node;
+        if (!target || !isVisibleElement(target) || isDeepSeekDisabledElement(target)) continue;
+        if (root && root !== document && target !== root && !root.contains?.(target)) continue;
+        const rect = getDeepSeekRect(target);
+        if (!rect || rect.width < 24 || rect.height < 14 || rect.width > 520 || rect.height > 140) continue;
+        const targetText = getDeepSeekDeleteText(target);
+        const targetExact = deepSeekDeleteLabelMatches(targetText, labels, { exact: true });
+        candidates.push({
+          element: target,
+          score: (targetExact ? 300 : 0) + (target.matches?.(DEEPSEEK_DELETE_CLICKABLE_SELECTOR) ? 160 : 0) + Math.min(rect.width * rect.height, 12e3) * 0.01 - depth,
+          top: rect.top,
+          area: rect.width * rect.height
+        });
+      }
+      candidates.sort((a, b) => b.score - a.score || a.top - b.top || b.area - a.area);
+      return candidates[0]?.element || null;
     }
     function createDeepSeekFakeReactEvent(target, type = "click") {
       let defaultPrevented = false;
@@ -984,22 +1010,25 @@
     }
     function findDeepSeekDeleteMenuItem(root, labels) {
       const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
       const cancelLabels = ["Cancel", "取消"];
-      for (const element of visibleDeepSeekSelectorElements(DEEPSEEK_DELETE_CLICKABLE_SELECTOR, root || document)) {
+      for (const element of visibleDeepSeekSelectorElements(DEEPSEEK_DELETE_MENU_ITEM_SELECTOR, root || document)) {
         const value = getDeepSeekDeleteText(element);
         if (!deepSeekDeleteLabelMatches(value, labels, { exact: true })) continue;
         if (deepSeekDeleteLabelMatches(value, cancelLabels)) continue;
-        const target = getDeepSeekDeleteClickableTarget(element);
+        const target = getDeepSeekDeleteMenuItemTarget(element, root || document, labels, cancelLabels);
         if (!target || !isVisibleElement(target) || isDeepSeekDisabledElement(target)) continue;
+        if (seen.has(target)) continue;
+        seen.add(target);
         const rect = getDeepSeekRect(target);
         candidates.push({
           element: target,
-          score: deepSeekDeleteLabelMatches(value, labels, { exact: true }) ? 500 : 0,
+          score: (target.matches?.(DEEPSEEK_DELETE_CLICKABLE_SELECTOR) ? 180 : 0) + (deepSeekDeleteLabelMatches(getDeepSeekDeleteText(target), labels, { exact: true }) ? 520 : 420),
           top: rect?.top || 0,
           area: rect ? rect.width * rect.height : 0
         });
       }
-      candidates.sort((a, b) => b.score - a.score || a.top - b.top || a.area - b.area);
+      candidates.sort((a, b) => b.score - a.score || a.top - b.top || b.area - a.area);
       return candidates[0]?.element || null;
     }
     async function openDeepSeekTriggerAndClickDelete(trigger, labels, { timeoutMs = 3200, allowHiddenTrigger = false } = {}) {
