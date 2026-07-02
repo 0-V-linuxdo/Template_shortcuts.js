@@ -619,6 +619,49 @@
       const point = getDeepSeekCenterPoint(target);
       return invokeDeepSeekReactHandlers(target, handlerNames) || dispatchDeepSeekPointerActivation(target, point) || nativeDeepSeekClick(target) || clickDeepSeekElement(target);
     }
+    async function activateDeepSeekElementUntil(element, getter, handlerNames, { allowHidden = false, settleMs = 180 } = {}) {
+      const target = getDeepSeekDeleteClickableTarget(element);
+      if (!target || isDeepSeekDisabledElement(target)) return null;
+      if (allowHidden ? !hasDeepSeekLayoutBox(target) : !isVisibleElement(target)) return null;
+      try {
+        target.scrollIntoView?.({ block: "center", inline: "nearest" });
+      } catch {
+      }
+      try {
+        target.focus?.({ preventScroll: true });
+      } catch {
+        try {
+          target.focus?.();
+        } catch {
+        }
+      }
+      const getCurrent = () => {
+        try {
+          return typeof getter === "function" ? getter() : null;
+        } catch {
+          return null;
+        }
+      };
+      const initial = getCurrent();
+      if (initial) return initial;
+      const point = getDeepSeekCenterPoint(target);
+      const attempts = [
+        () => dispatchDeepSeekPointerActivation(target, point),
+        () => nativeDeepSeekClick(target),
+        () => invokeDeepSeekReactHandlers(target, handlerNames),
+        () => clickDeepSeekElement(target)
+      ];
+      for (const attempt of attempts) {
+        try {
+          attempt();
+        } catch {
+        }
+        await sleepDeepSeek(Math.max(40, Number(settleMs) || 40));
+        const value = getCurrent();
+        if (value) return value;
+      }
+      return getCurrent();
+    }
     async function waitForDeepSeek(getter, timeoutMs = 2500, intervalMs = 120) {
       const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
       while (Date.now() <= deadline) {
@@ -961,13 +1004,22 @@
     }
     async function openDeepSeekTriggerAndClickDelete(trigger, labels, { timeoutMs = 3200, allowHiddenTrigger = false } = {}) {
       if (!trigger || !allowHiddenTrigger && !isVisibleElement(trigger)) return false;
+      const menuReady = () => {
+        const root = deepSeekMenuRootsWithDelete(labels)[0] || null;
+        return root || findDeepSeekDeleteMenuItem(document, labels);
+      };
       const existingRoot = deepSeekMenuRootsWithDelete(labels)[0] || null;
-      if (!existingRoot && !activateDeepSeekElement(trigger, ["onClick", "onPointerUp", "onMouseUp", "onPointerDown", "onMouseDown"], { allowHidden: allowHiddenTrigger })) return false;
+      if (!existingRoot && !await activateDeepSeekElementUntil(
+        trigger,
+        menuReady,
+        ["onClick", "onPointerUp", "onMouseUp", "onPointerDown", "onMouseDown"],
+        { allowHidden: allowHiddenTrigger, settleMs: 220 }
+      )) return false;
       await sleepDeepSeek(140);
       const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
       while (Date.now() <= deadline) {
         const root = deepSeekMenuRootsWithDelete(labels)[0] || existingRoot;
-        const item = root ? findDeepSeekDeleteMenuItem(root, labels) : null;
+        const item = root ? findDeepSeekDeleteMenuItem(root, labels) : findDeepSeekDeleteMenuItem(document, labels);
         if (item && activateDeepSeekElement(item, ["onClick", "onPointerUp", "onMouseUp"])) return true;
         await sleepDeepSeek(120);
       }
@@ -1066,6 +1118,15 @@
       candidates.sort((a, b) => b.score - a.score || a.area - b.area || b.right - a.right);
       return candidates[0] || null;
     }
+    function getDeepSeekDeleteConfirmDialogInfo() {
+      const info = findDeepSeekDeleteConfirmButtonInfo();
+      if (info?.root && isVisibleElement(info.root)) return info;
+      const root = deepSeekDeleteDialogRoots()[0] || null;
+      return root ? { root, element: null } : null;
+    }
+    async function waitForDeepSeekDeleteConfirmDialog(timeoutMs = 4200) {
+      return await waitForDeepSeek(getDeepSeekDeleteConfirmDialogInfo, timeoutMs, 120);
+    }
     function deepSeekDeleteConfirmClosed(root, button) {
       if (button && (!button.isConnected || !isVisibleElement(button))) return true;
       if (root && (!root.isConnected || !isVisibleElement(root))) return true;
@@ -1093,11 +1154,7 @@
     }
     async function deleteCurrentDeepSeekChat({ shortcut = null, engine: engine2 = null } = {}) {
       const data = shortcut?.data && typeof shortcut.data === "object" ? shortcut.data : {};
-      if (data.skipConfirm !== true) {
-        const message = siteMessage(engine2, "deleteCurrentChatConfirm", {}, "Delete the current chat? This cannot be undone.");
-        if (!window.confirm(message)) return false;
-      }
-      if (await clickDeepSeekDeleteConfirmIfPresent(500)) return true;
+      if (getDeepSeekDeleteConfirmDialogInfo()) return true;
       if (!await ensureDeepSeekSidebarOpen()) {
         console.warn(`${LOG_TAG} deleteCurrentChat: sidebar could not be opened.`);
         return false;
@@ -1119,9 +1176,9 @@
         console.warn(`${LOG_TAG} deleteCurrentChat: delete menu item not found.`);
         return false;
       }
-      const confirmed = await clickDeepSeekDeleteConfirmIfPresent(6500);
-      if (!confirmed) {
-        console.warn(`${LOG_TAG} deleteCurrentChat: delete confirmation button not found or did not close.`);
+      const confirmDialog = await waitForDeepSeekDeleteConfirmDialog(6500);
+      if (!confirmDialog) {
+        console.warn(`${LOG_TAG} deleteCurrentChat: delete confirmation dialog did not open.`);
         return false;
       }
       return true;
