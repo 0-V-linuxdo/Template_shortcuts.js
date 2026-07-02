@@ -1153,6 +1153,81 @@
       const root = deepSeekDeleteDialogRoots()[0] || null;
       return root ? { root, element: null } : null;
     }
+    function isDeepSeekEnterKeyEvent(event) {
+      return event?.key === "Enter" || event?.code === "Enter" || event?.code === "NumpadEnter";
+    }
+    function getDeepSeekElementNode(value) {
+      return value && value.nodeType === 1 ? value : null;
+    }
+    function isDeepSeekTextEntryElement(element) {
+      const target = getDeepSeekElementNode(element);
+      if (!target) return false;
+      const tagName = String(target.tagName || "").toLowerCase();
+      if (target.isContentEditable || tagName === "textarea") return true;
+      if (tagName === "input") {
+        const type = String(target.getAttribute?.("type") || target.type || "").toLowerCase();
+        return !/^(button|submit|reset|checkbox|radio|range|color|file|image|hidden)$/.test(type);
+      }
+      try {
+        return !!target.closest?.("textarea,input:not([type='button']):not([type='submit']):not([type='reset']):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='image']):not([type='hidden']),[contenteditable='true'],[contenteditable='plaintext-only']");
+      } catch {
+        return false;
+      }
+    }
+    let deepSeekDeleteConfirmEnterShortcutInstalled = false;
+    let deepSeekDeleteConfirmEnterHandledAt = 0;
+    function shouldHandleDeepSeekDeleteConfirmEnter(event, info) {
+      if (!isDeepSeekEnterKeyEvent(event) || event.isComposing) return false;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return false;
+      if (!info?.root || !info?.element || !isVisibleElement(info.root) || !isVisibleElement(info.element)) return false;
+      return !isDeepSeekTextEntryElement(event.target) && !isDeepSeekTextEntryElement(document.activeElement);
+    }
+    function stopDeepSeekDeleteConfirmEnterEvent(event) {
+      try {
+        event.preventDefault?.();
+      } catch {
+      }
+      try {
+        event.stopPropagation?.();
+      } catch {
+      }
+      try {
+        event.stopImmediatePropagation?.();
+      } catch {
+      }
+    }
+    function handleDeepSeekDeleteConfirmEnterKeydown(event) {
+      const info = getDeepSeekDeleteConfirmDialogInfo();
+      if (!shouldHandleDeepSeekDeleteConfirmEnter(event, info)) return;
+      stopDeepSeekDeleteConfirmEnterEvent(event);
+      deepSeekDeleteConfirmEnterHandledAt = Date.now();
+      activateDeepSeekElement(info.element, ["onClick", "onPointerUp", "onMouseUp", "onPointerDown", "onMouseDown"]);
+    }
+    function stopDeepSeekDeleteConfirmEnterFollowup(event) {
+      if (!isDeepSeekEnterKeyEvent(event) || Date.now() - deepSeekDeleteConfirmEnterHandledAt > 1200) return;
+      const info = getDeepSeekDeleteConfirmDialogInfo();
+      if (!info?.root || !isVisibleElement(info.root)) return;
+      if (isDeepSeekTextEntryElement(event.target) || isDeepSeekTextEntryElement(document.activeElement)) return;
+      stopDeepSeekDeleteConfirmEnterEvent(event);
+    }
+    function installDeepSeekDeleteConfirmEnterShortcut() {
+      if (deepSeekDeleteConfirmEnterShortcutInstalled) return;
+      deepSeekDeleteConfirmEnterShortcutInstalled = true;
+      for (const target of [window, document]) {
+        try {
+          target.addEventListener("keydown", handleDeepSeekDeleteConfirmEnterKeydown, true);
+        } catch {
+        }
+        try {
+          target.addEventListener("keypress", stopDeepSeekDeleteConfirmEnterFollowup, true);
+        } catch {
+        }
+        try {
+          target.addEventListener("keyup", stopDeepSeekDeleteConfirmEnterFollowup, true);
+        } catch {
+        }
+      }
+    }
     async function waitForDeepSeekDeleteConfirmDialog(timeoutMs = 4200) {
       return await waitForDeepSeek(getDeepSeekDeleteConfirmDialogInfo, timeoutMs, 120);
     }
@@ -1884,6 +1959,7 @@
     }
     migrateDeepSeekShortcuts();
     migrateDeepSeekDeleteCurrentChatShortcut();
+    installDeepSeekDeleteConfirmEnterShortcut();
     const engine = ShortcutTemplate.createShortcutEngine({
       menuCommandLabel: "DeepSeek - 设置快捷键",
       panelTitle: "DeepSeek - 自定义快捷键",
