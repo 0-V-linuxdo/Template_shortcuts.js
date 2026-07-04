@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260605] v1.1.1
-// @name:en        [ChatGPT] Shortcut Jump [20260605] v1.1.1
+// @name           [ChatGPT] 快捷键跳转 [20260704] v1.0.0
+// @name:en        [ChatGPT] Shortcut Jump [20260704] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image/Create website）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers including Create website, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260605] v1.1.1
-// @update-log     1.1.1: 更新 Template core require；QuickInput 悬浮球左侧按钮可暂停/继续当前任务，右侧状态区域恢复弹窗。
-// @update-log:en  1.1.1: Updated the Template core require; the QuickInput bubble's left button now pauses/resumes the current task, while the status area restores the popup.
+// @version        [20260704] v1.0.0
+// @update-log     1.0.0: 适配 ChatGPT 新工具栏，恢复 Add photos & files、Create image、Web、Deep research、Thinking/High、Canvas 等快捷键，并迁移旧 CMD+U 上传动作。
+// @update-log:en  1.0.0: Adapted to ChatGPT's new toolbar, restored shortcuts for Add photos & files, Create image, Web, Deep research, Thinking/High, and Canvas, and migrated the old CMD+U upload action.
 
 // @match          https://chatgpt.com/*
 
@@ -300,12 +300,39 @@
     ];
     const SELECTORS = {
       composerPlusBtn: "button[data-testid='composer-plus-btn']",
+      composerToolbarTrigger: [
+        "button[data-testid='composer-plus-btn']",
+        "button[aria-label='Add files and more']",
+        "button[aria-label*='Add photos' i]",
+        "button[aria-label*='Add files' i]",
+        "button[aria-label*='Upload' i]",
+        "button[aria-label*='Attach' i]",
+        "button[aria-label*='添加']",
+        "button[aria-label*='上传']",
+        "button[aria-label*='附件']",
+        "form[data-type='unified-composer'] button",
+        "[data-composer-surface] button",
+        "main form button",
+        "button[aria-haspopup='menu']"
+      ].join(", "),
+      popupMenuRoot: [
+        "div[role='menu'][data-radix-menu-content]",
+        "div[role='menu']",
+        "div[role='listbox']",
+        "[cmdk-list]",
+        "[data-radix-popper-content-wrapper] div[role='menu']",
+        "[data-radix-popper-content-wrapper] div[role='listbox']",
+        "[data-floating-ui-portal] [role='menu']",
+        "[data-floating-ui-portal] [role='listbox']",
+        "[data-portal] [role='menu']",
+        "[popover]"
+      ].join(", "),
       aspectRatioBtn: 'button[aria-label="Choose image aspect ratio"]',
       aspectRatioBtnFallback: 'button.composer-btn[aria-haspopup="menu"], button[aria-haspopup="menu"]',
       aspectRatioMenuRoot: "div[role='menu'][data-radix-menu-content]",
       aspectRatioMenuItem: "[role='menuitemradio']",
       moreSubmenuItem: "div[role='menuitem'][data-has-submenu]",
-      popupMenuItem: "[role='menuitem'], [role='menuitemradio']",
+      popupMenuItem: "[role='menuitem'], [role='menuitemradio'], [role='option'], button, [role='button'], [cmdk-item], a, [tabindex]",
       composerModeBtn: "button.__composer-pill[aria-haspopup='menu'], [data-testid='composer-footer-actions'] button[aria-haspopup='menu']",
       composerModeMenuRoot: "div[role='menu'][data-radix-menu-content]",
       composerModeMenuItem: "[role='menuitem'], [role='menuitemradio']",
@@ -322,41 +349,59 @@
     const QUICK_INPUT_STORAGE_KEY = "chatgpt_quick_input_v1";
     const CHATGPT_NATIVE_NEW_CHAT_HOTKEY = "CMD+SHIFT+O";
     const CHATGPT_MENU_TARGETS = Object.freeze({
+      addPhotosFiles: Object.freeze({
+        id: "addPhotosFiles",
+        matchIds: Object.freeze(["addphotosfiles", "addfiles", "upload", "uploadfromcomputer", "attach", "attachfiles", "attachments", "files"]),
+        iconIds: Object.freeze(["712359"]),
+        aliases: Object.freeze([
+          "Add photos & files",
+          "Add photos and files",
+          "Upload from computer",
+          "Add files and more",
+          "Attach files",
+          "Upload files",
+          "添加图片和文件",
+          "添加图片",
+          "添加文件",
+          "从电脑上传",
+          "上传文件"
+        ])
+      }),
       createImage: Object.freeze({
         id: "createImage",
         matchIds: Object.freeze(["createimage"]),
         iconIds: Object.freeze(["266724"]),
-        aliases: Object.freeze(["Create image", "创建图片"])
+        aliases: Object.freeze(["Create image", "Create an image", "Visualize anything", "创建图片"])
       }),
       createWebsite: Object.freeze({
         id: "createWebsite",
         matchIds: Object.freeze(["createwebsite", "website"]),
         iconIds: Object.freeze([]),
-        aliases: Object.freeze(["Create website", "创建网站"])
+        aliases: Object.freeze(["Create website", "Build website", "Build a website", "创建网站"])
       }),
       deepResearch: Object.freeze({
         id: "deepResearch",
         matchIds: Object.freeze(["deepresearch"]),
         iconIds: Object.freeze(["5d3112"]),
-        aliases: Object.freeze(["Deep research", "深度研究"])
+        aliases: Object.freeze(["Deep research", "Get a detailed report", "Detailed report", "深度研究"])
       }),
       webSearch: Object.freeze({
         id: "webSearch",
         matchIds: Object.freeze(["websearch", "web"]),
         iconIds: Object.freeze(["6b0d8c"]),
-        aliases: Object.freeze(["Web search", "Web", "网页搜索"])
+        aliases: Object.freeze(["Web search", "Web", "Look something up", "Find real-time news and info", "Find real time news and info", "网页搜索"])
       }),
       thinking: Object.freeze({
         id: "thinking",
-        matchIds: Object.freeze(["thinking"]),
+        matchIds: Object.freeze(["thinking", "high"]),
         iconIds: Object.freeze([]),
-        aliases: Object.freeze(["Thinking", "思考"])
+        aliases: Object.freeze(["Thinking", "High", "思考", "高"])
       }),
       canvas: Object.freeze({
         id: "canvas",
         matchIds: Object.freeze(["canvas"]),
         iconIds: Object.freeze(["cf3864"]),
-        aliases: Object.freeze(["Canvas", "画布"])
+        aliases: Object.freeze(["Canvas", "Write or edit", "Write and edit", "画布"])
       }),
       more: Object.freeze({
         id: "more",
@@ -372,7 +417,7 @@
     const CHATGPT_THINKING_EFFORT_EXTENDED_ICON_IDS = Object.freeze(["143e56"]);
     const CHATGPT_TOP_MODEL_THINKING_DATA_TEST_ID_REGEX = /(?:^|[-_])thinking(?:[-_]|$)/i;
     const CHATGPT_TOP_MODEL_SELECTOR_LABEL_REGEX = /\bmodel\s*selector\b|模型选择器/i;
-    const CHATGPT_TOP_MODEL_SELECTOR_TEXT_HINT_REGEX = /\b(?:instant|thinking|gpt|auto|legacy|fast)\b|思考/i;
+    const CHATGPT_TOP_MODEL_SELECTOR_TEXT_HINT_REGEX = /\b(?:instant|thinking|high|gpt|auto|legacy|fast)\b|思考|高/i;
     const CHATGPT_ASPECT_RATIO_TARGETS = Object.freeze({
       auto: Object.freeze({
         id: "auto",
@@ -460,7 +505,7 @@
     }
     function getChatgptMenuLeadingIconId(menuItem) {
       if (!menuItem || typeof menuItem.querySelector !== "function") return "";
-      const useElement = menuItem.querySelector("div.icon use");
+      const useElement = menuItem.querySelector("div.icon use, svg use, use");
       const href = getSvgUseHrefValue(useElement);
       if (!href) return "";
       return normalizeChatgptMenuIconId(href);
@@ -522,8 +567,7 @@
     const popupMenu = TemplateUtils.menu.createMenuController({
       trigger: {
         selectors: [
-          SELECTORS.composerPlusBtn,
-          'button[aria-label="Add files and more"]'
+          SELECTORS.composerToolbarTrigger
         ]
       },
       root: {
@@ -2824,29 +2868,43 @@
     const ASPECT_RATIO_VALUE_REGEX = /\b(?:1:1|3:4|4:3|9:16|16:9)\b/i;
     const ASPECT_RATIO_LABEL_REGEX = /choose image aspect ratio/i;
     const ASPECT_RATIO_MENU_HINT_REGEX = /\b(?:square|portrait|story|landscape|widescreen|auto)\b/i;
-    const COMPOSER_MODE_TRIGGER_HINT_REGEX = /\b(?:thinking|extended)\b/i;
-    const THINKING_EFFORT_TRIGGER_ARIA_REGEX = /\b(?:thinking effort|mode)\b/i;
+    const COMPOSER_MODE_TRIGGER_HINT_REGEX = /\b(?:thinking|extended|high)\b|思考|高/i;
+    const THINKING_EFFORT_TRIGGER_ARIA_REGEX = /\b(?:thinking effort|mode)\b|思考|高/i;
     const THINKING_EFFORT_EXTENDED_TEXT_MATCH = [
       createChatgptElementIconMatcher(CHATGPT_THINKING_EFFORT_EXTENDED_ICON_IDS),
       "extended thinking",
       "extended",
+      "high",
+      "高",
       "进阶"
     ];
-    const TOP_MODEL_THINKING_TEXT_MATCH = ["thinking", "思考"];
+    const TOP_MODEL_THINKING_TEXT_MATCH = ["thinking", "high", "思考", "高"];
+    const CHATGPT_TOOLBAR_MENU_SIGNATURE_MATCHERS = Object.freeze([
+      /add\s+photos?\s*(?:&|and)\s*files?|upload\s+from\s+computer|添加.*(?:图片|文件)|上传文件/i,
+      /create\s+(?:an\s+)?image|visualize\s+anything|创建图片/i,
+      /web\s+search|look\s+something\s+up|find\s+real[-\s]?time\s+news|网页搜索/i,
+      /deep\s+research|detailed\s+report|深度研究/i
+    ]);
+    const CHATGPT_TOOLBAR_TRIGGER_TEXT_REGEX = /^(?:\+|＋)$|add\s+(?:files|photos)|upload|attach|添加|上传|附件/i;
+    const CHATGPT_TOOLBAR_TRIGGER_EXCLUDED_TEXT_REGEX = /\b(?:send|stop|dictation|microphone|voice|model selector|choose image aspect ratio|temporary chat|effort)\b|发送|停止|语音|麦克风|模型选择器|图片比例|临时聊天/i;
     function getAspectRatioComparableText(value) {
       return normalizeAspectRatioText(String(value || ""));
     }
     function getChatgptUiElementText(element) {
       if (!element) return "";
-      const ariaLabel = element.getAttribute?.("aria-label");
-      if (ariaLabel && String(ariaLabel).trim()) return String(ariaLabel);
-      const title = element.getAttribute?.("title");
-      if (title && String(title).trim()) return String(title);
+      const parts = [];
+      const push = (value) => {
+        const text = String(value || "").replace(/\s+/g, " ").trim();
+        if (text && !parts.includes(text)) parts.push(text);
+      };
+      push(element.getAttribute?.("aria-label"));
+      push(element.getAttribute?.("title"));
+      push(element.getAttribute?.("data-testid"));
       try {
-        return String(element.textContent || "");
+        push(element.innerText || element.textContent || "");
       } catch {
-        return "";
       }
+      return parts.join(" ");
     }
     function chatgptMenuTextMatches(rawText, matcher, element = null) {
       if (matcher == null) return true;
@@ -2915,11 +2973,20 @@
       }
       return null;
     }
+    function isChatgptUsableActionElement(element) {
+      if (!element || !isVisibleElement(element)) return false;
+      try {
+        if (element.disabled) return false;
+      } catch {
+      }
+      const ariaDisabled = String(element.getAttribute?.("aria-disabled") || "").trim().toLowerCase();
+      return ariaDisabled !== "true";
+    }
     function findVisibleMenuItem(root, selector, {
       textMatch = null,
       fallbackToFirst = false
     } = {}) {
-      const items = safeQueryAll(root, selector).filter(isVisibleElement);
+      const items = safeQueryAll(root, selector).filter((item) => item !== root && isChatgptUsableActionElement(item));
       if (items.length === 0) return null;
       if (!textMatch) return items[0] || null;
       for (const item of items) {
@@ -2928,6 +2995,215 @@
         }
       }
       return fallbackToFirst ? items[0] || null : null;
+    }
+    function getChatgptElementRect(element) {
+      try {
+        const rect = element?.getBoundingClientRect?.();
+        if (!rect) return null;
+        return rect;
+      } catch {
+        return null;
+      }
+    }
+    function getChatgptComposerSurfaceElement() {
+      const selectors = [
+        "form[data-type='unified-composer']",
+        "[data-composer-surface]",
+        "form:has(#prompt-textarea)",
+        "form:has([data-testid='composer-textarea'])",
+        "[class*='composer']"
+      ];
+      for (const selector of selectors) {
+        const element = safeQueryAll(document, selector).filter(isVisibleElement).find(Boolean);
+        if (element) return element;
+      }
+      return null;
+    }
+    function isChatgptComposerAdjacentElement(element) {
+      if (!element || !isVisibleElement(element)) return false;
+      if (closestChatgptElement(element, "form[data-type='unified-composer'], [data-composer-surface]")) return true;
+      const composerSurface = getChatgptComposerSurfaceElement();
+      const elementRect = getChatgptElementRect(element);
+      const surfaceRect = getChatgptElementRect(composerSurface);
+      if (!elementRect) return false;
+      if (!surfaceRect) {
+        const viewportHeight = Number(window?.innerHeight || 0);
+        return viewportHeight > 0 && elementRect.top >= viewportHeight * 0.25;
+      }
+      const verticalNear = elementRect.top >= surfaceRect.top - 120 && elementRect.bottom <= surfaceRect.bottom + 220;
+      const horizontalOverlap = elementRect.right >= surfaceRect.left - 180 && elementRect.left <= surfaceRect.right + 180;
+      return verticalNear && horizontalOverlap;
+    }
+    function isChatgptMenuScopedElement(element) {
+      return !!closestChatgptElement(element, "[role='menu'], [role='listbox'], [cmdk-list], [data-radix-popper-content-wrapper], [data-floating-ui-portal], [popover]");
+    }
+    function scoreChatgptToolbarTriggerCandidate(element) {
+      if (!element || !isChatgptUsableActionElement(element)) return -1;
+      if (isChatgptMenuScopedElement(element)) return -1;
+      const dataTestId = getChatgptDataTestId(element);
+      const rawText = getChatgptUiElementText(element);
+      const text = getAspectRatioComparableText(rawText);
+      const visibleText = String(element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
+      const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+      const id = String(element.getAttribute?.("id") || "").trim().toLowerCase();
+      const role = String(element.getAttribute?.("role") || "").trim().toLowerCase();
+      const tagName = String(element.tagName || "").trim().toUpperCase();
+      const isKnownPlus = dataTestId === "composer-plus-btn" || id === "composer-plus-btn";
+      const isButtonLike = tagName === "BUTTON" || role === "button";
+      const hasAddIcon = elementHasChatgptIconId(element, CHATGPT_MENU_TARGETS.addPhotosFiles.iconIds);
+      const plusText = /^[+＋]$/.test(visibleText) || /^[+＋]$/.test(text);
+      const addLikeText = CHATGPT_TOOLBAR_TRIGGER_TEXT_REGEX.test(rawText) || CHATGPT_TOOLBAR_TRIGGER_TEXT_REGEX.test(ariaLabel);
+      if (!isKnownPlus && !hasAddIcon && !plusText && !addLikeText) return -1;
+      if (!isKnownPlus && CHATGPT_TOOLBAR_TRIGGER_EXCLUDED_TEXT_REGEX.test(rawText)) return -1;
+      let score = 0;
+      if (isKnownPlus) score += 700;
+      if (hasAddIcon) score += 520;
+      if (addLikeText) score += 480;
+      if (plusText) score += 420;
+      if (isButtonLike) score += 80;
+      if (String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "menu") score += 80;
+      if (isChatgptComposerAdjacentElement(element)) score += 220;
+      const rect = getChatgptElementRect(element);
+      if (rect) score += Math.max(0, Math.min(100, rect.bottom / 12));
+      return score > 0 ? score : -1;
+    }
+    function findChatgptToolbarTriggerElement() {
+      const seen = /* @__PURE__ */ new Set();
+      const candidates = [];
+      for (const element of safeQueryAll(document, SELECTORS.composerToolbarTrigger)) {
+        if (!element || seen.has(element)) continue;
+        seen.add(element);
+        const score = scoreChatgptToolbarTriggerCandidate(element);
+        if (score < 0) continue;
+        const rect = getChatgptElementRect(element);
+        candidates.push({ element, score, bottom: Number(rect?.bottom || 0) });
+      }
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.bottom - a.bottom;
+      });
+      return candidates[0]?.element || null;
+    }
+    function getChatgptToolbarMenuSignatureHitCount(menuElement) {
+      if (!menuElement) return 0;
+      const rawText = getChatgptUiElementText(menuElement);
+      let hits = 0;
+      for (const matcher of CHATGPT_TOOLBAR_MENU_SIGNATURE_MATCHERS) {
+        try {
+          if (matcher.test(rawText)) hits += 1;
+        } catch {
+        }
+      }
+      return hits;
+    }
+    function isChatgptToolbarMenuRootCandidate(menuElement) {
+      if (!menuElement || !isVisibleElement(menuElement)) return false;
+      const role = String(menuElement.getAttribute?.("role") || "").trim().toLowerCase();
+      const itemCount = safeQueryAll(menuElement, SELECTORS.popupMenuItem).filter((item) => item !== menuElement && isChatgptUsableActionElement(item)).length;
+      const hits = getChatgptToolbarMenuSignatureHitCount(menuElement);
+      if (hits >= 2) return true;
+      return itemCount > 0 && hits >= 1 && (role === "menu" || role === "listbox" || menuElement.hasAttribute?.("cmdk-list"));
+    }
+    function scoreChatgptToolbarMenuRootCandidate(menuElement) {
+      if (!isChatgptToolbarMenuRootCandidate(menuElement)) return -1;
+      const role = String(menuElement.getAttribute?.("role") || "").trim().toLowerCase();
+      const state = String(menuElement.getAttribute?.("data-state") || "").trim().toLowerCase();
+      const itemCount = safeQueryAll(menuElement, SELECTORS.popupMenuItem).filter((item) => item !== menuElement && isChatgptUsableActionElement(item)).length;
+      const hits = getChatgptToolbarMenuSignatureHitCount(menuElement);
+      const rect = getChatgptElementRect(menuElement);
+      const area = rect ? Math.max(0, rect.width * rect.height) : 0;
+      const viewportArea = Math.max(1, Number(window?.innerWidth || 0) * Number(window?.innerHeight || 0));
+      let score = hits * 1e3 + Math.min(itemCount, 12) * 40;
+      if (role === "menu" || role === "listbox") score += 180;
+      if (state === "open") score += 120;
+      if (area > viewportArea * 0.65) score -= 400;
+      if (rect) score += Math.max(0, Math.min(120, rect.bottom / 10));
+      return score;
+    }
+    function isChatgptLooseToolbarMenuRootCandidate(menuElement) {
+      if (!menuElement || !isVisibleElement(menuElement)) return false;
+      if (chatgptElementMatches(menuElement, SELECTORS.popupMenuRoot)) return false;
+      const rawText = getChatgptUiElementText(menuElement);
+      const hits = getChatgptToolbarMenuSignatureHitCount(menuElement);
+      const hasFullMenuOnlySignal = CHATGPT_TOOLBAR_MENU_SIGNATURE_MATCHERS[0].test(rawText) || CHATGPT_TOOLBAR_MENU_SIGNATURE_MATCHERS[3].test(rawText);
+      if (hits < 2 || !hasFullMenuOnlySignal) return false;
+      const rect = getChatgptElementRect(menuElement);
+      if (!rect) return false;
+      const viewportArea = Math.max(1, Number(window?.innerWidth || 0) * Number(window?.innerHeight || 0));
+      const area = Math.max(0, rect.width * rect.height);
+      return area > 0 && area < viewportArea * 0.45;
+    }
+    function findChatgptToolbarMenuRoot(triggerEl = null) {
+      if (triggerEl) {
+        const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
+        if (controlsId) {
+          const controlledMenu = document.getElementById(controlsId);
+          if (isChatgptToolbarMenuRootCandidate(controlledMenu)) return controlledMenu;
+        }
+        const triggerId = String(triggerEl.getAttribute?.("id") || "").trim();
+        if (triggerId) {
+          const labelledMenu = safeQueryAll(document, SELECTORS.popupMenuRoot).find((menuElement) => String(menuElement.getAttribute?.("aria-labelledby") || "").trim() === triggerId && isChatgptToolbarMenuRootCandidate(menuElement));
+          if (labelledMenu) return labelledMenu;
+        }
+      }
+      const candidates = safeQueryAll(document, SELECTORS.popupMenuRoot).map((element) => ({ element, score: scoreChatgptToolbarMenuRootCandidate(element) })).filter((item) => item.score >= 0);
+      if (candidates.length === 0) {
+        candidates.push(
+          ...safeQueryAll(document, "body div").filter(isChatgptLooseToolbarMenuRootCandidate).map((element) => ({ element, score: scoreChatgptToolbarMenuRootCandidate(element) + 80 })).filter((item) => item.score >= 0)
+        );
+      }
+      candidates.sort((a, b) => b.score - a.score);
+      return candidates[0]?.element || null;
+    }
+    async function ensureChatgptToolbarMenuOpen(triggerEl, { timeoutMs = 2500, intervalMs = 120 } = {}) {
+      const existing = findChatgptToolbarMenuRoot(triggerEl);
+      if (existing) return existing;
+      const resolvedTrigger = triggerEl || findChatgptToolbarTriggerElement();
+      if (!resolvedTrigger) return null;
+      if (!simulateClickElement(resolvedTrigger, { nativeFallback: true })) return null;
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+      while (Date.now() < deadline) {
+        const menuRoot = findChatgptToolbarMenuRoot(resolvedTrigger);
+        if (menuRoot) return menuRoot;
+        await sleepMenuStep(intervalMs);
+      }
+      return findChatgptToolbarMenuRoot(resolvedTrigger);
+    }
+    function findChatgptDirectToolbarItem({
+      selector = SELECTORS.popupMenuItem,
+      textMatch = null,
+      fallbackToFirst = false
+    } = {}) {
+      const items = safeQueryAll(document, selector).filter((item) => !isChatgptMenuScopedElement(item)).filter(isChatgptUsableActionElement).filter(isChatgptComposerAdjacentElement);
+      if (items.length === 0) return null;
+      if (!textMatch) return fallbackToFirst ? items[0] || null : null;
+      for (const item of items) {
+        if (chatgptMenuTextMatches(getChatgptUiElementText(item), textMatch, item)) return item;
+      }
+      return fallbackToFirst ? items[0] || null : null;
+    }
+    async function clickChatgptToolbarMenuItem({
+      selector = SELECTORS.popupMenuItem,
+      textMatch = null,
+      fallbackToFirst = false,
+      waitForItem = true,
+      timeoutMs = 2500,
+      intervalMs = 120
+    } = {}) {
+      const directItem = findChatgptDirectToolbarItem({ selector, textMatch, fallbackToFirst: false });
+      if (directItem && simulateClickElement(directItem, { nativeFallback: true })) return true;
+      const triggerEl = findChatgptToolbarTriggerElement();
+      const menuRoot = findChatgptToolbarMenuRoot(triggerEl) || await ensureChatgptToolbarMenuOpen(triggerEl, { timeoutMs, intervalMs });
+      if (!menuRoot) return false;
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+      do {
+        const currentRoot = findChatgptToolbarMenuRoot(triggerEl) || menuRoot;
+        const target = currentRoot ? findVisibleMenuItem(currentRoot, selector, { textMatch, fallbackToFirst }) : null;
+        if (target && simulateClickElement(target, { nativeFallback: true })) return true;
+        if (!waitForItem || Date.now() >= deadline) break;
+        await sleepMenuStep(intervalMs);
+      } while (true);
+      return false;
     }
     function clickChatgptTemporaryChatButton() {
       const iconTarget = findVisibleElementByIcon(document, "button", CHATGPT_TEMPORARY_CHAT_ICON_IDS);
@@ -3598,12 +3874,22 @@
         const shouldTryModeMenu = !isThinkingShortcut && (spec.preferModeMenu || isComposerModeRequest(spec.textMatch));
         switch (spec.action) {
           case "open": {
+            const triggerEl = findChatgptToolbarTriggerElement();
+            const toolbarRoot = await ensureChatgptToolbarMenuOpen(triggerEl);
+            if (toolbarRoot) return true;
             return popupMenu.ensureOpen({ engine: engine2 });
           }
           case "submenu": {
             return popupMenu.ensureSubmenuOpen({ engine: engine2 }, spec.submenuKey);
           }
           case "click": {
+            const toolbarClicked = await clickChatgptToolbarMenuItem({
+              selector: spec.selector,
+              textMatch: spec.textMatch,
+              fallbackToFirst: spec.fallbackToFirst,
+              waitForItem: spec.waitForItem
+            });
+            if (toolbarClicked) return true;
             if (shouldTryModeMenu) {
               const modeClicked = await clickComposerModeMenuItem({
                 selector: spec.selector,
@@ -3619,6 +3905,13 @@
             );
           }
           default: {
+            const toolbarClicked = await clickChatgptToolbarMenuItem({
+              selector: spec.selector,
+              textMatch: spec.textMatch,
+              fallbackToFirst: spec.fallbackToFirst,
+              waitForItem: spec.waitForItem
+            });
+            if (toolbarClicked) return true;
             if (shouldTryModeMenu) {
               const modeClicked = await clickComposerModeMenuItem({
                 selector: spec.selector,
@@ -3692,6 +3985,7 @@
       ...overrides
     });
     const CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY = "chatgpt-aspect-square-1-1";
+    const CHATGPT_ADD_PHOTOS_FILES_SHORTCUT_KEY = "chatgpt-add-photos-files";
     const CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY = "chatgpt-native-set-custom-instructions";
     const CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY = "chatgpt-create-website";
     const CHATGPT_SCHEDULES_SHORTCUT_KEY = "chatgpt-schedules";
@@ -3701,6 +3995,7 @@
     const CHATGPT_SETTINGS_SCHEDULES_SHORTCUT_KEY = "chatgpt-settings-schedules";
     const CHATGPT_SETTINGS_SECURITY_SHORTCUT_KEY = "chatgpt-settings-security";
     const CHATGPT_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
+      CHATGPT_ADD_PHOTOS_FILES_SHORTCUT_KEY,
       CHATGPT_SQUARE_ASPECT_RATIO_SHORTCUT_KEY,
       CHATGPT_SET_CUSTOM_INSTRUCTIONS_SHORTCUT_KEY,
       CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY,
@@ -3764,9 +4059,11 @@
         hotkey: "CTRL+/"
       }, "focusInput"),
       createShortcut({
+        key: CHATGPT_ADD_PHOTOS_FILES_SHORTCUT_KEY,
         name: "Add photos & files",
-        actionType: "simulate",
-        simulateKeys: "CMD+U",
+        actionType: "custom",
+        customAction: "chatgptMenu",
+        data: { menu: { id: "addPhotosFiles" } },
         hotkey: "CTRL+F"
       }, "upload"),
       createShortcut({
@@ -3906,6 +4203,7 @@
       if (customAction === "quickInput") return "quickInput";
       if (customAction === "chatgptAspectRatio") return "square";
       if (customAction === "chatgptMenu") {
+        if (menuId === "addPhotosFiles") return "upload";
         if (menuId === "createImage") return "createImage";
         if (menuId === "createWebsite") return "createWebsite";
         if (menuId === "deepResearch") return "deepResearch";
@@ -3951,6 +4249,21 @@
       if (name === "Create website" || name === "创建网站") return true;
       return getChatgptStoredShortcutMenuId(shortcut) === "createWebsite";
     }
+    function isChatgptAddPhotosFilesShortcutItem(shortcut) {
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return false;
+      const key = String(shortcut.key || "").trim();
+      if (key === CHATGPT_ADD_PHOTOS_FILES_SHORTCUT_KEY) return true;
+      const menuId = getChatgptStoredShortcutMenuId(shortcut);
+      if (menuId === "addPhotosFiles") return true;
+      const name = String(shortcut.name || "").trim();
+      return name === "Add photos & files" || name === "添加图片和文件";
+    }
+    function isChatgptLegacyNativeUploadShortcut(shortcut) {
+      if (!isChatgptAddPhotosFilesShortcutItem(shortcut)) return false;
+      const actionType = String(shortcut.actionType || "").trim().toLowerCase();
+      const simulateKeys = normalizeChatgptShortcutHotkey(shortcut.simulateKeys);
+      return actionType === "simulate" && simulateKeys === "CMD+U";
+    }
     function isChatgptHotkeyInUse(list, hotkey, exceptIndex = -1) {
       const target = normalizeChatgptShortcutHotkey(hotkey);
       if (!target || !Array.isArray(list)) return false;
@@ -3985,6 +4298,38 @@
             changed = true;
           }
         }
+      }
+      if (!changed) return;
+      try {
+        GM_setValue(CHATGPT_DEFAULT_SHORTCUTS_STORAGE_KEY, next);
+      } catch {
+      }
+    }
+    function migrateChatgptAddPhotosFilesShortcut() {
+      if (typeof GM_getValue !== "function" || typeof GM_setValue !== "function") return;
+      let stored = null;
+      try {
+        stored = GM_getValue(CHATGPT_DEFAULT_SHORTCUTS_STORAGE_KEY, null);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(stored)) return;
+      let changed = false;
+      const next = stored.map((shortcut2) => cloneChatgptShortcutItem(shortcut2) || shortcut2);
+      const uploadIndex = next.findIndex(isChatgptAddPhotosFilesShortcutItem);
+      if (uploadIndex < 0) return;
+      const shortcut = next[uploadIndex];
+      if (!shortcut || typeof shortcut !== "object" || Array.isArray(shortcut)) return;
+      if (String(shortcut.key || "").trim() !== CHATGPT_ADD_PHOTOS_FILES_SHORTCUT_KEY) {
+        shortcut.key = CHATGPT_ADD_PHOTOS_FILES_SHORTCUT_KEY;
+        changed = true;
+      }
+      if (isChatgptLegacyNativeUploadShortcut(shortcut)) {
+        shortcut.actionType = "custom";
+        shortcut.customAction = "chatgptMenu";
+        shortcut.simulateKeys = "";
+        shortcut.data = { menu: { id: "addPhotosFiles" } };
+        changed = true;
       }
       if (!changed) return;
       try {
@@ -4038,6 +4383,7 @@
       }
     }
     migrateChatgptCreateWebsiteAndCanvasHotkeys();
+    migrateChatgptAddPhotosFilesShortcut();
     migrateChatgptDefaultShortcutIcons();
     const engine = ShortcutTemplate.createShortcutEngine({
       // 基本配置
@@ -4111,7 +4457,7 @@
       ensureChatgptManagedShortcut(engine, {
         key,
         createShortcutItem: () => createChatgptDefaultShortcutByKey(key),
-        avoidHotkeyConflict: key === CHATGPT_SCHEDULES_SHORTCUT_KEY || key === CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY
+        avoidHotkeyConflict: key === CHATGPT_ADD_PHOTOS_FILES_SHORTCUT_KEY || key === CHATGPT_SCHEDULES_SHORTCUT_KEY || key === CHATGPT_CREATE_WEBSITE_SHORTCUT_KEY
       });
     }
     let quickInputMenuCommandId = null;
