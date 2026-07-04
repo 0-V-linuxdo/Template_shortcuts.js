@@ -208,16 +208,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260605] v1.1.1",
+            name: "[ChatGPT] 快捷键跳转 [20260704] v1.0.0",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image/Create website）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260605] v1.1.1",
-            updateLog: "1.1.1: 更新 Template core require；QuickInput 悬浮球左侧按钮可暂停/继续当前任务，右侧状态区域恢复弹窗。",
+            version: "[20260704] v1.0.0",
+            updateLog: "1.0.0: 适配 ChatGPT 新工具栏，恢复 Add photos & files、Create image、Web、Deep research、Thinking/High、Canvas 等快捷键，并迁移旧 CMD+U 上传动作。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260605] v1.1.1",
+                    name: "[ChatGPT] Shortcut Jump [20260704] v1.0.0",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers including Create website, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.1.1: Updated the Template core require; the QuickInput bubble's left button now pauses/resumes the current task, while the status area restores the popup."
+                    updateLog: "1.0.0: Adapted to ChatGPT's new toolbar, restored shortcuts for Add photos & files, Create image, Web, Deep research, Thinking/High, and Canvas, and migrated the old CMD+U upload action."
                 }
             },
             match: [
