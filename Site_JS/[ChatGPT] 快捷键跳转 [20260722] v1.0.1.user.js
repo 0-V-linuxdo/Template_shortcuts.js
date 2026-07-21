@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260704] v1.0.0
-// @name:en        [ChatGPT] Shortcut Jump [20260704] v1.0.0
+// @name           [ChatGPT] 快捷键跳转 [20260722] v1.0.1
+// @name:en        [ChatGPT] Shortcut Jump [20260722] v1.0.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image/Create website）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers including Create website, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260704] v1.0.0
-// @update-log     1.0.0: 适配 ChatGPT 新工具栏，恢复 Add photos & files、Create image、Web、Deep research、Thinking/High、Canvas 等快捷键，并迁移旧 CMD+U 上传动作。
-// @update-log:en  1.0.0: Adapted to ChatGPT's new toolbar, restored shortcuts for Add photos & files, Create image, Web, Deep research, Thinking/High, and Canvas, and migrated the old CMD+U upload action.
+// @version        [20260722] v1.0.1
+// @update-log     1.0.1: 修复新版 ChatGPT 将 Create image 等工具 pill 计入输入框正文，导致快捷输入校验失败并清除工具选择的问题。
+// @update-log:en  1.0.1: Fixed Quick Input treating new ChatGPT tool pills such as Create image as prompt text, which caused verification failures and cleared the selected tool.
 
 // @match          https://chatgpt.com/*
 
@@ -42,6 +42,191 @@
  */
 
 (() => {
+  // src/sites/chatgpt/composer-text.js
+  var CHATGPT_TEXT_BLOCK_SELECTOR = "p, li, blockquote, pre, h1, h2, h3, h4, h5, h6";
+  var CHATGPT_STRUCTURED_TEXT_TAGS = /* @__PURE__ */ new Set([
+    "P",
+    "LI",
+    "BLOCKQUOTE",
+    "PRE",
+    "UL",
+    "OL",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6"
+  ]);
+  var CHATGPT_INLINE_SELECTION_CURSOR_ATTRIBUTE = "data-inline-selection-pill-cursor-target";
+  function getNodeType(node) {
+    return Number(node?.nodeType) || 0;
+  }
+  function getChildNodes(node) {
+    try {
+      return Array.from(node?.childNodes || []);
+    } catch {
+      return [];
+    }
+  }
+  function getNextSibling(node) {
+    if (!node) return null;
+    try {
+      if ("nextSibling" in node) return node.nextSibling || null;
+    } catch {
+    }
+    const parent = node.parentNode || null;
+    if (!parent) return null;
+    const siblings = getChildNodes(parent);
+    const index = siblings.indexOf(node);
+    return index >= 0 ? siblings[index + 1] || null : null;
+  }
+  function hasNodeAttribute(node, name) {
+    if (!node || getNodeType(node) !== 1) return false;
+    try {
+      if (typeof node.hasAttribute === "function") return node.hasAttribute(name);
+    } catch {
+    }
+    try {
+      const value = node.getAttribute?.(name);
+      return value !== null && value !== void 0;
+    } catch {
+      return false;
+    }
+  }
+  function getNodeAttribute(node, name) {
+    if (!node || getNodeType(node) !== 1) return null;
+    try {
+      const value = node.getAttribute?.(name);
+      return value === null || value === void 0 ? null : String(value);
+    } catch {
+      return null;
+    }
+  }
+  function isContentEditableFalse(node) {
+    const attributeValue = getNodeAttribute(node, "contenteditable");
+    if (attributeValue !== null) return attributeValue.toLowerCase() === "false";
+    try {
+      return String(node?.contentEditable || "").toLowerCase() === "false";
+    } catch {
+      return false;
+    }
+  }
+  function isChatGPTInlineSelectionCursorTarget(node) {
+    return hasNodeAttribute(node, CHATGPT_INLINE_SELECTION_CURSOR_ATTRIBUTE);
+  }
+  function findChatGPTInlineSelectionPill(cursorNode) {
+    if (!isChatGPTInlineSelectionCursorTarget(cursorNode)) return null;
+    let candidate = getNextSibling(cursorNode);
+    while (candidate && getNodeType(candidate) === 8) {
+      candidate = getNextSibling(candidate);
+    }
+    if (getNodeType(candidate) !== 1) return null;
+    if (isChatGPTInlineSelectionCursorTarget(candidate)) return null;
+    return isContentEditableFalse(candidate) ? candidate : null;
+  }
+  function stripChatGPTPillSeparator(value) {
+    return String(value || "").replace(
+      /^([\u200B\u200C\u200D\u2060\uFEFF]*)(?: |\u00A0)/,
+      "$1"
+    );
+  }
+  function collectChatGPTComposerTextFilter(root) {
+    const excludedNodes = /* @__PURE__ */ new Set();
+    const separatorTextNodes = /* @__PURE__ */ new Set();
+    const visit = (node) => {
+      if (!node) return;
+      if (isChatGPTInlineSelectionCursorTarget(node)) {
+        excludedNodes.add(node);
+        const pill = findChatGPTInlineSelectionPill(node);
+        if (pill) {
+          excludedNodes.add(pill);
+          const separator = getNextSibling(pill);
+          if (getNodeType(separator) === 3 && /^[\u200B\u200C\u200D\u2060\uFEFF]*(?: |\u00A0)/.test(String(separator?.nodeValue || ""))) {
+            separatorTextNodes.add(separator);
+          }
+        }
+      }
+      for (const child of getChildNodes(node)) {
+        visit(child);
+      }
+    };
+    visit(root);
+    return {
+      excludedNodes,
+      separatorTextNodes,
+      hasInlineSelectionNodes: excludedNodes.size > 0
+    };
+  }
+  function isChatGPTStructuredTextElement(node) {
+    return CHATGPT_STRUCTURED_TEXT_TAGS.has(String(node?.tagName || "").toUpperCase());
+  }
+  function isChatGPTTrailingBreak(node) {
+    if (!node || String(node.tagName || "").toUpperCase() !== "BR") return false;
+    try {
+      if (!node.classList?.contains("ProseMirror-trailingBreak")) return false;
+    } catch {
+      return false;
+    }
+    const parent = node.parentElement || node.parentNode || null;
+    if (!parent) return true;
+    const siblings = getChildNodes(parent).filter(Boolean);
+    return siblings[siblings.length - 1] === node;
+  }
+  function serializeChatGPTInlineText(node, filter, { preserveWhitespace = false } = {}) {
+    if (!node || filter.excludedNodes.has(node)) return "";
+    const nodeType = getNodeType(node);
+    if (nodeType === 3) {
+      const value = String(node.nodeValue || "");
+      return filter.separatorTextNodes.has(node) ? stripChatGPTPillSeparator(value) : value;
+    }
+    if (nodeType !== 1) return "";
+    const tag = String(node.tagName || "").toUpperCase();
+    if (tag === "BR") {
+      return isChatGPTTrailingBreak(node) ? "" : "\n";
+    }
+    const nextPreserveWhitespace = preserveWhitespace || tag === "PRE";
+    let text = "";
+    for (const child of getChildNodes(node)) {
+      text += serializeChatGPTInlineText(child, filter, { preserveWhitespace: nextPreserveWhitespace });
+    }
+    return text;
+  }
+  function serializeChatGPTStructuredText(node, filter) {
+    if (!node || filter.excludedNodes.has(node)) return "";
+    const nodeType = getNodeType(node);
+    if (nodeType === 3) {
+      const value = String(node.nodeValue || "");
+      return filter.separatorTextNodes.has(node) ? stripChatGPTPillSeparator(value) : value;
+    }
+    if (nodeType !== 1) return "";
+    const tag = String(node.tagName || "").toUpperCase();
+    if (tag === "UL" || tag === "OL") {
+      const items = Array.from(node.children || []).filter((child) => String(child?.tagName || "").toUpperCase() === "LI").map((child) => serializeChatGPTStructuredText(child, filter));
+      return items.join("\n");
+    }
+    const structuredChildren = getChildNodes(node).filter((child) => isChatGPTStructuredTextElement(child));
+    if (structuredChildren.length > 0) {
+      return structuredChildren.map((child) => serializeChatGPTStructuredText(child, filter)).join("\n");
+    }
+    return serializeChatGPTInlineText(node, filter, { preserveWhitespace: tag === "PRE" });
+  }
+  function analyzeChatGPTComposerText(composerEl) {
+    if (!composerEl) {
+      return { text: "", hasInlineSelectionNodes: false };
+    }
+    const filter = collectChatGPTComposerTextFilter(composerEl);
+    const topLevelBlocks = getChildNodes(composerEl).filter((child) => isChatGPTStructuredTextElement(child));
+    const text = topLevelBlocks.length > 0 ? topLevelBlocks.map((child) => serializeChatGPTStructuredText(child, filter)).join("\n") : serializeChatGPTInlineText(composerEl, filter);
+    return {
+      text,
+      hasInlineSelectionNodes: filter.hasInlineSelectionNodes
+    };
+  }
+  function serializeChatGPTComposerText(composerEl) {
+    return analyzeChatGPTComposerText(composerEl).text;
+  }
+
   // src/sites/chatgpt/index.js
   (function() {
     "use strict";
@@ -1083,7 +1268,6 @@
       const CHATGPT_TEXT_INSERT_CHUNK_SIZE = 64;
       const CHATGPT_TEXT_INSERT_CHUNK_DELAY_MS = 12;
       const CHATGPT_FALLBACK_TEXTAREA_SELECTOR = "textarea.wcDTda_fallbackTextarea[name='prompt-textarea'], textarea[name='prompt-textarea']";
-      const CHATGPT_TEXT_BLOCK_SELECTOR = "p, li, blockquote, pre, h1, h2, h3, h4, h5, h6";
       const CHATGPT_TEXT_OBSERVED_ATTRIBUTES = Object.freeze([
         "class",
         "style",
@@ -1094,67 +1278,6 @@
         "aria-hidden",
         "hidden"
       ]);
-      function isChatGPTStructuredTextElement(node) {
-        const tag = String(node?.tagName || "").toUpperCase();
-        return tag === "P" || tag === "LI" || tag === "BLOCKQUOTE" || tag === "PRE" || tag === "UL" || tag === "OL" || tag === "H1" || tag === "H2" || tag === "H3" || tag === "H4" || tag === "H5" || tag === "H6";
-      }
-      function isChatGPTTrailingBreak(node) {
-        if (!node || String(node.tagName || "").toUpperCase() !== "BR") return false;
-        try {
-          if (!node.classList?.contains("ProseMirror-trailingBreak")) return false;
-        } catch {
-          return false;
-        }
-        const parent = node.parentElement || null;
-        if (!parent) return true;
-        const siblings = Array.from(parent.childNodes || []).filter(Boolean);
-        return siblings[siblings.length - 1] === node;
-      }
-      function serializeChatGPTInlineText(node, { preserveWhitespace = false } = {}) {
-        if (!node) return "";
-        const nodeType = Number(node.nodeType) || 0;
-        if (nodeType === 3) {
-          return String(node.nodeValue || "");
-        }
-        if (nodeType !== 1) return "";
-        const tag = String(node.tagName || "").toUpperCase();
-        if (tag === "BR") {
-          return isChatGPTTrailingBreak(node) ? "" : "\n";
-        }
-        const nextPreserveWhitespace = preserveWhitespace || tag === "PRE";
-        let text = "";
-        for (const child of Array.from(node.childNodes || [])) {
-          text += serializeChatGPTInlineText(child, { preserveWhitespace: nextPreserveWhitespace });
-        }
-        if (nextPreserveWhitespace) return text;
-        return text;
-      }
-      function serializeChatGPTStructuredText(node) {
-        if (!node) return "";
-        const nodeType = Number(node.nodeType) || 0;
-        if (nodeType === 3) {
-          return String(node.nodeValue || "");
-        }
-        if (nodeType !== 1) return "";
-        const tag = String(node.tagName || "").toUpperCase();
-        if (tag === "UL" || tag === "OL") {
-          const items = Array.from(node.children || []).filter((child) => String(child?.tagName || "").toUpperCase() === "LI").map((child) => serializeChatGPTStructuredText(child));
-          return items.join("\n");
-        }
-        const structuredChildren = Array.from(node.childNodes || []).filter((child) => isChatGPTStructuredTextElement(child));
-        if (structuredChildren.length > 0) {
-          return structuredChildren.map((child) => serializeChatGPTStructuredText(child)).join("\n");
-        }
-        return serializeChatGPTInlineText(node, { preserveWhitespace: tag === "PRE" });
-      }
-      function serializeChatGPTComposerText(composerEl) {
-        if (!composerEl) return "";
-        const topLevelBlocks = Array.from(composerEl.childNodes || []).filter((child) => isChatGPTStructuredTextElement(child));
-        if (topLevelBlocks.length > 0) {
-          return topLevelBlocks.map((child) => serializeChatGPTStructuredText(child)).join("\n");
-        }
-        return serializeChatGPTInlineText(composerEl);
-      }
       function readChatGPTFallbackTextareaValue(composerEl) {
         const textarea = findChatGPTFallbackTextarea(composerEl);
         if (!textarea) return "";
@@ -1177,6 +1300,16 @@
           text = fallbackText || genericGetComposerText(composer);
         }
         return genericNormalizeComposerText(text, { trimTrailingEditorNewlines });
+      }
+      function isChatGPTComposerFullyCleared(composerEl) {
+        const composer = resolveLiveChatGPTComposerElement(composerEl) || composerEl || null;
+        if (!composer) return false;
+        if (composer.isContentEditable || composer.contentEditable === "true") {
+          const state = analyzeChatGPTComposerText(composer);
+          const text = genericNormalizeComposerText(state.text, { trimTrailingEditorNewlines: true });
+          return !text && !state.hasInlineSelectionNodes;
+        }
+        return !genericNormalizeComposerText(genericGetComposerText(composer), { trimTrailingEditorNewlines: true });
       }
       function normalizeChatGPTCommittedText(value) {
         return genericNormalizeComposerText(String(value ?? ""), { trimTrailingEditorNewlines: true });
@@ -1346,18 +1479,8 @@
           composer.focus?.();
           const selection = window.getSelection?.();
           if (!selection) return false;
-          const startPoint = getChatGPTComposerBoundaryPoint(composer, { position: "start" });
-          const endPoint = getChatGPTComposerBoundaryPoint(composer, { position: "end" });
           const range = document.createRange();
-          if (startPoint?.node && endPoint?.node) {
-            range.setStart(startPoint.node, startPoint.offset);
-            range.setEnd(endPoint.node, endPoint.offset);
-            if (range.collapsed) {
-              range.selectNodeContents(composer);
-            }
-          } else {
-            range.selectNodeContents(composer);
-          }
+          range.selectNodeContents(composer);
           selection.removeAllRanges();
           selection.addRange(range);
           return true;
@@ -1583,7 +1706,8 @@
         if (!composer) return false;
         const text = String(value ?? "");
         if (composer.isContentEditable || composer.contentEditable === "true") {
-          await clearChatGPTInputValue(composer);
+          const initiallyCleared = await clearChatGPTInputValue(composer);
+          if (!initiallyCleared) return false;
           if (!text) return true;
           const hasFence = hasMarkdownFenceText(text);
           const attempts = hasFence ? [
@@ -1612,7 +1736,8 @@
               return true;
             }
             if (index < attempts.length - 1) {
-              await clearChatGPTInputValue(composer);
+              const retryCleared = await clearChatGPTInputValue(composer);
+              if (!retryCleared) return false;
               await sleep(20);
             }
           }
@@ -1645,9 +1770,11 @@
           let cleared = false;
           try {
             if (selectAllChatGPTComposerContent(composer)) {
-              cleared = !!document.execCommand?.("delete", false, null);
+              document.execCommand?.("delete", false, null);
+              cleared = isChatGPTComposerFullyCleared(composer);
               if (!cleared) {
-                cleared = !!document.execCommand?.("insertText", false, "");
+                document.execCommand?.("insertText", false, "");
+                cleared = isChatGPTComposerFullyCleared(composer);
               }
             }
           } catch {
@@ -1656,26 +1783,27 @@
             try {
               if (selectAllChatGPTComposerContent(composer)) {
                 window.getSelection?.()?.deleteFromDocument?.();
-                cleared = true;
+                cleared = isChatGPTComposerFullyCleared(composer);
               }
             } catch {
             }
           }
           if (!cleared && typeof genericClearInputValue === "function") {
             try {
-              cleared = !!genericClearInputValue(composer);
+              genericClearInputValue(composer);
+              cleared = isChatGPTComposerFullyCleared(composer);
             } catch {
             }
           }
           if (!cleared) {
             try {
               composer.textContent = "";
-              cleared = true;
+              cleared = isChatGPTComposerFullyCleared(composer);
             } catch {
             }
           }
           dispatchChatGPTComposerInput(composer, { inputType: "deleteContentBackward", data: null });
-          return cleared || !getChatGPTComposerPlainText(composer);
+          return isChatGPTComposerFullyCleared(composer);
         }
         try {
           if (typeof genericClearInputValue === "function") {
