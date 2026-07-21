@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.js",
-    "stage:release": "node scripts/stage-release-branch.js"
+    "stage:release": "node scripts/stage-release-branch.js",
+    "test": "node --test test/*.test.js"
   },
   "devDependencies": {
     "esbuild": "^0.28.0"

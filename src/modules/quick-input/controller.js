@@ -3518,7 +3518,16 @@ export function createController(userOptions = {}) {
                         }) || composerRef;
                     }
 
-                    await attemptClearPromptText(composerRef);
+                    const promptCleared = await attemptClearPromptText(composerRef);
+                    if (!promptCleared) {
+                        return {
+                            ok: false,
+                            cancelled: false,
+                            composer: composerRef,
+                            message: labels.messages?.clearPromptFailed
+                                || DEFAULT_LABELS.messages.clearPromptFailed
+                        };
+                    }
                     return { ok: true, cancelled: false, composer: composerRef };
                 }
 
@@ -3936,6 +3945,8 @@ export function createController(userOptions = {}) {
                             appendLoopLog(
                                 String(
                                     prepareResult?.message
+                                    || labels.messages?.clearPromptFailed
+                                    || DEFAULT_LABELS.messages.clearPromptFailed
                                     || labels.messages?.clearAttachmentsFailed
                                     || DEFAULT_LABELS.messages.clearAttachmentsFailed
                                 ),

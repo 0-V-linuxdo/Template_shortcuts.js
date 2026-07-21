@@ -2,6 +2,12 @@
  * Site Entry · [ChatGPT] 快捷键跳转
  * -------------------------------------------------------------------------- */
 
+import {
+    CHATGPT_TEXT_BLOCK_SELECTOR,
+    analyzeChatGPTComposerText,
+    serializeChatGPTComposerText
+} from "./composer-text.js";
+
 (function() {
     'use strict';
 
@@ -1130,7 +1136,6 @@
         const CHATGPT_TEXT_INSERT_CHUNK_SIZE = 64;
         const CHATGPT_TEXT_INSERT_CHUNK_DELAY_MS = 12;
         const CHATGPT_FALLBACK_TEXTAREA_SELECTOR = "textarea.wcDTda_fallbackTextarea[name='prompt-textarea'], textarea[name='prompt-textarea']";
-        const CHATGPT_TEXT_BLOCK_SELECTOR = "p, li, blockquote, pre, h1, h2, h3, h4, h5, h6";
         const CHATGPT_TEXT_OBSERVED_ATTRIBUTES = Object.freeze([
             "class",
             "style",
@@ -1141,99 +1146,6 @@
             "aria-hidden",
             "hidden"
         ]);
-
-        function isChatGPTStructuredTextElement(node) {
-            const tag = String(node?.tagName || "").toUpperCase();
-            return (
-                tag === "P" ||
-                tag === "LI" ||
-                tag === "BLOCKQUOTE" ||
-                tag === "PRE" ||
-                tag === "UL" ||
-                tag === "OL" ||
-                tag === "H1" ||
-                tag === "H2" ||
-                tag === "H3" ||
-                tag === "H4" ||
-                tag === "H5" ||
-                tag === "H6"
-            );
-        }
-
-        function isChatGPTTrailingBreak(node) {
-            if (!node || String(node.tagName || "").toUpperCase() !== "BR") return false;
-            try {
-                if (!node.classList?.contains("ProseMirror-trailingBreak")) return false;
-            } catch {
-                return false;
-            }
-            const parent = node.parentElement || null;
-            if (!parent) return true;
-            const siblings = Array.from(parent.childNodes || []).filter(Boolean);
-            return siblings[siblings.length - 1] === node;
-        }
-
-        function serializeChatGPTInlineText(node, { preserveWhitespace = false } = {}) {
-            if (!node) return "";
-
-            const nodeType = Number(node.nodeType) || 0;
-            if (nodeType === 3) {
-                return String(node.nodeValue || "");
-            }
-            if (nodeType !== 1) return "";
-
-            const tag = String(node.tagName || "").toUpperCase();
-            if (tag === "BR") {
-                return isChatGPTTrailingBreak(node) ? "" : "\n";
-            }
-
-            const nextPreserveWhitespace = preserveWhitespace || tag === "PRE";
-            let text = "";
-            for (const child of Array.from(node.childNodes || [])) {
-                text += serializeChatGPTInlineText(child, { preserveWhitespace: nextPreserveWhitespace });
-            }
-
-            if (nextPreserveWhitespace) return text;
-            return text;
-        }
-
-        function serializeChatGPTStructuredText(node) {
-            if (!node) return "";
-
-            const nodeType = Number(node.nodeType) || 0;
-            if (nodeType === 3) {
-                return String(node.nodeValue || "");
-            }
-            if (nodeType !== 1) return "";
-
-            const tag = String(node.tagName || "").toUpperCase();
-            if (tag === "UL" || tag === "OL") {
-                const items = Array.from(node.children || [])
-                    .filter(child => String(child?.tagName || "").toUpperCase() === "LI")
-                    .map(child => serializeChatGPTStructuredText(child));
-                return items.join("\n");
-            }
-
-            const structuredChildren = Array.from(node.childNodes || [])
-                .filter(child => isChatGPTStructuredTextElement(child));
-            if (structuredChildren.length > 0) {
-                return structuredChildren.map(child => serializeChatGPTStructuredText(child)).join("\n");
-            }
-
-            return serializeChatGPTInlineText(node, { preserveWhitespace: tag === "PRE" });
-        }
-
-        function serializeChatGPTComposerText(composerEl) {
-            if (!composerEl) return "";
-
-            const topLevelBlocks = Array.from(composerEl.childNodes || [])
-                .filter(child => isChatGPTStructuredTextElement(child));
-            if (topLevelBlocks.length > 0) {
-                return topLevelBlocks.map(child => serializeChatGPTStructuredText(child)).join("\n");
-            }
-
-            return serializeChatGPTInlineText(composerEl);
-        }
 
         function readChatGPTFallbackTextareaValue(composerEl) {
             const textarea = findChatGPTFallbackTextarea(composerEl);
@@ -1260,6 +1172,19 @@
             }
 
             return genericNormalizeComposerText(text, { trimTrailingEditorNewlines });
+        }
+
+        function isChatGPTComposerFullyCleared(composerEl) {
+            const composer = resolveLiveChatGPTComposerElement(composerEl) || composerEl || null;
+            if (!composer) return false;
+
+            if (composer.isContentEditable || composer.contentEditable === "true") {
+                const state = analyzeChatGPTComposerText(composer);
+                const text = genericNormalizeComposerText(state.text, { trimTrailingEditorNewlines: true });
+                return !text && !state.hasInlineSelectionNodes;
+            }
+
+            return !genericNormalizeComposerText(genericGetComposerText(composer), { trimTrailingEditorNewlines: true });
         }
 
         function normalizeChatGPTCommittedText(value) {
@@ -1441,18 +1366,10 @@
                 composer.focus?.();
                 const selection = window.getSelection?.();
                 if (!selection) return false;
-                const startPoint = getChatGPTComposerBoundaryPoint(composer, { position: "start" });
-                const endPoint = getChatGPTComposerBoundaryPoint(composer, { position: "end" });
                 const range = document.createRange();
-                if (startPoint?.node && endPoint?.node) {
-                    range.setStart(startPoint.node, startPoint.offset);
-                    range.setEnd(endPoint.node, endPoint.offset);
-                    if (range.collapsed) {
-                        range.selectNodeContents(composer);
-                    }
-                } else {
-                    range.selectNodeContents(composer);
-                }
+                // Select the complete editor tree so top-level ProseMirror atom nodes are
+                // cleared together with normal text blocks.
+                range.selectNodeContents(composer);
                 selection.removeAllRanges();
                 selection.addRange(range);
                 return true;
@@ -1682,7 +1599,8 @@
 
             // ChatGPT 使用 ProseMirror (contenteditable div)
             if (composer.isContentEditable || composer.contentEditable === "true") {
-                await clearChatGPTInputValue(composer);
+                const initiallyCleared = await clearChatGPTInputValue(composer);
+                if (!initiallyCleared) return false;
                 if (!text) return true;
 
                 const hasFence = hasMarkdownFenceText(text);
@@ -1712,7 +1630,8 @@
                     }
 
                     if (index < attempts.length - 1) {
-                        await clearChatGPTInputValue(composer);
+                        const retryCleared = await clearChatGPTInputValue(composer);
+                        if (!retryCleared) return false;
                         await sleep(20);
                     }
                 }
@@ -1746,9 +1665,11 @@
 
                 try {
                     if (selectAllChatGPTComposerContent(composer)) {
-                        cleared = !!document.execCommand?.("delete", false, null);
+                        document.execCommand?.("delete", false, null);
+                        cleared = isChatGPTComposerFullyCleared(composer);
                         if (!cleared) {
-                            cleared = !!document.execCommand?.("insertText", false, "");
+                            document.execCommand?.("insertText", false, "");
+                            cleared = isChatGPTComposerFullyCleared(composer);
                         }
                     }
                 } catch { }
@@ -1757,24 +1678,27 @@
                     try {
                         if (selectAllChatGPTComposerContent(composer)) {
                             window.getSelection?.()?.deleteFromDocument?.();
-                            cleared = true;
+                            cleared = isChatGPTComposerFullyCleared(composer);
                         }
                     } catch { }
                 }
 
                 if (!cleared && typeof genericClearInputValue === "function") {
-                    try { cleared = !!genericClearInputValue(composer); } catch { }
+                    try {
+                        genericClearInputValue(composer);
+                        cleared = isChatGPTComposerFullyCleared(composer);
+                    } catch { }
                 }
 
                 if (!cleared) {
                     try {
                         composer.textContent = "";
-                        cleared = true;
+                        cleared = isChatGPTComposerFullyCleared(composer);
                     } catch { }
                 }
 
                 dispatchChatGPTComposerInput(composer, { inputType: "deleteContentBackward", data: null });
-                return cleared || !getChatGPTComposerPlainText(composer);
+                return isChatGPTComposerFullyCleared(composer);
             }
 
             try {
