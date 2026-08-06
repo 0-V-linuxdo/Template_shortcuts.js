@@ -127,15 +127,24 @@
     const NOTION_MODEL_ICON_DEFAULTS = Object.freeze({
         auto: NOTION_MODEL_AI_FACE_ICON_INFO,
         sonnet46: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
+        sonnet5: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
         opus47: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
         opus48: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
+        opus5: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
+        fable5: Object.freeze({ icon: NOTION_MODEL_CLAUDE_ICON, iconAdaptive: false }),
         gemini31pro: Object.freeze({ icon: NOTION_MODEL_GEMINI_ICON, iconAdaptive: false }),
+        gemini35flash: Object.freeze({ icon: NOTION_MODEL_GEMINI_ICON, iconAdaptive: false }),
         gpt52: NOTION_MODEL_OPENAI_ICON_INFO,
         gpt54: NOTION_MODEL_OPENAI_ICON_INFO,
         gpt55: NOTION_MODEL_OPENAI_ICON_INFO,
+        gpt56sol: NOTION_MODEL_OPENAI_ICON_INFO,
+        gpt56terra: NOTION_MODEL_OPENAI_ICON_INFO,
         grok43: NOTION_MODEL_GROK_ICON_INFO,
+        grok45: NOTION_MODEL_GROK_ICON_INFO,
         grokBuild01: NOTION_MODEL_GROK_ICON_INFO,
         kimi26: NOTION_MODEL_AI_FACE_ICON_INFO,
+        kimi27code: NOTION_MODEL_AI_FACE_ICON_INFO,
+        kimi3: NOTION_MODEL_AI_FACE_ICON_INFO,
         deepseekV4Pro: NOTION_MODEL_AI_FACE_ICON_INFO,
         glm52: NOTION_MODEL_AI_FACE_ICON_INFO
     });
@@ -296,6 +305,14 @@
             labelKey: "shortcuts.modelSonnet46",
             aliases: Object.freeze(["Sonnet 4.6", "Claude Sonnet 4.6"])
         }),
+        sonnet5: Object.freeze({
+            id: "sonnet5",
+            label: "Claude Sonnet 5",
+            menuLabel: "Sonnet 5",
+            hotkey: "",
+            labelKey: "shortcuts.modelSonnet5",
+            aliases: Object.freeze(["Sonnet 5", "Claude Sonnet 5"])
+        }),
         opus47: Object.freeze({
             id: "opus47",
             label: "Claude Opus 4.7",
@@ -312,12 +329,35 @@
             labelKey: "shortcuts.modelOpus48",
             aliases: Object.freeze(["Opus 4.8", "Claude Opus 4.8", "Opus 4.6", "Claude Opus 4.6"])
         }),
+        opus5: Object.freeze({
+            id: "opus5",
+            label: "Claude Opus 5",
+            menuLabel: "Opus 5 New",
+            hotkey: "",
+            labelKey: "shortcuts.modelOpus5",
+            aliases: Object.freeze(["Opus 5", "Opus 5 New", "Claude Opus 5", "Opus5New"])
+        }),
+        fable5: Object.freeze({
+            id: "fable5",
+            label: "Claude Fable 5",
+            menuLabel: "Fable 5 Beta",
+            hotkey: "",
+            labelKey: "shortcuts.modelFable5",
+            aliases: Object.freeze(["Fable 5", "Fable 5 Beta", "Claude Fable 5", "Fable5Beta"])
+        }),
         gemini31pro: Object.freeze({
             id: "gemini31pro",
             label: "Gemini 3.1 Pro",
             hotkey: "CTRL+SHIFT+5",
             labelKey: "shortcuts.modelGemini31Pro",
             aliases: Object.freeze(["Gemini 3.1 Pro", "Gemini Pro", "gemini pro"])
+        }),
+        gemini35flash: Object.freeze({
+            id: "gemini35flash",
+            label: "Gemini 3.5 Flash",
+            hotkey: "",
+            labelKey: "shortcuts.modelGemini35Flash",
+            aliases: Object.freeze(["Gemini 3.5 Flash"])
         }),
         gpt52: Object.freeze({
             id: "gpt52",
@@ -340,12 +380,33 @@
             labelKey: "shortcuts.modelGpt55",
             aliases: Object.freeze(["GPT-5.5", "GPT 5.5"])
         }),
+        gpt56sol: Object.freeze({
+            id: "gpt56sol",
+            label: "GPT-5.6 Sol",
+            hotkey: "",
+            labelKey: "shortcuts.modelGpt56Sol",
+            aliases: Object.freeze(["GPT-5.6 Sol", "GPT 5.6 Sol"])
+        }),
+        gpt56terra: Object.freeze({
+            id: "gpt56terra",
+            label: "GPT-5.6 Terra",
+            hotkey: "",
+            labelKey: "shortcuts.modelGpt56Terra",
+            aliases: Object.freeze(["GPT-5.6 Terra", "GPT 5.6 Terra"])
+        }),
         grok43: Object.freeze({
             id: "grok43",
             label: "Grok 4.3",
             hotkey: "CTRL+SHIFT+9",
             labelKey: "shortcuts.modelGrok43",
             aliases: Object.freeze(["Grok 4.3", "Grok 43", "grok43", "grok 4.3"])
+        }),
+        grok45: Object.freeze({
+            id: "grok45",
+            label: "Grok 4.5",
+            hotkey: "",
+            labelKey: "shortcuts.modelGrok45",
+            aliases: Object.freeze(["Grok 4.5"])
         }),
         grokBuild01: Object.freeze({
             id: "grokBuild01",
@@ -360,6 +421,20 @@
             hotkey: "CTRL+SHIFT+-",
             labelKey: "shortcuts.modelKimi26",
             aliases: Object.freeze(["Kimi K2.6"])
+        }),
+        kimi27code: Object.freeze({
+            id: "kimi27code",
+            label: "Kimi K2.7 Code",
+            hotkey: "",
+            labelKey: "shortcuts.modelKimi27Code",
+            aliases: Object.freeze(["Kimi K2.7 Code"])
+        }),
+        kimi3: Object.freeze({
+            id: "kimi3",
+            label: "Kimi K3",
+            hotkey: "",
+            labelKey: "shortcuts.modelKimi3",
+            aliases: Object.freeze(["Kimi K3"])
         }),
         deepseekV4Pro: Object.freeze({
             id: "deepseekV4Pro",
@@ -378,6 +453,46 @@
     });
 
     const NOTION_MODEL_TARGET_LIST = Object.freeze(Object.values(NOTION_MODEL_TARGETS));
+
+    const NOTION_EFFORT_TARGETS = Object.freeze({
+        none: Object.freeze({ id: "none", label: "No thinking", aliases: Object.freeze(["No thinking", "None", "Off", "Disabled", "不思考", "关闭"]) }),
+        minimal: Object.freeze({ id: "minimal", label: "Minimal", aliases: Object.freeze(["Minimal", "最低", "最小"]) }),
+        low: Object.freeze({ id: "low", label: "Low", aliases: Object.freeze(["Low", "低"]) }),
+        medium: Object.freeze({ id: "medium", label: "Medium", aliases: Object.freeze(["Medium", "中"]) }),
+        high: Object.freeze({ id: "high", label: "High", aliases: Object.freeze(["High", "高"]) }),
+        xhigh: Object.freeze({ id: "xhigh", label: "xHigh", aliases: Object.freeze(["xHigh", "x-High", "Extra high", "超高"]) }),
+        max: Object.freeze({ id: "max", label: "Max", aliases: Object.freeze(["Max", "Maximum", "最高"]) })
+    });
+    const EMPTY_NOTION_EFFORT_TARGETS = Object.freeze([]);
+    const NOTION_EFFORT_TARGETS_BY_MODEL = Object.freeze({
+        auto: EMPTY_NOTION_EFFORT_TARGETS,
+        sonnet46: Object.freeze(["low", "medium", "high", "max"]),
+        sonnet5: Object.freeze(["none", "low", "medium", "high"]),
+        opus47: Object.freeze(["none", "low", "medium", "high", "max"]),
+        opus48: Object.freeze(["none", "low", "medium", "high", "max"]),
+        opus5: Object.freeze(["none", "low", "medium", "high", "max"]),
+        fable5: Object.freeze(["low", "medium", "high", "max"]),
+        gemini31pro: Object.freeze(["low", "medium"]),
+        gemini35flash: Object.freeze(["low", "medium", "high"]),
+        gpt56sol: Object.freeze(["none", "low", "medium", "high", "xhigh", "max"]),
+        gpt56terra: Object.freeze(["none", "low", "medium", "high", "xhigh", "max"]),
+        gpt52: Object.freeze(["medium", "high"]),
+        gpt54: Object.freeze(["medium", "high"]),
+        gpt55: Object.freeze(["medium", "high"]),
+        grok43: Object.freeze(["low", "medium", "high"]),
+        grok45: Object.freeze(["low", "medium", "high"]),
+        grokBuild01: EMPTY_NOTION_EFFORT_TARGETS,
+        kimi26: EMPTY_NOTION_EFFORT_TARGETS,
+        kimi27code: EMPTY_NOTION_EFFORT_TARGETS,
+        kimi3: Object.freeze(["low", "high", "max"]),
+        deepseekV4Pro: Object.freeze(["none", "minimal", "low", "medium", "high", "max", "xhigh"]),
+        glm52: Object.freeze(["none", "high", "max"])
+    });
+
+    function notionEffortTargetsForModel(modelId) {
+        return NOTION_EFFORT_TARGETS_BY_MODEL[String(modelId || "").trim()] || EMPTY_NOTION_EFFORT_TARGETS;
+    }
+
     const NOTION_MODEL_LEGACY_TARGET_IDS = Object.freeze({
         opus46: "opus48"
     });
@@ -457,6 +572,7 @@
     ].join(", ");
     const NOTION_MODEL_TRIGGER_SELECTORS = [
         LEGACY_SELECT_AI_MODEL_SELECTOR,
+        '[data-testid="agent-chat-model-button"]',
         '[data-testid="unified-chat-model-button"]',
         '[data-testid*="model" i]',
         '[aria-label*="model" i]',
@@ -465,12 +581,18 @@
         'button[aria-label*="模型" i]',
         'button[aria-haspopup="menu"]',
         'button[aria-haspopup="listbox"]',
+        'button[aria-haspopup="dialog"]',
         '[role="button"][aria-label*="model" i]',
         '[role="button"][aria-label*="模型" i]',
         '[role="button"][aria-haspopup="menu"]',
         '[role="button"][aria-haspopup="listbox"]',
+        '[role="button"][aria-haspopup="dialog"]',
         '[role="combobox"]',
         "button"
+    ].join(", ");
+    const NOTION_MODEL_DIRECT_TRIGGER_SELECTORS = [
+        '[data-testid="agent-chat-model-button"]',
+        '[data-testid="unified-chat-model-button"]'
     ].join(", ");
     const NOTION_MODEL_MENU_ROOT_SELECTOR = [
         '[role="menu"]',
@@ -480,6 +602,7 @@
         '[data-radix-popper-content-wrapper]',
         '[data-radix-portal]',
         '[data-floating-ui-portal]',
+        '[data-floating-ui-focusable]',
         '[data-floating-ui-portal] [role="menu"]'
     ].join(", ");
     const NOTION_MODEL_MENU_ITEM_SELECTOR = [
@@ -491,6 +614,27 @@
         '[data-value]',
         "button",
         '[tabindex]:not([tabindex="-1"])'
+    ].join(", ");
+    const NOTION_EFFORT_TRIGGER_SELECTORS = [
+        '[data-testid="unified-chat-reasoning-effort-button"]',
+        '[data-testid="agent-chat-reasoning-effort-button"]',
+        '[data-testid*="reasoning-effort" i]',
+        '[data-testid*="thinking-effort" i]',
+        '[data-testid*="effort" i]',
+        '[aria-label*="Change effort" i]',
+        '[aria-label*="effort" i]',
+        '[aria-label*="thinking" i]',
+        '[aria-label*="reasoning" i]',
+        '[aria-label*="推理" i]',
+        '[aria-label*="思考" i]',
+        '[role="button"][data-testid*="effort" i]',
+        '[role="button"][aria-label*="effort" i]',
+        '[role="button"][aria-label*="thinking" i]',
+        '[role="button"][aria-label*="推理" i]'
+    ].join(", ");
+    const NOTION_EFFORT_DIRECT_TRIGGER_SELECTORS = [
+        '[data-testid="unified-chat-reasoning-effort-button"]',
+        '[data-testid="agent-chat-reasoning-effort-button"]'
     ].join(", ");
     const MODEL_MENU_TIMING = Object.freeze({
         pollIntervalMs: 120,
@@ -913,11 +1057,18 @@
     function isElementDisabled(element) {
         if (!element) return true;
         if (element.disabled === true) return true;
+        if (element.hasAttribute?.("disabled") || element.hasAttribute?.("data-disabled")) return true;
         const ariaDisabled = String(element.getAttribute?.("aria-disabled") || "").toLowerCase();
         if (ariaDisabled === "true") return true;
+        const dataState = String(element.getAttribute?.("data-state") || "").toLowerCase();
+        if (dataState === "disabled") return true;
         try {
             if (typeof element.matches === "function" && element.matches(":disabled")) return true;
         } catch { }
+        const className = typeof element.className === "string"
+            ? element.className
+            : String(element.className?.baseVal || "");
+        if (className.split(/\s+/).some(token => /^(?:disabled|is-disabled|is_disabled)$/i.test(token))) return true;
         return false;
     }
 
@@ -1008,6 +1159,19 @@
         if (text.includes("deepseek") && text.includes("v4") && text.includes("pro")) return NOTION_MODEL_TARGETS.deepseekV4Pro;
         if (text.includes("glm") && text.includes("5.2")) return NOTION_MODEL_TARGETS.glm52;
         return null;
+    }
+
+    function inferNotionEffortTargetFromText(value) {
+        const text = normalizeNotionText(value);
+        const key = normalizeNotionTargetKey(value);
+        if (!text && !key) return null;
+        for (const target of Object.values(NOTION_EFFORT_TARGETS)) {
+            if (key === normalizeNotionTargetKey(target.id)) return target;
+            if (key === normalizeNotionTargetKey(target.label)) return target;
+            if ((target.aliases || []).some(alias => key === normalizeNotionTargetKey(alias))) return target;
+        }
+        const effortId = notionEffortIdFromText(text);
+        return effortId ? NOTION_EFFORT_TARGETS[effortId] || null : null;
     }
 
     function getModeTargetComparableLabels(target) {
@@ -1425,31 +1589,188 @@
         return inComposerY && inComposerX && controlSized;
     }
 
+    function getModelElementText(element) {
+        if (!element) return "";
+        return [
+            element.getAttribute?.("aria-label"),
+            element.getAttribute?.("aria-valuetext"),
+            element.getAttribute?.("title"),
+            element.getAttribute?.("data-testid"),
+            element.getAttribute?.("data-test-id"),
+            element.getAttribute?.("data-model"),
+            element.getAttribute?.("data-model-id"),
+            element.getAttribute?.("data-model-key"),
+            element.getAttribute?.("data-value"),
+            element.getAttribute?.("value"),
+            element.innerText || element.textContent || "",
+            element.value
+        ].filter(Boolean).join(" ");
+    }
+
+    function getModelTextEvidence(value) {
+        const evidence = new Set();
+        const add = (candidate) => {
+            const normalized = normalizeNotionText(candidate);
+            if (normalized) evidence.add(normalized);
+        };
+        const raw = String(value || "");
+        add(raw);
+        for (const line of raw.split(/[\r\n\u2028\u2029]+/)) add(line);
+        return [...evidence];
+    }
+
+    function modelValueLooksLikeTarget(value, target) {
+        if (!target) return false;
+        const labels = getTargetComparableLabels(target);
+        const labelKeys = new Set(labels.map(normalizeNotionTargetKey));
+        return getModelTextEvidence(value).some((candidate) => (
+            textLooksLikeTarget(candidate, target) ||
+            labelKeys.has(normalizeNotionTargetKey(candidate))
+        ));
+    }
+
+    function getModelTargetIdsFromElement(element) {
+        if (!element) return new Set();
+        const values = [];
+        const nodes = [element];
+        try { nodes.push(...safeQueryAll(element, "*")); } catch { }
+        for (const node of nodes) values.push(getModelElementText(node));
+
+        const ids = new Set();
+        for (const value of values) {
+            for (const target of NOTION_MODEL_TARGET_LIST) {
+                if (modelValueLooksLikeTarget(value, target)) ids.add(target.id);
+            }
+        }
+        return ids;
+    }
+
+    function modelElementLooksLikeTarget(element, target) {
+        if (!element || !target) return false;
+        if (getModelTargetIdsFromElement(element).has(target.id)) return true;
+        return modelValueLooksLikeTarget(getModelElementText(element), target);
+    }
+
+    function notionEffortIdFromText(value) {
+        const normalized = normalizeNotionText(value)
+            .replace(/\bdefault\b/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+        if (!normalized) return "";
+        const candidates = Object.values(NOTION_EFFORT_TARGETS)
+            .flatMap(target => [target.id, target.label, ...(target.aliases || [])]
+                .map(label => ({ id: target.id, label: normalizeNotionText(label) })))
+            .filter(candidate => candidate.label)
+            .sort((a, b) => b.label.length - a.label.length);
+        return candidates.find(candidate => (
+            normalized === candidate.label ||
+            normalizeNotionTargetKey(normalized) === normalizeNotionTargetKey(candidate.label) ||
+            normalized.includes(candidate.label)
+        ))?.id || "";
+    }
+
+    function getNotionEffortElementEvidence(element) {
+        if (!element) return [];
+        const values = [getModelElementText(element)];
+        try {
+            for (const node of safeQueryAll(element, "*")) values.push(getModelElementText(node));
+        } catch { }
+        return values
+            .flatMap(value => [value, ...String(value || "").split(/[\r\n\u2028\u2029]+/)])
+            .map(normalizeNotionText)
+            .filter(Boolean);
+    }
+
+    function notionEffortIdFromElement(element) {
+        for (const evidence of getNotionEffortElementEvidence(element)) {
+            const effortId = notionEffortIdFromText(evidence);
+            if (effortId) return effortId;
+        }
+        return "";
+    }
+
+    function notionElementLooksLikeEffortTarget(element, target) {
+        if (!element || !target) return false;
+        return getNotionEffortElementEvidence(element)
+            .some(evidence => notionEffortIdFromText(evidence) === target.id);
+    }
+
+    function scoreNotionEffortTrigger(element, { composerRoot = null, composerRect = null, allowDisabled = false } = {}) {
+        if (!element || !isVisibleElement(element)) return -1;
+        if (!allowDisabled && isElementDisabled(element)) return -1;
+        if (element.closest?.(NOTION_MODEL_MENU_ROOT_SELECTOR)) return -1;
+        if (isInsideShortcutUi(element) || isInsideCustomAgentSettingsSurface(element)) return -1;
+
+        const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
+        const ariaLabel = String(element.getAttribute?.("aria-label") || "");
+        const title = String(element.getAttribute?.("title") || "");
+        const text = getModelElementText(element);
+        const nearMainComposer = isModelTriggerNearMainComposer(element, composerRoot, composerRect);
+        let semanticScore = 0;
+        if (dataTestId === "unified-chat-reasoning-effort-button" || dataTestId === "agent-chat-reasoning-effort-button") semanticScore += 1000;
+        if (dataTestId.includes("effort") || dataTestId.includes("reasoning") || dataTestId.includes("thinking")) semanticScore += 500;
+        if (/\beffort\b|\bthinking\b|\breasoning\b|推理|思考/i.test(ariaLabel)) semanticScore += 480;
+        if (/\beffort\b|\bthinking\b|\breasoning\b|推理|思考/i.test(title)) semanticScore += 320;
+        if (/\beffort\b|\bthinking\b|\breasoning\b|推理|思考/i.test(text)) semanticScore += 180;
+        if (notionEffortIdFromElement(element)) semanticScore += 280;
+        if (semanticScore <= 0) return -1;
+
+        let score = semanticScore;
+        if (nearMainComposer) score += 900;
+        if (composerRoot && !nearMainComposer) score -= 420;
+        return score > 0 ? score : -1;
+    }
+
+    function findNotionEffortTrigger({ allowDisabled = false } = {}) {
+        const directCandidates = [...new Set(safeQueryAll(document, NOTION_EFFORT_DIRECT_TRIGGER_SELECTORS))]
+            .map(element => ({
+                element,
+                score: scoreNotionEffortTrigger(element, { allowDisabled }),
+                bottom: Number(getElementRect(element)?.bottom || 0)
+            }))
+            .filter(item => item.score > 0)
+            .sort((a, b) => b.score - a.score || b.bottom - a.bottom);
+        if (directCandidates.length > 0) return directCandidates[0].element;
+
+        const composerRoot = findComposerRootElement();
+        const composerRect = getElementRect(composerRoot);
+        const candidates = [];
+        const seen = new Set();
+        for (const element of safeQueryAll(document, NOTION_EFFORT_TRIGGER_SELECTORS)) {
+            if (!element || seen.has(element)) continue;
+            seen.add(element);
+            const score = scoreNotionEffortTrigger(element, { composerRoot, composerRect, allowDisabled });
+            if (score < 0) continue;
+            candidates.push({ element, score, bottom: Number(getElementRect(element)?.bottom || 0) });
+        }
+        candidates.sort((a, b) => b.score - a.score || b.bottom - a.bottom);
+        return candidates[0]?.element || null;
+    }
+
     function scoreModelTriggerCandidate(element, { composerRoot = null, composerRect = null } = {}) {
         if (!element || !isVisibleElement(element)) return -1;
         if (element.closest?.(NOTION_MODEL_MENU_ROOT_SELECTOR)) return -1;
         if (isInsideShortcutUi(element) || isElementDisabled(element)) return -1;
         if (isInsideCustomAgentSettingsSurface(element)) return -1;
 
-        const text = getElementText(element);
+        const text = getModelElementText(element);
         const normalizedText = normalizeNotionText(text);
         const dataTestId = String(element.getAttribute?.("data-testid") || "").toLowerCase();
         const ariaLabel = String(element.getAttribute?.("aria-label") || "");
         const title = String(element.getAttribute?.("title") || "");
-        const hasMenu = String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "menu";
-        const hasListbox = String(element.getAttribute?.("aria-haspopup") || "").toLowerCase() === "listbox";
+        const popup = String(element.getAttribute?.("aria-haspopup") || "").toLowerCase();
         const nearMainComposer = isModelTriggerNearMainComposer(element, composerRoot, composerRect);
 
         let score = 0;
         if (nearMainComposer) score += 900;
         if (composerRoot && !nearMainComposer) score -= 420;
-        if (dataTestId === "unified-chat-model-button") score += 1000;
+        if (dataTestId === "agent-chat-model-button" || dataTestId === "unified-chat-model-button") score += 1000;
         if (dataTestId.includes("model")) score += 500;
         if (/\bmodel\b|模型/i.test(ariaLabel)) score += 420;
         if (/\bmodel\b|模型/i.test(title)) score += 320;
-        if (NOTION_MODEL_TARGET_LIST.some(target => textLooksLikeTarget(text, target))) score += 360;
-        if (hasMenu || hasListbox) score += 80;
-        if (normalizedText === "auto" || textLooksLikeTarget(text, NOTION_MODEL_TARGETS.auto)) score += 80;
+        if (getModelTargetIdsFromElement(element).size > 0) score += 360;
+        if (popup === "menu" || popup === "listbox" || popup === "dialog") score += 80;
+        if (normalizedText === "auto" || modelElementLooksLikeTarget(element, NOTION_MODEL_TARGETS.auto)) score += 80;
         return score > 0 ? score : -1;
     }
 
@@ -3116,6 +3437,16 @@
     }
 
     function findModelTriggerElement() {
+        const directCandidates = [...new Set(safeQueryAll(document, NOTION_MODEL_DIRECT_TRIGGER_SELECTORS))]
+            .map(element => ({
+                element,
+                score: scoreModelTriggerCandidate(element),
+                bottom: Number(getElementRect(element)?.bottom || 0)
+            }))
+            .filter(item => item.score > 0);
+        directCandidates.sort((a, b) => b.score - a.score || b.bottom - a.bottom);
+        if (directCandidates.length > 0) return directCandidates[0].element;
+
         const candidates = [];
         const seen = new Set();
         const composerRoot = findComposerRootElement();
@@ -3138,31 +3469,59 @@
 
     function scoreModelMenuRoot(root) {
         if (!root || !isVisibleElement(root) || isInsideShortcutUi(root)) return -1;
-        const text = getElementText(root);
+        const text = getModelElementText(root);
         const normalized = normalizeNotionText(text);
         let score = 0;
         if (normalized.includes("select a model")) score += 160;
+        if (normalized.includes("for your hardest tasks")) score += 160;
+        if (normalized.includes("favorites")) score += 60;
         if (normalized.includes("open models")) score += 80;
-        for (const target of NOTION_MODEL_TARGET_LIST) {
-            if (textLooksLikeTarget(text, target)) score += 80;
-        }
+        score += Math.min(5, getModelTargetIdsFromElement(root).size) * 80;
         return score >= 160 ? score : -1;
+    }
+
+    const notionOwnedModelMenuRoots = new WeakMap();
+
+    function findModelMenuRoots() {
+        const roots = safeQueryAll(document, NOTION_MODEL_MENU_ROOT_SELECTOR)
+            .filter(element => scoreModelMenuRoot(element) > 0);
+        return roots.filter(root => !roots.some(candidate => (
+            candidate !== root && root.contains?.(candidate)
+        )));
+    }
+
+    function findControlledModelMenuRoot(triggerEl) {
+        const controlsId = String(triggerEl?.getAttribute?.("aria-controls") || "").trim();
+        if (!controlsId) return null;
+        let controlled = [];
+        const escapeId = globalThis.CSS?.escape;
+        if (typeof document.querySelectorAll === "function" && typeof escapeId === "function") {
+            try { controlled = [...document.querySelectorAll(`#${escapeId(controlsId)}`)]; } catch { }
+        } else {
+            const element = document.getElementById?.(controlsId);
+            if (element) controlled = [element];
+        }
+        return controlled.length === 1 && scoreModelMenuRoot(controlled[0]) > 0
+            ? controlled[0]
+            : null;
     }
 
     function findModelMenuRoot(triggerEl = null) {
         if (triggerEl) {
-            const controlsId = String(triggerEl.getAttribute?.("aria-controls") || "").trim();
-            if (controlsId) {
-                const controlled = document.getElementById(controlsId);
-                if (scoreModelMenuRoot(controlled) > 0) return controlled;
-            }
+            const controlled = findControlledModelMenuRoot(triggerEl);
+            if (controlled) return controlled;
+            const owned = notionOwnedModelMenuRoots.get(triggerEl);
+            if (scoreModelMenuRoot(owned) > 0) return owned;
+            notionOwnedModelMenuRoots.delete(triggerEl);
         }
 
-        const candidates = safeQueryAll(document, NOTION_MODEL_MENU_ROOT_SELECTOR)
-            .map(element => ({ element, score: scoreModelMenuRoot(element) }))
-            .filter(item => item.score > 0);
+        const candidates = findModelMenuRoots()
+            .map(element => ({ element, score: scoreModelMenuRoot(element) }));
         if (candidates.length === 0) return null;
-        candidates.sort((a, b) => b.score - a.score);
+        candidates.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return getElementArea(a.element) - getElementArea(b.element);
+        });
         return candidates[0]?.element || null;
     }
 
@@ -3170,16 +3529,245 @@
         const existing = findModelMenuRoot(triggerEl);
         if (existing) return existing;
         if (!triggerEl) return null;
+        const baselineRoots = new Set(findModelMenuRoots());
         if (!clickModelElement(triggerEl)) return null;
         if (MODEL_MENU_TIMING.openDelayMs > 0) await sleep(MODEL_MENU_TIMING.openDelayMs);
 
         const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
         while (Date.now() <= deadline) {
-            const root = findModelMenuRoot(triggerEl);
-            if (root) return root;
+            const controlled = findControlledModelMenuRoot(triggerEl);
+            if (controlled) {
+                notionOwnedModelMenuRoots.set(triggerEl, controlled);
+                return controlled;
+            }
+            const opened = findModelMenuRoots().filter(root => !baselineRoots.has(root));
+            if (opened.length === 1) {
+                notionOwnedModelMenuRoots.set(triggerEl, opened[0]);
+                return opened[0];
+            }
             await sleep(intervalMs);
         }
         return findModelMenuRoot(triggerEl);
+    }
+
+    function scoreNotionEffortMenuRoot(root) {
+        if (!root || !isVisibleElement(root) || isInsideShortcutUi(root)) return -1;
+        const normalized = normalizeNotionText(getModelElementText(root));
+        const hasEffortHeading = /\beffort\b|\bthinking\b|\breasoning\b|推理|思考/i.test(normalized);
+        const effortCount = Object.values(NOTION_EFFORT_TARGETS)
+            .reduce((count, target) => count + (notionElementLooksLikeEffortTarget(root, target) ? 1 : 0), 0);
+        let score = hasEffortHeading ? 360 : 0;
+        score += Math.min(6, effortCount) * 70;
+        return hasEffortHeading || effortCount >= 2 ? score : -1;
+    }
+
+    function findNotionEffortMenuRoots() {
+        const roots = safeQueryAll(document, NOTION_MODEL_MENU_ROOT_SELECTOR)
+            .filter(element => scoreNotionEffortMenuRoot(element) > 0);
+        return roots.filter(root => !roots.some(candidate => (
+            candidate !== root && root.contains?.(candidate)
+        )));
+    }
+
+    function findControlledNotionEffortMenuRoot(triggerEl) {
+        const controlsId = String(triggerEl?.getAttribute?.("aria-controls") || "").trim();
+        if (!controlsId) return null;
+        let controlled = [];
+        const escapeId = globalThis.CSS?.escape;
+        if (typeof document.querySelectorAll === "function" && typeof escapeId === "function") {
+            try { controlled = [...document.querySelectorAll(`#${escapeId(controlsId)}`)]; } catch { }
+        } else {
+            const element = document.getElementById?.(controlsId);
+            if (element) controlled = [element];
+        }
+        return controlled.length === 1 && scoreNotionEffortMenuRoot(controlled[0]) > 0
+            ? controlled[0]
+            : null;
+    }
+
+    const notionOwnedEffortMenuRoots = new WeakMap();
+
+    function findNotionEffortMenuRoot(triggerEl = null) {
+        if (triggerEl) {
+            const controlled = findControlledNotionEffortMenuRoot(triggerEl);
+            if (controlled) return controlled;
+            const owned = notionOwnedEffortMenuRoots.get(triggerEl);
+            if (scoreNotionEffortMenuRoot(owned) > 0) return owned;
+            notionOwnedEffortMenuRoots.delete(triggerEl);
+        }
+
+        const candidates = findNotionEffortMenuRoots()
+            .map(element => ({ element, score: scoreNotionEffortMenuRoot(element) }));
+        candidates.sort((a, b) => b.score - a.score || getElementArea(a.element) - getElementArea(b.element));
+        return candidates[0]?.element || null;
+    }
+
+    async function ensureNotionEffortMenuOpen(triggerEl, { timeoutMs = MODEL_MENU_TIMING.waitTimeoutMs, intervalMs = MODEL_MENU_TIMING.pollIntervalMs } = {}) {
+        const existing = findNotionEffortMenuRoot(triggerEl);
+        if (existing) return existing;
+        if (!triggerEl || !clickModelElement(triggerEl)) return null;
+        if (MODEL_MENU_TIMING.openDelayMs > 0) await sleep(MODEL_MENU_TIMING.openDelayMs);
+
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() <= deadline) {
+            const controlled = findControlledNotionEffortMenuRoot(triggerEl);
+            if (controlled) {
+                notionOwnedEffortMenuRoots.set(triggerEl, controlled);
+                return controlled;
+            }
+            const root = findNotionEffortMenuRoot(triggerEl);
+            if (root) {
+                notionOwnedEffortMenuRoots.set(triggerEl, root);
+                return root;
+            }
+            await sleep(intervalMs);
+        }
+        return findNotionEffortMenuRoot(triggerEl);
+    }
+
+    function getNotionEffortMenuItemRow(element, root, target) {
+        if (!element || !root || !target) return null;
+        const rootArea = getElementArea(root);
+        const rootRect = getElementRect(root);
+        let bestRoleRow = null;
+        let bestAction = null;
+        let bestRowLike = null;
+        let node = element;
+        while (node && node.nodeType === 1 && node !== root) {
+            if (!root.contains?.(node)) break;
+            if (!isVisibleElement(node)) {
+                node = node.parentElement || null;
+                continue;
+            }
+            if (isElementDisabled(node)) return null;
+            if (!notionElementLooksLikeEffortTarget(node, target)) {
+                node = node.parentElement || null;
+                continue;
+            }
+
+            const area = getElementArea(node);
+            if (rootArea > 0 && area >= rootArea * 0.85) break;
+            const rect = getElementRect(node);
+            const tag = String(node.tagName || "").toLowerCase();
+            const role = String(node.getAttribute?.("role") || "").toLowerCase();
+            const tabIndex = String(node.getAttribute?.("tabindex") || "").trim();
+            const roleRowLike = role === "menuitem" || role === "menuitemradio" || role === "option";
+            const actionLike = roleRowLike || tag === "button" || role === "button" || (tabIndex && tabIndex !== "-1");
+            const rowLike = rect && rootRect
+                && rect.height >= 22
+                && rect.height <= 88
+                && rect.width >= Math.min(100, rootRect.width * 0.35)
+                && rect.width <= rootRect.width + 32;
+
+            if (roleRowLike && !bestRoleRow) bestRoleRow = node;
+            if (actionLike && !bestAction) bestAction = node;
+            if (rowLike && !bestRowLike) bestRowLike = node;
+            node = node.parentElement || null;
+        }
+        return bestRoleRow || bestAction || bestRowLike || null;
+    }
+
+    function scoreNotionEffortMenuItem(element, target) {
+        if (!element || !target || !isVisibleElement(element) || isElementDisabled(element)) {
+            return Number.NEGATIVE_INFINITY;
+        }
+        if (!notionElementLooksLikeEffortTarget(element, target)) return Number.NEGATIVE_INFINITY;
+        const role = String(element.getAttribute?.("role") || "").toLowerCase();
+        const tag = String(element.tagName || "").toLowerCase();
+        const tabIndex = String(element.getAttribute?.("tabindex") || "").trim();
+        const normalized = normalizeNotionText(getModelElementText(element));
+        const label = normalizeNotionText(target.label);
+        let score = 880;
+        if (role === "menuitem" || role === "menuitemradio" || role === "option") score += 900;
+        if (tag === "button" || role === "button") score += 360;
+        if (tabIndex && tabIndex !== "-1") score += 120;
+        if (normalized === label || normalizeNotionTargetKey(normalized) === normalizeNotionTargetKey(label)) score += 260;
+        const rect = getElementRect(element);
+        if (rect && rect.height >= 24 && rect.height <= 72) score += 100;
+        return score - Math.min(160, getElementArea(element) / 6000);
+    }
+
+    function findNotionEffortMenuItem(root, effortId) {
+        const target = NOTION_EFFORT_TARGETS[effortId];
+        if (!root || !target) return null;
+        const candidates = [
+            ...safeQueryAll(root, NOTION_MODEL_MENU_ITEM_SELECTOR),
+            ...safeQueryAll(root, "div, span, button")
+        ];
+        const rows = [];
+        const seen = new Set();
+        for (const element of candidates) {
+            if (!element || !isVisibleElement(element) || !notionElementLooksLikeEffortTarget(element, target)) continue;
+            const row = getNotionEffortMenuItemRow(element, root, target);
+            if (!row || seen.has(row)) continue;
+            seen.add(row);
+            rows.push(row);
+        }
+        rows.sort((a, b) => scoreNotionEffortMenuItem(b, target) - scoreNotionEffortMenuItem(a, target));
+        const semanticRows = rows.filter(row => {
+            const role = String(row.getAttribute?.("role") || "").toLowerCase();
+            return role === "menuitem" || role === "menuitemradio" || role === "option";
+        });
+        return semanticRows[0] || rows[0] || null;
+    }
+
+    async function waitForNotionEffortMenuClose(triggerEl, { timeoutMs = 900, intervalMs = MODEL_MENU_TIMING.pollIntervalMs } = {}) {
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        while (Date.now() <= deadline) {
+            if (!findNotionEffortMenuRoot(triggerEl)) return true;
+            await sleep(intervalMs);
+        }
+        return !findNotionEffortMenuRoot(triggerEl);
+    }
+
+    async function closeNotionEffortMenu(triggerEl, { initialDelayMs = 30 } = {}) {
+        await sleep(Math.max(0, Number(initialDelayMs) || 0));
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+            const root = findNotionEffortMenuRoot(triggerEl);
+            if (!root) return true;
+
+            if (triggerEl && clickElementAtPointForClose(triggerEl, root)) {
+                if (await waitForNotionEffortMenuClose(triggerEl, { timeoutMs: 260 })) return true;
+            }
+
+            const escapeTargets = [
+                document.activeElement || null,
+                root,
+                document.body || null,
+                document.documentElement || null,
+                document,
+                window
+            ].filter(Boolean);
+            for (const target of escapeTargets) dispatchEscapeKey(target);
+            try { document.activeElement?.blur?.(); } catch { }
+            const focusTarget = findComposerRootElement() || document.body;
+            try { focusTarget?.focus?.({ preventScroll: true }); } catch {
+                try { focusTarget?.focus?.(); } catch { }
+            }
+            if (await waitForNotionEffortMenuClose(triggerEl, { timeoutMs: 450 })) return true;
+            await sleep(MODEL_MENU_TIMING.pollIntervalMs);
+        }
+        return !findNotionEffortMenuRoot(triggerEl);
+    }
+
+    async function waitForNotionEffortSelection(effortId, triggerEl, {
+        timeoutMs = MODEL_MENU_TIMING.waitTimeoutMs,
+        intervalMs = MODEL_MENU_TIMING.pollIntervalMs
+    } = {}) {
+        const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+        let stableSamples = 0;
+        while (Date.now() <= deadline) {
+            const trigger = triggerEl && isVisibleElement(triggerEl) ? triggerEl : findNotionEffortTrigger({ allowDisabled: true });
+            if (notionEffortIdFromElement(trigger) === effortId) {
+                stableSamples += 1;
+                if (stableSamples >= 2) return true;
+            } else {
+                stableSamples = 0;
+            }
+            await sleep(Math.max(30, Number(intervalMs) || 30));
+        }
+        const trigger = triggerEl && isVisibleElement(triggerEl) ? triggerEl : findNotionEffortTrigger({ allowDisabled: true });
+        return notionEffortIdFromElement(trigger) === effortId;
     }
 
     function getClickableMenuItem(element, root) {
@@ -3190,6 +3778,7 @@
             const tabIndex = String(node.getAttribute?.("tabindex") || "").trim();
             if (
                 tag === "button" ||
+                role === "button" ||
                 role === "menuitem" ||
                 role === "menuitemradio" ||
                 role === "option" ||
@@ -3210,12 +3799,12 @@
 
     function modelElementShowsTarget(element, target) {
         if (!target) return true;
-        return textLooksLikeTarget(getElementText(element), target);
+        return modelElementLooksLikeTarget(element, target);
     }
 
     function modelMenuItemMatchesSpec(element, { target = null, textMatch = null } = {}) {
-        const text = getElementText(element);
-        if (target) return textLooksLikeTarget(text, target);
+        const text = getModelElementText(element);
+        if (target) return modelElementLooksLikeTarget(element, target);
         if (typeof textMatch === "function") {
             try { return !!textMatch(text, element); } catch { return false; }
         }
@@ -3259,7 +3848,7 @@
                 continue;
             }
 
-            const text = getElementText(node);
+            const text = getModelElementText(node);
             const targetCount = countModelTargetsInText(text);
             const area = getElementArea(node);
             if (rootArea > 0 && area >= rootArea * 0.85) break;
@@ -3297,7 +3886,7 @@
 
     function scoreModelMenuItemRow(element, spec) {
         if (!element || !isVisibleElement(element) || isElementDisabled(element)) return Number.NEGATIVE_INFINITY;
-        const text = getElementText(element);
+        const text = getModelElementText(element);
         const normalizedText = normalizeNotionText(text);
         const role = String(element.getAttribute?.("role") || "").toLowerCase();
         const tag = String(element.tagName || "").toLowerCase();
@@ -3358,10 +3947,34 @@
 
         if (rows.length) {
             rows.sort((a, b) => scoreModelMenuItemRow(b, spec) - scoreModelMenuItemRow(a, spec));
+            const semanticRows = rows.filter((row) => {
+                const role = String(row.getAttribute?.("role") || "").toLowerCase();
+                return role === "menuitem" || role === "menuitemradio" || role === "option";
+            });
+            if (semanticRows.length > 0) {
+                const groupedPicker = normalizeNotionText(getModelElementText(root)).includes("for your hardest tasks");
+                if (groupedPicker && semanticRows.length > 1) return semanticRows[0];
+                return semanticRows[0];
+            }
             return rows[0] || null;
         }
 
         return fallbackToFirst ? firstRow : null;
+    }
+
+    function findModelMenuExpandControl(root) {
+        if (!root) return null;
+        const selectors = [
+            '[role="button"]',
+            '[role="menuitem"]',
+            'button',
+            '[tabindex]:not([tabindex="-1"])'
+        ].join(", ");
+        const candidates = safeQueryAll(root, selectors)
+            .filter(element => element && isVisibleElement(element) && !isElementDisabled(element))
+            .map(element => ({ element: getClickableMenuItem(element, root), text: normalizeNotionText(getModelElementText(element)) }))
+            .filter(item => /expand\s+(?:to\s+)?show\s+more\s+models|show\s+more\s+models|展开.*模型|显示更多模型/i.test(item.text));
+        return candidates[0]?.element || null;
     }
 
     function findModelMenuItemPointTarget(element, root, spec) {
@@ -3400,9 +4013,28 @@
         const pathLast = path.length ? path[path.length - 1] : "";
         const target = inferModelTargetFromText(menu.id ?? rawTextMatch ?? pathLast ?? rawMenu ?? shortcut?.name);
         const textMatch = target ? null : (rawTextMatch ?? pathLast);
+        const rawEffort = menu.effortId !== undefined
+            ? menu.effortId
+            : (menu.effort !== undefined
+                ? menu.effort
+                : (data.effortId !== undefined ? data.effortId : data.effort));
+        const effortText = rawEffort === undefined || rawEffort === null ? "" : String(rawEffort).trim();
+        const effortTarget = effortText ? inferNotionEffortTargetFromText(effortText) : null;
 
         if (!target && !textMatch && !fallbackToFirst) {
             console.warn(`${LOG_TAG} modelPicker: missing target; set data.menu = { id: "gemini31pro" } or plain text like "gemini pro".`);
+            return null;
+        }
+        if (effortText && !effortTarget) {
+            console.warn(`${LOG_TAG} modelPicker: unknown effort "${effortText}"; use none/minimal/low/medium/high/xhigh/max.`);
+            return null;
+        }
+        if (effortTarget && !target) {
+            console.warn(`${LOG_TAG} modelPicker: effort requires a known model id, for example {"menu":{"id":"gpt56sol","effort":"high"}}.`);
+            return null;
+        }
+        if (effortTarget && !notionEffortTargetsForModel(target.id).includes(effortTarget.id)) {
+            console.warn(`${LOG_TAG} modelPicker: effort "${effortTarget.id}" is not supported by model "${target.id}".`);
             return null;
         }
 
@@ -3411,7 +4043,8 @@
             target,
             textMatch,
             fallbackToFirst,
-            waitForItem
+            waitForItem,
+            effortId: effortTarget?.id || ""
         };
     }
 
@@ -3433,6 +4066,61 @@
         return modelElementShowsTarget(finalTrigger, target) && (!requireMenuClose || !findModelMenuRoot(finalTrigger));
     }
 
+    async function applyNotionEffortSelection(modelTarget, effortId, triggerEl = null) {
+        if (!modelTarget || !effortId || !NOTION_EFFORT_TARGETS[effortId]) return false;
+        if (!notionEffortTargetsForModel(modelTarget.id).includes(effortId)) return false;
+
+        const trigger = triggerEl && scoreNotionEffortTrigger(triggerEl, { allowDisabled: true }) > 0
+            ? triggerEl
+            : findNotionEffortTrigger();
+        if (!trigger) {
+            console.warn(`${LOG_TAG} modelPicker: Effort trigger not found for ${modelTarget.label}.`);
+            return false;
+        }
+
+        const current = notionEffortIdFromElement(trigger);
+        const existingMenu = findNotionEffortMenuRoot(trigger);
+        if (current === effortId && !existingMenu) return true;
+        if (current === effortId && existingMenu) return closeNotionEffortMenu(trigger);
+
+        const root = await ensureNotionEffortMenuOpen(trigger);
+        if (!root) {
+            console.warn(`${LOG_TAG} modelPicker: Effort menu root not found for ${modelTarget.label}.`);
+            return false;
+        }
+
+        let item = findNotionEffortMenuItem(root, effortId);
+        if (!item) {
+            const deadline = Date.now() + MODEL_MENU_TIMING.waitTimeoutMs;
+            while (Date.now() <= deadline && !item) {
+                await sleep(MODEL_MENU_TIMING.pollIntervalMs);
+                item = findNotionEffortMenuItem(findNotionEffortMenuRoot(trigger) || root, effortId);
+            }
+        }
+        if (!item) {
+            await closeNotionEffortMenu(trigger);
+            console.warn(`${LOG_TAG} modelPicker: Effort item "${effortId}" not found for ${modelTarget.label}.`);
+            return false;
+        }
+
+        let clicked = clickModelElement(item);
+        let settled = clicked && await waitForNotionEffortSelection(effortId, trigger);
+        if (!settled) {
+            const retryRoot = findNotionEffortMenuRoot(trigger) || root;
+            const retryItem = findNotionEffortMenuItem(retryRoot, effortId);
+            if (retryItem && retryItem !== item) {
+                clicked = clickModelElement(retryItem) || clicked;
+                settled = clicked && await waitForNotionEffortSelection(effortId, trigger);
+            }
+        }
+        const menuClosed = await closeNotionEffortMenu(trigger);
+        if (!clicked || !settled || !menuClosed) {
+            console.warn(`${LOG_TAG} modelPicker: Effort selection did not settle for ${modelTarget.label} / ${effortId}.`);
+            return false;
+        }
+        return true;
+    }
+
     async function clickModelPickerItem({ shortcut, engine }) {
         const spec = getModelPickerSpec(shortcut);
         if (!spec) return false;
@@ -3442,7 +4130,11 @@
             console.warn(`${LOG_TAG} modelPicker: main composer model trigger not found.`);
             return false;
         }
-        if (spec.target && modelElementShowsTarget(trigger, spec.target) && !findModelMenuRoot(trigger)) return true;
+        if (spec.target && modelElementShowsTarget(trigger, spec.target) && !findModelMenuRoot(trigger)) {
+            return spec.effortId
+                ? applyNotionEffortSelection(spec.target, spec.effortId, trigger)
+                : true;
+        }
 
         const menuRoot = await ensureModelMenuOpen(trigger);
         if (!menuRoot) {
@@ -3453,18 +4145,35 @@
 
         const deadline = Date.now() + MODEL_MENU_TIMING.waitTimeoutMs;
         let retriedPointTarget = false;
+        let expandedModels = false;
         do {
             const currentRoot = findModelMenuRoot(trigger) || menuRoot;
             const target = findModelMenuItem(currentRoot, spec);
+            if (!target && spec.waitForItem && !expandedModels) {
+                const expand = findModelMenuExpandControl(currentRoot);
+                if (expand && clickModelElement(expand)) {
+                    expandedModels = true;
+                    await sleep(MODEL_MENU_TIMING.openDelayMs);
+                    continue;
+                }
+            }
             if (target && clickModelElement(target)) {
-                if (await waitForModelSelection(spec.target, { triggerEl: trigger, requireMenuClose: true })) return true;
+                if (await waitForModelSelection(spec.target, { triggerEl: trigger, requireMenuClose: true })) {
+                    return spec.effortId
+                        ? applyNotionEffortSelection(spec.target, spec.effortId, trigger)
+                        : true;
+                }
             }
             if (target && !retriedPointTarget) {
                 retriedPointTarget = true;
                 const retryRoot = findModelMenuRoot(trigger) || currentRoot;
                 const pointTarget = retryRoot ? findModelMenuItemPointTarget(target, retryRoot, spec) : null;
                 if (pointTarget && clickModelElement(pointTarget)) {
-                    if (await waitForModelSelection(spec.target, { triggerEl: trigger, requireMenuClose: true })) return true;
+                    if (await waitForModelSelection(spec.target, { triggerEl: trigger, requireMenuClose: true })) {
+                        return spec.effortId
+                            ? applyNotionEffortSelection(spec.target, spec.effortId, trigger)
+                            : true;
+                    }
                 }
             }
             if (!spec.waitForItem || Date.now() >= deadline) break;
@@ -6117,6 +6826,53 @@
         };
     }
 
+    function formatModelPickerDataAdapter(data) {
+        const raw = isPlainObject(data) ? data : {};
+        const menu = isPlainObject(raw.menu) ? raw.menu : raw.menu !== undefined ? { id: raw.menu } : raw;
+        const modelValue = ["id", "keyword", "textMatch"]
+            .map(key => typeof menu[key] === "string" && menu[key].trim() ? menu[key].trim() : "")
+            .find(Boolean);
+        const effortValue = [menu.effortId, menu.effort, raw.effortId, raw.effort]
+            .map(value => typeof value === "string" ? value.trim() : "")
+            .find(Boolean) || "";
+        const simpleKeys = ["id", "keyword", "textMatch", "effort", "effortId"];
+        if (modelValue && Object.keys(menu).every(key => simpleKeys.includes(key)) && Object.keys(raw).every(key => key === "menu" || key === "effort" || key === "effortId")) {
+            return effortValue ? `${modelValue} / effort: ${effortValue}` : modelValue;
+        }
+        return formatMenuDataAdapter(data);
+    }
+
+    function parseModelPickerDataAdapter(text) {
+        const trimmed = String(text ?? "").trim();
+        if (!trimmed) return {};
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            const parsed = JSON.parse(trimmed);
+            if (!isPlainObject(parsed)) throw new Error("data must be an object");
+            return parsed;
+        }
+
+        const effortMatch = trimmed.match(/^(.+?)\s+(?:effort|thinking(?:\s+level)?|推理|思考)\s*[:=]\s*(.+)$/i)
+            || trimmed.match(/^(.+?)\s*(?:\||\/|@)\s*(?:effort\s*[:=]?\s*)?(.+)$/i);
+        if (effortMatch?.[1]?.trim() && effortMatch?.[2]?.trim()) {
+            return {
+                menu: {
+                    id: effortMatch[1].trim(),
+                    effort: effortMatch[2].trim()
+                }
+            };
+        }
+        return { menu: trimmed };
+    }
+
+    function createModelPickerDataAdapter({ label, placeholder } = {}) {
+        return {
+            label,
+            placeholder,
+            format: formatModelPickerDataAdapter,
+            parse: parseModelPickerDataAdapter
+        };
+    }
+
     const SITE_MESSAGES = Object.freeze({
         "zh-CN": {
             menuCommandLabel: "Notion - 设置快捷键",
@@ -6127,15 +6883,24 @@
                 selectAiModel: "选择 AI 模型",
                 modelAuto: "模型：Auto",
                 modelSonnet46: "模型：Claude Sonnet 4.6",
+                modelSonnet5: "模型：Claude Sonnet 5",
                 modelOpus47: "模型：Claude Opus 4.7",
                 modelOpus48: "模型：Claude Opus 4.8",
+                modelOpus5: "模型：Claude Opus 5",
+                modelFable5: "模型：Claude Fable 5",
                 modelGemini31Pro: "模型：Gemini 3.1 Pro",
+                modelGemini35Flash: "模型：Gemini 3.5 Flash",
                 modelGpt52: "模型：GPT-5.2",
                 modelGpt54: "模型：GPT-5.4",
                 modelGpt55: "模型：GPT-5.5",
+                modelGpt56Sol: "模型：GPT-5.6 Sol",
+                modelGpt56Terra: "模型：GPT-5.6 Terra",
                 modelGrok43: "模型：Grok 4.3",
+                modelGrok45: "模型：Grok 4.5",
                 modelGrokBuild01: "模型：Grok Build 0.1",
                 modelKimi26: "模型：Kimi K2.6",
+                modelKimi27Code: "模型：Kimi K2.7 Code",
+                modelKimi3: "模型：Kimi K3",
                 modelDeepSeekV4Pro: "模型：DeepSeek V4 Pro",
                 modelGlm52: "模型：GLM 5.2",
                 modeDefault: "模式：Default",
@@ -6153,8 +6918,8 @@
             },
             dataAdapters: {
                 modelPicker: {
-                    label: "模型 ID / 关键词（或粘贴 JSON，高级用法）:",
-                    placeholder: "例如: glm 5.2 / grok 4.3 / opus 4.8 / {\"menu\":{\"id\":\"glm52\"}}"
+                    label: "模型 ID / 关键词 / Effort（或粘贴 JSON，高级用法）:",
+                    placeholder: "例如: gpt56sol / effort: high / {\"menu\":{\"id\":\"gpt56sol\",\"effort\":\"high\"}}"
                 },
                 conversationMenu: {
                     label: "会话菜单项 ID / 关键词（或粘贴 JSON，高级用法）:",
@@ -6176,15 +6941,24 @@
                 selectAiModel: "Select AI Model",
                 modelAuto: "Model: Auto",
                 modelSonnet46: "Model: Claude Sonnet 4.6",
+                modelSonnet5: "Model: Claude Sonnet 5",
                 modelOpus47: "Model: Claude Opus 4.7",
                 modelOpus48: "Model: Claude Opus 4.8",
+                modelOpus5: "Model: Claude Opus 5",
+                modelFable5: "Model: Claude Fable 5",
                 modelGemini31Pro: "Model: Gemini 3.1 Pro",
+                modelGemini35Flash: "Model: Gemini 3.5 Flash",
                 modelGpt52: "Model: GPT-5.2",
                 modelGpt54: "Model: GPT-5.4",
                 modelGpt55: "Model: GPT-5.5",
+                modelGpt56Sol: "Model: GPT-5.6 Sol",
+                modelGpt56Terra: "Model: GPT-5.6 Terra",
                 modelGrok43: "Model: Grok 4.3",
+                modelGrok45: "Model: Grok 4.5",
                 modelGrokBuild01: "Model: Grok Build 0.1",
                 modelKimi26: "Model: Kimi K2.6",
+                modelKimi27Code: "Model: Kimi K2.7 Code",
+                modelKimi3: "Model: Kimi K3",
                 modelDeepSeekV4Pro: "Model: DeepSeek V4 Pro",
                 modelGlm52: "Model: GLM 5.2",
                 modeDefault: "Mode: Default",
@@ -6200,8 +6974,8 @@
             },
             dataAdapters: {
                 modelPicker: {
-                    label: "Model ID / keyword (or paste JSON, advanced):",
-                    placeholder: "Example: grok 4.3 / grok build / opus 4.8 / {\"menu\":{\"id\":\"grok43\"}}"
+                    label: "Model ID / keyword / Effort (or paste JSON, advanced):",
+                    placeholder: "Example: gpt56sol / effort: high / {\"menu\":{\"id\":\"gpt56sol\",\"effort\":\"high\"}}"
                 },
                 conversationMenu: {
                     label: "Conversation menu item ID / keyword (or paste JSON, advanced):",
@@ -7344,9 +8118,9 @@
             }
         },
         customActionDataAdapters: {
-            modelPicker: createMenuDataAdapter({
-                label: siteText("dataAdapters.modelPicker.label", "Model ID / keyword (or paste JSON, advanced):"),
-                placeholder: siteText("dataAdapters.modelPicker.placeholder", 'Example: gemini pro / opus 4.7 / {"menu":{"id":"opus47"}}')
+            modelPicker: createModelPickerDataAdapter({
+                label: siteText("dataAdapters.modelPicker.label", "Model ID / keyword / Effort (or paste JSON, advanced):"),
+                placeholder: siteText("dataAdapters.modelPicker.placeholder", 'Example: gpt56sol / effort: high / {"menu":{"id":"gpt56sol","effort":"high"}}')
             }),
             conversationMenu: createMenuDataAdapter({
                 label: siteText("dataAdapters.conversationMenu.label", "Conversation menu item ID / keyword (or paste JSON, advanced):"),
