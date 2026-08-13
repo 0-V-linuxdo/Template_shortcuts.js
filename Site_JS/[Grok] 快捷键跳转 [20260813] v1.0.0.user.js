@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260625] v1.0.0
-// @name:en        [Grok] Shortcut Jump [20260625] v1.0.0
+// @name           [Grok] 快捷键跳转 [20260813] v1.0.0
+// @name:en        [Grok] Shortcut Jump [20260813] v1.0.0
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260625] v1.0.0
-// @update-log     1.0.0: 将 dairoot 镜像站 URL 迁移至 gk.dairoot.cn。
-// @update-log:en  1.0.0: Migrated the dairoot mirror URL to gk.dairoot.cn.
+// @version        [20260813] v1.0.0
+// @update-log     update-log
+// @update-log:en  update-log
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
@@ -16,7 +16,6 @@
 // @grant          GM_unregisterMenuCommand
 // @grant          GM_getValue
 // @grant          GM_setValue
-// @grant          GM_xmlhttpRequest
 
 // @connect        *
 
@@ -154,14 +153,6 @@
             label: "菜单关键词（或粘贴 JSON，高级用法）:",
             placeholder: '例如: Delete Chat / Delete / {"menu":{"id":"delete"}}'
           }
-        },
-        dialogs: {
-          deleteChatConfirm: {
-            title: "确认删除聊天",
-            message: "确认后脚本将删除当前聊天。此操作无法撤销。",
-            confirm: "确认删除",
-            cancel: "取消"
-          }
         }
       },
       "en-US": {
@@ -187,14 +178,6 @@
           conversationMenu: {
             label: "Menu keyword (or paste JSON, advanced):",
             placeholder: 'Example: Delete Chat / Delete / {"menu":{"id":"delete"}}'
-          }
-        },
-        dialogs: {
-          deleteChatConfirm: {
-            title: "Confirm delete chat",
-            message: "The script will delete the current chat after you confirm. This action cannot be undone.",
-            confirm: "Delete Chat",
-            cancel: "Cancel"
           }
         }
       }
@@ -968,6 +951,33 @@
       }
       return parts[0] || "";
     }
+    function getGrokElementSearchText(element) {
+      if (!element) return "";
+      const parts = [];
+      const push = (value) => {
+        const text = String(value ?? "").replace(/\s+/g, " ").trim();
+        if (text && !parts.includes(text)) parts.push(text);
+      };
+      for (const name of ["aria-label", "title", "data-testid", "data-test-id", "data-value", "value"]) {
+        try {
+          push(element.getAttribute?.(name));
+        } catch {
+        }
+      }
+      try {
+        push(element.innerText);
+      } catch {
+      }
+      try {
+        push(element.textContent);
+      } catch {
+      }
+      try {
+        push(element.value);
+      } catch {
+      }
+      return parts.join(" ");
+    }
     function matchesGrokModelText(value, matcher) {
       const candidate = normalizeGrokModelToken(value);
       if (!candidate) return false;
@@ -1534,15 +1544,6 @@
       pollIntervalMs: 120,
       openDelayMs: 120
     });
-    let grokDeleteConfirmDialogState = null;
-    function isPlainEnterKeyEvent(event) {
-      if (!event) return false;
-      const key = String(event.key || "");
-      const code = String(event.code || "");
-      if (key !== "Enter" && key !== "NumpadEnter" && code !== "Enter" && code !== "NumpadEnter") return false;
-      if (event.isComposing || event.keyCode === 229) return false;
-      return !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
-    }
     function createGrokConversationTargetMatcher(target) {
       const aliases = Array.isArray(target?.aliases) ? target.aliases : [];
       return (value) => {
@@ -1876,474 +1877,329 @@
       console.warn(`${LOG_TAG} conversationMenu: target menu item did not activate; menu stayed open.`);
       return false;
     }
-    function getCurrentGrokConversationId() {
-      const pathname = String(window.location?.pathname || "");
-      const directMatch = pathname.match(/\/(?:c|chat)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i);
-      if (directMatch?.[1]) return directMatch[1];
-      const fallbackMatch = pathname.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-      return fallbackMatch?.[1] || "";
-    }
-    function getGrokConversationDeleteApiUrls(conversationId) {
-      const id = String(conversationId || "").trim();
-      if (!id) return [];
-      const encodedId = encodeURIComponent(id);
-      const origin = String(window.location?.origin || "").replace(/\/+$/, "");
-      if (!origin) return [];
-      return [
-        `${origin}/rest/app-chat/conversations/soft/${encodedId}`,
-        `${origin}/rest/app-chat/conversations/${encodedId}`
-      ];
-    }
-    function navigateAfterGrokConversationDelete() {
+    const GROK_DELETE_CANCEL_LABELS = Object.freeze(["Cancel", "Close", "No", "Keep", "取消", "关闭", "保留"]);
+    const GROK_DELETE_CONFIRM_LABELS = Object.freeze(["Delete", "Delete chat", "Delete topic", "Remove", "Confirm", "Confirm delete", "OK", "删除", "删除聊天", "删除话题", "确认", "确认删除", "确定"]);
+    const GROK_DELETE_CONFIRM_STRICT_LABELS = Object.freeze(["Delete chat", "Delete Chat", "Delete topic", "Confirm delete", "确认删除", "删除聊天", "删除话题"]);
+    const GROK_DELETE_CONFIRM_GENERIC_LABELS = Object.freeze(["Delete", "Confirm", "确认", "删除"]);
+    const GROK_DELETE_CONFIRM_REJECT_PATTERN = /\b(rename|more|options|menu|pin|share|settings|history)\b|重命名|更多|菜单|选项|置顶|分享|设置|历史/i;
+    const GROK_DELETE_DIALOG_ROOT_SELECTORS = Object.freeze([
+      "[role='alertdialog']",
+      "[role='dialog']",
+      "dialog",
+      "[aria-modal='true']",
+      "[data-radix-dialog-content]",
+      "[data-state='open']",
+      "[class*='modal' i]",
+      "[class*='dialog' i]"
+    ]);
+    function getGrokElementArea(element) {
       try {
-        const homeUrl = new URL("/", window.location.href);
-        window.location.assign(homeUrl.href);
+        const rect = element?.getBoundingClientRect?.();
+        return rect ? Math.max(0, Number(rect.width) || 0) * Math.max(0, Number(rect.height) || 0) : Number.POSITIVE_INFINITY;
+      } catch {
+        return Number.POSITIVE_INFINITY;
+      }
+    }
+    function grokDeleteMatchesLabel(value, labels, exact = false) {
+      const text = String(value ?? "").replace(/\s+/g, " ").trim();
+      const token = normalizeGrokMenuToken(text);
+      if (!text || !token) return false;
+      return labels.some((label) => {
+        const raw = String(label ?? "").replace(/\s+/g, " ").trim();
+        const wanted = normalizeGrokMenuToken(raw);
+        if (!wanted) return false;
+        if (exact) return token === wanted || token.includes(wanted) && token.length <= wanted.length + 14;
+        return token.includes(wanted) || text.toLowerCase().includes(raw.toLowerCase());
+      });
+    }
+    function grokDeleteMatchesExactLabelRepeats(value, labels) {
+      const token = normalizeGrokMenuToken(value);
+      if (!token) return false;
+      return labels.some((label) => {
+        const wanted = normalizeGrokMenuToken(label);
+        if (!wanted || token.length % wanted.length !== 0) return false;
+        for (let offset = 0; offset < token.length; offset += wanted.length) {
+          if (token.slice(offset, offset + wanted.length) !== wanted) return false;
+        }
         return true;
-      } catch {
-      }
-      return false;
-    }
-    function grokDeleteConversationRequest(url) {
-      return new Promise((resolve) => {
-        const finalize = (result) => {
-          try {
-            resolve(result);
-          } catch {
-            resolve({ ok: false, status: 0, text: "" });
-          }
-        };
-        const gmRequest = typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : null;
-        if (gmRequest) {
-          try {
-            gmRequest({
-              method: "DELETE",
-              url,
-              withCredentials: true,
-              headers: {
-                "Accept": "application/json, text/plain, */*"
-              },
-              onload: (response) => {
-                const status = Number(response?.status || 0);
-                finalize({
-                  ok: status >= 200 && status < 300,
-                  status,
-                  text: String(response?.responseText || "")
-                });
-              },
-              onerror: (response) => {
-                finalize({
-                  ok: false,
-                  status: Number(response?.status || 0),
-                  text: String(response?.responseText || "")
-                });
-              },
-              ontimeout: () => {
-                finalize({ ok: false, status: 0, text: "" });
-              }
-            });
-            return;
-          } catch (error) {
-            console.warn(`${LOG_TAG} conversationMenu: GM_xmlhttpRequest delete attempt failed, falling back to fetch.`, error);
-          }
-        }
-        void (async () => {
-          try {
-            const response = await fetch(url, {
-              method: "DELETE",
-              credentials: "include",
-              headers: {
-                "Accept": "application/json, text/plain, */*"
-              }
-            });
-            finalize({
-              ok: response.ok,
-              status: response.status,
-              text: await response.text().catch(() => "")
-            });
-          } catch (error) {
-            finalize({
-              ok: false,
-              status: 0,
-              text: "",
-              error
-            });
-          }
-        })();
       });
     }
-    async function deleteCurrentGrokConversationViaApi() {
-      const conversationId = getCurrentGrokConversationId();
-      if (!conversationId) {
-        console.warn(`${LOG_TAG} conversationMenu: current conversation id not found for delete API.`);
-        return false;
-      }
-      const urls = getGrokConversationDeleteApiUrls(conversationId);
-      if (urls.length === 0) {
-        console.warn(`${LOG_TAG} conversationMenu: delete API URL could not be built.`);
-        return false;
-      }
-      let lastError = null;
-      for (let index = 0; index < urls.length; index += 1) {
-        const url = urls[index];
-        try {
-          const response = await grokDeleteConversationRequest(url);
-          if (response.ok || response.status === 204) {
-            console.info(`${LOG_TAG} conversationMenu: deleted conversation via API (${index === 0 ? "soft" : "standard"}).`);
-            navigateAfterGrokConversationDelete();
-            return true;
-          }
-          lastError = new Error(`HTTP ${response.status}`);
-          if (index === 0 && (response.status === 404 || response.status === 405)) continue;
-          console.warn(`${LOG_TAG} conversationMenu: delete API failed at ${url}: ${response.status}.`);
-        } catch (error) {
-          lastError = error;
-          console.warn(`${LOG_TAG} conversationMenu: delete API request failed at ${url}.`, error);
-        }
-      }
-      if (lastError) console.warn(`${LOG_TAG} conversationMenu: delete API fallback failed.`, lastError);
-      return false;
-    }
-    function getGrokCssColor(value) {
-      const text = String(value ?? "").trim();
-      if (!text || text === "transparent") return null;
-      const match = text.match(/^rgba?\(([^)]+)\)$/i);
-      if (!match) return null;
-      const parts = match[1].split(",").map((part) => part.trim());
-      if (parts.length < 3) return null;
-      const r = Number(parts[0]);
-      const g = Number(parts[1]);
-      const b = Number(parts[2]);
-      const a = parts.length >= 4 ? Number(parts[3]) : 1;
-      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b) || !Number.isFinite(a) || a <= 0) return null;
-      return { r, g, b, a };
-    }
-    function isGrokCssColorDark(color) {
-      if (!color) return false;
-      const toLinear = (value) => {
-        const channel = Math.max(0, Math.min(255, Number(value) || 0)) / 255;
-        return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
-      };
-      const luminance = 0.2126 * toLinear(color.r) + 0.7152 * toLinear(color.g) + 0.0722 * toLinear(color.b);
-      return luminance < 0.5;
-    }
-    function getGrokPageThemeMode() {
-      const candidates = [document.documentElement, document.body].filter(Boolean);
-      for (const element of candidates) {
-        const attrValues = [
-          element.getAttribute?.("data-theme"),
-          element.getAttribute?.("data-appearance"),
-          element.dataset?.theme,
-          element.dataset?.appearance
-        ];
-        for (const attrValue of attrValues) {
-          const token = String(attrValue ?? "").trim().toLowerCase();
-          if (!token) continue;
-          if (token.includes("dark")) return "dark";
-          if (token.includes("light")) return "light";
-        }
-        const className = String(element.className || "").toLowerCase();
-        if (/\bdark\b/.test(className)) return "dark";
-        if (/\blight\b/.test(className)) return "light";
-        try {
-          const colorScheme = String(getComputedStyle(element).colorScheme || "").toLowerCase();
-          if (colorScheme.includes("dark")) return "dark";
-          if (colorScheme.includes("light")) return "light";
-        } catch {
-        }
-      }
+    function getGrokDeleteClickableElement(element) {
+      if (!element || element === document || element === window) return null;
+      const selector = "button,[role='button'],[role='menuitem'],[role='option'],a[href],[tabindex]:not([tabindex='-1']),[onclick],[class*='button' i],[class*='btn' i]";
       try {
-        const bodyColor = getGrokCssColor(getComputedStyle(document.body).backgroundColor);
-        if (bodyColor) return isGrokCssColorDark(bodyColor) ? "dark" : "light";
+        if (element.matches?.(selector)) return element;
+        return element.closest?.(selector) || (element.nodeType === 1 ? element : null);
+      } catch {
+        return null;
+      }
+    }
+    function getGrokVisibleDeleteActionCandidates(root = document) {
+      if (!root?.querySelectorAll) return [];
+      const selector = "button,[role='button'],[role='menuitem'],[role='option'],a[href],[tabindex]:not([tabindex='-1']),[onclick],[class*='button' i],[class*='btn' i]";
+      const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
+      try {
+        for (const element of Array.from(root.querySelectorAll(selector))) {
+          const target = getGrokDeleteClickableElement(element);
+          if (!target || seen.has(target) || !isElementVisible(target) || isGrokModelMenuItemDisabled(target)) continue;
+          seen.add(target);
+          candidates.push(target);
+        }
       } catch {
       }
+      return candidates;
+    }
+    function grokDeleteConfirmQuestionMatches(value) {
+      const text = String(value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+      const token = normalizeGrokMenuToken(text);
+      return /are you sure you want to delete(?: this)? chat|are you sure.*delete|this chat can(?:'|’)?t be recovered|this chat cant be recovered|delete this chat|delete (?:the )?(?:chat|conversation)\s*[?？]|share links from it will be disabled|cannot be undone|can(?:'|’)?t be undone|permanently delete|permanent deletion|删除(?:此|该|这个|本)?(?:聊天|对话|会话|话题)\s*[?？]|确定.*删除|确认.*删除|删除.*不可恢复|无法恢复|不能恢复/i.test(text) || /confirmdelete|deleteconfirm|删除确认|确认删除/.test(token);
+    }
+    function grokDeleteConfirmRootMatches(value) {
+      const text = String(value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+      const token = normalizeGrokMenuToken(text);
+      if (grokDeleteConfirmQuestionMatches(text)) return true;
+      const hasDelete = /delete|remove|删除/.test(text) || /delete|remove|删除/.test(token);
+      const hasConfirm = /confirm|确认|确定/.test(text) || /confirm|确认|确定/.test(token);
+      const hasCancel = /cancel|取消|keep|关闭/.test(text) || /cancel|取消|keep|关闭/.test(token);
+      const hasWarning = /recover|recovered|undo|permanent|不可恢复|无法恢复|不能恢复/.test(text) || /recover|recovered|undo|permanent|不可恢复|无法恢复|不能恢复/.test(token);
+      return hasCancel && (hasWarning || hasDelete && hasConfirm);
+    }
+    function grokDeleteConfirmRejects(element) {
+      const value = getGrokElementSearchText(element);
+      return GROK_DELETE_CONFIRM_REJECT_PATTERN.test(value) || GROK_DELETE_CONFIRM_REJECT_PATTERN.test(normalizeGrokMenuToken(value));
+    }
+    function grokDeleteConfirmButtonMatches(element, root = null) {
+      const value = getGrokElementSearchText(element);
+      if (!value || grokDeleteMatchesLabel(value, GROK_DELETE_CANCEL_LABELS) || grokDeleteConfirmRejects(element)) return false;
+      if (grokDeleteMatchesExactLabelRepeats(value, GROK_DELETE_CONFIRM_STRICT_LABELS)) return true;
+      if (grokDeleteMatchesExactLabelRepeats(value, GROK_DELETE_CONFIRM_GENERIC_LABELS)) return true;
+      if (root && grokDeleteConfirmRootMatches(getGrokElementSearchText(root))) return grokDeleteMatchesLabel(value, GROK_DELETE_CONFIRM_LABELS);
+      return grokDeleteMatchesLabel(value, GROK_DELETE_CONFIRM_STRICT_LABELS);
+    }
+    function grokDeleteCancelButtonMatches(element) {
+      return grokDeleteMatchesLabel(getGrokElementSearchText(element), GROK_DELETE_CANCEL_LABELS);
+    }
+    function addGrokDeleteDialogRoot(roots, root) {
+      if (!root || !isElementVisible(root)) return;
+      if (!roots.some((item) => item === root || item.contains?.(root) || root.contains?.(item))) roots.push(root);
+    }
+    function getGrokDeleteDialogRoots() {
+      const roots = [];
+      const rootSelector = GROK_DELETE_DIALOG_ROOT_SELECTORS.join(",");
       try {
-        const rootColor = getGrokCssColor(getComputedStyle(document.documentElement).backgroundColor);
-        if (rootColor) return isGrokCssColorDark(rootColor) ? "dark" : "light";
+        for (const root of Array.from(document.querySelectorAll(rootSelector))) {
+          if (grokDeleteConfirmRootMatches(getGrokElementSearchText(root))) addGrokDeleteDialogRoot(roots, root);
+        }
       } catch {
       }
-      return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
+      let questions = [];
+      try {
+        questions = Array.from(document.querySelectorAll("div,section,[role='dialog'],[role='alertdialog'],dialog,[aria-modal='true'],[class*='modal' i],[class*='dialog' i],h1,h2,h3,p,span")).filter((node) => isElementVisible(node) && grokDeleteConfirmQuestionMatches(getGrokElementSearchText(node))).sort((a, b) => getGrokElementArea(a) - getGrokElementArea(b)).slice(0, 24);
+      } catch {
+      }
+      for (const question of questions) {
+        for (let node = question, depth = 0; node && node !== document.body && depth < 8; node = node.parentElement, depth += 1) {
+          if (!isElementVisible(node)) continue;
+          const buttons = getGrokVisibleDeleteActionCandidates(node);
+          if (!buttons.some((button) => grokDeleteConfirmButtonMatches(button, node)) || !buttons.some(grokDeleteCancelButtonMatches)) continue;
+          addGrokDeleteDialogRoot(roots, node);
+          break;
+        }
+      }
+      roots.sort((a, b) => getGrokElementArea(a) - getGrokElementArea(b));
+      return roots;
     }
-    function getGrokDeleteConfirmTheme(mode) {
-      const isDark = String(mode || "").toLowerCase() === "dark";
-      if (isDark) {
-        return Object.freeze({
-          overlay: "rgba(0, 0, 0, 0.58)",
-          backdropFilter: "blur(10px)",
-          panelBackground: "rgba(24, 24, 27, 0.96)",
-          panelBorder: "rgba(255, 255, 255, 0.10)",
-          panelShadow: "0 28px 80px rgba(0, 0, 0, 0.55)",
-          titleColor: "#f4f4f5",
-          textColor: "#d4d4d8",
-          mutedColor: "#a1a1aa",
-          neutralButtonBackground: "rgba(255, 255, 255, 0.06)",
-          neutralButtonBackgroundHover: "rgba(255, 255, 255, 0.10)",
-          neutralButtonBorder: "rgba(255, 255, 255, 0.10)",
-          neutralButtonText: "#f4f4f5",
-          dangerButtonBackground: "#ef4444",
-          dangerButtonBackgroundHover: "#dc2626",
-          dangerButtonBorder: "rgba(239, 68, 68, 0.55)",
-          dangerButtonText: "#ffffff",
-          focusRing: "rgba(255, 255, 255, 0.22)"
+    function getGrokDeleteConfirmButtonInfo() {
+      const roots = getGrokDeleteDialogRoots();
+      const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
+      const add = (element, score = 0) => {
+        const target = getGrokDeleteClickableElement(element);
+        if (!target || seen.has(target) || !isElementVisible(target) || isGrokModelMenuItemDisabled(target)) return;
+        const root = roots.find((item) => item.contains?.(target) || item.contains?.(element)) || null;
+        if (!grokDeleteConfirmButtonMatches(target, root) && !grokDeleteConfirmButtonMatches(element, root)) return;
+        if (grokDeleteCancelButtonMatches(target) || grokDeleteCancelButtonMatches(element)) return;
+        const rect = target.getBoundingClientRect?.();
+        if (!rect || rect.width < 12 || rect.height < 10 || rect.width > 760 || rect.height > 140) return;
+        seen.add(target);
+        candidates.push({
+          node: target,
+          root,
+          score: score + (grokDeleteMatchesExactLabelRepeats(getGrokElementSearchText(target), GROK_DELETE_CONFIRM_STRICT_LABELS) ? 700 : 0) + (grokDeleteMatchesExactLabelRepeats(getGrokElementSearchText(target), GROK_DELETE_CONFIRM_GENERIC_LABELS) ? 420 : 0) + (target.matches?.("button,[role='button']") ? 220 : 0),
+          top: Number(rect.top) || 0,
+          right: Number(rect.right) || 0,
+          area: Math.max(0, Number(rect.width) || 0) * Math.max(0, Number(rect.height) || 0)
         });
+      };
+      for (const root of roots) {
+        for (const element of getGrokVisibleDeleteActionCandidates(root)) add(element, 260);
       }
-      return Object.freeze({
-        overlay: "rgba(15, 23, 42, 0.18)",
-        backdropFilter: "blur(6px)",
-        panelBackground: "#ffffff",
-        panelBorder: "rgba(15, 23, 42, 0.10)",
-        panelShadow: "0 28px 80px rgba(15, 23, 42, 0.16)",
-        titleColor: "#111827",
-        textColor: "#374151",
-        mutedColor: "#6b7280",
-        neutralButtonBackground: "#f3f4f6",
-        neutralButtonBackgroundHover: "#e5e7eb",
-        neutralButtonBorder: "rgba(15, 23, 42, 0.08)",
-        neutralButtonText: "#111827",
-        dangerButtonBackground: "#ef4444",
-        dangerButtonBackgroundHover: "#dc2626",
-        dangerButtonBorder: "rgba(239, 68, 68, 0.50)",
-        dangerButtonText: "#ffffff",
-        focusRing: "rgba(239, 68, 68, 0.20)"
-      });
-    }
-    function getGrokDeleteConfirmText(engine2, key, fallback) {
-      return engine2?.i18n?.t?.(`dialogs.deleteChatConfirm.${key}`, {}, fallback) || fallback;
-    }
-    function showGrokDeleteConfirmDialog({ engine: engine2 = null } = {}) {
-      if (grokDeleteConfirmDialogState?.promise) return grokDeleteConfirmDialogState.promise;
-      const mode = getGrokPageThemeMode();
-      const theme = getGrokDeleteConfirmTheme(mode);
-      const title = getGrokDeleteConfirmText(engine2, "title", "Confirm delete chat");
-      const message = getGrokDeleteConfirmText(engine2, "message", "The script will delete the current chat after you confirm. This action cannot be undone.");
-      const confirmText = getGrokDeleteConfirmText(engine2, "confirm", "Delete Chat");
-      const cancelText = getGrokDeleteConfirmText(engine2, "cancel", "Cancel");
-      const host = document.body || document.documentElement;
-      if (!host) return Promise.resolve(false);
-      const overlay = document.createElement("div");
-      const panel = document.createElement("div");
-      const titleEl = document.createElement("div");
-      const messageEl = document.createElement("p");
-      const buttonRow = document.createElement("div");
-      const cancelButton = document.createElement("button");
-      const confirmButton = document.createElement("button");
-      const titleId = `grok-delete-confirm-title-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const messageId = `grok-delete-confirm-message-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      let cleaned = false;
-      let resolved = false;
-      let previousBodyOverflow = "";
-      let previousHtmlOverflow = "";
-      const state = {
-        promise: null,
-        resolve: null,
-        overlay,
-        panel,
-        cancelButton,
-        confirmButton
-      };
-      const cleanup = () => {
-        if (cleaned) return;
-        cleaned = true;
-        try {
-          window.removeEventListener("keydown", onKeydown, true);
-        } catch {
-        }
-        try {
-          document.removeEventListener("keydown", onKeydown, true);
-        } catch {
-        }
-        try {
-          overlay.remove();
-        } catch {
-        }
-        try {
-          if (document.body) document.body.style.overflow = previousBodyOverflow;
-          if (document.documentElement) document.documentElement.style.overflow = previousHtmlOverflow;
-        } catch {
-        }
-        if (grokDeleteConfirmDialogState === state) grokDeleteConfirmDialogState = null;
-      };
-      const finish = (ok) => {
-        if (resolved) return;
-        resolved = true;
-        cleanup();
-        try {
-          state.resolve?.(!!ok);
-        } catch {
-        }
-      };
-      const onKeydown = (event) => {
-        if (resolved) return;
-        if (String(event.key || "").toLowerCase() === "escape") {
-          try {
-            event.preventDefault();
-          } catch {
-          }
-          try {
-            event.stopPropagation();
-          } catch {
-          }
-          try {
-            event.stopImmediatePropagation?.();
-          } catch {
-          }
-          finish(false);
-          return;
-        }
-        if (!isPlainEnterKeyEvent(event)) return;
-        try {
-          event.preventDefault();
-        } catch {
-        }
-        try {
-          event.stopPropagation();
-        } catch {
-        }
-        try {
-          event.stopImmediatePropagation?.();
-        } catch {
-        }
-        finish(true);
-      };
-      const setButtonBaseStyle = (button, { background, backgroundHover, borderColor, textColor, boxShadow = "none" } = {}) => {
-        const apply = (hovered) => {
-          Object.assign(button.style, {
-            appearance: "none",
-            border: `1px solid ${borderColor}`,
-            borderRadius: "999px",
-            background: hovered ? backgroundHover : background,
-            color: textColor,
-            boxShadow,
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "600",
-            lineHeight: "1",
-            minWidth: "96px",
-            padding: "10px 16px",
-            transition: "background-color 120ms ease, border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease"
+      if (candidates.length === 0 && questionsVisibleForGrokDeleteConfirmation()) {
+        const buttons = getGrokVisibleDeleteActionCandidates(document);
+        const cancelButtons = buttons.filter(grokDeleteCancelButtonMatches);
+        for (const button of buttons) {
+          const value = getGrokElementSearchText(button);
+          if (!grokDeleteMatchesExactLabelRepeats(value, GROK_DELETE_CONFIRM_GENERIC_LABELS) && !grokDeleteMatchesExactLabelRepeats(value, GROK_DELETE_CONFIRM_STRICT_LABELS)) continue;
+          const rect = button.getBoundingClientRect?.();
+          if (!rect) continue;
+          const nearCancel = cancelButtons.some((cancel) => {
+            const cancelRect = cancel.getBoundingClientRect?.();
+            if (!cancelRect) return false;
+            return Math.abs((cancelRect.left + cancelRect.right) / 2 - (rect.left + rect.right) / 2) < 360 && Math.abs((cancelRect.top + cancelRect.bottom) / 2 - (rect.top + rect.bottom) / 2) < 220;
           });
-        };
-        apply(false);
-        button.addEventListener("mouseenter", () => apply(true));
-        button.addEventListener("mouseleave", () => apply(false));
-        button.addEventListener("focus", () => {
-          button.style.boxShadow = `0 0 0 3px ${theme.focusRing}`;
-        });
-        button.addEventListener("blur", () => {
-          button.style.boxShadow = boxShadow;
-        });
+          if (nearCancel) add(button, 180);
+        }
+      }
+      candidates.sort((a, b) => b.score - a.score || b.right - a.right || b.top - a.top || a.area - b.area);
+      return candidates[0] || null;
+    }
+    function questionsVisibleForGrokDeleteConfirmation() {
+      try {
+        return Array.from(document.querySelectorAll("div,section,[role='dialog'],[role='alertdialog'],dialog,[aria-modal='true'],[class*='modal' i],[class*='dialog' i],h1,h2,h3,p,span")).some((node) => isElementVisible(node) && grokDeleteConfirmQuestionMatches(getGrokElementSearchText(node)));
+      } catch {
+        return false;
+      }
+    }
+    function grokDeleteConfirmationAlreadyOpen() {
+      return Boolean(getGrokDeleteConfirmButtonInfo() || getGrokDeleteDialogRoots().length);
+    }
+    function sameGrokDeleteDialogRoot(left, right) {
+      return Boolean(left && right && (left === right || left.contains?.(right) || right.contains?.(left)));
+    }
+    function getGrokDeleteConfirmationOwnership(baseline = /* @__PURE__ */ new Set(), routeGuard = null) {
+      if (typeof routeGuard === "function" && routeGuard() !== true) return null;
+      const roots = getGrokDeleteDialogRoots();
+      const info = getGrokDeleteConfirmButtonInfo();
+      const button = info?.node || null;
+      const root = info?.root || roots.find((candidate) => candidate === button || candidate.contains?.(button)) || null;
+      if (!button || !root || baseline?.has(root)) return null;
+      if ([...baseline || []].some((candidate) => sameGrokDeleteDialogRoot(candidate, root))) return null;
+      if (!button.isConnected || !root.isConnected || !isElementVisible(button) || !isElementVisible(root) || !root.contains?.(button)) return null;
+      if (!roots.some((candidate) => candidate === root)) return null;
+      if (roots.some((candidate) => !sameGrokDeleteDialogRoot(candidate, root))) return null;
+      return { root, button };
+    }
+    function grokDeleteConfirmationOwnershipIsCurrent(ownership, routeGuard = null) {
+      const root = ownership?.root || null;
+      const button = ownership?.button || null;
+      if (typeof routeGuard === "function" && routeGuard() !== true) return false;
+      if (!root || !button || !root.isConnected || !button.isConnected || !isElementVisible(root) || !isElementVisible(button)) return false;
+      if (!root.contains?.(button)) return false;
+      const roots = getGrokDeleteDialogRoots();
+      const info = getGrokDeleteConfirmButtonInfo();
+      const currentRoot = info?.root || roots.find((candidate) => candidate === info?.node || candidate.contains?.(info?.node)) || null;
+      return info?.node === button && currentRoot === root && roots.some((candidate) => candidate === root) && roots.every((candidate) => sameGrokDeleteDialogRoot(candidate, root));
+    }
+    async function waitForGrokDeleteConfirmation(baseline, routeGuard, timeoutMs = 2600) {
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+      while (Date.now() <= deadline) {
+        const ownership = getGrokDeleteConfirmationOwnership(baseline, routeGuard);
+        if (ownership) return { state: "owned", ownership };
+        if (grokDeleteConfirmationAlreadyOpen()) return { state: "unowned", ownership: null };
+        await sleep(80);
+      }
+      return grokDeleteConfirmationAlreadyOpen() ? { state: "unowned", ownership: null } : { state: "none", ownership: null };
+    }
+    async function clickGrokDeleteConfirmIfPresent(timeoutMs = 4200, guard = null) {
+      const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+      const methods = ["pointer", "keyboard", "template", "native"];
+      let clicked = null;
+      while (Date.now() <= deadline) {
+        if (clicked && !grokDeleteConfirmationAlreadyOpen()) return true;
+        const info = getGrokDeleteConfirmButtonInfo();
+        const button = info?.node || null;
+        if (button && typeof guard === "function" && guard() !== true) return false;
+        if (button) {
+          for (const method of methods) {
+            if (!isElementVisible(button)) break;
+            if (!simulateGrokClick(button, { method })) continue;
+            clicked = button;
+            await sleep(220);
+            if (!grokDeleteConfirmationAlreadyOpen()) return true;
+          }
+        }
+        await sleep(120);
+      }
+      return Boolean(clicked && !grokDeleteConfirmationAlreadyOpen());
+    }
+    async function finishGrokDeleteConfirmation(ownership, routeGuard) {
+      const guard = () => grokDeleteConfirmationOwnershipIsCurrent(ownership, routeGuard);
+      if (!guard()) return false;
+      const confirmed = await clickGrokDeleteConfirmIfPresent(5200, guard);
+      if (confirmed) return true;
+      console.warn(`${LOG_TAG} conversationMenu: native delete confirmation did not close.`);
+      return false;
+    }
+    function getGrokDeleteRouteGuard() {
+      let routeId = "";
+      let routeHref = "";
+      try {
+        const url = new URL(String(window.location?.href || ""));
+        routeId = url.pathname.match(/^\/(?:c|chat)\/([^/?#]+)/i)?.[1] || "";
+        routeHref = url.href;
+      } catch {
+      }
+      if (!routeId || !routeHref) return null;
+      return () => {
+        try {
+          const url = new URL(String(window.location?.href || ""));
+          return url.href === routeHref && url.pathname.match(/^\/(?:c|chat)\/([^/?#]+)/i)?.[1] === routeId;
+        } catch {
+          return false;
+        }
       };
-      overlay.setAttribute("data-grok-delete-confirm-overlay", "1");
-      overlay.setAttribute("data-theme", mode);
-      overlay.setAttribute("role", "presentation");
-      Object.assign(overlay.style, {
-        position: "fixed",
-        inset: "0",
-        zIndex: "2147483647",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        boxSizing: "border-box",
-        background: theme.overlay,
-        backdropFilter: theme.backdropFilter,
-        WebkitBackdropFilter: theme.backdropFilter
-      });
-      panel.setAttribute("role", "dialog");
-      panel.setAttribute("aria-modal", "true");
-      panel.setAttribute("aria-labelledby", titleId);
-      panel.setAttribute("aria-describedby", messageId);
-      panel.tabIndex = -1;
-      Object.assign(panel.style, {
-        boxSizing: "border-box",
-        width: "min(100%, 460px)",
-        borderRadius: "24px",
-        border: `1px solid ${theme.panelBorder}`,
-        background: theme.panelBackground,
-        color: theme.textColor,
-        boxShadow: theme.panelShadow,
-        padding: "24px 24px 20px",
-        fontFamily: "inherit",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px"
-      });
-      titleEl.id = titleId;
-      titleEl.textContent = title;
-      Object.assign(titleEl.style, {
-        margin: "0",
-        color: theme.titleColor,
-        fontSize: "18px",
-        fontWeight: "700",
-        letterSpacing: "0",
-        lineHeight: "1.25"
-      });
-      messageEl.id = messageId;
-      messageEl.textContent = message;
-      Object.assign(messageEl.style, {
-        margin: "0",
-        color: theme.mutedColor,
-        fontSize: "14px",
-        lineHeight: "1.55",
-        whiteSpace: "pre-wrap"
-      });
-      Object.assign(buttonRow.style, {
-        display: "flex",
-        justifyContent: "flex-end",
-        gap: "12px",
-        marginTop: "4px"
-      });
-      cancelButton.type = "button";
-      cancelButton.textContent = cancelText;
-      setButtonBaseStyle(cancelButton, {
-        background: theme.neutralButtonBackground,
-        backgroundHover: theme.neutralButtonBackgroundHover,
-        borderColor: theme.neutralButtonBorder,
-        textColor: theme.neutralButtonText
-      });
-      cancelButton.addEventListener("click", () => finish(false));
-      confirmButton.type = "button";
-      confirmButton.textContent = confirmText;
-      setButtonBaseStyle(confirmButton, {
-        background: theme.dangerButtonBackground,
-        backgroundHover: theme.dangerButtonBackgroundHover,
-        borderColor: theme.dangerButtonBorder,
-        textColor: theme.dangerButtonText,
-        boxShadow: "0 12px 24px rgba(239, 68, 68, 0.22)"
-      });
-      confirmButton.addEventListener("click", () => finish(true));
-      buttonRow.appendChild(cancelButton);
-      buttonRow.appendChild(confirmButton);
-      panel.appendChild(titleEl);
-      panel.appendChild(messageEl);
-      panel.appendChild(buttonRow);
-      overlay.appendChild(panel);
-      overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) finish(false);
-      });
-      try {
-        previousBodyOverflow = String(document.body?.style.overflow || "");
-        previousHtmlOverflow = String(document.documentElement?.style.overflow || "");
-        if (document.body) document.body.style.overflow = "hidden";
-        if (document.documentElement) document.documentElement.style.overflow = "hidden";
-      } catch {
+    }
+    async function deleteCurrentGrokConversationViaPage(spec) {
+      const routeGuard = getGrokDeleteRouteGuard();
+      if (!routeGuard || !routeGuard()) {
+        console.warn(`${LOG_TAG} conversationMenu: stable current conversation route not found.`);
+        return false;
       }
-      state.promise = new Promise((resolve) => {
-        state.resolve = resolve;
+      if (grokDeleteConfirmationAlreadyOpen()) {
+        console.warn(`${LOG_TAG} conversationMenu: unverified native delete confirmation is already open.`);
+        return false;
+      }
+      const trigger = findGrokConversationMenuTriggerElement();
+      if (!trigger) {
+        console.warn(`${LOG_TAG} conversationMenu: current conversation menu trigger not found.`);
+        return false;
+      }
+      const confirmationBaseline = new Set(getGrokDeleteDialogRoots());
+      const menuRoot = findGrokConversationMenuRoot(trigger) || await ensureGrokConversationMenuOpen();
+      if (!menuRoot || !routeGuard()) {
+        console.warn(`${LOG_TAG} conversationMenu: current conversation menu could not be opened.`);
+        return false;
+      }
+      const selector = spec?.selector?.length ? spec.selector : GROK_CONVERSATION_MENU_ITEM_SELECTORS;
+      const targetItem = getGrokConversationMenuItem(menuRoot, {
+        selector,
+        textMatch: spec?.textMatch || createGrokConversationTargetMatcher(GROK_CONVERSATION_TARGETS.delete),
+        iconMatch: spec?.iconMatch || createGrokConversationTargetIconMatcher(GROK_CONVERSATION_TARGETS.delete),
+        fallbackToFirst: false
       });
-      grokDeleteConfirmDialogState = state;
-      try {
-        window.addEventListener("keydown", onKeydown, true);
-        document.addEventListener("keydown", onKeydown, true);
-      } catch {
-        cleanup();
-        return Promise.resolve(false);
+      if (!targetItem || isGrokModelMenuItemDisabled(targetItem)) {
+        console.warn(`${LOG_TAG} conversationMenu: native delete menu item not found.`);
+        return false;
       }
-      host.appendChild(overlay);
-      try {
-        confirmButton.focus({ preventScroll: true });
-      } catch {
+      if (grokDeleteConfirmationAlreadyOpen() || !routeGuard()) return false;
+      const activated = await clickCurrentGrokConversationMenuItem({
+        menuRoot,
+        targetItem,
+        textMatch: spec?.textMatch || createGrokConversationTargetMatcher(GROK_CONVERSATION_TARGETS.delete),
+        iconMatch: spec?.iconMatch || createGrokConversationTargetIconMatcher(GROK_CONVERSATION_TARGETS.delete)
+      });
+      if (!activated) {
+        console.warn(`${LOG_TAG} conversationMenu: native delete menu item did not activate.`);
+        return false;
       }
-      return state.promise;
+      const observation = await waitForGrokDeleteConfirmation(confirmationBaseline, routeGuard, 1200);
+      if (observation.state === "owned") return finishGrokDeleteConfirmation(observation.ownership, routeGuard);
+      if (observation.state === "unowned") {
+        console.warn(`${LOG_TAG} conversationMenu: native delete confirmation ownership is uncertain.`);
+        return false;
+      }
+      return true;
     }
     function getGrokConversationMenuSpec(shortcut) {
       const data = isPlainObjectLocal(shortcut?.data) ? shortcut.data : {};
@@ -2418,18 +2274,13 @@
         }
       };
     }
-    async function conversationMenuAction({ shortcut, engine: engine2 }) {
+    async function conversationMenuAction({ shortcut }) {
       const spec = getGrokConversationMenuSpec(shortcut);
       if (spec.action === "open") {
         return !!await ensureGrokConversationMenuOpen();
       }
       if (spec.targetId === "delete") {
-        const confirmed = await showGrokDeleteConfirmDialog({ engine: engine2 });
-        if (!confirmed) return false;
-        const apiDeleted = await deleteCurrentGrokConversationViaApi();
-        if (apiDeleted) return true;
-        console.warn(`${LOG_TAG} conversationMenu: delete API failed, falling back to menu click.`);
-        await sleep(60);
+        return deleteCurrentGrokConversationViaPage(spec);
       }
       const menuRoot = findGrokConversationMenuRoot() || await ensureGrokConversationMenuOpen();
       if (!menuRoot) {
