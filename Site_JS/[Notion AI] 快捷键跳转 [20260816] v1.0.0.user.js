@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name           [Notion AI] 快捷键跳转 [20260807] v1.0.0
-// @name:en        [Notion AI] Shortcut Jump [20260807] v1.0.0
+// @name           [Notion AI] 快捷键跳转 [20260816] v1.0.0
+// @name:en        [Notion AI] Shortcut Jump [20260816] v1.0.0
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 Notion AI 提供当前 Template 架构的可视化自定义快捷键：支持新建聊天、删除话题、快捷输入、联网开关、图片生成切换、直接选择 Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek/GLM 等模型，并保留研究模式、搜索范围、添加上下文与附件快捷动作。
 // @description:en Template-based visual custom shortcuts for Notion AI, with new chat, delete topic, quick input, web access and image-generation toggles, direct model shortcuts for Auto/Claude/Gemini/GPT/Grok/Kimi/DeepSeek/GLM, and research, search scope, context, and attachment actions.
 
-// @version        [20260807] v1.0.0
+// @version        [20260816] v1.0.0
 // @update-log     update-log
 // @update-log:en  update-log
 
@@ -58,6 +58,7 @@
     const NOTION_QUICK_INPUT_STORAGE_KEY = "notion_quick_input_v1";
     const NOTION_ORIGIN = "https://app.notion.com";
     const NOTION_LEGACY_ORIGIN = "https://www.notion.so";
+    const NOTION_CHAT_URL = "https://app.notion.com/chat?t=39080401ae3a80adaaf500a9239649d8&wfv=chat";
     const NOTION_AI_HOME_PATH = "/ai";
     const NOTION_AI_NATIVE_FACE_ICON = `${NOTION_ORIGIN}/_assets/9ade71d75a1c0e93.png`;
     const NOTION_NEW_CHAT_TARGET_TTL_MS = 15e3;
@@ -108,6 +109,26 @@
     function svgDataUri(svgText) {
       return `data:image/svg+xml,${encodeURIComponent(String(svgText || "").trim())}`;
     }
+    const CHAT_HISTORY_RECOVERY_ICON = svgDataUri(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="急救箱头像">
+<style>.cbg{fill:#ECEBE9;stroke:rgba(0,0,0,.07);stroke-width:2}.fce{fill:#191918}.stk{stroke:#FFFFFF;stroke-linejoin:round;stroke-linecap:round}.ink{stroke:#1D1D1B;stroke-linejoin:round;stroke-linecap:round}@media (prefers-color-scheme:dark){.cbg{fill:#D5D4D2;stroke:rgba(255,255,255,.25)}}</style>
+<circle class="cbg" cx="100" cy="116" r="60"/>
+<g class="fce" transform="translate(52.6 65.4) scale(0.64)">
+<path d="m135.3 29.9c-5.2-9.6-15.2-17.5-28.3-17.9-14.6-0.5-27.7 9.2-35.3 23.1-6.6 11.8-42.6 81.3-50.5 97.9-1.8 3.7 0.2 7 3.8 7.5l45.4 5 1.5-12.4-37.6-3.9 45.2-89.5c5-9.3 14.4-17.9 25.2-18 6.6-0.1 16.1 3.6 21.6 12.4 1.3 2.3 4.2 3.5 6.7 2.3 2.4-1 3.6-4.1 2.3-6.5z"/>
+<path d="m23.5 27.6c4.2-4.8 10.7-12.4 24.2-13.6 8.7-0.6 15 4.1 18.9 10.2 1.4 2.4 4.1 4.1 6.8 2.6 2.5-1.2 3.2-4.2 1.6-6.9-2.8-5.2-11.6-14.9-23.8-15.4-8.9-0.4-24.3 2.9-35.4 17.1-1.7 2.1-1.7 5 0.4 6.8 1.9 1.9 5.4 1.6 7.3-0.8z"/>
+<path d="m47.8 36.2c-5.7 0.1-10.5 4.9-10.5 10.7-0.2 6 4.1 11.6 10.5 11.7 6.1-0.1 10.5-5.2 10.6-12-0.2-5.7-4.5-10.4-10.6-10.4z"/>
+<path d="m94.7 42.9c-5.6 0.1-10.6 4.8-10.7 11.3 0 6.3 4.2 11.9 10.7 11.8 5.9 0 10.3-5.1 10.4-11.8 0-5.7-3.9-11.2-10.4-11.3z"/>
+</g>
+<g transform="translate(151 159) rotate(-8) scale(1.15)">
+  <path class="stk" d="M-9,-19 v-3 a9,9 0 0 1 18,0 v3" fill="none" stroke-width="14"/>
+  <rect class="stk" x="-27" y="-19" width="54" height="38" rx="7" fill="#FFFFFF" stroke-width="13"/>
+  <path class="ink" d="M-9,-19 v-3 a9,9 0 0 1 18,0 v3" fill="none" stroke-width="5"/>
+  <rect class="ink" x="-27" y="-19" width="54" height="38" rx="7" fill="#E5484D" stroke-width="3.5"/>
+  <circle cx="0" cy="0" r="11.5" fill="#FFFFFF"/>
+  <rect x="-7.5" y="-2.75" width="15" height="5.5" rx="1.2" fill="#E5484D"/>
+  <rect x="-2.75" y="-7.5" width="5.5" height="15" rx="1.2" fill="#E5484D"/>
+</g>
+</svg>`);
     const NOTION_NATIVE_ICON_LIGHT_COLOR = "#37352F";
     const NOTION_NATIVE_ICON_DARK_COLOR = "#F1F1EF";
     function decodeSvgDataUri(dataUri) {
@@ -561,6 +582,7 @@
     );
     const NOTION_MANAGED_DEFAULT_SHORTCUT_KEYS = Object.freeze([
       "newChat",
+      "notionChat",
       LEGACY_SELECT_AI_MODEL_KEY,
       ...NOTION_MODEL_SHORTCUT_KEYS,
       ...NOTION_MANAGED_MODE_SHORTCUT_KEYS,
@@ -6384,6 +6406,14 @@
         icon: NEW_CHAT_ICON,
         iconDark: NOTION_MODEL_AI_FACE_ICON_INFO.iconDark,
         iconAdaptive: NOTION_MODEL_AI_FACE_ICON_INFO.iconAdaptive
+      }),
+      createShortcut({
+        key: "notionChat",
+        name: "Chat History Recovery",
+        actionType: "url",
+        url: NOTION_CHAT_URL,
+        hotkey: "CTRL+B",
+        icon: CHAT_HISTORY_RECOVERY_ICON
       }),
       createShortcut({
         key: LEGACY_SELECT_AI_MODEL_KEY,
