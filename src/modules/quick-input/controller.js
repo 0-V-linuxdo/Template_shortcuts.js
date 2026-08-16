@@ -16,6 +16,28 @@ const QUICK_INPUT_CLIPBOARD_TYPE = "template-shortcuts.quick-input";
 const IO_SUCCESS_FEEDBACK_MS = 3000;
 const TOOL_HOTKEY_MAX_ATTEMPTS = 3;
 
+export async function waitForRunStartPauseGuard({
+    shouldPause = null,
+    pause = null,
+    waitWhilePaused = null,
+    onGuardError = null
+} = {}) {
+    if (typeof shouldPause !== "function") return true;
+
+    let pauseBeforeFirstAction = false;
+    try {
+        pauseBeforeFirstAction = !!shouldPause();
+    } catch (error) {
+        try { onGuardError?.(error); } catch {}
+        return true;
+    }
+    if (!pauseBeforeFirstAction) return true;
+
+    if (typeof pause === "function") pause();
+    if (typeof waitWhilePaused !== "function") return true;
+    return (await waitWhilePaused()) !== false;
+}
+
 export function createController(userOptions = {}) {
             const options = userOptions && typeof userOptions === "object" ? userOptions : {};
             const engine = options.engine;
@@ -72,6 +94,9 @@ export function createController(userOptions = {}) {
             });
 
             const rawAdapter = options.adapter && typeof options.adapter === "object" ? options.adapter : {};
+            const shouldPauseOnStart = typeof options.shouldPauseOnStart === "function"
+                ? options.shouldPauseOnStart
+                : null;
             const adapter = Object.freeze({
                 focusComposer: typeof rawAdapter.focusComposer === "function" ? rawAdapter.focusComposer : (opts) =>
                     focusComposer({ ...(opts || {}), shouldIgnore: (el) => isInsideOverlay(el) }),
@@ -3253,6 +3278,22 @@ export function createController(userOptions = {}) {
                     runFinalStatus = "cancelled";
                 };
 
+                const runStartPauseOk = await waitForRunStartPauseGuard({
+                    shouldPause: shouldPauseOnStart,
+                    pause: pauseRun,
+                    waitWhilePaused,
+                    onGuardError: error => warnQuickInput("Failed to evaluate the run-start pause guard; continuing the run.", error)
+                });
+                if (!runStartPauseOk) {
+                    if (runConfigGroupEl) setLogGroupStatus(runConfigGroupEl, "warn");
+                    appendStatusLog(labels.messages?.stopped || DEFAULT_LABELS.messages.stopped, { level: "warn" });
+                    pendingFinalStatusDetail = "";
+                    lastTerminalStatus = previousTerminalStatus;
+                    runFinalStatus = "idle";
+                    setRunning(false);
+                    return;
+                }
+
                 if (isReplayRun) {
                     const replayTransition = await ensureNewChatReady({
                         newChatHotkey,
@@ -4822,5 +4863,5 @@ export function createController(userOptions = {}) {
                 open();
             }
 
-            return Object.freeze({ open, close, isOpen, toggle });
+            return Object.freeze({ open, close, isOpen, toggle, pause: pauseRun });
 }

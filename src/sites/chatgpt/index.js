@@ -7,6 +7,10 @@ import {
     analyzeChatGPTComposerText,
     serializeChatGPTComposerText
 } from "./composer-text.js";
+import {
+    findChatGPTRateLimitDialog,
+    installChatGPTRateLimitDialogObserver
+} from "./rate-limit-dialog.js";
 
 (function() {
     'use strict';
@@ -2856,6 +2860,7 @@ import {
     }
 
     let quickInputController = null;
+    let stopQuickInputRateLimitObserver = null;
 
     function ensureQuickInputController(engine) {
         if (quickInputController) return quickInputController;
@@ -2877,11 +2882,18 @@ import {
             titleKey: "quickInputTitle",
             primaryColor: "#5D5CDE",
             themeMode: "system",
+            shouldPauseOnStart: () => !!findChatGPTRateLimitDialog(document),
             defaults: {
                 newChatHotkey: CHATGPT_NATIVE_NEW_CHAT_HOTKEY
             },
             adapter
         });
+        if (quickInputController && !stopQuickInputRateLimitObserver) {
+            stopQuickInputRateLimitObserver = installChatGPTRateLimitDialogObserver({
+                root: document,
+                onDetected: () => quickInputController?.pause?.()
+            });
+        }
         return quickInputController;
     }
 

@@ -202,22 +202,27 @@ const TELEGRAM_KEYCAP_ICON = themeAdaptiveKeycapIcon(
     `<g transform="translate(7.168 4.168) scale(0.097)" fill="currentColor"><path d="M199 404c-11 0-10-4-13-14l-32-105 245-144"></path><path d="M199 404c7 0 11-4 16-8l45-43-56-34"></path><path d="M204 319l135 99c14 9 26 4 30-14l55-258c5-22-9-32-24-25L79 245c-21 8-21 21-4 26l83 26 190-121c9-5 17-3 11 4"></path></g>`
 );
 
+const X_KEYCAP_ICON = themeAdaptiveKeycapIcon(
+    "x-keycap-icon",
+    `<svg x="16" y="14" width="32" height="32" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.725-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"></path></svg>`
+);
+
 export const SITE_MANIFEST = Object.freeze([
     {
         siteId: "chatgpt",
         displayName: "[ChatGPT] 快捷键跳转",
         sourceEntry: "src/sites/chatgpt/index.js",
         metadata: {
-            name: "[ChatGPT] 快捷键跳转 [20260722] v1.0.1",
+            name: "[ChatGPT] 快捷键跳转 [20260722] v1.0.2",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image/Create website）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。",
-            version: "[20260722] v1.0.1",
-            updateLog: "1.0.1: 修复新版 ChatGPT 将 Create image 等工具 pill 计入输入框正文，导致快捷输入校验失败并清除工具选择的问题。",
+            version: "[20260722] v1.0.2",
+            updateLog: "1.0.2: 检测到 ChatGPT 的 Too many requests 限频弹窗时，自动暂停正在运行的快捷输入，等待用户手动继续。",
             localized: {
                 "en-US": {
-                    name: "[ChatGPT] Shortcut Jump [20260722] v1.0.1",
+                    name: "[ChatGPT] Shortcut Jump [20260722] v1.0.2",
                     description: "Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers including Create website, and Quick Input for text, images, loops, and automatic new chats.",
-                    updateLog: "1.0.1: Fixed Quick Input treating new ChatGPT tool pills such as Create image as prompt text, which caused verification failures and cleared the selected tool."
+                    updateLog: "1.0.2: Automatically pauses an active Quick Input run when ChatGPT shows its Too many requests rate-limit dialog, leaving resume under user control."
                 }
             },
             match: [
@@ -656,6 +661,39 @@ export const SITE_MANIFEST = Object.freeze([
                 "*"
             ],
             icon: TELEGRAM_KEYCAP_ICON
+        }
+    },
+    {
+        siteId: "x",
+        displayName: "[X] 快捷键跳转",
+        sourceEntry: "src/sites/x/index.js",
+        metadata: {
+            name: "[X] 快捷键跳转 [20260817] v1.1.1",
+            namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
+            description: "为 X (Twitter) 提供可视化自定义快捷键：主页、书签、Grok 跳转，以及主贴回复按相关/最新排序，支持自定义按键与图标，并适配暗黑模式。",
+            version: "[20260817] v1.1.1",
+            updateLog: "1.1.1: 主贴回复排序改为 SPA pushState 跳转，避免整页刷新闪烁。",
+            localized: {
+                "en-US": {
+                    name: "[X] Shortcut Jump [20260817] v1.1.1",
+                    description: "Visual custom shortcuts for X (Twitter): Home, Bookmarks, Grok jumps, and main-post reply sorting by Relevant or Latest, with customizable keys and icons, plus dark mode support.",
+                    updateLog: "1.1.1: Reply sorting now uses SPA pushState navigation to avoid a full-page refresh flicker."
+                }
+            },
+            match: [
+                "https://x.com/*",
+                "https://twitter.com/*"
+            ],
+            grant: [
+                "GM_registerMenuCommand",
+                "GM_getValue",
+                "GM_setValue",
+                "GM_xmlhttpRequest"
+            ],
+            connect: [
+                "*"
+            ],
+            icon: X_KEYCAP_ICON
         }
     },
     {
