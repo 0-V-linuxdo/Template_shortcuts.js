@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [ChatGPT] 快捷键跳转 [20260722] v1.0.1
-// @name:en        [ChatGPT] Shortcut Jump [20260722] v1.0.1
+// @name           [ChatGPT] 快捷键跳转 [20260722] v1.0.2
+// @name:en        [ChatGPT] Shortcut Jump [20260722] v1.0.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
 // @description    为 ChatGPT 提供可视化自定义快捷键：支持 URL/按钮/按键动作、工具菜单（Web/Canvas/Thinking/Deep research/Create image/Create website）一键触发，以及快捷输入（文本+图片、循环发送、自动新建对话）。
 // @description:en Visual custom shortcuts for ChatGPT: URL/button/key actions, one-step tool menu triggers including Create website, and Quick Input for text, images, loops, and automatic new chats.
 
-// @version        [20260722] v1.0.1
-// @update-log     1.0.1: 修复新版 ChatGPT 将 Create image 等工具 pill 计入输入框正文，导致快捷输入校验失败并清除工具选择的问题。
-// @update-log:en  1.0.1: Fixed Quick Input treating new ChatGPT tool pills such as Create image as prompt text, which caused verification failures and cleared the selected tool.
+// @version        [20260722] v1.0.2
+// @update-log     1.0.2: 检测到 ChatGPT 的 Too many requests 限频弹窗时，自动暂停正在运行的快捷输入，等待用户手动继续。
+// @update-log:en  1.0.2: Automatically pauses an active Quick Input run when ChatGPT shows its Too many requests rate-limit dialog, leaving resume under user control.
 
 // @match          https://chatgpt.com/*
 
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22chatgpt-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.chatgpt-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.chatgpt-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cg%20id%3D%22SVGRepo_bgCarrier%22%20stroke-width%3D%220%22%3E%3C%2Fg%3E%20%3Cg%20id%3D%22SVGRepo_tracerCarrier%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3C%2Fg%3E%20%3Cg%20id%3D%22SVGRepo_iconCarrier%22%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3C%2Fg%3E%20%3Csvg%20x%3D%2211.5%22%20y%3D%229%22%20width%3D%2241%22%20height%3D%2241%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20viewBox%3D%220%200%2024%2024%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ctitle%3EOpenAI%3C%2Ftitle%3E%3Cpath%20d%3D%22M21.55%2010.004a5.416%205.416%200%2000-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59%205.59%200%200010.831%201C8.39.995%206.224%202.546%205.473%204.838A5.553%205.553%200%20001.76%207.496a5.487%205.487%200%2000.691%206.5%205.416%205.416%200%2000.477%204.502c1.217%202.09%203.662%203.165%206.05%202.66A5.586%205.586%200%200013.168%2023c2.443.006%204.61-1.546%205.361-3.84a5.553%205.553%200%20003.715-2.66%205.488%205.488%200%2000-.693-6.497v.001zm-8.381%2011.558a4.199%204.199%200%2001-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71%200%2000.364-.623v-6.176l1.877%201.069c.02.01.033.029.036.05v5.115c-.003%202.274-1.87%204.118-4.174%204.123zM4.192%2017.78a4.059%204.059%200%2001-.498-2.763c.032.02.09.055.131.078l4.44%202.53c.225.13.504.13.73%200l5.42-3.088v2.138a.068.068%200%2001-.027.057L9.9%2019.288c-1.999%201.136-4.552.46-5.707-1.51h-.001zM3.023%208.216A4.15%204.15%200%20015.198%206.41l-.002.151v5.06a.711.711%200%2000.364.624l5.42%203.087-1.876%201.07a.067.067%200%2001-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h-.001zm15.417%203.54l-5.42-3.088L14.896%207.6a.067.067%200%2001.063-.006l4.489%202.557c1.998%201.14%202.683%203.662%201.529%205.633a4.163%204.163%200%2001-2.174%201.807V12.38a.71.71%200%2000-.363-.623zm1.867-2.773a6.04%206.04%200%2000-.132-.078l-4.44-2.53a.731.731%200%2000-.729%200l-5.42%203.088V7.325a.068.068%200%2001.027-.057L14.1%204.713c2-1.137%204.555-.46%205.707%201.513.487.833.664%201.809.499%202.757h.001zm-11.741%203.81l-1.877-1.068a.065.065%200%2001-.036-.051V6.559c.001-2.277%201.873-4.122%204.181-4.12.976%200%201.92.338%202.671.954-.034.018-.092.05-.131.073l-4.44%202.53a.71.71%200%2000-.365.623l-.003%206.173v.002zm1.02-2.168L12%209.25l2.414%201.375v2.75L12%2014.75l-2.415-1.375v-2.75z%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260623.1.1.0
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260722.1.1.1
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -225,6 +225,351 @@
   }
   function serializeChatGPTComposerText(composerEl) {
     return analyzeChatGPTComposerText(composerEl).text;
+  }
+
+  // src/sites/chatgpt/rate-limit-dialog.js
+  var CHATGPT_RATE_LIMIT_MODAL_TOKEN = "modal-conversation-history-rate-limit";
+  var CHATGPT_RATE_LIMIT_ROOT_SELECTOR = [
+    `#${CHATGPT_RATE_LIMIT_MODAL_TOKEN}`,
+    `[data-testid="${CHATGPT_RATE_LIMIT_MODAL_TOKEN}"]`
+  ].join(", ");
+  var CHATGPT_DIALOG_SELECTOR = [
+    "dialog",
+    '[role="dialog"]',
+    '[role="alertdialog"]',
+    '[aria-modal="true"]'
+  ].join(", ");
+  var DEFAULT_QUICK_INPUT_OVERLAY_ID = "chatgpt-quick-input-overlay";
+  var OBSERVED_VISIBILITY_ATTRIBUTES = Object.freeze([
+    "aria-hidden",
+    "aria-modal",
+    "data-state",
+    "data-testid",
+    "hidden",
+    "id",
+    "open",
+    "role"
+  ]);
+  var SETTLED_RESCAN_DELAYS_MS = Object.freeze([50, 300]);
+  var CHATGPT_RATE_LIMIT_CANDIDATE_SELECTOR = [
+    CHATGPT_RATE_LIMIT_ROOT_SELECTOR,
+    CHATGPT_DIALOG_SELECTOR
+  ].join(", ");
+  function normalizeRateLimitText(value) {
+    return String(value ?? "").replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, " ").trim().toLowerCase();
+  }
+  function getElementText(element) {
+    if (!element) return "";
+    const parts = [];
+    try {
+      parts.push(element.getAttribute?.("aria-label") || "");
+    } catch {
+    }
+    try {
+      parts.push(element.getAttribute?.("title") || "");
+    } catch {
+    }
+    try {
+      parts.push(element.textContent || "");
+    } catch {
+    }
+    return normalizeRateLimitText(parts.filter(Boolean).join(" "));
+  }
+  function hasRateLimitTitle(text) {
+    return normalizeRateLimitText(text).includes("too many requests");
+  }
+  function hasStrongRateLimitBody(text) {
+    const normalized = normalizeRateLimitText(text);
+    return normalized.includes("making requests too quickly") && normalized.includes("temporarily limited access to your conversations");
+  }
+  function matchesKnownRateLimitText(element) {
+    const text = getElementText(element);
+    if (!text) return false;
+    return hasRateLimitTitle(text) && hasStrongRateLimitBody(text);
+  }
+  function matchesSelector(element, selector) {
+    if (!element || typeof element.matches !== "function") return false;
+    try {
+      return !!element.matches(selector);
+    } catch {
+      return false;
+    }
+  }
+  function querySelectorAllSafe(root, selector) {
+    if (!root || typeof root.querySelectorAll !== "function") return [];
+    try {
+      return Array.from(root.querySelectorAll(selector) || []);
+    } catch {
+      return [];
+    }
+  }
+  function collectCandidates(root, selector) {
+    const candidates = [];
+    if (matchesSelector(root, selector)) candidates.push(root);
+    candidates.push(...querySelectorAllSafe(root, selector));
+    return Array.from(new Set(candidates.filter(Boolean)));
+  }
+  function closestSafe(element, selector) {
+    if (!element || typeof element.closest !== "function") return null;
+    try {
+      return element.closest(selector);
+    } catch {
+      return null;
+    }
+  }
+  function getElementForNode(node) {
+    if (!node) return null;
+    if (Number(node.nodeType) === 1) return node;
+    try {
+      return node.parentElement || null;
+    } catch {
+      return null;
+    }
+  }
+  function touchesRateLimitCandidate(node) {
+    const element = getElementForNode(node);
+    if (!element) return false;
+    if (matchesSelector(element, CHATGPT_RATE_LIMIT_CANDIDATE_SELECTOR)) return true;
+    if (closestSafe(element, CHATGPT_RATE_LIMIT_CANDIDATE_SELECTOR)) return true;
+    return querySelectorAllSafe(element, CHATGPT_RATE_LIMIT_CANDIDATE_SELECTOR).length > 0;
+  }
+  function shouldScanMutation(record) {
+    if (!record) return true;
+    if (touchesRateLimitCandidate(record.target)) return true;
+    if (String(record.type || "") !== "childList") return false;
+    for (const node of Array.from(record.addedNodes || [])) {
+      if (touchesRateLimitCandidate(node)) return true;
+    }
+    for (const node of Array.from(record.removedNodes || [])) {
+      if (touchesRateLimitCandidate(node)) return true;
+    }
+    return false;
+  }
+  function getParentNode(node) {
+    if (!node) return null;
+    try {
+      return node.parentElement || node.parentNode || null;
+    } catch {
+      return null;
+    }
+  }
+  function isInsideOverlay(element, overlayId) {
+    const expectedId = String(overlayId || "").trim();
+    if (!element || !expectedId) return false;
+    let node = element;
+    while (node) {
+      try {
+        if (String(node.id || node.getAttribute?.("id") || "") === expectedId) return true;
+      } catch {
+      }
+      let next = getParentNode(node);
+      if (!next && typeof node.getRootNode === "function") {
+        try {
+          next = node.getRootNode()?.host || null;
+        } catch {
+        }
+      }
+      if (!next || next === node) break;
+      node = next;
+    }
+    return false;
+  }
+  function isNodeVisiblyOpen(node) {
+    if (!node || Number(node.nodeType) !== 1) return true;
+    try {
+      if (node.hidden) return false;
+      if (node.getAttribute?.("hidden") !== null) return false;
+      if (String(node.tagName || "").toUpperCase() === "DIALOG" && !node.hasAttribute?.("open")) return false;
+      if (normalizeRateLimitText(node.getAttribute?.("aria-hidden")) === "true") return false;
+      if (normalizeRateLimitText(node.getAttribute?.("data-state")) === "closed") return false;
+    } catch {
+    }
+    try {
+      const inlineStyle = node.style || null;
+      if (inlineStyle) {
+        const display = normalizeRateLimitText(inlineStyle.display);
+        const visibility = normalizeRateLimitText(inlineStyle.visibility);
+        const opacity = normalizeRateLimitText(inlineStyle.opacity);
+        if (display === "none" || visibility === "hidden" || visibility === "collapse" || opacity === "0") return false;
+      }
+    } catch {
+    }
+    const getComputedStyleFn = globalThis.getComputedStyle;
+    if (typeof getComputedStyleFn === "function") {
+      try {
+        const style = getComputedStyleFn(node);
+        const display = normalizeRateLimitText(style?.display);
+        const visibility = normalizeRateLimitText(style?.visibility);
+        const opacity = normalizeRateLimitText(style?.opacity);
+        if (display === "none" || visibility === "hidden" || visibility === "collapse" || opacity === "0") return false;
+      } catch {
+      }
+    }
+    return true;
+  }
+  function isVisibleDialog(element, { visibilityRoot = null, isVisible = null } = {}) {
+    if (!element) return false;
+    try {
+      if (element.isConnected === false) return false;
+    } catch {
+    }
+    let node = element;
+    while (node) {
+      if (!isNodeVisiblyOpen(node)) return false;
+      if (node === visibilityRoot) break;
+      const next = getParentNode(node);
+      if (!next || next === node) break;
+      node = next;
+    }
+    if (typeof isVisible === "function") {
+      try {
+        return !!isVisible(element);
+      } catch {
+        return false;
+      }
+    }
+    if (typeof element.getBoundingClientRect === "function") {
+      try {
+        const rect = element.getBoundingClientRect();
+        if (!rect || Number(rect.width) <= 0 || Number(rect.height) <= 0) return false;
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  }
+  function findDialogWithinExactRoot(exactRoot, options) {
+    if (!exactRoot) return null;
+    const dialogCandidates = collectCandidates(exactRoot, CHATGPT_DIALOG_SELECTOR);
+    for (const dialog of dialogCandidates) {
+      if (isInsideOverlay(dialog, options.overlayId)) continue;
+      if (!isVisibleDialog(dialog, { visibilityRoot: options.visibilityRoot, isVisible: options.isVisible })) continue;
+      return dialog;
+    }
+    return null;
+  }
+  function findChatGPTRateLimitDialog(root = globalThis.document, {
+    overlayId = DEFAULT_QUICK_INPUT_OVERLAY_ID,
+    isVisible = null
+  } = {}) {
+    if (!root) return null;
+    const options = { overlayId, isVisible, visibilityRoot: root };
+    for (const exactRoot of collectCandidates(root, CHATGPT_RATE_LIMIT_ROOT_SELECTOR)) {
+      if (isInsideOverlay(exactRoot, overlayId)) continue;
+      const dialog = findDialogWithinExactRoot(exactRoot, options);
+      if (dialog) return dialog;
+    }
+    for (const dialog of collectCandidates(root, CHATGPT_DIALOG_SELECTOR)) {
+      if (isInsideOverlay(dialog, overlayId)) continue;
+      if (!matchesKnownRateLimitText(dialog)) continue;
+      if (!isVisibleDialog(dialog, { visibilityRoot: root, isVisible })) continue;
+      return dialog;
+    }
+    return null;
+  }
+  function getObservationTarget(root) {
+    if (!root) return null;
+    if (Number(root.nodeType) === 9) {
+      try {
+        return root.body || root.documentElement || root;
+      } catch {
+        return root;
+      }
+    }
+    return root;
+  }
+  function installChatGPTRateLimitDialogObserver({
+    root = globalThis.document,
+    overlayId = DEFAULT_QUICK_INPUT_OVERLAY_ID,
+    onDetected = null,
+    isVisible = null,
+    MutationObserverCtor = globalThis.MutationObserver,
+    setTimeoutFn = globalThis.setTimeout,
+    clearTimeoutFn = globalThis.clearTimeout
+  } = {}) {
+    if (!root || typeof onDetected !== "function") return () => {
+    };
+    let active = true;
+    let observer = null;
+    let lastDetectedDialog = null;
+    const settledRescanTimers = /* @__PURE__ */ new Set();
+    const scan = () => {
+      if (!active) return null;
+      const dialog = findChatGPTRateLimitDialog(root, { overlayId, isVisible });
+      if (!dialog) {
+        lastDetectedDialog = null;
+        return null;
+      }
+      if (dialog === lastDetectedDialog) return dialog;
+      lastDetectedDialog = dialog;
+      try {
+        onDetected(dialog);
+      } catch {
+      }
+      return dialog;
+    };
+    const clearSettledRescans = () => {
+      for (const timerId of settledRescanTimers) {
+        try {
+          clearTimeoutFn?.(timerId);
+        } catch {
+        }
+      }
+      settledRescanTimers.clear();
+    };
+    const scheduleSettledRescans = () => {
+      if (!active || typeof setTimeoutFn !== "function") return;
+      clearSettledRescans();
+      for (const delayMs of SETTLED_RESCAN_DELAYS_MS) {
+        let timerId = null;
+        try {
+          timerId = setTimeoutFn(() => {
+            settledRescanTimers.delete(timerId);
+            scan();
+          }, delayMs);
+          settledRescanTimers.add(timerId);
+        } catch {
+        }
+      }
+    };
+    const observationTarget = getObservationTarget(root);
+    if (observationTarget && typeof MutationObserverCtor === "function") {
+      try {
+        observer = new MutationObserverCtor((records = []) => {
+          const mutationList = Array.from(records || []);
+          if (mutationList.length === 0 || mutationList.some(shouldScanMutation)) {
+            scan();
+            scheduleSettledRescans();
+          }
+        });
+        observer.observe(observationTarget, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+          attributes: true,
+          attributeFilter: Array.from(OBSERVED_VISIBILITY_ATTRIBUTES)
+        });
+      } catch {
+        try {
+          observer?.disconnect?.();
+        } catch {
+        }
+        observer = null;
+      }
+    }
+    scan();
+    scheduleSettledRescans();
+    return () => {
+      if (!active) return;
+      active = false;
+      lastDetectedDialog = null;
+      clearSettledRescans();
+      try {
+        observer?.disconnect?.();
+      } catch {
+      }
+      observer = null;
+    };
   }
 
   // src/sites/chatgpt/index.js
@@ -2860,6 +3205,7 @@
       });
     }
     let quickInputController = null;
+    let stopQuickInputRateLimitObserver = null;
     function ensureQuickInputController(engine2) {
       if (quickInputController) return quickInputController;
       const QuickInput = ShortcutTemplate?.quickInput;
@@ -2880,11 +3226,18 @@
         titleKey: "quickInputTitle",
         primaryColor: "#5D5CDE",
         themeMode: "system",
+        shouldPauseOnStart: () => !!findChatGPTRateLimitDialog(document),
         defaults: {
           newChatHotkey: CHATGPT_NATIVE_NEW_CHAT_HOTKEY
         },
         adapter
       });
+      if (quickInputController && !stopQuickInputRateLimitObserver) {
+        stopQuickInputRateLimitObserver = installChatGPTRateLimitDialogObserver({
+          root: document,
+          onDetected: () => quickInputController?.pause?.()
+        });
+      }
       return quickInputController;
     }
     function normalizeMenuToken(value) {

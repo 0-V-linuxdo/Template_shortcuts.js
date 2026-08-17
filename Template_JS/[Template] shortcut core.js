@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260623] v1.1.0
-// @name:en        [Template] Shortcut Core [20260623] v1.1.0
+// @name           [Template] 快捷键跳转 [20260722] v1.1.1
+// @name:en        [Template] Shortcut Core [20260722] v1.1.1
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260623] v1.1.0
-// @update-log     1.1.0: QuickInput 仅响应用户真实 Esc 关闭弹窗，避免站点脚本合成 Esc 关闭菜单时误暂停运行流程。
-// @update-log:en  1.1.0: QuickInput now only closes on trusted user Escape events, preventing site-dispatched Escape events from pausing active runs while closing menus.
+// @version        [20260722] v1.1.1
+// @update-log     1.1.1: QuickInput 控制器开放安全、幂等的暂停接口，供站点在检测到限频等阻塞提示时暂停当前流程。
+// @update-log:en  1.1.1: QuickInput controllers now expose a safe, idempotent pause API so sites can pause active runs when rate limits or other blockers appear.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260623";
+  var TEMPLATE_VERSION = "20260722";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -12252,6 +12252,28 @@ ${displayTargetText}`;
   var QUICK_INPUT_CLIPBOARD_TYPE = "template-shortcuts.quick-input";
   var IO_SUCCESS_FEEDBACK_MS = 3e3;
   var TOOL_HOTKEY_MAX_ATTEMPTS = 3;
+  async function waitForRunStartPauseGuard({
+    shouldPause = null,
+    pause = null,
+    waitWhilePaused = null,
+    onGuardError = null
+  } = {}) {
+    if (typeof shouldPause !== "function") return true;
+    let pauseBeforeFirstAction = false;
+    try {
+      pauseBeforeFirstAction = !!shouldPause();
+    } catch (error) {
+      try {
+        onGuardError?.(error);
+      } catch {
+      }
+      return true;
+    }
+    if (!pauseBeforeFirstAction) return true;
+    if (typeof pause === "function") pause();
+    if (typeof waitWhilePaused !== "function") return true;
+    return await waitWhilePaused() !== false;
+  }
   function createController(userOptions = {}) {
     const options = userOptions && typeof userOptions === "object" ? userOptions : {};
     const engine = options.engine;
@@ -12301,6 +12323,7 @@ ${displayTargetText}`;
       newChatReadySettleMs: 300
     });
     const rawAdapter = options.adapter && typeof options.adapter === "object" ? options.adapter : {};
+    const shouldPauseOnStart = typeof options.shouldPauseOnStart === "function" ? options.shouldPauseOnStart : null;
     const adapter = Object.freeze({
       focusComposer: typeof rawAdapter.focusComposer === "function" ? rawAdapter.focusComposer : (opts) => focusComposer({ ...opts || {}, shouldIgnore: (el) => isInsideOverlay(el) }),
       setInputValue: typeof rawAdapter.setInputValue === "function" ? rawAdapter.setInputValue : setInputValue,
@@ -15209,6 +15232,21 @@ ${displayTargetText}`;
         if (runFinalStatus === "failed") return;
         runFinalStatus = "cancelled";
       };
+      const runStartPauseOk = await waitForRunStartPauseGuard({
+        shouldPause: shouldPauseOnStart,
+        pause: pauseRun,
+        waitWhilePaused,
+        onGuardError: (error) => warnQuickInput("Failed to evaluate the run-start pause guard; continuing the run.", error)
+      });
+      if (!runStartPauseOk) {
+        if (runConfigGroupEl) setLogGroupStatus(runConfigGroupEl, "warn");
+        appendStatusLog(labels.messages?.stopped || DEFAULT_LABELS.messages.stopped, { level: "warn" });
+        pendingFinalStatusDetail = "";
+        lastTerminalStatus = previousTerminalStatus;
+        runFinalStatus = "idle";
+        setRunning(false);
+        return;
+      }
       if (isReplayRun) {
         const replayTransition = await ensureNewChatReady({
           newChatHotkey,
@@ -16534,7 +16572,7 @@ ${displayTargetText}`;
       }
       open();
     }
-    return Object.freeze({ open, close, isOpen, toggle });
+    return Object.freeze({ open, close, isOpen, toggle, pause: pauseRun });
   }
 
   // src/modules/quick-input/index.js
