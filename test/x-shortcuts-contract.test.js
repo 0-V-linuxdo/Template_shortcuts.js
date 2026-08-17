@@ -18,11 +18,14 @@ test("X default shortcuts jump to the requested pages", () => {
     assert.match(source, /X_REPLY_SORT_RECENCY_URL/);
     assert.match(source, /urlMethod: 'spa'/);
     assert.match(source, /urlAdvanced: 'pushState'/);
+    assert.match(source, /X_NATIVE_HOME_ICON/);
+    assert.match(source, /M21\.591 7\.146/);
+    assert.match(source, /X_NATIVE_GROK_ICON/);
 });
 
 test("X metadata is registered for x.com and twitter.com", () => {
     assert.match(manifest, /siteId: "x"/);
-    assert.match(manifest, /name: "\[X\] 快捷键跳转 \[20260817\] v1\.1\.1"/);
+    assert.match(manifest, /name: "\[X\] 快捷键跳转 \[20260817\] v1\.1\.2"/);
     assert.match(manifest, /"https:\/\/x\.com\/\*"/);
     assert.match(manifest, /"https:\/\/twitter\.com\/\*"/);
 });

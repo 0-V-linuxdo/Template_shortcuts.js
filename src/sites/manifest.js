@@ -668,16 +668,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[X] 快捷键跳转",
         sourceEntry: "src/sites/x/index.js",
         metadata: {
-            name: "[X] 快捷键跳转 [20260817] v1.1.1",
+            name: "[X] 快捷键跳转 [20260817] v1.1.2",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 X (Twitter) 提供可视化自定义快捷键：主页、书签、Grok 跳转，以及主贴回复按相关/最新排序，支持自定义按键与图标，并适配暗黑模式。",
-            version: "[20260817] v1.1.1",
-            updateLog: "1.1.1: 主贴回复排序改为 SPA pushState 跳转，避免整页刷新闪烁。",
+            version: "[20260817] v1.1.2",
+            updateLog: "1.1.2: 主页与 Grok 改为使用 X 侧栏原生图标。",
             localized: {
                 "en-US": {
-                    name: "[X] Shortcut Jump [20260817] v1.1.1",
+                    name: "[X] Shortcut Jump [20260817] v1.1.2",
                     description: "Visual custom shortcuts for X (Twitter): Home, Bookmarks, Grok jumps, and main-post reply sorting by Relevant or Latest, with customizable keys and icons, plus dark mode support.",
-                    updateLog: "1.1.1: Reply sorting now uses SPA pushState navigation to avoid a full-page refresh flicker."
+                    updateLog: "1.1.2: Home and Grok now use the native X sidebar icons."
                 }
             },
             match: [

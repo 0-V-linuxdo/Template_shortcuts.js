@@ -23,6 +23,7 @@ import {
     const SHORTCUTS_STORAGE_KEY = 'x_shortcuts_v1';
     const REPLY_SORT_MIGRATION_KEY = 'x_reply_sort_shortcuts_added_20260817_v110';
     const REPLY_SORT_SPA_MIGRATION_KEY = 'x_reply_sort_spa_20260817_v111';
+    const NATIVE_NAV_ICON_MIGRATION_KEY = 'x_native_home_grok_icons_20260818_v112';
     const defaultIconURL = 'https://abs.twimg.com/favicons/twitter.3.ico';
 
     const SITE_MESSAGES = Object.freeze({
@@ -55,6 +56,11 @@ import {
         return `data:image/svg+xml,${encodeURIComponent(svg)}`;
     }
 
+    function createFilledSvgIconDataUrl(body, { color = '#111827' } = {}) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="${color}">${body}</svg>`;
+        return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    }
+
     function createShortcutIconSet(body, options = {}) {
         return Object.freeze({
             icon: createSvgIconDataUrl(body, { color: '#111827', ...options }),
@@ -63,12 +69,28 @@ import {
         });
     }
 
+    function createFilledShortcutIconSet(body) {
+        return Object.freeze({
+            icon: createFilledSvgIconDataUrl(body, { color: '#111827' }),
+            iconDark: createFilledSvgIconDataUrl(body, { color: '#F8FAFC' }),
+            iconAdaptive: false
+        });
+    }
+
+    const X_NATIVE_HOME_ICON = '<path d="M21.591 7.146L12.52 1.157c-.316-.21-.724-.21-1.04 0l-9.071 5.99c-.26.173-.409.456-.409.757v13.183c0 .502.418.913.929.913h6.638c.511 0 .929-.41.929-.913v-7.075h3.027v7.075c0 .502.418.913.929.913h6.639c.51 0 .928-.41.928-.913V7.904c0-.301-.158-.584-.408-.758zM20 20h-4.595v-7.074c0-.502-.418-.913-.928-.913H9.522c-.511 0-.929.41-.929.913V20H4V8.551l8-5.28 8 5.28V20z"/>';
+    const X_NATIVE_GROK_ICON = '<path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 1.8A8.2 8.2 0 1 1 3.8 12 8.2 8.2 0 0 1 12 3.8z"/><path d="M14.86 8.35 10.16 14.97h2.42l-.72 3.68 4.7-6.62h-2.42l.72-3.68z"/>';
+
     const SHORTCUT_ICON_SETS = Object.freeze({
-        home: createShortcutIconSet('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
+        home: createFilledShortcutIconSet(X_NATIVE_HOME_ICON),
         bookmarks: createShortcutIconSet('<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>'),
-        grok: createShortcutIconSet('<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>'),
+        grok: createFilledShortcutIconSet(X_NATIVE_GROK_ICON),
         sortRelevant: createShortcutIconSet('<path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/>'),
         sortRecency: createShortcutIconSet('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>')
+    });
+
+    const LEGACY_SHORTCUT_ICON_SETS = Object.freeze({
+        home: createShortcutIconSet('<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
+        grok: createShortcutIconSet('<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>')
     });
 
     const X_SPA_NAVIGATION_SHORTCUTS = Object.freeze({
@@ -261,12 +283,63 @@ import {
         gmSetValueLocal(REPLY_SORT_SPA_MIGRATION_KEY, true);
     }
 
+    function getXNavIconKey(shortcut) {
+        const key = String(shortcut?.key || '').trim();
+        if (key === 'x.home') return 'home';
+        if (key === 'x.grok') return 'grok';
+        const url = String(shortcut?.url || '');
+        if (url.includes('x.com/home') || url.endsWith('/home')) return 'home';
+        if (url.includes('/i/grok')) return 'grok';
+        return '';
+    }
+
+    function isManagedXNavIcon(value, iconKey) {
+        const icon = String(value || '').trim();
+        if (!icon || icon === defaultIconURL) return true;
+        const currentIconSet = SHORTCUT_ICON_SETS[iconKey] || null;
+        if (currentIconSet && (icon === currentIconSet.icon || icon === currentIconSet.iconDark)) return true;
+        const legacyIconSet = LEGACY_SHORTCUT_ICON_SETS[iconKey] || null;
+        return !!legacyIconSet && (icon === legacyIconSet.icon || icon === legacyIconSet.iconDark);
+    }
+
+    function migrateXNativeNavIcons() {
+        const migratedRaw = gmGetValueLocal(NATIVE_NAV_ICON_MIGRATION_KEY, false);
+        if (migratedRaw === true || migratedRaw === 'true') return;
+
+        const stored = gmGetValueLocal(SHORTCUTS_STORAGE_KEY, null);
+        if (!Array.isArray(stored)) {
+            gmSetValueLocal(NATIVE_NAV_ICON_MIGRATION_KEY, true);
+            return;
+        }
+
+        let changed = false;
+        const next = stored.map((shortcut) => {
+            const iconKey = getXNavIconKey(shortcut);
+            const iconSet = SHORTCUT_ICON_SETS[iconKey] || null;
+            if (!iconSet || !isManagedXNavIcon(shortcut?.icon, iconKey)) return shortcut;
+            if (shortcut.icon === iconSet.icon && shortcut.iconDark === iconSet.iconDark && shortcut.iconAdaptive === false) {
+                return shortcut;
+            }
+            changed = true;
+            return {
+                ...shortcut,
+                icon: iconSet.icon,
+                iconDark: iconSet.iconDark,
+                iconAdaptive: false
+            };
+        });
+
+        if (changed) gmSetValueLocal(SHORTCUTS_STORAGE_KEY, next);
+        gmSetValueLocal(NATIVE_NAV_ICON_MIGRATION_KEY, true);
+    }
+
     function resolveUrlTemplate(targetUrl) {
         return resolveXReplySortUrl(targetUrl, typeof location !== 'undefined' ? location.href : '');
     }
 
     migrateXReplySortShortcuts();
     migrateXReplySortToSpa();
+    migrateXNativeNavIcons();
 
     const engine = ShortcutTemplate.createShortcutEngine({
         menuCommandLabel: 'X - 设置快捷键',
