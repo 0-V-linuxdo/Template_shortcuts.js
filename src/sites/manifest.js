@@ -668,16 +668,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[X] 快捷键跳转",
         sourceEntry: "src/sites/x/index.js",
         metadata: {
-            name: "[X] 快捷键跳转 [20260817] v1.1.2",
+            name: "[X] 快捷键跳转 [20260818] v1.1.3",
             namespace: "https://github.com/0-V-linuxdo/Template_shortcuts.js",
             description: "为 X (Twitter) 提供可视化自定义快捷键：主页、书签、Grok 跳转，以及主贴回复按相关/最新排序，支持自定义按键与图标，并适配暗黑模式。",
-            version: "[20260817] v1.1.2",
-            updateLog: "1.1.2: 主页与 Grok 改为使用 X 侧栏原生图标。",
+            version: "[20260818] v1.1.3",
+            updateLog: "1.1.3: Grok 改为使用 xAI 官方 Logomark。",
             localized: {
                 "en-US": {
-                    name: "[X] Shortcut Jump [20260817] v1.1.2",
+                    name: "[X] Shortcut Jump [20260818] v1.1.3",
                     description: "Visual custom shortcuts for X (Twitter): Home, Bookmarks, Grok jumps, and main-post reply sorting by Relevant or Latest, with customizable keys and icons, plus dark mode support.",
-                    updateLog: "1.1.2: Home and Grok now use the native X sidebar icons."
+                    updateLog: "1.1.3: Grok now uses the official xAI logomark."
                 }
             },
             match: [
