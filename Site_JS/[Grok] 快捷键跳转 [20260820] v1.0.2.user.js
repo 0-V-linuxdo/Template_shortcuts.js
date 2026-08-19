@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260820] v1.0.1
-// @name:en        [Grok] Shortcut Jump [20260820] v1.0.1
+// @name           [Grok] 快捷键跳转 [20260820] v1.0.2
+// @name:en        [Grok] Shortcut Jump [20260820] v1.0.2
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260820] v1.0.1
-// @update-log     1.0.1: 新增 Imagine 快捷键 Ctrl+I（https://grok.com/imagine），并将 Private 默认热键改为 Ctrl+Shift+I。
-// @update-log:en  1.0.1: Add Imagine on Ctrl+I (https://grok.com/imagine) and move Private to Ctrl+Shift+I.
+// @version        [20260820] v1.0.2
+// @update-log     1.0.2: 将无痕模式更名为「无痕模式」，并替换为 grok.com 官方礼帽眼镜图标。
+// @update-log:en  1.0.2: Rename Private to the official incognito label and use the grok.com hat-and-glasses icon.
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
@@ -139,7 +139,7 @@
           "modelBuild": "模型：Build",
           "modelHeavy": "模型：Heavy",
           "deleteChat": "删除聊天",
-          "Private": "私密模式",
+          "Private": "无痕模式",
           "Imagine": "Imagine",
           "New Chat": "新建聊天",
           "Sidebar": "左侧边栏",
@@ -245,6 +245,12 @@
             <path d="M4 12a5 5 0 0 1 6 8" stroke="currentColor" stroke-width="2" fill="none"></path>
             <circle cx="15.25" cy="8.75" r="1.75" fill="currentColor"></circle>
             <path d="M4 16.5c2.333-.5 8-.5 9-2S11 13 11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+        `),
+      private: createGrokOfficialIcon(`
+            <g transform="translate(2 3)" fill="currentColor">
+                <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M15 10C17.2091 10 19 11.7909 19 14C19 16.2091 17.2091 18 15 18C12.8606 18 11.1131 16.3205 11.0049 14.208C10.3187 14.0166 9.6804 14.0164 8.99414 14.208C8.88591 16.3205 7.13936 18 5 18C2.79086 18 1 16.2091 1 14C1 11.7909 2.79086 10 5 10C6.58028 10 7.94592 10.9167 8.5957 12.2471C9.54071 12.0061 10.4583 12.0063 11.4033 12.2471C12.053 10.9165 13.4196 10 15 10ZM5 12C3.89543 12 3 12.8954 3 14C3 15.1046 3.89543 16 5 16C6.10457 16 7 15.1046 7 14C7 12.8954 6.10457 12 5 12ZM15 12C13.8954 12 13 12.8954 13 14C13 15.1046 13.8954 16 15 16C16.1046 16 17 15.1046 17 14C17 12.8954 16.1046 12 15 12Z"></path>
+                <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M13.0107 0C14.6405 0 16.0554 1.12485 16.4219 2.71289L17.2959 6.5H20V8.5H0V6.5H2.7041L3.57812 2.71289C3.94461 1.12485 5.35947 0 6.98926 0H13.0107ZM6.98926 2C6.29077 2 5.6844 2.48249 5.52734 3.16309L4.75684 6.5H15.2432L14.4727 3.16309C14.3156 2.48249 13.7092 2 13.0107 2H6.98926Z"></path>
+            </g>
         `),
       sidebar: createGrokOfficialIcon(`
             <path d="m11 17-5-5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
@@ -419,6 +425,7 @@
       ...GROK_MODEL_SHORTCUT_TEMPLATES.map((shortcut) => ({ ...shortcut, data: isPlainObjectLocal(shortcut.data) ? { ...shortcut.data, menu: isPlainObjectLocal(shortcut.data.menu) ? { ...shortcut.data.menu } : shortcut.data.menu } : shortcut.data })),
       {
         name: "Private",
+        labelKey: "shortcuts.Private",
         actionType: "selector",
         selector: 'a[aria-label*="Switch to "]',
         url: "",
@@ -426,7 +433,7 @@
         urlAdvanced: "href",
         simulateKeys: "",
         hotkey: "CTRL+SHIFT+I",
-        icon: "data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%20stroke-width%3D%222%22%20data-testid%3D%22pi-ghost%22%3E%3Cellipse%20cx%3D%2210%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cellipse%20cx%3D%2214%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cpath%20d%3D%22M12%204C4%204%208.07627%2010.7212%203%2013C3%2014.6491%204.40343%2014.5%204.93%2015.77C5.37046%2016.8323%204.27588%2018.9597%204%2020H8L12%2021L16%2020H20C19.6222%2018.7198%2018.8092%2017.1437%2019.075%2015.7742C19.3479%2014.3681%2021%2014.742%2021%2013C15.9237%2010.7212%2020%204%2012%204Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C/svg%3E",
+        icon: GROK_OFFICIAL_ICONS.private,
         iconAdaptive: true
       },
       {
@@ -496,6 +503,7 @@
       ...GROK_CONVERSATION_SHORTCUT_TEMPLATES.map((shortcut) => ({ ...shortcut, data: isPlainObjectLocal(shortcut.data) ? { ...shortcut.data, menu: isPlainObjectLocal(shortcut.data.menu) ? { ...shortcut.data.menu } : shortcut.data.menu } : shortcut.data }))
     ];
     const GROK_ADMIN_SHORTCUT_TEMPLATE = defaultShortcuts[0] || null;
+    const GROK_PRIVATE_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Private") || null;
     const GROK_IMAGINE_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Imagine") || null;
     const GROK_SIDEBAR_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Sidebar") || null;
     const GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Right Sidebar") || null;
@@ -839,6 +847,7 @@
       const name = String(shortcut?.name || "").trim();
       const labelKey = String(shortcut?.labelKey || "").trim();
       if (name === "Admin" || labelKey === "shortcuts.Admin") return GROK_ADMIN_SHORTCUT_TEMPLATE;
+      if (isPrivateShortcutRecord(shortcut)) return GROK_PRIVATE_SHORTCUT_TEMPLATE;
       if (isImagineShortcutRecord(shortcut)) return GROK_IMAGINE_SHORTCUT_TEMPLATE;
       if (name === "Sidebar" || labelKey === "shortcuts.Sidebar") return GROK_SIDEBAR_SHORTCUT_TEMPLATE;
       if (isRightSidebarShortcutRecord(shortcut)) return GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE;
