@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260819] v1.1.1
-// @name:en        [Grok] Shortcut Jump [20260819] v1.1.1
+// @name           [Grok] 快捷键跳转 [20260820] v1.0.0
+// @name:en        [Grok] Shortcut Jump [20260820] v1.0.0
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260819] v1.1.1
-// @update-log     1.1.1: 将过时的 Grok 4.3 (beta) 快捷键替换为官方 Build 模型与锤子图标。
-// @update-log:en  1.1.1: Replace the outdated Grok 4.3 (beta) shortcut with the official Build model and hammer icon.
+// @version        [20260820] v1.0.0
+// @update-log     1.0.0: 使用 grok.com 官方模型/操作图标；侧边栏更名为左侧边栏，并新增右侧边栏快捷键 Ctrl+Shift+B；将过时的 Grok 4.3 替换为官方 Build。
+// @update-log:en  1.0.0: Use official grok.com model and chrome icons; rename Sidebar to Left Sidebar and add Right Sidebar on Ctrl+Shift+B; replace outdated Grok 4.3 with official Build.
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
