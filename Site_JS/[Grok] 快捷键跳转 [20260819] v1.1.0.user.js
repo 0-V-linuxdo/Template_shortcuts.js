@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260813] v1.0.0
-// @name:en        [Grok] Shortcut Jump [20260813] v1.0.0
+// @name           [Grok] 快捷键跳转 [20260819] v1.1.0
+// @name:en        [Grok] Shortcut Jump [20260819] v1.1.0
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260813] v1.0.0
-// @update-log     update-log
-// @update-log:en  update-log
+// @version        [20260819] v1.1.0
+// @update-log     1.1.0: 使用 grok.com 官方模型/操作图标替换原有简笔画，侧边栏更名为左侧边栏，并新增右侧边栏快捷键 Ctrl+Shift+B。
+// @update-log:en  1.1.0: Replace Grok shortcut icons with official grok.com assets, rename Sidebar to Left Sidebar, and add Right Sidebar on Ctrl+Shift+B.
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
@@ -141,7 +141,8 @@
           "deleteChat": "删除聊天",
           "Private": "私密模式",
           "New Chat": "新建聊天",
-          "Sidebar": "侧边栏",
+          "Sidebar": "左侧边栏",
+          "Right Sidebar": "右侧边栏",
           "Project": "项目"
         },
         dataAdapters: {
@@ -168,7 +169,10 @@
           "modelExpert": "Model: Expert",
           "modelGrok43": "Model: Grok 4.3 (beta)",
           "modelHeavy": "Model: Heavy",
-          "deleteChat": "Delete Chat"
+          "deleteChat": "Delete Chat",
+          "Sidebar": "Left Sidebar",
+          "Right Sidebar": "Right Sidebar",
+          "Project": "Project"
         },
         dataAdapters: {
           modelPicker: {
@@ -186,7 +190,8 @@
     const SELECTORS = Object.freeze({
       sidebarToggle: 'button[data-sidebar="trigger"][type="button"]',
       sidebarProvider: '[data-variant="sidebar"][data-side]',
-      sidebarRoot: '[data-sidebar="sidebar"]'
+      sidebarRoot: '[data-sidebar="sidebar"]',
+      rightPanelToggle: 'button[aria-label="Toggle Right Panel"], button[aria-label="切换右侧面板"], button[aria-label*="Right Panel"], button[aria-label*="右侧面板"]'
     });
     function isPlainObjectLocal(value) {
       return !!value && typeof value === "object" && !Array.isArray(value);
@@ -204,6 +209,50 @@
             </svg>
         `);
     }
+    function createGrokOfficialIcon(svgBody, { width = 18, height = 18, viewBox = "0 0 24 24", extraSvgAttrs = "" } = {}) {
+      return svgDataUrlLocal(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${viewBox}" fill="none" ${extraSvgAttrs} aria-hidden="true" role="img">
+                ${svgBody}
+            </svg>
+        `);
+    }
+    const GROK_OFFICIAL_ICONS = Object.freeze({
+      auto: createGrokOfficialIcon(`
+            <path d="M6.5 12.5L11.5 17.5M6.5 12.5L11.8349 6.83172C13.5356 5.02464 15.9071 4 18.3887 4H20V5.61135C20 8.09292 18.9754 10.4644 17.1683 12.1651L11.5 17.5M6.5 12.5L2 11L5.12132 7.87868C5.68393 7.31607 6.44699 7 7.24264 7H11M11.5 17.5L13 22L16.1213 18.8787C16.6839 18.3161 17 17.553 17 16.7574V13" stroke="currentColor" stroke-width="2" stroke-linecap="square" fill="none"></path>
+            <path d="M4.5 16.5C4.5 16.5 4 18 4 20C6 20 7.5 19.5 7.5 19.5" stroke="currentColor" stroke-width="2" fill="none"></path>
+        `),
+      fast: createGrokOfficialIcon(`
+            <path d="M5 14.25L14 4L13 9.75H19L10 20L11 14.25H5Z" stroke="currentColor" stroke-width="2" fill="none"></path>
+        `),
+      expert: createGrokOfficialIcon(`
+            <path d="M15 16.1378L14.487 15.2794L14 15.5705V16.1378H15ZM8.99997 16.1378H9.99997V15.5705L9.51293 15.2794L8.99997 16.1378ZM18 9C18 11.4496 16.5421 14.0513 14.487 15.2794L15.5129 16.9963C18.1877 15.3979 20 12.1352 20 9H18ZM12 4C13.7598 4 15.2728 4.48657 16.3238 5.33011C17.3509 6.15455 18 7.36618 18 9H20C20 6.76783 19.082 4.97946 17.5757 3.77039C16.0931 2.58044 14.1061 2 12 2V4ZM5.99997 9C5.99997 7.36618 6.64903 6.15455 7.67617 5.33011C8.72714 4.48657 10.2401 4 12 4V2C9.89382 2 7.90681 2.58044 6.42427 3.77039C4.91791 4.97946 3.99997 6.76783 3.99997 9H5.99997ZM9.51293 15.2794C7.4578 14.0513 5.99997 11.4496 5.99997 9H3.99997C3.99997 12.1352 5.81225 15.3979 8.48701 16.9963L9.51293 15.2794ZM9.99997 19.5001V16.1378H7.99997V19.5001H9.99997ZM10.5 20.0001C10.2238 20.0001 9.99997 19.7763 9.99997 19.5001H7.99997C7.99997 20.8808 9.11926 22.0001 10.5 22.0001V20.0001ZM13.5 20.0001H10.5V22.0001H13.5V20.0001ZM14 19.5001C14 19.7763 13.7761 20.0001 13.5 20.0001V22.0001C14.8807 22.0001 16 20.8808 16 19.5001H14ZM14 16.1378V19.5001H16V16.1378H14Z" fill="currentColor"></path>
+            <path d="M9 16.0001H15" stroke="currentColor" fill="none"></path>
+            <path d="M12 16V12" stroke="currentColor" stroke-linecap="square" fill="none"></path>
+        `),
+      heavy: createGrokOfficialIcon(`
+            <path fill="currentColor" d="M3 5.5C3 4.83696 3.26339 4.20107 3.73223 3.73223C4.20107 3.26339 4.83696 3 5.5 3H8.5C9.16304 3 9.79893 3.26339 10.2678 3.73223C10.7366 4.20107 11 4.83696 11 5.5V8.5C11 9.16304 10.7366 9.79893 10.2678 10.2678C9.79893 10.7366 9.16304 11 8.5 11H5.5C4.83696 11 4.20107 10.7366 3.73223 10.2678C3.26339 9.79893 3 9.16304 3 8.5V5.5ZM5.5 5C5.36739 5 5.24021 5.05268 5.14645 5.14645C5.05268 5.24021 5 5.36739 5 5.5V8.5C5 8.63261 5.05268 8.75979 5.14645 8.85355C5.24021 8.94732 5.36739 9 5.5 9H8.5C8.63261 9 8.75979 8.94732 8.85355 8.85355C8.94732 8.75979 9 8.63261 9 8.5V5.5C9 5.36739 8.94732 5.24021 8.85355 5.14645C8.75979 5.05268 8.63261 5 8.5 5H5.5ZM13 5.5C13 4.83696 13.2634 4.20107 13.7322 3.73223C14.2011 3.26339 14.837 3 15.5 3H18.5C19.163 3 19.7989 3.26339 20.2678 3.73223C20.7366 4.20107 21 4.83696 21 5.5V8.5C21 9.16304 20.7366 9.79893 20.2678 10.2678C19.7989 10.7366 19.163 11 18.5 11H15.5C14.837 11 14.2011 10.7366 13.7322 10.2678C13.2634 9.79893 13 9.16304 13 8.5V5.5ZM15.5 5C15.3674 5 15.2402 5.05268 15.1464 5.14645C15.0527 5.24021 15 5.36739 15 5.5V8.5C15 8.63261 15.0527 8.75979 15.1464 8.85355C15.2402 8.94732 15.3674 9 15.5 9H18.5C18.6326 9 18.7598 8.94732 18.8536 8.85355C18.9473 8.75979 19 8.63261 19 8.5V5.5C19 5.36739 18.9473 5.24021 18.8536 5.14645C18.7598 5.05268 18.6326 5 18.5 5H15.5ZM3 15.5C3 14.837 3.26339 14.2011 3.73223 13.7322C4.20107 13.2634 4.83696 13 5.5 13H8.5C9.16304 13 9.79893 13.2634 10.2678 13.7322C10.7366 14.2011 11 14.837 11 15.5V18.5C11 19.163 10.7366 19.7989 10.2678 20.2678C9.79893 20.7366 9.16304 21 8.5 21H5.5C4.83696 21 4.20107 20.7366 3.73223 20.2678C3.26339 19.7989 3 19.163 3 18.5V15.5ZM5.5 15C5.36739 15 5.24021 15.0527 5.14645 15.1464C5.05268 15.2402 5 15.3674 5 15.5V18.5C5 18.6326 5.05268 18.7598 5.14645 18.8536C5.24021 18.9473 5.36739 19 5.5 19H8.5C8.63261 19 8.75979 18.9473 8.85355 18.8536C8.94732 18.7598 9 18.6326 9 18.5V15.5C9 15.3674 8.94732 15.2402 8.85355 15.1464C8.75979 15.0527 8.63261 15 8.5 15H5.5ZM13 15.5C13 14.837 13.2634 14.2011 13.7322 13.7322C14.2011 13.2634 14.837 13 15.5 13H18.5C19.163 13 19.7989 13.2634 20.2678 13.7322C20.7366 14.2011 21 14.837 21 15.5V18.5C21 19.163 20.7366 19.7989 20.2678 20.2678C19.7989 20.7366 19.163 21 18.5 21H15.5C14.837 21 14.2011 20.7366 13.7322 20.2678C13.2634 19.7989 13 19.163 13 18.5V15.5ZM15.5 15C15.3674 15 15.2402 15.0527 15.1464 15.1464C15.0527 15.2402 15 15.3674 15 15.5V18.5C15 18.6326 15.0527 18.7598 15.1464 18.8536C15.2402 18.9473 15.3674 19 15.5 19H18.5C18.6326 19 18.7598 18.9473 18.8536 18.8536C18.9473 18.7598 19 18.6326 19 18.5V15.5C19 15.3674 18.9473 15.2402 18.8536 15.1464C18.7598 15.0527 18.6326 15 18.5 15H15.5Z"></path>
+        `),
+      sidebar: createGrokOfficialIcon(`
+            <path d="m11 17-5-5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <path d="m18 17-5-5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+        `),
+      rightSidebar: createGrokOfficialIcon(`
+            <g transform="translate(24 0) scale(-1 1)">
+                <rect x="3.5" y="4" width="17" height="16" rx="4" stroke="currentColor" stroke-width="2" fill="none"></rect>
+                <path d="M9 4V20" stroke="currentColor" stroke-width="2" fill="none"></path>
+            </g>
+        `),
+      project: createGrokOfficialIcon(`
+            <path d="M3.33965 17L11.9999 22L20.6602 17V7L11.9999 2L3.33965 7V17Z" stroke="currentColor" stroke-width="2" fill="none"></path>
+            <path d="M11.9999 12L3.4999 7M11.9999 12L12 21.5M11.9999 12L20.5 7" stroke="currentColor" stroke-width="2" fill="none"></path>
+        `, { viewBox: "-1 -1 25 25" }),
+      deleteChat: createGrokOfficialIcon(`
+            <path d="M2.99561 7H20.9956" stroke="currentColor" stroke-width="2" fill="none"></path>
+            <path d="M9.99561 11V17M13.9956 11V17" stroke="currentColor" stroke-width="2" fill="none"></path>
+            <path d="M8 6.5L8.68917 4.08792C8.87315 3.44397 9.46173 3 10.1315 3H13.8685C14.5383 3 15.1268 3.44397 15.3108 4.08792L16 6.5" stroke="currentColor" stroke-width="2" fill="none"></path>
+            <path d="M5 7L5.80098 18.2137C5.91312 19.7837 7.21944 21 8.79336 21H15.2066C16.7806 21 18.0869 19.7837 18.199 18.2137L19 7" stroke="currentColor" stroke-width="2" fill="none"></path>
+        `)
+    });
     const GROK_MODEL_TARGET_IDS = Object.freeze(["auto", "fast", "expert", "grok43", "heavy"]);
     const GROK_MODEL_TARGETS = Object.freeze({
       auto: Object.freeze({
@@ -213,10 +262,7 @@
         name: "Model: Auto",
         hotkey: "CTRL+SHIFT+1",
         aliases: Object.freeze(["auto", "modelauto"]),
-        icon: createGrokAdaptiveIcon(`
-                <path d="M12 3l2.2 6.6L21 12l-6.8 2.4L12 21l-2.2-6.6L3 12l6.8-2.4L12 3z"></path>
-                <path d="M12 8v4l3 1"></path>
-            `)
+        icon: GROK_OFFICIAL_ICONS.auto
       }),
       fast: Object.freeze({
         id: "fast",
@@ -225,9 +271,7 @@
         name: "Model: Fast",
         hotkey: "CTRL+SHIFT+2",
         aliases: Object.freeze(["fast", "modelfast"]),
-        icon: createGrokAdaptiveIcon(`
-                <path d="M13 2L4 14h6l-1 8 11-14h-6l1-6z"></path>
-            `)
+        icon: GROK_OFFICIAL_ICONS.fast
       }),
       expert: Object.freeze({
         id: "expert",
@@ -236,10 +280,7 @@
         name: "Model: Expert",
         hotkey: "CTRL+SHIFT+3",
         aliases: Object.freeze(["expert", "modelexpert"]),
-        icon: createGrokAdaptiveIcon(`
-                <circle cx="12" cy="12" r="8"></circle>
-                <path d="m9 12 2 2 4-4"></path>
-            `)
+        icon: GROK_OFFICIAL_ICONS.expert
       }),
       grok43: Object.freeze({
         id: "grok43",
@@ -261,12 +302,7 @@
         name: "Model: Heavy",
         hotkey: "CTRL+SHIFT+5",
         aliases: Object.freeze(["heavy", "modelheavy"]),
-        icon: createGrokAdaptiveIcon(`
-                <rect x="4" y="4" width="6" height="6" rx="1"></rect>
-                <rect x="14" y="4" width="6" height="6" rx="1"></rect>
-                <rect x="4" y="14" width="6" height="6" rx="1"></rect>
-                <rect x="14" y="14" width="6" height="6" rx="1"></rect>
-            `)
+        icon: GROK_OFFICIAL_ICONS.heavy
       })
     });
     const GROK_CONVERSATION_TARGET_IDS = Object.freeze(["delete"]);
@@ -278,18 +314,13 @@
         name: "Delete Chat",
         hotkey: "CTRL+BACKSPACE",
         aliases: Object.freeze(["deletechat", "delete", "删除聊天", "删除"]),
-        icon: createGrokAdaptiveIcon(`
-                <path d="M3 6h18"></path>
-                <path d="M8 6V4h8v2"></path>
-                <path d="M6 6l1 14h10l1-14"></path>
-                <path d="M10 11v6"></path>
-                <path d="M14 11v6"></path>
-            `)
+        icon: GROK_OFFICIAL_ICONS.deleteChat
       })
     });
     const GROK_SHORTCUTS_STORAGE_KEY = "grok_shortcuts";
     const GROK_MODEL_SHORTCUTS_MIGRATION_KEY = "grok_model_shortcuts_added_v1";
     const GROK_CONVERSATION_SHORTCUTS_MIGRATION_KEY = "grok_conversation_shortcuts_added_v1";
+    const GROK_OFFICIAL_ICONS_MIGRATION_KEY = "grok_official_icons_v20260819";
     const SIDEBAR_VISIBILITY_STORAGE_KEY = "grok_keep_sidebar_visible_v1";
     const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
     const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
@@ -402,6 +433,7 @@
       },
       {
         name: "Sidebar",
+        labelKey: "shortcuts.Sidebar",
         actionType: "selector",
         selector: SELECTORS.sidebarToggle,
         url: "",
@@ -409,11 +441,25 @@
         urlAdvanced: "href",
         simulateKeys: "",
         hotkey: "CTRL+B",
-        icon: "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20class%3D%22lucide%20lucide-chevrons-right%20rotate-180%20transition-transform%20duration-200%22%3E%3Cpath%20d%3D%22m6%2017%205-5-5-5%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22m13%2017%205-5-5-5%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E",
+        icon: GROK_OFFICIAL_ICONS.sidebar,
+        iconAdaptive: true
+      },
+      {
+        name: "Right Sidebar",
+        labelKey: "shortcuts.Right Sidebar",
+        actionType: "selector",
+        selector: SELECTORS.rightPanelToggle,
+        url: "",
+        urlMethod: "current",
+        urlAdvanced: "href",
+        simulateKeys: "",
+        hotkey: "CTRL+SHIFT+B",
+        icon: GROK_OFFICIAL_ICONS.rightSidebar,
         iconAdaptive: true
       },
       {
         name: "Project",
+        labelKey: "shortcuts.Project",
         actionType: "url",
         url: "https://grok.com/project",
         urlMethod: "current",
@@ -421,12 +467,15 @@
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+P",
-        icon: "data:image/svg+xml,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20viewBox%3D%22-1%20-1%2025%2025%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%3E%3Cpath%20d%3D%22M3.33965%2017L11.9999%2022L20.6602%2017V7L11.9999%202L3.33965%207V17Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3Cpath%20d%3D%22M11.9999%2012L3.4999%207M11.9999%2012L12%2021.5M11.9999%2012L20.5%207%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C/svg%3E",
+        icon: GROK_OFFICIAL_ICONS.project,
         iconAdaptive: true
       },
       ...GROK_CONVERSATION_SHORTCUT_TEMPLATES.map((shortcut) => ({ ...shortcut, data: isPlainObjectLocal(shortcut.data) ? { ...shortcut.data, menu: isPlainObjectLocal(shortcut.data.menu) ? { ...shortcut.data.menu } : shortcut.data.menu } : shortcut.data }))
     ];
     const GROK_ADMIN_SHORTCUT_TEMPLATE = defaultShortcuts[0] || null;
+    const GROK_SIDEBAR_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Sidebar") || null;
+    const GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Right Sidebar") || null;
+    const GROK_PROJECT_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Project") || null;
     const GROK_MODEL_SHORTCUT_TEMPLATE_BY_ID = Object.freeze(GROK_MODEL_SHORTCUT_TEMPLATES.reduce((acc, shortcut) => {
       const targetId = String(shortcut?.data?.menu?.id || "").trim();
       if (targetId) acc[targetId] = shortcut;
@@ -695,6 +744,7 @@
       if (name === "Private") return true;
       if (name === "New Chat") return true;
       if (name === "Sidebar") return true;
+      if (name === "Right Sidebar") return true;
       if (name === "Project") return true;
       if (getGrokModelTargetIdFromShortcut(shortcut)) return true;
       if (getGrokConversationTargetIdFromShortcut(shortcut)) return true;
@@ -703,6 +753,7 @@
       if (labelKey === "shortcuts.Private") return true;
       if (labelKey === "shortcuts.New Chat") return true;
       if (labelKey === "shortcuts.Sidebar") return true;
+      if (labelKey === "shortcuts.Right Sidebar") return true;
       if (labelKey === "shortcuts.Project") return true;
       if (labelKey === "shortcuts.modelAuto") return true;
       if (labelKey === "shortcuts.modelFast") return true;
@@ -716,9 +767,53 @@
       if (name === "Private" && actionType === "selector" && selector === 'a[aria-label*="Switch to "]') return true;
       if (name === "New Chat" && actionType === "selector" && selector === '[aria-label="Home page"]') return true;
       if (name === "Sidebar" && actionType === "selector" && selector === SELECTORS.sidebarToggle) return true;
+      if (name === "Right Sidebar" && actionType === "selector" && selector === SELECTORS.rightPanelToggle) return true;
       if (name === "Project" && actionType === "url" && url === "https://grok.com/project") return true;
       if (name === "Admin" && actionType === "url" && url === GROK_ADMIN_URL) return true;
       return false;
+    }
+    function isRightSidebarShortcutRecord(shortcut) {
+      const name = String(shortcut?.name || "").trim();
+      const labelKey = String(shortcut?.labelKey || "").trim();
+      const selector = String(shortcut?.selector || "").trim();
+      if (name === "Right Sidebar") return true;
+      if (labelKey === "shortcuts.Right Sidebar") return true;
+      if (selector && selector.includes("Toggle Right Panel")) return true;
+      return false;
+    }
+    function getGrokDefaultShortcutTemplate(shortcut) {
+      const modelTargetId = getGrokModelTargetIdFromShortcut(shortcut);
+      if (modelTargetId) return GROK_MODEL_SHORTCUT_TEMPLATE_BY_ID[modelTargetId] || null;
+      const conversationTargetId = getGrokConversationTargetIdFromShortcut(shortcut);
+      if (conversationTargetId) return GROK_CONVERSATION_SHORTCUT_TEMPLATE_BY_ID[conversationTargetId] || null;
+      const name = String(shortcut?.name || "").trim();
+      const labelKey = String(shortcut?.labelKey || "").trim();
+      if (name === "Admin" || labelKey === "shortcuts.Admin") return GROK_ADMIN_SHORTCUT_TEMPLATE;
+      if (name === "Sidebar" || labelKey === "shortcuts.Sidebar") return GROK_SIDEBAR_SHORTCUT_TEMPLATE;
+      if (isRightSidebarShortcutRecord(shortcut)) return GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE;
+      if (name === "Project" || labelKey === "shortcuts.Project") return GROK_PROJECT_SHORTCUT_TEMPLATE;
+      return null;
+    }
+    function applyGrokOfficialIconTemplate(cloned, template) {
+      if (!cloned || !template) return false;
+      let changed = false;
+      if (template.icon && cloned.icon !== template.icon) {
+        cloned.icon = template.icon;
+        changed = true;
+      }
+      if (cloned.iconAdaptive !== true) {
+        cloned.iconAdaptive = true;
+        changed = true;
+      }
+      if (template.labelKey && cloned.labelKey !== template.labelKey) {
+        cloned.labelKey = template.labelKey;
+        changed = true;
+      }
+      if (template.selector && cloned.actionType === "selector" && cloned.selector !== template.selector) {
+        cloned.selector = template.selector;
+        changed = true;
+      }
+      return changed;
     }
     function migrateGrokShortcuts() {
       const stored = gmGetValueLocal(GROK_SHORTCUTS_STORAGE_KEY, null);
@@ -730,13 +825,21 @@
       const existingConversationTargetIds = /* @__PURE__ */ new Set();
       const conversationDefaultsAddedRaw = gmGetValueLocal(GROK_CONVERSATION_SHORTCUTS_MIGRATION_KEY, false);
       const conversationDefaultsAdded = conversationDefaultsAddedRaw === true || conversationDefaultsAddedRaw === "true";
-      const next = stored.map((shortcut) => {
+      const officialIconsAppliedRaw = gmGetValueLocal(GROK_OFFICIAL_ICONS_MIGRATION_KEY, false);
+      const officialIconsApplied = officialIconsAppliedRaw === true || officialIconsAppliedRaw === "true";
+      let hasRightSidebar = false;
+      let sidebarInsertIndex = -1;
+      const next = stored.map((shortcut, index) => {
         const cloned = cloneGrokShortcutRecord(shortcut);
         if (!cloned) return shortcut;
         const modelTargetId = getGrokModelTargetIdFromShortcut(cloned);
         if (modelTargetId) existingModelTargetIds.add(modelTargetId);
         const conversationTargetId = getGrokConversationTargetIdFromShortcut(cloned);
         if (conversationTargetId) existingConversationTargetIds.add(conversationTargetId);
+        if (isRightSidebarShortcutRecord(cloned)) hasRightSidebar = true;
+        if (String(cloned?.name || "").trim() === "Sidebar" || String(cloned?.labelKey || "").trim() === "shortcuts.Sidebar") {
+          sidebarInsertIndex = index;
+        }
         if (isLegacySwitchUserShortcut(cloned)) {
           const replacement = cloneGrokShortcutRecord(GROK_ADMIN_SHORTCUT_TEMPLATE) || {};
           changed = true;
@@ -746,9 +849,9 @@
             iconAdaptive: true
           };
         }
-        if (isGrokDefaultShortcutRecord(cloned) && cloned.iconAdaptive !== true) {
-          cloned.iconAdaptive = true;
-          changed = true;
+        if (isGrokDefaultShortcutRecord(cloned)) {
+          const template = getGrokDefaultShortcutTemplate(cloned);
+          if (applyGrokOfficialIconTemplate(cloned, template)) changed = true;
         }
         return cloned;
       });
@@ -770,9 +873,18 @@
           changed = true;
         }
       }
+      if (!hasRightSidebar && GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE) {
+        const template = cloneGrokShortcutRecord(GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE);
+        if (template) {
+          const insertAt = sidebarInsertIndex >= 0 ? sidebarInsertIndex + 1 : next.length;
+          next.splice(insertAt, 0, template);
+          changed = true;
+        }
+      }
       if (changed) gmSetValueLocal(GROK_SHORTCUTS_STORAGE_KEY, next);
       if (!modelDefaultsAdded) gmSetValueLocal(GROK_MODEL_SHORTCUTS_MIGRATION_KEY, true);
       if (!conversationDefaultsAdded) gmSetValueLocal(GROK_CONVERSATION_SHORTCUTS_MIGRATION_KEY, true);
+      if (!officialIconsApplied) gmSetValueLocal(GROK_OFFICIAL_ICONS_MIGRATION_KEY, true);
     }
     function getLocalBooleanFallback(key, fallback) {
       const storage = getLocalStorageLocal();
