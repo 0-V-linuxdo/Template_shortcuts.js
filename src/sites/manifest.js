@@ -407,16 +407,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260813] v1.0.0",
+            name: "[Grok] 快捷键跳转 [20260819] v1.1.0",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260813] v1.0.0",
-            updateLog: "update-log",
+            version: "[20260819] v1.1.0",
+            updateLog: "1.1.0: 使用 grok.com 官方模型/操作图标替换原有简笔画，侧边栏更名为左侧边栏，并新增右侧边栏快捷键 Ctrl+Shift+B。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260813] v1.0.0",
+                    name: "[Grok] Shortcut Jump [20260819] v1.1.0",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "update-log"
+                    updateLog: "1.1.0: Replace Grok shortcut icons with official grok.com assets, rename Sidebar to Left Sidebar, and add Right Sidebar on Ctrl+Shift+B."
                 }
             },
             match: [
