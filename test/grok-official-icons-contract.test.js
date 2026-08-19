@@ -77,7 +77,7 @@ test("Grok Private uses official incognito icon and 无痕模式 copy", () => {
     assert.doesNotMatch(source, /data-testid="pi-ghost"/);
 });
 
-test("Grok New Chat clicks in-app Home, Search/Private use selector click, Settings still simulates native keys", () => {
+test("Grok New Chat clicks Home or Imagine New Generation; Search/Private use selector click; Settings still simulates native keys", () => {
     assert.match(source, /newChat: "CMD\+J"/);
     assert.match(source, /search: "CMD\+K"/);
     assert.match(source, /private: "CMD\+SHIFT\+J"/);
@@ -95,7 +95,10 @@ test("Grok New Chat clicks in-app Home, Search/Private use selector click, Setti
     assert.match(source, /SELECTORS\.newChat/);
     assert.match(source, /SELECTORS\.private/);
     assert.match(source, /aria-label="Search"/);
-    assert.match(source, /name: "New Chat"[\s\S]{0,220}actionType: "selector"[\s\S]{0,80}selector: SELECTORS\.newChat/);
+    assert.match(source, /New Generation/);
+    assert.match(source, /findGrokNewChatElement/);
+    assert.match(source, /newChatAction/);
+    assert.match(source, /name: "New Chat"[\s\S]{0,280}actionType: "custom"[\s\S]{0,80}customAction: "newChat"/);
     assert.match(source, /name: "Search"[\s\S]{0,180}actionType: "selector"[\s\S]{0,40}selector: SELECTORS\.search/);
     assert.match(source, /name: "Private"[\s\S]{0,180}actionType: "selector"[\s\S]{0,40}selector: SELECTORS\.private/);
     assert.match(source, /simulateKeys: GROK_NATIVE_HOTKEYS\.settings/);

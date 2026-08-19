@@ -185,8 +185,8 @@
         rightPanelToggle: 'button[aria-label="Toggle Right Panel"], button[aria-label="切换右侧面板"], button[aria-label*="Right Panel"], button[aria-label*="右侧面板"]',
         // Search: collapsed icon-only uses aria-label; expanded still has the ⌘K hint span
         search: 'button[data-sidebar="menu-button"][aria-label="Search"], button[data-sidebar="menu-button"][aria-label="搜索"], button[data-sidebar="menu-button"][aria-label*="Search"], button[data-sidebar="menu-button"][aria-label*="搜索"], li[data-sidebar="menu-item"]:has(span.text-xs) > button[data-sidebar="menu-button"], button[data-sidebar="menu-button"]:has(+ span.absolute)',
-        // New Chat: click the in-app Home / New Chat link so Next.js client-routes (pushState+popstate hard-reloads)
-        newChat: 'a[href="/"], a[href="https://grok.com"], a[href="https://grok.com/"], a[aria-label="Home page"], a[aria-label*="New Chat"], button[aria-label*="New Chat"], a[aria-label*="新建聊天"], button[aria-label*="新建聊天"], a[aria-label*="新聊天"], button[aria-label*="新聊天"]',
+        // New Chat: chat pages use Home / New Chat; Imagine uses a "New Generation" menu button (no href/aria-label)
+        newChat: 'a[href="/"], a[href="https://grok.com"], a[href="https://grok.com/"], a[aria-label="Home page"], a[aria-label*="New Chat"], button[aria-label*="New Chat"], a[aria-label*="新建聊天"], button[aria-label*="新建聊天"], a[aria-label*="新聊天"], button[aria-label*="新聊天"], button[data-sidebar="menu-button"][aria-label="New Generation"], button[data-sidebar="menu-button"][aria-label*="New Generation"], button[data-sidebar="menu-button"][aria-label*="新生成"], a[data-sidebar="menu-button"][aria-label*="New Generation"]',
         // Private: ghost / Switch to Private Chat button
         private: 'a[aria-label="Switch to Private Chat"], a[aria-label*="Switch to Private"], a[aria-label*="Private Chat"], a[href*="#private"]'
     });
@@ -495,7 +495,8 @@
         {
             name: "New Chat",
             labelKey: "shortcuts.New Chat",
-            actionType: "selector",
+            actionType: "custom",
+            customAction: "newChat",
             selector: SELECTORS.newChat,
             url: "https://grok.com",
             urlMethod: "spa",
@@ -960,7 +961,8 @@
         if (name === "Private" && actionType === "selector" && (selector === SELECTORS.private || selector.includes("Switch to") || selector.includes("#private"))) return true;
         if (name === "Imagine" && actionType === "url" && url === "https://grok.com/imagine") return true;
         if (name === "New Chat" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.newChat) return true;
-        if (name === "New Chat" && actionType === "selector" && (selector === SELECTORS.newChat || selector === '[aria-label="Home page"]' || selector.includes('href="/"') || selector.includes("New Chat") || selector.includes("新建聊天"))) return true;
+        if (name === "New Chat" && actionType === "custom" && String(shortcut?.customAction || "").trim() === "newChat") return true;
+        if (name === "New Chat" && actionType === "selector" && (selector === SELECTORS.newChat || selector === '[aria-label="Home page"]' || selector.includes('href="/"') || selector.includes("New Chat") || selector.includes("New Generation") || selector.includes("新建聊天"))) return true;
         if (name === "New Chat" && actionType === "url" && (url === "https://grok.com" || url === "https://grok.com/" || url === "https://www.grok.com" || url.startsWith("https://grok.com/c"))) return true;
         if (name === "Search" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.search) return true;
         if (name === "Search" && actionType === "selector" && (selector === SELECTORS.search || selector.includes("menu-button") || selector.includes('aria-label="Search"') || selector.includes("aria-label*="))) return true;
@@ -1019,8 +1021,10 @@
         const actionType = String(shortcut?.actionType || "").trim();
         if (name === "New Chat") return true;
         if (labelKey === "shortcuts.New Chat") return true;
+        if (String(shortcut?.customAction || "").trim() === "newChat") return true;
         if (selector === SELECTORS.newChat) return true;
         if (selector === '[aria-label="Home page"]') return true;
+        if (selector.includes("New Generation") || selector.includes("新生成")) return true;
         if (selector.includes('href="/"') && (selector.includes("aria-label") || selector.includes("New Chat") || selector.includes("新建"))) return true;
         if (actionType === "url" && (url === "https://grok.com" || url === "https://grok.com/" || url === "https://www.grok.com" || url.startsWith("https://grok.com/c"))) return true;
         return false;
@@ -1145,6 +1149,10 @@
             cloned.actionType = template.actionType;
             changed = true;
         }
+        if (Object.prototype.hasOwnProperty.call(template, "customAction") && cloned.customAction !== template.customAction) {
+            cloned.customAction = template.customAction || "";
+            changed = true;
+        }
         if (Object.prototype.hasOwnProperty.call(template, "simulateKeys") && cloned.simulateKeys !== template.simulateKeys) {
             cloned.simulateKeys = template.simulateKeys || "";
             changed = true;
@@ -1152,6 +1160,11 @@
         if (template.actionType === "simulate") {
             if (cloned.selector) {
                 cloned.selector = "";
+                changed = true;
+            }
+        } else if (template.actionType === "custom") {
+            if (Object.prototype.hasOwnProperty.call(template, "selector") && cloned.selector !== (template.selector || "")) {
+                cloned.selector = template.selector || "";
                 changed = true;
             }
         } else if (template.selector && cloned.actionType === "selector" && cloned.selector !== template.selector) {
@@ -2059,6 +2072,143 @@
                 return { menu: trimmed };
             }
         };
+    }
+
+    const GROK_NEW_CHAT_LABEL_ALIASES = Object.freeze([
+        "newchat",
+        "newgeneration",
+        "newimage",
+        "newimagine",
+        "新建聊天",
+        "新聊天",
+        "新对话",
+        "新建对话",
+        "新生成",
+        "新建生成"
+    ]);
+
+    function normalizeGrokChromeLabel(value) {
+        return String(value ?? "")
+            .toLowerCase()
+            .replace(/\s+/g, "")
+            .replace(/[^\w\u4e00-\u9fff]+/g, "");
+    }
+
+    function isGrokImaginePage() {
+        try {
+            const path = String(location.pathname || "").toLowerCase();
+            return path === "/imagine" || path.startsWith("/imagine/");
+        } catch {
+            return false;
+        }
+    }
+
+    function getGrokSidebarButtonHotkeyHint(button) {
+        if (!button) return "";
+        const item = button.closest?.("li[data-sidebar=\"menu-item\"]");
+        const sibling = button.nextElementSibling;
+        const hintNode = item?.querySelector?.("span.text-xs")
+            || sibling?.querySelector?.("span.text-xs")
+            || (sibling?.classList?.contains("absolute") ? sibling : null);
+        return String(hintNode?.textContent || "").trim();
+    }
+
+    function isGrokHintMainKey(hint, key) {
+        const token = String(hint || "").replace(/\s+/g, "").toUpperCase();
+        if (!token) return false;
+        const wanted = String(key || "").toUpperCase();
+        if (!wanted) return false;
+        return new RegExp(`(?:⌘|⌃|CTRL|CMD|CONTROL|COMMAND)\\+?${wanted}$`).test(token);
+    }
+
+    function isGrokNewChatLabel(value) {
+        const token = normalizeGrokChromeLabel(value);
+        if (!token) return false;
+        for (const alias of GROK_NEW_CHAT_LABEL_ALIASES) {
+            const aliasToken = normalizeGrokChromeLabel(alias);
+            if (!aliasToken) continue;
+            if (token === aliasToken || token.includes(aliasToken)) return true;
+        }
+        return false;
+    }
+
+    function isGrokSearchMenuButton(button) {
+        if (!button) return false;
+        const label = getGrokElementSearchText(button);
+        const token = normalizeGrokChromeLabel(label);
+        if (token.includes("search") || token.includes("搜索")) return true;
+        return isGrokHintMainKey(getGrokSidebarButtonHotkeyHint(button), "K");
+    }
+
+    function findGrokNewChatElementFromSelectors() {
+        const selectors = String(SELECTORS.newChat || "").split(",").map((item) => item.trim()).filter(Boolean);
+        for (const selector of selectors) {
+            const match = getFirstVisibleBySelector(selector);
+            if (match) return match;
+        }
+        return null;
+    }
+
+    function findGrokNewChatElement() {
+        const fromSelector = findGrokNewChatElementFromSelectors();
+        if (fromSelector) return fromSelector;
+
+        let buttons = [];
+        try {
+            buttons = Array.from(document.querySelectorAll("button[data-sidebar=\"menu-button\"], a[data-sidebar=\"menu-button\"]"));
+        } catch {
+            buttons = [];
+        }
+
+        const labelMatches = [];
+        const hintMatches = [];
+        const imagineFallbacks = [];
+
+        for (const button of buttons) {
+            if (!button || isGrokSearchMenuButton(button)) continue;
+            const label = getGrokElementSearchText(button);
+            if (isGrokNewChatLabel(label)) {
+                labelMatches.push(button);
+                continue;
+            }
+            if (isGrokHintMainKey(getGrokSidebarButtonHotkeyHint(button), "J")) {
+                hintMatches.push(button);
+                continue;
+            }
+            imagineFallbacks.push(button);
+        }
+
+        const pickVisible = (list) => {
+            for (const item of list) {
+                if (isElementVisible(item)) return item;
+            }
+            return null;
+        };
+
+        return pickVisible(labelMatches)
+            || pickVisible(hintMatches)
+            || (isGrokImaginePage() ? pickVisible(imagineFallbacks) : null)
+            || labelMatches[0]
+            || hintMatches[0]
+            || (isGrokImaginePage() ? imagineFallbacks[0] : null)
+            || null;
+    }
+
+    async function newChatAction() {
+        const tryClick = (element) => {
+            if (!element) return false;
+            return simulateGrokClick(element);
+        };
+
+        if (tryClick(findGrokNewChatElement())) return true;
+
+        if (ensureSidebarVisible()) {
+            await sleep(180);
+            if (tryClick(findGrokNewChatElement())) return true;
+        }
+
+        console.warn(`${LOG_TAG} newChat: New Chat / New Generation control not found.`);
+        return false;
     }
 
     async function modelPickerAction({ shortcut, engine }) {
@@ -3255,7 +3405,8 @@
         // 自定义动作
         customActions: {
             conversationMenu: conversationMenuAction,
-            modelPicker: modelPickerAction
+            modelPicker: modelPickerAction,
+            newChat: newChatAction
         },
         customActionDataAdapters: {
             conversationMenu: createGrokConversationMenuDataAdapter(),
