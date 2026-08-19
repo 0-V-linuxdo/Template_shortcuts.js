@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name           [Template] 快捷键跳转 [20260722] v1.1.1
-// @name:en        [Template] Shortcut Core [20260722] v1.1.1
+// @name           [Template] 快捷键跳转 [20260819] v1.1.2
+// @name:en        [Template] Shortcut Core [20260819] v1.1.2
 // @namespace      https://github.com/0-V-linuxdo/Template_shortcuts.js
-// @version        [20260722] v1.1.1
-// @update-log     1.1.1: QuickInput 控制器开放安全、幂等的暂停接口，供站点在检测到限频等阻塞提示时暂停当前流程。
-// @update-log:en  1.1.1: QuickInput controllers now expose a safe, idempotent pause API so sites can pause active runs when rate limits or other blockers appear.
+// @version        [20260819] v1.1.2
+// @update-log     1.1.2: SPA 跳转优先点击站内同域链接；检测到 Next.js history 时不再伪造 popstate，避免整页刷新。
+// @update-log:en  1.1.2: SPA navigation now clicks in-page same-origin links first and skips fake popstate on Next.js history to avoid full reloads.
 // @description    为网页提供可视化自定义快捷键：支持 URL 跳转、按钮点击、按键模拟、快捷输入（文字/图片）、图标管理与设置面板，并适配深色模式和响应式布局。
 // @description:en Visual custom shortcuts for web pages: URL jumps, button clicks, key simulation, Quick Input for text/images, icon management, settings panel, dark mode, and responsive layout.
 // @match          *://*/*
@@ -36,7 +36,7 @@
 
 (() => {
   // src/modules/core/constants.js
-  var TEMPLATE_VERSION = "20260722";
+  var TEMPLATE_VERSION = "20260819";
   var DEFAULT_OPTIONS = {
     version: TEMPLATE_VERSION,
     menuCommandLabel: "设置快捷键",
@@ -1201,24 +1201,102 @@
     function executeSpaNavigation(url, advanced) {
       try {
         const urlObj = new URL(url, location.origin);
+        const nextUrl = urlObj.pathname + urlObj.search + urlObj.hash;
         const title = document.title;
-        switch (advanced) {
-          case "pushState":
-            window.history.pushState({ url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
-            window.dispatchEvent(new PopStateEvent("popstate", { state: { url } }));
-            break;
-          case "replaceState":
-            window.history.replaceState({ url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
-            window.dispatchEvent(new PopStateEvent("popstate", { state: { url } }));
-            break;
-          default:
-            window.history.pushState({ url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
-            window.dispatchEvent(new PopStateEvent("popstate", { state: { url } }));
+        if (urlObj.origin === location.origin) {
+          const link = findSameOriginSpaLink(urlObj);
+          if (link && clickSpaLink(link)) return;
+          const pagesRouter = getPagesRouter();
+          if (pagesRouter && typeof pagesRouter.push === "function") {
+            try {
+              pagesRouter.push(nextUrl);
+              return;
+            } catch (routerError) {
+              console.warn(`${consoleTag} next.router.push failed:`, routerError);
+            }
+          }
+          const prevState = window.history.state;
+          const nextJs = isNextJsHistoryState(prevState);
+          const state = nextJs && prevState && typeof prevState === "object" && !Array.isArray(prevState) ? { ...prevState } : { url };
+          if (advanced === "replaceState") {
+            window.history.replaceState(state, title, nextUrl);
+          } else {
+            window.history.pushState(state, title, nextUrl);
+          }
+          if (!nextJs) {
+            window.dispatchEvent(new PopStateEvent("popstate", { state }));
+          }
+          return;
         }
+        window.location.href = urlObj.href;
       } catch (e) {
         console.warn(`${consoleTag} SPA navigation failed, fallback to location.href:`, e);
         window.location.href = url;
       }
+    }
+    function cssEscapeHref(value) {
+      const text = String(value ?? "");
+      if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+        return CSS.escape(text);
+      }
+      return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    }
+    function isNextJsHistoryState(state) {
+      if (!state || typeof state !== "object" || Array.isArray(state)) return false;
+      if (state.__NA === true) return true;
+      if (Object.prototype.hasOwnProperty.call(state, "__PRIVATE_NEXTJS_INTERNALS_TREE")) return true;
+      if (Object.prototype.hasOwnProperty.call(state, "__N")) return true;
+      return false;
+    }
+    function getPagesRouter() {
+      try {
+        const router = window.next?.router;
+        return router && typeof router === "object" ? router : null;
+      } catch {
+        return null;
+      }
+    }
+    function findSameOriginSpaLink(urlObj) {
+      const nextUrl = urlObj.pathname + urlObj.search + urlObj.hash;
+      const hrefs = [];
+      const add = (href) => {
+        const value = String(href ?? "").trim();
+        if (value && !hrefs.includes(value)) hrefs.push(value);
+      };
+      add(nextUrl);
+      add(urlObj.pathname);
+      add(urlObj.href);
+      add(urlObj.origin + nextUrl);
+      add(urlObj.origin + urlObj.pathname);
+      if (urlObj.pathname !== "/" && !urlObj.pathname.endsWith("/")) {
+        add(`${urlObj.pathname}/${urlObj.search}${urlObj.hash}`);
+      }
+      if (urlObj.pathname === "/") {
+        add("/");
+        add(urlObj.origin);
+        add(`${urlObj.origin}/`);
+      }
+      for (const href of hrefs) {
+        let matches = [];
+        try {
+          matches = Array.from(document.querySelectorAll(`a[href="${cssEscapeHref(href)}"]`));
+        } catch {
+          continue;
+        }
+        const visible = matches.find(isVisible);
+        if (visible) return visible;
+        if (matches[0]) return matches[0];
+      }
+      return null;
+    }
+    function clickSpaLink(link) {
+      if (!link) return false;
+      try {
+        link.click();
+        return true;
+      } catch {
+      }
+      return simulateClick(link, { nativeFallback: true });
     }
     function executeNewWindowJump(url, advanced) {
       switch (advanced) {
