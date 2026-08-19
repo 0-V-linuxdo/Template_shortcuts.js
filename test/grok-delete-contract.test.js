@@ -15,7 +15,7 @@ test("Grok delete shortcut uses the native page flow instead of a delete API", (
 });
 
 test("Grok metadata carries the requested release version and update log", () => {
-    assert.match(manifest, /name: "\[Grok\] 快捷键跳转 \[20260819\] v1\.1\.1"/);
-    assert.match(manifest, /version: "\[20260819\] v1\.1\.1"/);
-    assert.match(manifest, /updateLog: "1\.1\.1: 将过时的 Grok 4\.3 \(beta\) 快捷键替换为官方 Build/);
+    assert.match(manifest, /name: "\[Grok\] 快捷键跳转 \[20260820\] v1\.0\.0"/);
+    assert.match(manifest, /version: "\[20260820\] v1\.0\.0"/);
+    assert.match(manifest, /updateLog: "1\.0\.0: 使用 grok.com 官方模型\/操作图标/);
 });
