@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260820] v1.0.4
-// @name:en        [Grok] Shortcut Jump [20260820] v1.0.4
+// @name           [Grok] 快捷键跳转 [20260820] v1.0.5
+// @name:en        [Grok] Shortcut Jump [20260820] v1.0.5
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260820] v1.0.4
-// @update-log     1.0.4: 无痕模式触发键改为 Ctrl+Shift+P。
-// @update-log:en  1.0.4: Remap Private trigger to Ctrl+Shift+P.
+// @version        [20260820] v1.0.5
+// @update-log     1.0.5: grok.com 链接类快捷键默认改为 SPA pushState，避免整页刷新。
+// @update-log:en  1.0.5: Default grok.com URL shortcuts now use SPA pushState instead of a full page reload.
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
@@ -481,8 +481,8 @@
         labelKey: "shortcuts.Imagine",
         actionType: "url",
         url: "https://grok.com/imagine",
-        urlMethod: "current",
-        urlAdvanced: "href",
+        urlMethod: "spa",
+        urlAdvanced: "pushState",
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+I",
@@ -546,8 +546,8 @@
         labelKey: "shortcuts.Project",
         actionType: "url",
         url: "https://grok.com/project",
-        urlMethod: "current",
-        urlAdvanced: "href",
+        urlMethod: "spa",
+        urlAdvanced: "pushState",
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+P",
@@ -559,8 +559,8 @@
         labelKey: "shortcuts.Automations",
         actionType: "url",
         url: "https://grok.com/automations",
-        urlMethod: "current",
-        urlAdvanced: "href",
+        urlMethod: "spa",
+        urlAdvanced: "pushState",
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+SHIFT+A",
@@ -572,8 +572,8 @@
         labelKey: "shortcuts.Skills and Connectors",
         actionType: "url",
         url: "https://grok.com/skills-and-connectors",
-        urlMethod: "current",
-        urlAdvanced: "href",
+        urlMethod: "spa",
+        urlAdvanced: "pushState",
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+SHIFT+S",
@@ -585,8 +585,8 @@
         labelKey: "shortcuts.Plugins",
         actionType: "url",
         url: "https://grok.com/?_s=void_plugins_tab",
-        urlMethod: "current",
-        urlAdvanced: "href",
+        urlMethod: "spa",
+        urlAdvanced: "pushState",
         selector: "",
         simulateKeys: "",
         hotkey: "CTRL+O",
@@ -946,6 +946,20 @@
       if (selector && selector.includes("Toggle Right Panel")) return true;
       return false;
     }
+    function isGrokSameOriginPageUrl(url) {
+      const raw = String(url || "").trim();
+      if (!raw) return false;
+      try {
+        const parsed = new URL(raw, "https://grok.com");
+        return parsed.hostname === "grok.com" || parsed.hostname === "www.grok.com";
+      } catch {
+        return false;
+      }
+    }
+    function shouldUseGrokSpaUrlNavigation(shortcut) {
+      if (String(shortcut?.actionType || "").trim() !== "url") return false;
+      return isGrokSameOriginPageUrl(shortcut?.url);
+    }
     function isImagineShortcutRecord(shortcut) {
       const name = String(shortcut?.name || "").trim();
       const labelKey = String(shortcut?.labelKey || "").trim();
@@ -1084,6 +1098,14 @@
         cloned.url = template.url;
         changed = true;
       }
+      if (template.actionType === "url" && template.urlMethod && cloned.urlMethod !== template.urlMethod) {
+        cloned.urlMethod = template.urlMethod;
+        changed = true;
+      }
+      if (template.actionType === "url" && template.urlAdvanced && cloned.urlAdvanced !== template.urlAdvanced) {
+        cloned.urlAdvanced = template.urlAdvanced;
+        changed = true;
+      }
       if (template?.data?.menu?.id === "build" && isLegacyGrok43ShortcutRecord(cloned)) {
         if (template.name && cloned.name !== template.name) {
           cloned.name = template.name;
@@ -1170,6 +1192,16 @@
         if (isGrokDefaultShortcutRecord(cloned)) {
           const template = getGrokDefaultShortcutTemplate(cloned);
           if (applyGrokOfficialIconTemplate(cloned, template)) changed = true;
+        }
+        if (shouldUseGrokSpaUrlNavigation(cloned)) {
+          if (cloned.urlMethod !== "spa") {
+            cloned.urlMethod = "spa";
+            changed = true;
+          }
+          if (cloned.urlAdvanced !== "pushState") {
+            cloned.urlAdvanced = "pushState";
+            changed = true;
+          }
         }
         return cloned;
       });
@@ -2990,6 +3022,10 @@
       protectedIconUrls,
       // 默认快捷键
       defaultShortcuts,
+      defaults: {
+        urlMethod: "spa",
+        urlAdvanced: "pushState"
+      },
       // 主题颜色（Grok主题色）
       colors: {
         primary: "#5D5CDE"

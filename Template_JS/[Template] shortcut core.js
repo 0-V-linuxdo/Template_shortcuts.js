@@ -5093,13 +5093,15 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       if (["0", "false", "no", "off"].includes(token)) return false;
       return fallback;
     };
+    const defaultUrlMethod = options?.defaults?.urlMethod || "current";
+    const defaultUrlAdvanced = options?.defaults?.urlAdvanced || "href";
     const isNew = !item;
     const temp = item ? { ...item, data: item && typeof item.data === "object" && !Array.isArray(item.data) ? clone(item.data) : {} } : {
       name: "",
       actionType: "url",
       url: "",
-      urlMethod: "current",
-      urlAdvanced: "href",
+      urlMethod: defaultUrlMethod,
+      urlAdvanced: defaultUrlAdvanced,
       selector: "",
       simulateKeys: "",
       customAction: "",
@@ -5114,8 +5116,8 @@ ${lines}${duplicates.length > 12 ? "\n..." : ""}`);
       temp.actionType = item.url ? "url" : item.selector ? "selector" : item.simulateKeys ? "simulate" : item.customAction ? "custom" : "url";
     }
     if (!temp.customAction) temp.customAction = "";
-    if (!temp.urlMethod) temp.urlMethod = "current";
-    if (!temp.urlAdvanced) temp.urlAdvanced = "href";
+    if (!temp.urlMethod) temp.urlMethod = defaultUrlMethod;
+    if (!temp.urlAdvanced) temp.urlAdvanced = defaultUrlAdvanced;
     temp.iconAdaptive = normalizeLocalBoolean(temp.iconAdaptive, false);
     const editOverlay = document.createElement("div");
     editOverlay.id = ids.editOverlay;
