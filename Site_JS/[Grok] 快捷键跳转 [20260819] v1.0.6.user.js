@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260820] v1.0.5
-// @name:en        [Grok] Shortcut Jump [20260820] v1.0.5
+// @name           [Grok] 快捷键跳转 [20260819] v1.0.6
+// @name:en        [Grok] Shortcut Jump [20260819] v1.0.6
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260820] v1.0.5
-// @update-log     1.0.5: grok.com 链接类快捷键默认改为 SPA pushState，避免整页刷新。
-// @update-log:en  1.0.5: Default grok.com URL shortcuts now use SPA pushState instead of a full page reload.
+// @version        [20260819] v1.0.6
+// @update-log     1.0.6: New Chat 改为 SPA pushState；Search/Private 改为 selector 点击，避免合成键盘事件无法触发原生快捷键。
+// @update-log:en  1.0.6: New Chat now uses SPA pushState; Search and Private now click page elements instead of simulating untrusted key events.
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
@@ -205,7 +205,11 @@
       sidebarToggle: 'button[data-sidebar="trigger"][type="button"]',
       sidebarProvider: '[data-variant="sidebar"][data-side]',
       sidebarRoot: '[data-sidebar="sidebar"]',
-      rightPanelToggle: 'button[aria-label="Toggle Right Panel"], button[aria-label="切换右侧面板"], button[aria-label*="Right Panel"], button[aria-label*="右侧面板"]'
+      rightPanelToggle: 'button[aria-label="Toggle Right Panel"], button[aria-label="切换右侧面板"], button[aria-label*="Right Panel"], button[aria-label*="右侧面板"]',
+      // Search: sidebar menu button that has the ⌘K hotkey hint sibling
+      search: 'li[data-sidebar="menu-item"]:has(span.text-xs) > button[data-sidebar="menu-button"], button[data-sidebar="menu-button"]:has(+ span.absolute)',
+      // Private: ghost / Switch to Private Chat button
+      private: 'a[aria-label="Switch to Private Chat"], a[aria-label*="Switch to Private"], a[aria-label*="Private Chat"], a[href*="#private"]'
     });
     const GROK_NATIVE_HOTKEYS = Object.freeze({
       newChat: "CMD+J",
@@ -466,12 +470,12 @@
       {
         name: "Private",
         labelKey: "shortcuts.Private",
-        actionType: "simulate",
-        selector: "",
+        actionType: "selector",
+        selector: SELECTORS.private,
         url: "",
         urlMethod: "current",
         urlAdvanced: "href",
-        simulateKeys: GROK_NATIVE_HOTKEYS.private,
+        simulateKeys: "",
         hotkey: "CTRL+SHIFT+P",
         icon: GROK_OFFICIAL_ICONS.private,
         iconAdaptive: true
@@ -492,12 +496,12 @@
       {
         name: "New Chat",
         labelKey: "shortcuts.New Chat",
-        actionType: "simulate",
+        actionType: "url",
         selector: "",
-        url: "",
-        urlMethod: "current",
-        urlAdvanced: "href",
-        simulateKeys: GROK_NATIVE_HOTKEYS.newChat,
+        url: "https://grok.com",
+        urlMethod: "spa",
+        urlAdvanced: "pushState",
+        simulateKeys: "",
         hotkey: "CTRL+N",
         icon: GROK_OFFICIAL_ICONS.newChat,
         iconAdaptive: true
@@ -505,12 +509,12 @@
       {
         name: "Search",
         labelKey: "shortcuts.Search",
-        actionType: "simulate",
-        selector: "",
+        actionType: "selector",
+        selector: SELECTORS.search,
         url: "",
         urlMethod: "current",
         urlAdvanced: "href",
-        simulateKeys: GROK_NATIVE_HOTKEYS.search,
+        simulateKeys: "",
         hotkey: "CTRL+F",
         icon: GROK_OFFICIAL_ICONS.search,
         iconAdaptive: true
@@ -923,10 +927,13 @@
       const selector = String(shortcut?.selector || "").trim();
       const url = String(shortcut?.url || "").trim();
       if (name === "Private" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.private) return true;
+      if (name === "Private" && actionType === "selector" && (selector === SELECTORS.private || selector.includes("Switch to") || selector.includes("#private"))) return true;
       if (name === "Imagine" && actionType === "url" && url === "https://grok.com/imagine") return true;
       if (name === "New Chat" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.newChat) return true;
       if (name === "New Chat" && actionType === "selector" && selector === '[aria-label="Home page"]') return true;
+      if (name === "New Chat" && actionType === "url" && (url === "https://grok.com" || url === "https://grok.com/" || url === "https://www.grok.com" || url.startsWith("https://grok.com/c"))) return true;
       if (name === "Search" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.search) return true;
+      if (name === "Search" && actionType === "selector" && (selector === SELECTORS.search || selector.includes("menu-button"))) return true;
       if (name === "Settings" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.settings) return true;
       if (name === "Plugins" && actionType === "url" && String(url).includes("_s=void_plugins_tab")) return true;
       if (name === "Automations" && actionType === "url" && url === "https://grok.com/automations") return true;
@@ -973,16 +980,22 @@
       const name = String(shortcut?.name || "").trim();
       const labelKey = String(shortcut?.labelKey || "").trim();
       const selector = String(shortcut?.selector || "").trim();
+      const url = String(shortcut?.url || "").trim();
+      const actionType = String(shortcut?.actionType || "").trim();
       if (name === "New Chat") return true;
       if (labelKey === "shortcuts.New Chat") return true;
       if (selector === '[aria-label="Home page"]') return true;
+      if (actionType === "url" && (url === "https://grok.com" || url === "https://grok.com/" || url === "https://www.grok.com" || url.startsWith("https://grok.com/c"))) return true;
       return false;
     }
     function isSearchShortcutRecord(shortcut) {
       const name = String(shortcut?.name || "").trim();
       const labelKey = String(shortcut?.labelKey || "").trim();
+      const selector = String(shortcut?.selector || "").trim();
       if (name === "Search") return true;
       if (labelKey === "shortcuts.Search") return true;
+      if (selector === SELECTORS.search) return true;
+      if (selector.includes("menu-button") && selector.includes("menu-item")) return true;
       return false;
     }
     function isSettingsShortcutRecord(shortcut) {
@@ -1025,7 +1038,9 @@
       const selector = String(shortcut?.selector || "").trim();
       if (name === "Private") return true;
       if (labelKey === "shortcuts.Private") return true;
+      if (selector === SELECTORS.private) return true;
       if (selector === 'a[aria-label*="Switch to "]') return true;
+      if (selector.includes("Switch to Private") || selector.includes("#private")) return true;
       return false;
     }
     function normalizeGrokHotkey(value) {
