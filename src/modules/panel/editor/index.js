@@ -45,6 +45,8 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                 return fallback;
             };
 
+            const defaultUrlMethod = options?.defaults?.urlMethod || "current";
+            const defaultUrlAdvanced = options?.defaults?.urlAdvanced || "href";
             const isNew = !item;
             const temp = item
                 ? { ...item, data: (item && typeof item.data === "object" && !Array.isArray(item.data)) ? clone(item.data) : {} }
@@ -52,8 +54,8 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                 name: "",
                 actionType: "url",
                 url: "",
-                urlMethod: "current",
-                urlAdvanced: "href",
+                urlMethod: defaultUrlMethod,
+                urlAdvanced: defaultUrlAdvanced,
                 selector: "",
                 simulateKeys: "",
                 customAction: "",
@@ -68,8 +70,8 @@ export function panelOpenShortcutEditor(ctx, { item = null, index = -1, renderSh
                 temp.actionType = item.url ? 'url' : (item.selector ? 'selector' : (item.simulateKeys ? 'simulate' : (item.customAction ? 'custom' : 'url')));
             }
             if (!temp.customAction) temp.customAction = "";
-            if (!temp.urlMethod) temp.urlMethod = "current";
-            if (!temp.urlAdvanced) temp.urlAdvanced = "href";
+            if (!temp.urlMethod) temp.urlMethod = defaultUrlMethod;
+            if (!temp.urlAdvanced) temp.urlAdvanced = defaultUrlAdvanced;
             temp.iconAdaptive = normalizeLocalBoolean(temp.iconAdaptive, false);
 
             const editOverlay = document.createElement("div");

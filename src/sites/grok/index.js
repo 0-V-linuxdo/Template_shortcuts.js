@@ -478,8 +478,8 @@
             labelKey: "shortcuts.Imagine",
             actionType: "url",
             url: "https://grok.com/imagine",
-            urlMethod: "current",
-            urlAdvanced: "href",
+            urlMethod: "spa",
+            urlAdvanced: "pushState",
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+I",
@@ -543,8 +543,8 @@
             labelKey: "shortcuts.Project",
             actionType: "url",
             url: "https://grok.com/project",
-            urlMethod: "current",
-            urlAdvanced: "href",
+            urlMethod: "spa",
+            urlAdvanced: "pushState",
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+P",
@@ -556,8 +556,8 @@
             labelKey: "shortcuts.Automations",
             actionType: "url",
             url: "https://grok.com/automations",
-            urlMethod: "current",
-            urlAdvanced: "href",
+            urlMethod: "spa",
+            urlAdvanced: "pushState",
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+SHIFT+A",
@@ -569,8 +569,8 @@
             labelKey: "shortcuts.Skills and Connectors",
             actionType: "url",
             url: "https://grok.com/skills-and-connectors",
-            urlMethod: "current",
-            urlAdvanced: "href",
+            urlMethod: "spa",
+            urlAdvanced: "pushState",
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+SHIFT+S",
@@ -582,8 +582,8 @@
             labelKey: "shortcuts.Plugins",
             actionType: "url",
             url: "https://grok.com/?_s=void_plugins_tab",
-            urlMethod: "current",
-            urlAdvanced: "href",
+            urlMethod: "spa",
+            urlAdvanced: "pushState",
             selector: "",
             simulateKeys: "",
             hotkey: "CTRL+O",
@@ -976,6 +976,22 @@
         return false;
     }
 
+    function isGrokSameOriginPageUrl(url) {
+        const raw = String(url || "").trim();
+        if (!raw) return false;
+        try {
+            const parsed = new URL(raw, "https://grok.com");
+            return parsed.hostname === "grok.com" || parsed.hostname === "www.grok.com";
+        } catch {
+            return false;
+        }
+    }
+
+    function shouldUseGrokSpaUrlNavigation(shortcut) {
+        if (String(shortcut?.actionType || "").trim() !== "url") return false;
+        return isGrokSameOriginPageUrl(shortcut?.url);
+    }
+
     function isImagineShortcutRecord(shortcut) {
         const name = String(shortcut?.name || "").trim();
         const labelKey = String(shortcut?.labelKey || "").trim();
@@ -1126,6 +1142,14 @@
             cloned.url = template.url;
             changed = true;
         }
+        if (template.actionType === "url" && template.urlMethod && cloned.urlMethod !== template.urlMethod) {
+            cloned.urlMethod = template.urlMethod;
+            changed = true;
+        }
+        if (template.actionType === "url" && template.urlAdvanced && cloned.urlAdvanced !== template.urlAdvanced) {
+            cloned.urlAdvanced = template.urlAdvanced;
+            changed = true;
+        }
         if (template?.data?.menu?.id === "build" && isLegacyGrok43ShortcutRecord(cloned)) {
             if (template.name && cloned.name !== template.name) {
                 cloned.name = template.name;
@@ -1217,6 +1241,17 @@
             if (isGrokDefaultShortcutRecord(cloned)) {
                 const template = getGrokDefaultShortcutTemplate(cloned);
                 if (applyGrokOfficialIconTemplate(cloned, template)) changed = true;
+            }
+
+            if (shouldUseGrokSpaUrlNavigation(cloned)) {
+                if (cloned.urlMethod !== "spa") {
+                    cloned.urlMethod = "spa";
+                    changed = true;
+                }
+                if (cloned.urlAdvanced !== "pushState") {
+                    cloned.urlAdvanced = "pushState";
+                    changed = true;
+                }
             }
 
             return cloned;
@@ -3214,6 +3249,11 @@
 
         // 默认快捷键
         defaultShortcuts,
+
+        defaults: {
+            urlMethod: "spa",
+            urlAdvanced: "pushState"
+        },
 
         // 主题颜色（Grok主题色）
         colors: {

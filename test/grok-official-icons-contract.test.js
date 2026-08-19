@@ -111,3 +111,14 @@ test("Grok adds Plugins, Automations, and Skills and Connectors URL shortcuts", 
     assert.match(source, /automations: createGrokOfficialIcon/);
     assert.match(source, /skills: createGrokOfficialIcon/);
 });
+
+test("Grok same-origin URL shortcuts default to SPA pushState", () => {
+    assert.match(source, /url: "https:\/\/grok\.com\/imagine"[\s\S]{0,80}urlMethod: "spa"[\s\S]{0,40}urlAdvanced: "pushState"/);
+    assert.match(source, /url: "https:\/\/grok\.com\/project"[\s\S]{0,80}urlMethod: "spa"[\s\S]{0,40}urlAdvanced: "pushState"/);
+    assert.match(source, /url: "https:\/\/grok\.com\/automations"[\s\S]{0,80}urlMethod: "spa"[\s\S]{0,40}urlAdvanced: "pushState"/);
+    assert.match(source, /url: "https:\/\/grok\.com\/skills-and-connectors"[\s\S]{0,80}urlMethod: "spa"[\s\S]{0,40}urlAdvanced: "pushState"/);
+    assert.match(source, /url: "https:\/\/grok\.com\/\?_s=void_plugins_tab"[\s\S]{0,80}urlMethod: "spa"[\s\S]{0,40}urlAdvanced: "pushState"/);
+    assert.match(source, /shouldUseGrokSpaUrlNavigation/);
+    assert.match(source, /defaults: \{\s*urlMethod: "spa",\s*urlAdvanced: "pushState"/);
+    assert.match(source, /url: GROK_ADMIN_URL,\s*urlMethod: "current"/);
+});
