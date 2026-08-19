@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260820] v1.0.0
-// @name:en        [Grok] Shortcut Jump [20260820] v1.0.0
+// @name           [Grok] 快捷键跳转 [20260820] v1.0.1
+// @name:en        [Grok] Shortcut Jump [20260820] v1.0.1
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260820] v1.0.0
-// @update-log     1.0.0: 使用 grok.com 官方模型/操作图标；侧边栏更名为左侧边栏，并新增右侧边栏快捷键 Ctrl+Shift+B；将过时的 Grok 4.3 替换为官方 Build。
-// @update-log:en  1.0.0: Use official grok.com model and chrome icons; rename Sidebar to Left Sidebar and add Right Sidebar on Ctrl+Shift+B; replace outdated Grok 4.3 with official Build.
+// @version        [20260820] v1.0.1
+// @update-log     1.0.1: 新增 Imagine 快捷键 Ctrl+I（https://grok.com/imagine），并将 Private 默认热键改为 Ctrl+Shift+I。
+// @update-log:en  1.0.1: Add Imagine on Ctrl+I (https://grok.com/imagine) and move Private to Ctrl+Shift+I.
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
@@ -140,6 +140,7 @@
           "modelHeavy": "模型：Heavy",
           "deleteChat": "删除聊天",
           "Private": "私密模式",
+          "Imagine": "Imagine",
           "New Chat": "新建聊天",
           "Sidebar": "左侧边栏",
           "Right Sidebar": "右侧边栏",
@@ -170,6 +171,8 @@
           "modelBuild": "Model: Build",
           "modelHeavy": "Model: Heavy",
           "deleteChat": "Delete Chat",
+          "Private": "Private",
+          "Imagine": "Imagine",
           "Sidebar": "Left Sidebar",
           "Right Sidebar": "Right Sidebar",
           "Project": "Project"
@@ -236,6 +239,12 @@
         `),
       heavy: createGrokOfficialIcon(`
             <path fill="currentColor" d="M3 5.5C3 4.83696 3.26339 4.20107 3.73223 3.73223C4.20107 3.26339 4.83696 3 5.5 3H8.5C9.16304 3 9.79893 3.26339 10.2678 3.73223C10.7366 4.20107 11 4.83696 11 5.5V8.5C11 9.16304 10.7366 9.79893 10.2678 10.2678C9.79893 10.7366 9.16304 11 8.5 11H5.5C4.83696 11 4.20107 10.7366 3.73223 10.2678C3.26339 9.79893 3 9.16304 3 8.5V5.5ZM5.5 5C5.36739 5 5.24021 5.05268 5.14645 5.14645C5.05268 5.24021 5 5.36739 5 5.5V8.5C5 8.63261 5.05268 8.75979 5.14645 8.85355C5.24021 8.94732 5.36739 9 5.5 9H8.5C8.63261 9 8.75979 8.94732 8.85355 8.85355C8.94732 8.75979 9 8.63261 9 8.5V5.5C9 5.36739 8.94732 5.24021 8.85355 5.14645C8.75979 5.05268 8.63261 5 8.5 5H5.5ZM13 5.5C13 4.83696 13.2634 4.20107 13.7322 3.73223C14.2011 3.26339 14.837 3 15.5 3H18.5C19.163 3 19.7989 3.26339 20.2678 3.73223C20.7366 4.20107 21 4.83696 21 5.5V8.5C21 9.16304 20.7366 9.79893 20.2678 10.2678C19.7989 10.7366 19.163 11 18.5 11H15.5C14.837 11 14.2011 10.7366 13.7322 10.2678C13.2634 9.79893 13 9.16304 13 8.5V5.5ZM15.5 5C15.3674 5 15.2402 5.05268 15.1464 5.14645C15.0527 5.24021 15 5.36739 15 5.5V8.5C15 8.63261 15.0527 8.75979 15.1464 8.85355C15.2402 8.94732 15.3674 9 15.5 9H18.5C18.6326 9 18.7598 8.94732 18.8536 8.85355C18.9473 8.75979 19 8.63261 19 8.5V5.5C19 5.36739 18.9473 5.24021 18.8536 5.14645C18.7598 5.05268 18.6326 5 18.5 5H15.5ZM3 15.5C3 14.837 3.26339 14.2011 3.73223 13.7322C4.20107 13.2634 4.83696 13 5.5 13H8.5C9.16304 13 9.79893 13.2634 10.2678 13.7322C10.7366 14.2011 11 14.837 11 15.5V18.5C11 19.163 10.7366 19.7989 10.2678 20.2678C9.79893 20.7366 9.16304 21 8.5 21H5.5C4.83696 21 4.20107 20.7366 3.73223 20.2678C3.26339 19.7989 3 19.163 3 18.5V15.5ZM5.5 15C5.36739 15 5.24021 15.0527 5.14645 15.1464C5.05268 15.2402 5 15.3674 5 15.5V18.5C5 18.6326 5.05268 18.7598 5.14645 18.8536C5.24021 18.9473 5.36739 19 5.5 19H8.5C8.63261 19 8.75979 18.9473 8.85355 18.8536C8.94732 18.7598 9 18.6326 9 18.5V15.5C9 15.3674 8.94732 15.2402 8.85355 15.1464C8.75979 15.0527 8.63261 15 8.5 15H5.5ZM13 15.5C13 14.837 13.2634 14.2011 13.7322 13.7322C14.2011 13.2634 14.837 13 15.5 13H18.5C19.163 13 19.7989 13.2634 20.2678 13.7322C20.7366 14.2011 21 14.837 21 15.5V18.5C21 19.163 20.7366 19.7989 20.2678 20.2678C19.7989 20.7366 19.163 21 18.5 21H15.5C14.837 21 14.2011 20.7366 13.7322 20.2678C13.2634 19.7989 13 19.163 13 18.5V15.5ZM15.5 15C15.3674 15 15.2402 15.0527 15.1464 15.1464C15.0527 15.2402 15 15.3674 15 15.5V18.5C15 18.6326 15.0527 18.7598 15.1464 18.8536C15.2402 18.9473 15.3674 19 15.5 19H18.5C18.6326 19 18.7598 18.9473 18.8536 18.8536C18.9473 18.7598 19 18.6326 19 18.5V15.5C19 15.3674 18.9473 15.2402 18.8536 15.1464C18.7598 15.0527 18.6326 15 18.5 15H15.5Z"></path>
+        `),
+      imagine: createGrokOfficialIcon(`
+            <rect width="16" height="16" x="4" y="4" rx="4" stroke="currentColor" stroke-width="2" fill="none"></rect>
+            <path d="M4 12a5 5 0 0 1 6 8" stroke="currentColor" stroke-width="2" fill="none"></path>
+            <circle cx="15.25" cy="8.75" r="1.75" fill="currentColor"></circle>
+            <path d="M4 16.5c2.333-.5 8-.5 9-2S11 13 11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
         `),
       sidebar: createGrokOfficialIcon(`
             <path d="m11 17-5-5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
@@ -416,8 +425,21 @@
         urlMethod: "current",
         urlAdvanced: "href",
         simulateKeys: "",
-        hotkey: "CTRL+I",
+        hotkey: "CTRL+SHIFT+I",
         icon: "data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20class%3D%22stroke-%5B2%5D%20%22%20stroke-width%3D%222%22%20data-testid%3D%22pi-ghost%22%3E%3Cellipse%20cx%3D%2210%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cellipse%20cx%3D%2214%22%20cy%3D%2210.25%22%20rx%3D%221.25%22%20ry%3D%221.75%22%20fill%3D%22currentColor%22%3E%3C%2Fellipse%3E%3Cpath%20d%3D%22M12%204C4%204%208.07627%2010.7212%203%2013C3%2014.6491%204.40343%2014.5%204.93%2015.77C5.37046%2016.8323%204.27588%2018.9597%204%2020H8L12%2021L16%2020H20C19.6222%2018.7198%2018.8092%2017.1437%2019.075%2015.7742C19.3479%2014.3681%2021%2014.742%2021%2013C15.9237%2010.7212%2020%204%2012%204Z%22%20stroke%3D%22currentColor%22%3E%3C%2Fpath%3E%3C/svg%3E",
+        iconAdaptive: true
+      },
+      {
+        name: "Imagine",
+        labelKey: "shortcuts.Imagine",
+        actionType: "url",
+        url: "https://grok.com/imagine",
+        urlMethod: "current",
+        urlAdvanced: "href",
+        selector: "",
+        simulateKeys: "",
+        hotkey: "CTRL+I",
+        icon: GROK_OFFICIAL_ICONS.imagine,
         iconAdaptive: true
       },
       {
@@ -474,6 +496,7 @@
       ...GROK_CONVERSATION_SHORTCUT_TEMPLATES.map((shortcut) => ({ ...shortcut, data: isPlainObjectLocal(shortcut.data) ? { ...shortcut.data, menu: isPlainObjectLocal(shortcut.data.menu) ? { ...shortcut.data.menu } : shortcut.data.menu } : shortcut.data }))
     ];
     const GROK_ADMIN_SHORTCUT_TEMPLATE = defaultShortcuts[0] || null;
+    const GROK_IMAGINE_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Imagine") || null;
     const GROK_SIDEBAR_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Sidebar") || null;
     const GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Right Sidebar") || null;
     const GROK_PROJECT_SHORTCUT_TEMPLATE = defaultShortcuts.find((item) => item?.name === "Project") || null;
@@ -744,6 +767,7 @@
       if (!name) return false;
       if (name === "Admin") return true;
       if (name === "Private") return true;
+      if (name === "Imagine") return true;
       if (name === "New Chat") return true;
       if (name === "Sidebar") return true;
       if (name === "Right Sidebar") return true;
@@ -753,6 +777,7 @@
       const labelKey = String(shortcut?.labelKey || "").trim();
       if (labelKey === "shortcuts.Admin") return true;
       if (labelKey === "shortcuts.Private") return true;
+      if (labelKey === "shortcuts.Imagine") return true;
       if (labelKey === "shortcuts.New Chat") return true;
       if (labelKey === "shortcuts.Sidebar") return true;
       if (labelKey === "shortcuts.Right Sidebar") return true;
@@ -768,6 +793,7 @@
       const selector = String(shortcut?.selector || "").trim();
       const url = String(shortcut?.url || "").trim();
       if (name === "Private" && actionType === "selector" && selector === 'a[aria-label*="Switch to "]') return true;
+      if (name === "Imagine" && actionType === "url" && url === "https://grok.com/imagine") return true;
       if (name === "New Chat" && actionType === "selector" && selector === '[aria-label="Home page"]') return true;
       if (name === "Sidebar" && actionType === "selector" && selector === SELECTORS.sidebarToggle) return true;
       if (name === "Right Sidebar" && actionType === "selector" && selector === SELECTORS.rightPanelToggle) return true;
@@ -784,6 +810,27 @@
       if (selector && selector.includes("Toggle Right Panel")) return true;
       return false;
     }
+    function isImagineShortcutRecord(shortcut) {
+      const name = String(shortcut?.name || "").trim();
+      const labelKey = String(shortcut?.labelKey || "").trim();
+      const url = String(shortcut?.url || "").trim();
+      if (name === "Imagine") return true;
+      if (labelKey === "shortcuts.Imagine") return true;
+      if (url === "https://grok.com/imagine") return true;
+      return false;
+    }
+    function isPrivateShortcutRecord(shortcut) {
+      const name = String(shortcut?.name || "").trim();
+      const labelKey = String(shortcut?.labelKey || "").trim();
+      const selector = String(shortcut?.selector || "").trim();
+      if (name === "Private") return true;
+      if (labelKey === "shortcuts.Private") return true;
+      if (selector === 'a[aria-label*="Switch to "]') return true;
+      return false;
+    }
+    function normalizeGrokHotkey(value) {
+      return String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+    }
     function getGrokDefaultShortcutTemplate(shortcut) {
       const modelTargetId = getGrokModelTargetIdFromShortcut(shortcut);
       if (modelTargetId) return GROK_MODEL_SHORTCUT_TEMPLATE_BY_ID[modelTargetId] || null;
@@ -792,6 +839,7 @@
       const name = String(shortcut?.name || "").trim();
       const labelKey = String(shortcut?.labelKey || "").trim();
       if (name === "Admin" || labelKey === "shortcuts.Admin") return GROK_ADMIN_SHORTCUT_TEMPLATE;
+      if (isImagineShortcutRecord(shortcut)) return GROK_IMAGINE_SHORTCUT_TEMPLATE;
       if (name === "Sidebar" || labelKey === "shortcuts.Sidebar") return GROK_SIDEBAR_SHORTCUT_TEMPLATE;
       if (isRightSidebarShortcutRecord(shortcut)) return GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE;
       if (name === "Project" || labelKey === "shortcuts.Project") return GROK_PROJECT_SHORTCUT_TEMPLATE;
@@ -857,7 +905,9 @@
       const officialIconsAppliedRaw = gmGetValueLocal(GROK_OFFICIAL_ICONS_MIGRATION_KEY, false);
       const officialIconsApplied = officialIconsAppliedRaw === true || officialIconsAppliedRaw === "true";
       let hasRightSidebar = false;
+      let hasImagine = false;
       let sidebarInsertIndex = -1;
+      let privateInsertIndex = -1;
       const next = stored.map((shortcut, index) => {
         const cloned = cloneGrokShortcutRecord(shortcut);
         if (!cloned) return shortcut;
@@ -866,8 +916,12 @@
         const conversationTargetId = getGrokConversationTargetIdFromShortcut(cloned);
         if (conversationTargetId) existingConversationTargetIds.add(conversationTargetId);
         if (isRightSidebarShortcutRecord(cloned)) hasRightSidebar = true;
+        if (isImagineShortcutRecord(cloned)) hasImagine = true;
         if (String(cloned?.name || "").trim() === "Sidebar" || String(cloned?.labelKey || "").trim() === "shortcuts.Sidebar") {
           sidebarInsertIndex = index;
+        }
+        if (isPrivateShortcutRecord(cloned)) {
+          privateInsertIndex = index;
         }
         if (isLegacySwitchUserShortcut(cloned)) {
           const replacement = cloneGrokShortcutRecord(GROK_ADMIN_SHORTCUT_TEMPLATE) || {};
@@ -877,6 +931,10 @@
             id: cloned.id || replacement.id || "",
             iconAdaptive: true
           };
+        }
+        if (isPrivateShortcutRecord(cloned) && normalizeGrokHotkey(cloned.hotkey) === "CTRL+I") {
+          cloned.hotkey = "CTRL+SHIFT+I";
+          changed = true;
         }
         if (isGrokDefaultShortcutRecord(cloned)) {
           const template = getGrokDefaultShortcutTemplate(cloned);
@@ -906,6 +964,20 @@
         const template = cloneGrokShortcutRecord(GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE);
         if (template) {
           const insertAt = sidebarInsertIndex >= 0 ? sidebarInsertIndex + 1 : next.length;
+          next.splice(insertAt, 0, template);
+          changed = true;
+        }
+      }
+      if (!hasImagine && GROK_IMAGINE_SHORTCUT_TEMPLATE) {
+        const template = cloneGrokShortcutRecord(GROK_IMAGINE_SHORTCUT_TEMPLATE);
+        if (template) {
+          let insertAt = next.length;
+          for (let i = 0; i < next.length; i++) {
+            if (isPrivateShortcutRecord(next[i])) {
+              insertAt = i + 1;
+              break;
+            }
+          }
           next.splice(insertAt, 0, template);
           changed = true;
         }
