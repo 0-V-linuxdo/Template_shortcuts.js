@@ -77,7 +77,7 @@ test("Grok Private uses official incognito icon and 无痕模式 copy", () => {
     assert.doesNotMatch(source, /data-testid="pi-ghost"/);
 });
 
-test("Grok New Chat uses SPA, Search/Private use selector click, Settings still simulates native keys", () => {
+test("Grok New Chat clicks in-app Home, Search/Private use selector click, Settings still simulates native keys", () => {
     assert.match(source, /newChat: "CMD\+J"/);
     assert.match(source, /search: "CMD\+K"/);
     assert.match(source, /private: "CMD\+SHIFT\+J"/);
@@ -92,8 +92,10 @@ test("Grok New Chat uses SPA, Search/Private use selector click, Settings still 
     assert.match(source, /isNewChatShortcutRecord/);
     assert.match(source, /isSearchShortcutRecord/);
     assert.match(source, /SELECTORS\.search/);
+    assert.match(source, /SELECTORS\.newChat/);
     assert.match(source, /SELECTORS\.private/);
-    assert.match(source, /name: "New Chat"[\s\S]{0,220}actionType: "url"[\s\S]{0,80}url: "https:\/\/grok\.com"[\s\S]{0,80}urlMethod: "spa"/);
+    assert.match(source, /aria-label="Search"/);
+    assert.match(source, /name: "New Chat"[\s\S]{0,220}actionType: "selector"[\s\S]{0,80}selector: SELECTORS\.newChat/);
     assert.match(source, /name: "Search"[\s\S]{0,180}actionType: "selector"[\s\S]{0,40}selector: SELECTORS\.search/);
     assert.match(source, /name: "Private"[\s\S]{0,180}actionType: "selector"[\s\S]{0,40}selector: SELECTORS\.private/);
     assert.match(source, /simulateKeys: GROK_NATIVE_HOTKEYS\.settings/);
@@ -120,7 +122,6 @@ test("Grok adds Plugins, Automations, and Skills and Connectors URL shortcuts", 
 
 test("Grok same-origin URL shortcuts default to SPA pushState", () => {
     assert.match(source, /url: "https:\/\/grok\.com\/imagine"[\s\S]{0,80}urlMethod: "spa"[\s\S]{0,40}urlAdvanced: "pushState"/);
-    assert.match(source, /url: "https:\/\/grok\.com",\s*urlMethod: "spa",\s*urlAdvanced: "pushState"/);
     assert.match(source, /url: "https:\/\/grok\.com\/project"[\s\S]{0,80}urlMethod: "spa"[\s\S]{0,40}urlAdvanced: "pushState"/);
     assert.match(source, /url: "https:\/\/grok\.com\/automations"[\s\S]{0,80}urlMethod: "spa"[\s\S]{0,40}urlAdvanced: "pushState"/);
     assert.match(source, /url: "https:\/\/grok\.com\/skills-and-connectors"[\s\S]{0,80}urlMethod: "spa"[\s\S]{0,40}urlAdvanced: "pushState"/);

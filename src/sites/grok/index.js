@@ -183,8 +183,10 @@
         sidebarProvider: '[data-variant="sidebar"][data-side]',
         sidebarRoot: '[data-sidebar="sidebar"]',
         rightPanelToggle: 'button[aria-label="Toggle Right Panel"], button[aria-label="切换右侧面板"], button[aria-label*="Right Panel"], button[aria-label*="右侧面板"]',
-        // Search: sidebar menu button that has the ⌘K hotkey hint sibling
-        search: 'li[data-sidebar="menu-item"]:has(span.text-xs) > button[data-sidebar="menu-button"], button[data-sidebar="menu-button"]:has(+ span.absolute)',
+        // Search: collapsed icon-only uses aria-label; expanded still has the ⌘K hint span
+        search: 'button[data-sidebar="menu-button"][aria-label="Search"], button[data-sidebar="menu-button"][aria-label="搜索"], button[data-sidebar="menu-button"][aria-label*="Search"], button[data-sidebar="menu-button"][aria-label*="搜索"], li[data-sidebar="menu-item"]:has(span.text-xs) > button[data-sidebar="menu-button"], button[data-sidebar="menu-button"]:has(+ span.absolute)',
+        // New Chat: click the in-app Home / New Chat link so Next.js client-routes (pushState+popstate hard-reloads)
+        newChat: 'a[href="/"], a[href="https://grok.com"], a[href="https://grok.com/"], a[aria-label="Home page"], a[aria-label*="New Chat"], button[aria-label*="New Chat"], a[aria-label*="新建聊天"], button[aria-label*="新建聊天"], a[aria-label*="新聊天"], button[aria-label*="新聊天"]',
         // Private: ghost / Switch to Private Chat button
         private: 'a[aria-label="Switch to Private Chat"], a[aria-label*="Switch to Private"], a[aria-label*="Private Chat"], a[href*="#private"]'
     });
@@ -493,8 +495,8 @@
         {
             name: "New Chat",
             labelKey: "shortcuts.New Chat",
-            actionType: "url",
-            selector: "",
+            actionType: "selector",
+            selector: SELECTORS.newChat,
             url: "https://grok.com",
             urlMethod: "spa",
             urlAdvanced: "pushState",
@@ -958,10 +960,10 @@
         if (name === "Private" && actionType === "selector" && (selector === SELECTORS.private || selector.includes("Switch to") || selector.includes("#private"))) return true;
         if (name === "Imagine" && actionType === "url" && url === "https://grok.com/imagine") return true;
         if (name === "New Chat" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.newChat) return true;
-        if (name === "New Chat" && actionType === "selector" && selector === '[aria-label="Home page"]') return true;
+        if (name === "New Chat" && actionType === "selector" && (selector === SELECTORS.newChat || selector === '[aria-label="Home page"]' || selector.includes('href="/"') || selector.includes("New Chat") || selector.includes("新建聊天"))) return true;
         if (name === "New Chat" && actionType === "url" && (url === "https://grok.com" || url === "https://grok.com/" || url === "https://www.grok.com" || url.startsWith("https://grok.com/c"))) return true;
         if (name === "Search" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.search) return true;
-        if (name === "Search" && actionType === "selector" && (selector === SELECTORS.search || selector.includes("menu-button"))) return true;
+        if (name === "Search" && actionType === "selector" && (selector === SELECTORS.search || selector.includes("menu-button") || selector.includes('aria-label="Search"') || selector.includes("aria-label*="))) return true;
         if (name === "Settings" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.settings) return true;
         if (name === "Plugins" && actionType === "url" && String(url).includes("_s=void_plugins_tab")) return true;
         if (name === "Automations" && actionType === "url" && url === "https://grok.com/automations") return true;
@@ -1017,7 +1019,9 @@
         const actionType = String(shortcut?.actionType || "").trim();
         if (name === "New Chat") return true;
         if (labelKey === "shortcuts.New Chat") return true;
+        if (selector === SELECTORS.newChat) return true;
         if (selector === '[aria-label="Home page"]') return true;
+        if (selector.includes('href="/"') && (selector.includes("aria-label") || selector.includes("New Chat") || selector.includes("新建"))) return true;
         if (actionType === "url" && (url === "https://grok.com" || url === "https://grok.com/" || url === "https://www.grok.com" || url.startsWith("https://grok.com/c"))) return true;
         return false;
     }
@@ -1029,6 +1033,7 @@
         if (name === "Search") return true;
         if (labelKey === "shortcuts.Search") return true;
         if (selector === SELECTORS.search) return true;
+        if (selector.includes('aria-label="Search"') || selector.includes('aria-label="搜索"')) return true;
         if (selector.includes("menu-button") && selector.includes("menu-item")) return true;
         return false;
     }

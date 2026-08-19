@@ -407,16 +407,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260819] v1.0.6",
+            name: "[Grok] 快捷键跳转 [20260819] v1.0.7",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260819] v1.0.6",
-            updateLog: "1.0.6: New Chat 改为 SPA pushState；Search/Private 改为 selector 点击，避免合成键盘事件无法触发原生快捷键。",
+            version: "[20260819] v1.0.7",
+            updateLog: "1.0.7: Search 适配侧边栏折叠（aria-label=Search）；New Chat 改为点击站内 Home 链接，避免 pushState+popstate 触发 Next.js 整页刷新。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260819] v1.0.6",
+                    name: "[Grok] Shortcut Jump [20260819] v1.0.7",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.0.6: New Chat now uses SPA pushState; Search and Private now click page elements instead of simulating untrusted key events."
+                    updateLog: "1.0.7: Search now matches the collapsed sidebar Search button via aria-label; New Chat clicks the in-app Home link instead of pushState+popstate, which hard-reloaded Next.js."
                 }
             },
             match: [
