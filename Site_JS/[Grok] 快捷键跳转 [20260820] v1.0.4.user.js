@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260820] v1.0.3
-// @name:en        [Grok] Shortcut Jump [20260820] v1.0.3
+// @name           [Grok] 快捷键跳转 [20260820] v1.0.4
+// @name:en        [Grok] Shortcut Jump [20260820] v1.0.4
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260820] v1.0.3
-// @update-log     1.0.3: New Chat / 无痕 / Search / Settings 改为模拟 grok.com 官方热键；新增 Search(Ctrl+F)、Settings(Ctrl+,)、Plugins(Ctrl+O)、Automations、Skills and Connectors。
-// @update-log:en  1.0.3: Simulate official grok.com keys for New Chat, Private, Search, and Settings. Add Search (Ctrl+F), Settings (Ctrl+,), Plugins (Ctrl+O), Automations, and Skills and Connectors.
+// @version        [20260820] v1.0.4
+// @update-log     1.0.4: 无痕模式触发键改为 Ctrl+Shift+P。
+// @update-log:en  1.0.4: Remap Private trigger to Ctrl+Shift+P.
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
@@ -472,7 +472,7 @@
         urlMethod: "current",
         urlAdvanced: "href",
         simulateKeys: GROK_NATIVE_HOTKEYS.private,
-        hotkey: "CTRL+SHIFT+I",
+        hotkey: "CTRL+SHIFT+P",
         icon: GROK_OFFICIAL_ICONS.private,
         iconAdaptive: true
       },
@@ -1160,9 +1160,12 @@
             iconAdaptive: true
           };
         }
-        if (isPrivateShortcutRecord(cloned) && normalizeGrokHotkey(cloned.hotkey) === "CTRL+I") {
-          cloned.hotkey = "CTRL+SHIFT+I";
-          changed = true;
+        if (isPrivateShortcutRecord(cloned)) {
+          const privateHotkey = normalizeGrokHotkey(cloned.hotkey);
+          if (privateHotkey === "CTRL+I" || privateHotkey === "CTRL+SHIFT+I") {
+            cloned.hotkey = "CTRL+SHIFT+P";
+            changed = true;
+          }
         }
         if (isGrokDefaultShortcutRecord(cloned)) {
           const template = getGrokDefaultShortcutTemplate(cloned);
