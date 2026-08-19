@@ -58,7 +58,8 @@ test("Grok Imagine uses official image icon and remaps Private off Ctrl+I", () =
     assert.match(source, /name: "Imagine"/);
     assert.match(source, /url: "https:\/\/grok\.com\/imagine"/);
     assert.match(source, /hotkey: "CTRL\+I"/);
-    assert.match(source, /hotkey: "CTRL\+SHIFT\+I"/);
+    assert.match(source, /hotkey: "CTRL\+SHIFT\+P"/);
+    assert.match(source, /privateHotkey === "CTRL\+I" \|\| privateHotkey === "CTRL\+SHIFT\+I"/);
     assert.match(source, /imagine: createGrokOfficialIcon/);
     assert.match(source, /width="16" height="16" x="4" y="4" rx="4"/);
     assert.match(source, /isImagineShortcutRecord/);

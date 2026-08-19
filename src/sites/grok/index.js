@@ -469,7 +469,7 @@
             urlMethod: "current",
             urlAdvanced: "href",
             simulateKeys: GROK_NATIVE_HOTKEYS.private,
-            hotkey: "CTRL+SHIFT+I",
+            hotkey: "CTRL+SHIFT+P",
             icon: GROK_OFFICIAL_ICONS.private,
             iconAdaptive: true
         },
@@ -1206,9 +1206,12 @@
                 };
             }
 
-            if (isPrivateShortcutRecord(cloned) && normalizeGrokHotkey(cloned.hotkey) === "CTRL+I") {
-                cloned.hotkey = "CTRL+SHIFT+I";
-                changed = true;
+            if (isPrivateShortcutRecord(cloned)) {
+                const privateHotkey = normalizeGrokHotkey(cloned.hotkey);
+                if (privateHotkey === "CTRL+I" || privateHotkey === "CTRL+SHIFT+I") {
+                    cloned.hotkey = "CTRL+SHIFT+P";
+                    changed = true;
+                }
             }
 
             if (isGrokDefaultShortcutRecord(cloned)) {
