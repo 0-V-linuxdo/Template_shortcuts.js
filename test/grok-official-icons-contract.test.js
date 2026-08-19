@@ -75,3 +75,38 @@ test("Grok Private uses official incognito icon and 无痕模式 copy", () => {
     assert.match(source, /M13\.0107 0C14\.6405 0 16\.0554 1\.12485/);
     assert.doesNotMatch(source, /data-testid="pi-ghost"/);
 });
+
+test("Grok New Chat, Private, Search, and Settings simulate official grok.com hotkeys", () => {
+    assert.match(source, /newChat: "CMD\+J"/);
+    assert.match(source, /search: "CMD\+K"/);
+    assert.match(source, /private: "CMD\+SHIFT\+J"/);
+    assert.match(source, /settings: "CMD\+,?"/);
+    assert.match(source, /hotkey: "CTRL\+F"/);
+    assert.match(source, /hotkey: "CTRL\+,?"/);
+    assert.match(source, /GROK_NEW_CHAT_SHORTCUT_TEMPLATE/);
+    assert.match(source, /GROK_SEARCH_SHORTCUT_TEMPLATE/);
+    assert.match(source, /GROK_SETTINGS_SHORTCUT_TEMPLATE/);
+    assert.match(source, /isNewChatShortcutRecord/);
+    assert.match(source, /isSearchShortcutRecord/);
+    assert.match(source, /actionType: "simulate"/);
+    assert.match(source, /simulateKeys: GROK_NATIVE_HOTKEYS\.newChat/);
+    assert.match(source, /simulateKeys: GROK_NATIVE_HOTKEYS\.private/);
+    assert.match(source, /simulateKeys: GROK_NATIVE_HOTKEYS\.search/);
+    assert.match(source, /simulateKeys: GROK_NATIVE_HOTKEYS\.settings/);
+});
+
+test("Grok adds Plugins, Automations, and Skills and Connectors URL shortcuts", () => {
+    assert.match(source, /url: "https:\/\/grok\.com\/\?_s=void_plugins_tab"/);
+    assert.match(source, /hotkey: "CTRL\+O"/);
+    assert.match(source, /url: "https:\/\/grok\.com\/automations"/);
+    assert.match(source, /url: "https:\/\/grok\.com\/skills-and-connectors"/);
+    assert.match(source, /"Plugins": "插件"/);
+    assert.match(source, /"Automations": "自动化"/);
+    assert.match(source, /"Skills and Connectors": "技能与连接器"/);
+    assert.match(source, /GROK_PLUGINS_SHORTCUT_TEMPLATE/);
+    assert.match(source, /GROK_AUTOMATIONS_SHORTCUT_TEMPLATE/);
+    assert.match(source, /GROK_SKILLS_SHORTCUT_TEMPLATE/);
+    assert.match(source, /plugins: createGrokOfficialIcon/);
+    assert.match(source, /automations: createGrokOfficialIcon/);
+    assert.match(source, /skills: createGrokOfficialIcon/);
+});
