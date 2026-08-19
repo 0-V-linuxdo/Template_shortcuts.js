@@ -65,3 +65,13 @@ test("Grok Imagine uses official image icon and remaps Private off Ctrl+I", () =
     assert.match(source, /isPrivateShortcutRecord/);
     assert.match(source, /GROK_IMAGINE_SHORTCUT_TEMPLATE/);
 });
+
+test("Grok Private uses official incognito icon and 无痕模式 copy", () => {
+    assert.match(source, /"Private": "无痕模式"/);
+    assert.match(source, /"Private": "Private"/);
+    assert.match(source, /private: createGrokOfficialIcon/);
+    assert.match(source, /GROK_PRIVATE_SHORTCUT_TEMPLATE/);
+    assert.match(source, /M15 10C17\.2091 10 19 11\.7909 19 14/);
+    assert.match(source, /M13\.0107 0C14\.6405 0 16\.0554 1\.12485/);
+    assert.doesNotMatch(source, /data-testid="pi-ghost"/);
+});

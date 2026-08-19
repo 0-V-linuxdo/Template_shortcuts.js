@@ -407,16 +407,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260820] v1.0.1",
+            name: "[Grok] 快捷键跳转 [20260820] v1.0.2",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260820] v1.0.1",
-            updateLog: "1.0.1: 新增 Imagine 快捷键 Ctrl+I（https://grok.com/imagine），并将 Private 默认热键改为 Ctrl+Shift+I。",
+            version: "[20260820] v1.0.2",
+            updateLog: "1.0.2: 将无痕模式更名为「无痕模式」，并替换为 grok.com 官方礼帽眼镜图标。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260820] v1.0.1",
+                    name: "[Grok] Shortcut Jump [20260820] v1.0.2",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.0.1: Add Imagine on Ctrl+I (https://grok.com/imagine) and move Private to Ctrl+Shift+I."
+                    updateLog: "1.0.2: Rename Private to the official incognito label and use the grok.com hat-and-glasses icon."
                 }
             },
             match: [
