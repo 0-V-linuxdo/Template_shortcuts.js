@@ -111,7 +111,7 @@
                 "modelAuto": "模型：Auto",
                 "modelFast": "模型：Fast",
                 "modelExpert": "模型：Expert",
-                "modelGrok43": "模型：Grok 4.3 (beta)",
+                "modelBuild": "模型：Build",
                 "modelHeavy": "模型：Heavy",
                 "deleteChat": "删除聊天",
                 "Private": "私密模式",
@@ -123,7 +123,7 @@
             dataAdapters: {
                 modelPicker: {
                     label: "模型关键词（或粘贴 JSON，高级用法）:",
-                    placeholder: "例如: Auto / Fast / Expert / Grok 4.3 (beta) / Heavy"
+                    placeholder: "例如: Auto / Fast / Expert / Build / Heavy"
                 },
                 conversationMenu: {
                     label: "菜单关键词（或粘贴 JSON，高级用法）:",
@@ -142,7 +142,7 @@
                 "modelAuto": "Model: Auto",
                 "modelFast": "Model: Fast",
                 "modelExpert": "Model: Expert",
-                "modelGrok43": "Model: Grok 4.3 (beta)",
+                "modelBuild": "Model: Build",
                 "modelHeavy": "Model: Heavy",
                 "deleteChat": "Delete Chat",
                 "Sidebar": "Left Sidebar",
@@ -152,7 +152,7 @@
             dataAdapters: {
                 modelPicker: {
                     label: "Model keyword (or paste JSON, advanced):",
-                    placeholder: "Example: Auto / Fast / Expert / Grok 4.3 (beta) / Heavy"
+                    placeholder: "Example: Auto / Fast / Expert / Build / Heavy"
                 },
                 conversationMenu: {
                     label: "Menu keyword (or paste JSON, advanced):",
@@ -215,6 +215,11 @@
             <path d="M9 16.0001H15" stroke="currentColor" fill="none"></path>
             <path d="M12 16V12" stroke="currentColor" stroke-linecap="square" fill="none"></path>
         `),
+        build: createGrokOfficialIcon(`
+            <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <path d="m18 15 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+        `),
         heavy: createGrokOfficialIcon(`
             <path fill="currentColor" d="M3 5.5C3 4.83696 3.26339 4.20107 3.73223 3.73223C4.20107 3.26339 4.83696 3 5.5 3H8.5C9.16304 3 9.79893 3.26339 10.2678 3.73223C10.7366 4.20107 11 4.83696 11 5.5V8.5C11 9.16304 10.7366 9.79893 10.2678 10.2678C9.79893 10.7366 9.16304 11 8.5 11H5.5C4.83696 11 4.20107 10.7366 3.73223 10.2678C3.26339 9.79893 3 9.16304 3 8.5V5.5ZM5.5 5C5.36739 5 5.24021 5.05268 5.14645 5.14645C5.05268 5.24021 5 5.36739 5 5.5V8.5C5 8.63261 5.05268 8.75979 5.14645 8.85355C5.24021 8.94732 5.36739 9 5.5 9H8.5C8.63261 9 8.75979 8.94732 8.85355 8.85355C8.94732 8.75979 9 8.63261 9 8.5V5.5C9 5.36739 8.94732 5.24021 8.85355 5.14645C8.75979 5.05268 8.63261 5 8.5 5H5.5ZM13 5.5C13 4.83696 13.2634 4.20107 13.7322 3.73223C14.2011 3.26339 14.837 3 15.5 3H18.5C19.163 3 19.7989 3.26339 20.2678 3.73223C20.7366 4.20107 21 4.83696 21 5.5V8.5C21 9.16304 20.7366 9.79893 20.2678 10.2678C19.7989 10.7366 19.163 11 18.5 11H15.5C14.837 11 14.2011 10.7366 13.7322 10.2678C13.2634 9.79893 13 9.16304 13 8.5V5.5ZM15.5 5C15.3674 5 15.2402 5.05268 15.1464 5.14645C15.0527 5.24021 15 5.36739 15 5.5V8.5C15 8.63261 15.0527 8.75979 15.1464 8.85355C15.2402 8.94732 15.3674 9 15.5 9H18.5C18.6326 9 18.7598 8.94732 18.8536 8.85355C18.9473 8.75979 19 8.63261 19 8.5V5.5C19 5.36739 18.9473 5.24021 18.8536 5.14645C18.7598 5.05268 18.6326 5 18.5 5H15.5ZM3 15.5C3 14.837 3.26339 14.2011 3.73223 13.7322C4.20107 13.2634 4.83696 13 5.5 13H8.5C9.16304 13 9.79893 13.2634 10.2678 13.7322C10.7366 14.2011 11 14.837 11 15.5V18.5C11 19.163 10.7366 19.7989 10.2678 20.2678C9.79893 20.7366 9.16304 21 8.5 21H5.5C4.83696 21 4.20107 20.7366 3.73223 20.2678C3.26339 19.7989 3 19.163 3 18.5V15.5ZM5.5 15C5.36739 15 5.24021 15.0527 5.14645 15.1464C5.05268 15.2402 5 15.3674 5 15.5V18.5C5 18.6326 5.05268 18.7598 5.14645 18.8536C5.24021 18.9473 5.36739 19 5.5 19H8.5C8.63261 19 8.75979 18.9473 8.85355 18.8536C8.94732 18.7598 9 18.6326 9 18.5V15.5C9 15.3674 8.94732 15.2402 8.85355 15.1464C8.75979 15.0527 8.63261 15 8.5 15H5.5ZM13 15.5C13 14.837 13.2634 14.2011 13.7322 13.7322C14.2011 13.2634 14.837 13 15.5 13H18.5C19.163 13 19.7989 13.2634 20.2678 13.7322C20.7366 14.2011 21 14.837 21 15.5V18.5C21 19.163 20.7366 19.7989 20.2678 20.2678C19.7989 20.7366 19.163 21 18.5 21H15.5C14.837 21 14.2011 20.7366 13.7322 20.2678C13.2634 19.7989 13 19.163 13 18.5V15.5ZM15.5 15C15.3674 15 15.2402 15.0527 15.1464 15.1464C15.0527 15.2402 15 15.3674 15 15.5V18.5C15 18.6326 15.0527 18.7598 15.1464 18.8536C15.2402 18.9473 15.3674 19 15.5 19H18.5C18.6326 19 18.7598 18.9473 18.8536 18.8536C18.9473 18.7598 19 18.6326 19 18.5V15.5C19 15.3674 18.9473 15.2402 18.8536 15.1464C18.7598 15.0527 18.6326 15 18.5 15H15.5Z"></path>
         `),
@@ -241,7 +246,7 @@
     });
 
 
-    const GROK_MODEL_TARGET_IDS = Object.freeze(["auto", "fast", "expert", "grok43", "heavy"]);
+    const GROK_MODEL_TARGET_IDS = Object.freeze(["auto", "fast", "expert", "build", "heavy"]);
     const GROK_MODEL_TARGETS = Object.freeze({
         auto: Object.freeze({
             id: "auto",
@@ -270,18 +275,14 @@
             aliases: Object.freeze(["expert", "modelexpert"]),
             icon: GROK_OFFICIAL_ICONS.expert
         }),
-        grok43: Object.freeze({
-            id: "grok43",
-            key: "model-grok43",
-            labelKey: "shortcuts.modelGrok43",
-            name: "Model: Grok 4.3 (beta)",
+        build: Object.freeze({
+            id: "build",
+            key: "model-build",
+            labelKey: "shortcuts.modelBuild",
+            name: "Model: Build",
             hotkey: "CTRL+SHIFT+4",
-            aliases: Object.freeze(["grok43", "grok43beta", "grok4.3", "grok4.3beta", "modelgrok43", "modelgrok43beta"]),
-            icon: createGrokAdaptiveIcon(`
-                <path d="M16 3a9 9 0 1 0 5 8"></path>
-                <path d="M18.5 5.5 12 12"></path>
-                <path d="M19 2v4h4"></path>
-            `)
+            aliases: Object.freeze(["build", "modelbuild"]),
+            icon: GROK_OFFICIAL_ICONS.build
         }),
         heavy: Object.freeze({
             id: "heavy",
@@ -498,6 +499,7 @@
             }
         }
 
+        if (/^(model)?grok43(beta)?$/.test(token)) return "build";
         return "";
     }
 
@@ -785,6 +787,7 @@
         if (labelKey === "shortcuts.modelFast") return true;
         if (labelKey === "shortcuts.modelExpert") return true;
         if (labelKey === "shortcuts.modelGrok43") return true;
+        if (labelKey === "shortcuts.modelBuild") return true;
         if (labelKey === "shortcuts.modelHeavy") return true;
         if (labelKey === "shortcuts.deleteChat") return true;
 
@@ -825,6 +828,17 @@
         return null;
     }
 
+    function isLegacyGrok43ShortcutRecord(shortcut) {
+        const name = String(shortcut?.name || "");
+        const key = String(shortcut?.key || "").trim();
+        const labelKey = String(shortcut?.labelKey || "").trim();
+        const menuId = String(shortcut?.data?.menu?.id || "").trim();
+        if (key === "model-grok43") return true;
+        if (labelKey === "shortcuts.modelGrok43") return true;
+        if (normalizeGrokModelToken(menuId) === "grok43") return true;
+        return /^(model)?grok43(beta)?$/.test(normalizeGrokModelToken(name));
+    }
+
     function applyGrokOfficialIconTemplate(cloned, template) {
         if (!cloned || !template) return false;
         let changed = false;
@@ -843,6 +857,22 @@
         if (template.selector && cloned.actionType === "selector" && cloned.selector !== template.selector) {
             cloned.selector = template.selector;
             changed = true;
+        }
+        if (template?.data?.menu?.id === "build" && isLegacyGrok43ShortcutRecord(cloned)) {
+            if (template.name && cloned.name !== template.name) {
+                cloned.name = template.name;
+                changed = true;
+            }
+            if (template.key && cloned.key !== template.key) {
+                cloned.key = template.key;
+                changed = true;
+            }
+            if (!isPlainObjectLocal(cloned.data)) cloned.data = {};
+            if (!isPlainObjectLocal(cloned.data.menu)) cloned.data.menu = {};
+            if (cloned.data.menu.id !== "build") {
+                cloned.data.menu.id = "build";
+                changed = true;
+            }
         }
         return changed;
     }
@@ -1592,7 +1622,7 @@
     function createGrokModelPickerDataAdapter() {
         return {
             label: siteText("dataAdapters.modelPicker.label", "Model keyword (or paste JSON, advanced):"),
-            placeholder: siteText("dataAdapters.modelPicker.placeholder", "Example: Auto / Fast / Expert / Grok 4.3 (beta) / Heavy"),
+            placeholder: siteText("dataAdapters.modelPicker.placeholder", "Example: Auto / Fast / Expert / Build / Heavy"),
             format: (data) => {
                 const raw = isPlainObjectLocal(data) ? data : {};
                 const keys = Object.keys(raw);

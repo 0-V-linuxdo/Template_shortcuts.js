@@ -8,10 +8,12 @@ test("Grok official model icons keep explicit paint so adaptive fill cannot blob
     assert.match(source, /auto: createGrokOfficialIcon/);
     assert.match(source, /fast: createGrokOfficialIcon/);
     assert.match(source, /expert: createGrokOfficialIcon/);
+    assert.match(source, /build: createGrokOfficialIcon/);
     assert.match(source, /heavy: createGrokOfficialIcon/);
     assert.match(source, /M6\.5 12\.5L11\.5 17\.5/);
     assert.match(source, /M5 14\.25L14 4L13 9\.75H19L10 20L11 14\.25H5Z/);
     assert.match(source, /M12 16V12/);
+    assert.match(source, /m15 12-8\.373 8\.373/);
     assert.match(source, /M3 5\.5C3 4\.83696/);
 });
 
@@ -30,6 +32,7 @@ test("Grok official icon markup paints every path before adaptive processing", (
     assert.match(source, /d="M6\.5 12\.5L11\.5 17\.5[\s\S]*?stroke="currentColor"/);
     assert.match(source, /M2\.99561 7H20\.9956" stroke="currentColor" stroke-width="2" fill="none"/);
     assert.match(source, /M3\.33965 17L11\.9999 22L20\.6602 17V7L11\.9999 2L3\.33965 7V17Z" stroke="currentColor"/);
+    assert.match(source, /m15 12-8\.373 8\.373a1 1 0 1 1-3-3L12 9" stroke="currentColor"/);
 });
 
 test("Grok migrates saved default shortcuts onto the official icon set and inserts Right Sidebar", () => {
@@ -37,4 +40,16 @@ test("Grok migrates saved default shortcuts onto the official icon set and inser
     assert.match(source, /applyGrokOfficialIconTemplate/);
     assert.match(source, /isRightSidebarShortcutRecord/);
     assert.match(source, /GROK_RIGHT_SIDEBAR_SHORTCUT_TEMPLATE/);
+});
+
+test("Grok replaces the outdated Grok 4.3 shortcut with official Build", () => {
+    assert.match(source, /id: "build"/);
+    assert.match(source, /key: "model-build"/);
+    assert.match(source, /"modelBuild": "模型：Build"/);
+    assert.match(source, /"modelBuild": "Model: Build"/);
+    assert.match(source, /hotkey: "CTRL\+SHIFT\+4"/);
+    assert.match(source, /isLegacyGrok43ShortcutRecord/);
+    assert.match(source, /\^\(model\)\?grok43\(beta\)\?\$/);
+    assert.doesNotMatch(source, /id: "grok43"/);
+    assert.doesNotMatch(source, /Model: Grok 4\.3 \(beta\)/);
 });
