@@ -77,7 +77,7 @@ test("Grok Private uses official incognito icon and 无痕模式 copy", () => {
     assert.doesNotMatch(source, /data-testid="pi-ghost"/);
 });
 
-test("Grok New Chat clicks Home or Imagine New Generation; Search/Private use selector click; Settings still simulates native keys", () => {
+test("Grok New Chat clicks Home or SPA-navigates; Search/Private use selector click; Settings still simulates native keys", () => {
     assert.match(source, /newChat: "CMD\+J"/);
     assert.match(source, /search: "CMD\+K"/);
     assert.match(source, /private: "CMD\+SHIFT\+J"/);
@@ -95,9 +95,10 @@ test("Grok New Chat clicks Home or Imagine New Generation; Search/Private use se
     assert.match(source, /SELECTORS\.newChat/);
     assert.match(source, /SELECTORS\.private/);
     assert.match(source, /aria-label="Search"/);
-    assert.match(source, /New Generation/);
-    assert.match(source, /findGrokNewChatElement/);
+    assert.match(source, /findGrokNewChatHomeLink/);
+    assert.match(source, /navigateGrokSpa/);
     assert.match(source, /newChatAction/);
+    assert.match(source, /isGrokNextJsHistoryState/);
     assert.match(source, /name: "New Chat"[\s\S]{0,280}actionType: "custom"[\s\S]{0,80}customAction: "newChat"/);
     assert.match(source, /name: "Search"[\s\S]{0,180}actionType: "selector"[\s\S]{0,40}selector: SELECTORS\.search/);
     assert.match(source, /name: "Private"[\s\S]{0,180}actionType: "selector"[\s\S]{0,40}selector: SELECTORS\.private/);
@@ -105,6 +106,8 @@ test("Grok New Chat clicks Home or Imagine New Generation; Search/Private use se
     assert.doesNotMatch(source, /simulateKeys: GROK_NATIVE_HOTKEYS\.newChat/);
     assert.doesNotMatch(source, /simulateKeys: GROK_NATIVE_HOTKEYS\.private/);
     assert.doesNotMatch(source, /simulateKeys: GROK_NATIVE_HOTKEYS\.search/);
+    assert.doesNotMatch(source, /findGrokNewChatElement\(/);
+    assert.doesNotMatch(source, /button\[data-sidebar="menu-button"\]\[aria-label="New Generation"\]/);
 });
 
 test("Grok adds Plugins, Automations, and Skills and Connectors URL shortcuts", () => {

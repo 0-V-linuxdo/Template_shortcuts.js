@@ -407,16 +407,16 @@ export const SITE_MANIFEST = Object.freeze([
         displayName: "[Grok] 快捷键跳转",
         sourceEntry: "src/sites/grok/index.js",
         metadata: {
-            name: "[Grok] 快捷键跳转 [20260819] v1.0.8",
+            name: "[Grok] 快捷键跳转 [20260819] v1.0.9",
             namespace: "0_V userscripts/[Grok] 快捷键跳转",
             description: "为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。",
-            version: "[20260819] v1.0.8",
-            updateLog: "1.0.8: Imagine 页 New Chat 点击侧栏 New Generation 按钮（按文案 / ⌘J 匹配，不再依赖 href 或 aria-label）。",
+            version: "[20260819] v1.0.9",
+            updateLog: "1.0.9: Imagine 页 CTRL+N 改为 SPA 跳到首页（克隆 Next.js history，不再点击 New Generation，避免整页刷新）。",
             localized: {
                 "en-US": {
-                    name: "[Grok] Shortcut Jump [20260819] v1.0.8",
+                    name: "[Grok] Shortcut Jump [20260819] v1.0.9",
                     description: "Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.",
-                    updateLog: "1.0.8: On Imagine, New Chat clicks the sidebar New Generation button by label and ⌘J hint when it has no href/aria-label."
+                    updateLog: "1.0.9: On Imagine, CTRL+N SPA-navigates home using cloned Next.js history instead of clicking New Generation, which hard-reloaded."
                 }
             },
             match: [

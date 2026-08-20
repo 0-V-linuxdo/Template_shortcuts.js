@@ -76,24 +76,119 @@ import { simulateClick } from "../utils/events.js";
             function executeSpaNavigation(url, advanced) {
                 try {
                     const urlObj = new URL(url, location.origin);
+                    const nextUrl = urlObj.pathname + urlObj.search + urlObj.hash;
                     const title = document.title;
-                    switch (advanced) {
-                        case 'pushState':
-                            window.history.pushState({ url: url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
-                            window.dispatchEvent(new PopStateEvent('popstate', { state: { url: url } }));
-                            break;
-                        case 'replaceState':
-                            window.history.replaceState({ url: url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
-                            window.dispatchEvent(new PopStateEvent('popstate', { state: { url: url } }));
-                            break;
-                        default:
-                            window.history.pushState({ url: url }, title, urlObj.pathname + urlObj.search + urlObj.hash);
-                            window.dispatchEvent(new PopStateEvent('popstate', { state: { url: url } }));
+
+                    if (urlObj.origin !== location.origin) {
+                        window.location.href = urlObj.href;
+                        return;
                     }
+
+                    const link = findSameOriginSpaLink(urlObj);
+                    if (link && clickSpaLink(link)) return;
+
+                    const pagesRouter = getPagesRouter();
+                    if (pagesRouter && typeof pagesRouter.push === "function") {
+                        try {
+                            if (advanced === "replaceState" && typeof pagesRouter.replace === "function") {
+                                pagesRouter.replace(nextUrl);
+                            } else {
+                                pagesRouter.push(nextUrl);
+                            }
+                            return;
+                        } catch (routerError) {
+                            console.warn(`${consoleTag} next.router.push failed:`, routerError);
+                        }
+                    }
+
+                    const prevState = window.history.state;
+                    const nextJs = isNextJsHistoryState(prevState);
+                    // Next.js App Router hard-reloads when popstate carries a foreign {url}
+                    // payload. Clone the existing __NA state and still dispatch popstate so
+                    // pages without an in-page <a> (e.g. grok.com/imagine) client-route.
+                    const state = nextJs && prevState && typeof prevState === "object" && !Array.isArray(prevState)
+                        ? { ...prevState }
+                        : { url };
+
+                    if (advanced === "replaceState") {
+                        window.history.replaceState(state, title, nextUrl);
+                    } else {
+                        window.history.pushState(state, title, nextUrl);
+                    }
+                    window.dispatchEvent(new PopStateEvent("popstate", { state }));
                 } catch (e) {
                     console.warn(`${consoleTag} SPA navigation failed, fallback to location.href:`, e);
                     window.location.href = url;
                 }
+            }
+
+            function cssEscapeHref(value) {
+                const text = String(value ?? "");
+                if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+                    return CSS.escape(text);
+                }
+                return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+            }
+
+            function isNextJsHistoryState(state) {
+                if (!state || typeof state !== "object" || Array.isArray(state)) return false;
+                if (state.__NA === true) return true;
+                if (Object.prototype.hasOwnProperty.call(state, "__PRIVATE_NEXTJS_INTERNALS_TREE")) return true;
+                if (Object.prototype.hasOwnProperty.call(state, "__N")) return true;
+                return false;
+            }
+
+            function getPagesRouter() {
+                try {
+                    const router = window.next?.router;
+                    return router && typeof router === "object" ? router : null;
+                } catch {
+                    return null;
+                }
+            }
+
+            function findSameOriginSpaLink(urlObj) {
+                const nextUrl = urlObj.pathname + urlObj.search + urlObj.hash;
+                const hrefs = [];
+                const add = (href) => {
+                    const value = String(href ?? "").trim();
+                    if (value && !hrefs.includes(value)) hrefs.push(value);
+                };
+                add(nextUrl);
+                add(urlObj.pathname);
+                add(urlObj.href);
+                add(urlObj.origin + nextUrl);
+                add(urlObj.origin + urlObj.pathname);
+                if (urlObj.pathname !== "/" && !urlObj.pathname.endsWith("/")) {
+                    add(`${urlObj.pathname}/${urlObj.search}${urlObj.hash}`);
+                }
+                if (urlObj.pathname === "/") {
+                    add("/");
+                    add(urlObj.origin);
+                    add(`${urlObj.origin}/`);
+                }
+
+                for (const href of hrefs) {
+                    let matches = [];
+                    try {
+                        matches = Array.from(document.querySelectorAll(`a[href="${cssEscapeHref(href)}"]`));
+                    } catch {
+                        continue;
+                    }
+                    const visible = matches.find(isVisible);
+                    if (visible) return visible;
+                    if (matches[0]) return matches[0];
+                }
+                return null;
+            }
+
+            function clickSpaLink(link) {
+                if (!link) return false;
+                try {
+                    link.click();
+                    return true;
+                } catch {}
+                return simulateClick(link, { nativeFallback: true });
             }
 
             function executeNewWindowJump(url, advanced) {
