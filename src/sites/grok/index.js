@@ -377,6 +377,18 @@
     const SIDEBAR_VISIBILITY_STORAGE_KEY = "grok_keep_sidebar_visible_v1";
     const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
     const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
+    // Delay URL-triggered sidebar recovery so settings/modals can mount first.
+    const SIDEBAR_WARMUP_URL_DELAY_MS = 450;
+    const SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS = 900;
+    const GROK_BLOCKING_OVERLAY_SELECTORS = Object.freeze([
+        "[role='dialog']",
+        "[role='alertdialog']",
+        "dialog[open]",
+        "[aria-modal='true']",
+        "[data-radix-dialog-content]",
+        "[data-state='open'][data-radix-dialog-overlay]",
+        "[data-state='open'][data-radix-dialog-content]"
+    ]);
     const SIDEBAR_OPEN_SELECTORS = [
         `${SELECTORS.sidebarProvider}[data-state="expanded"]`,
         `${SELECTORS.sidebarProvider}[data-state="open"]`,
@@ -394,6 +406,8 @@
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
     let sidebarVisibilityMenuCommandId = null;
     let sidebarWarmupTimer = null;
+    let sidebarWarmupRequestTimer = null;
+    let sidebarLastWarmupRequestAt = 0;
 
     function createGrokModelShortcutTemplate(targetId) {
         const target = GROK_MODEL_TARGETS[targetId] || null;
@@ -3252,12 +3266,41 @@
         return width > 0 && width <= SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH;
     }
 
+    function isGrokBlockingOverlayOpen() {
+        for (const selector of GROK_BLOCKING_OVERLAY_SELECTORS) {
+            let nodes = [];
+            try {
+                nodes = Array.from(document.querySelectorAll(selector));
+            } catch {
+                continue;
+            }
+            for (const el of nodes) {
+                if (!el || !isElementVisible(el)) continue;
+                const role = String(el.getAttribute?.("role") || "").trim().toLowerCase();
+                // Skip pure menus/listboxes; settings is a real dialog/modal.
+                if (role === "menu" || role === "listbox" || role === "list") continue;
+                try {
+                    const rect = el.getBoundingClientRect?.();
+                    if (!rect || rect.width < 180 || rect.height < 100) continue;
+                } catch {
+                    continue;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
     function shouldWarmupSidebarInBackground() {
         return keepSidebarVisible && !isSidebarAutoExpandSuppressedByViewport();
     }
 
     function ensureSidebarVisible() {
         if (!keepSidebarVisible) return false;
+        // Opening Settings (and other modals) changes the URL and can briefly
+        // mark the sidebar closed. Auto-expanding during that window clicks the
+        // toggle and dismisses the settings dialog — skip while a modal is open.
+        if (isGrokBlockingOverlayOpen()) return false;
         const open = isSidebarOpen();
         if (open === true) return true;
         if (open === false) return clickSidebarToggleButton();
@@ -3270,7 +3313,29 @@
         sidebarWarmupTimer = null;
     }
 
+    function cancelSidebarWarmupRequest() {
+        if (sidebarWarmupRequestTimer === null) return;
+        try { clearTimeout(sidebarWarmupRequestTimer); } catch { }
+        sidebarWarmupRequestTimer = null;
+    }
+
+    function requestSidebarWarmup({ attempts = 12, intervalMs = 400, delayMs = 0 } = {}) {
+        if (!shouldWarmupSidebarInBackground()) return;
+        const now = Date.now();
+        const delay = Math.max(0, Number(delayMs) || 0);
+        const cooldown = Math.max(0, SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS - (now - sidebarLastWarmupRequestAt));
+        const waitMs = Math.max(delay, cooldown);
+
+        cancelSidebarWarmupRequest();
+        sidebarWarmupRequestTimer = window.setTimeout(() => {
+            sidebarWarmupRequestTimer = null;
+            sidebarLastWarmupRequestAt = Date.now();
+            startSidebarWarmup({ attempts, intervalMs });
+        }, waitMs);
+    }
+
     function startSidebarWarmup({ attempts = 20, intervalMs = 500 } = {}) {
+        cancelSidebarWarmupRequest();
         stopSidebarWarmup();
         if (!shouldWarmupSidebarInBackground()) return;
         let remaining = Math.max(1, Number(attempts) || 1);
@@ -3281,6 +3346,9 @@
                 stopSidebarWarmup();
                 return;
             }
+
+            // Wait out settings/modals instead of burning attempts or clicking.
+            if (isGrokBlockingOverlayOpen()) return;
 
             const open = isSidebarOpen();
             if (open === true) {
@@ -3304,9 +3372,11 @@
             if (shouldWarmupSidebarInBackground()) {
                 startSidebarWarmup();
             } else {
+                cancelSidebarWarmupRequest();
                 stopSidebarWarmup();
             }
         } else {
+            cancelSidebarWarmupRequest();
             stopSidebarWarmup();
         }
 
@@ -3327,17 +3397,31 @@
         }
 
         let lastUrl = location.href;
-        const observer = new MutationObserver(() => {
+        const handlePossibleRouteChange = () => {
             const currentUrl = location.href;
-            if (currentUrl !== lastUrl) {
-                lastUrl = currentUrl;
-                startSidebarWarmup();
-            }
-        });
+            if (currentUrl === lastUrl) return;
+            lastUrl = currentUrl;
+            // Defer recovery: settings dialog mounts after the URL change, and an
+            // immediate sidebar toggle would close that dialog.
+            requestSidebarWarmup({
+                attempts: 16,
+                intervalMs: 350,
+                delayMs: SIDEBAR_WARMUP_URL_DELAY_MS
+            });
+        };
+
+        const observer = new MutationObserver(handlePossibleRouteChange);
         observer.observe(document.documentElement || document, { subtree: true, childList: true });
 
+        try {
+            window.addEventListener("popstate", handlePossibleRouteChange);
+            window.addEventListener("hashchange", handlePossibleRouteChange);
+        } catch { }
+
         document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === "visible") startSidebarWarmup();
+            if (document.visibilityState === "visible") {
+                requestSidebarWarmup({ attempts: 10, intervalMs: 350, delayMs: 250 });
+            }
         });
 
         window.addEventListener("resize", () => {
@@ -3346,11 +3430,14 @@
 
             wasSidebarAutoExpandSuppressed = suppressed;
             if (suppressed) {
+                cancelSidebarWarmupRequest();
                 stopSidebarWarmup();
                 return;
             }
 
-            if (keepSidebarVisible) startSidebarWarmup();
+            if (keepSidebarVisible) {
+                requestSidebarWarmup({ attempts: 10, intervalMs: 350, delayMs: 250 });
+            }
         });
     }
 
