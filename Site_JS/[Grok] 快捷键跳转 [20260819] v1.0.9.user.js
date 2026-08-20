@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260819] v1.0.8
-// @name:en        [Grok] Shortcut Jump [20260819] v1.0.8
+// @name           [Grok] 快捷键跳转 [20260819] v1.0.9
+// @name:en        [Grok] Shortcut Jump [20260819] v1.0.9
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260819] v1.0.8
-// @update-log     1.0.8: Imagine 页 New Chat 点击侧栏 New Generation 按钮（按文案 / ⌘J 匹配，不再依赖 href 或 aria-label）。
-// @update-log:en  1.0.8: On Imagine, New Chat clicks the sidebar New Generation button by label and ⌘J hint when it has no href/aria-label.
+// @version        [20260819] v1.0.9
+// @update-log     1.0.9: Imagine 页 CTRL+N 改为 SPA 跳到首页（克隆 Next.js history，不再点击 New Generation，避免整页刷新）。
+// @update-log:en  1.0.9: On Imagine, CTRL+N SPA-navigates home using cloned Next.js history instead of clicking New Generation, which hard-reloaded.
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
@@ -20,7 +20,7 @@
 // @connect        *
 
 // @icon           data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2064%2064%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20aria-hidden%3D%22true%22%20role%3D%22img%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%20class%3D%22grok-keycap-icon%22%3E%20%3Cstyle%3E%20%3Aroot%20%7B%20color-scheme%3A%20light%20dark%3B%20%7D%20.grok-keycap-icon%20%7B%20color%3A%20%23000000%3B%20%7D%20%40media%20(prefers-color-scheme%3A%20dark)%20%7B%20.grok-keycap-icon%20%7B%20color%3A%20%23FFFFFF%3B%20%7D%20%7D%20%3C%2Fstyle%3E%20%3Cpath%20d%3D%22M52%202H12C6.478%202%202%206.477%202%2011.999V52c0%205.522%204.478%2010%2010%2010h40c5.522%200%2010-4.478%2010-10V11.999C62%206.477%2057.522%202%2052%202zm5%2043.666A8.333%208.333%200%200%201%2048.667%2054H15.333A8.333%208.333%200%200%201%207%2045.666V12.333A8.332%208.332%200%200%201%2015.333%204h33.334A8.332%208.332%200%200%201%2057%2012.333v33.333z%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20clip-rule%3D%22evenodd%22%3E%3C%2Fpath%3E%20%3Cg%20transform%3D%22translate(13%2C10)%20scale(0.16)%22%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%3E%3Cpath%20d%3D%22m92.7%20152.9%2079.78%20-58.97c3.91%20-2.9%209.5%20-1.77%2011.37%202.72%209.8%2023.69%205.42%2052.15%20-14.1%2071.69s-46.67%2023.82%20-71.49%2014.06l-27.11%2012.57c38.89%2026.61%2086.11%2020.03%20115.62%20-9.53%2023.41%20-23.44%2030.66%20-55.39%2023.88%20-84.2l0.06%200.07c-9.83%20-42.32%202.42%20-59.24%2027.5%20-93.83Q239.11%206.25%20240%205l-33.01%2033.05v-0.1L92.67%20152.92m-16.44%2014.31c-27.92%20-26.7%20-23.1%20-68.01%200.71%20-91.84%2017.61%20-17.63%2046.47%20-24.83%2071.66%20-14.25l27.05%20-12.5a78%2078%200%200%200%20-18.29%20-10A89.75%2089.75%200%200%200%2059.84%2058.3c-25.33%2025.36%20-33.3%2064.36%20-19.62%2097.64%2010.22%2024.87%20-6.53%2042.46%20-23.4%2060.22%20-5.99%206.3%20-11.99%2012.59%20-16.82%2019.25l76.2%20-68.15%22%3E%3C%2Fpath%3E%3C%2Fg%3E%20%3C%2Fsvg%3E
-// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260722.1.1.1
+// @require        https://github.com/0-V-linuxdo/Template_shortcuts.js/raw/refs/heads/release/Template_JS/%5BTemplate%5D%20shortcut%20core.js?v=20260819.1.1.3
 // ==/UserScript==
 
 /* ===================== IMPORTANT · NOTICE · START =====================
@@ -208,8 +208,8 @@
       rightPanelToggle: 'button[aria-label="Toggle Right Panel"], button[aria-label="切换右侧面板"], button[aria-label*="Right Panel"], button[aria-label*="右侧面板"]',
       // Search: collapsed icon-only uses aria-label; expanded still has the ⌘K hint span
       search: 'button[data-sidebar="menu-button"][aria-label="Search"], button[data-sidebar="menu-button"][aria-label="搜索"], button[data-sidebar="menu-button"][aria-label*="Search"], button[data-sidebar="menu-button"][aria-label*="搜索"], li[data-sidebar="menu-item"]:has(span.text-xs) > button[data-sidebar="menu-button"], button[data-sidebar="menu-button"]:has(+ span.absolute)',
-      // New Chat: chat pages use Home / New Chat; Imagine uses a "New Generation" menu button (no href/aria-label)
-      newChat: 'a[href="/"], a[href="https://grok.com"], a[href="https://grok.com/"], a[aria-label="Home page"], a[aria-label*="New Chat"], button[aria-label*="New Chat"], a[aria-label*="新建聊天"], button[aria-label*="新建聊天"], a[aria-label*="新聊天"], button[aria-label*="新聊天"], button[data-sidebar="menu-button"][aria-label="New Generation"], button[data-sidebar="menu-button"][aria-label*="New Generation"], button[data-sidebar="menu-button"][aria-label*="新生成"], a[data-sidebar="menu-button"][aria-label*="New Generation"]',
+      // New Chat: click in-app Home / New Chat links (Next.js client-routes). Imagine has no href="/" so SPA-fallback.
+      newChat: 'a[href="/"], a[href="https://grok.com"], a[href="https://grok.com/"], a[aria-label="Home page"], a[aria-label*="New Chat"], a[aria-label*="新建聊天"], a[aria-label*="新聊天"]',
       // Private: ghost / Switch to Private Chat button
       private: 'a[aria-label="Switch to Private Chat"], a[aria-label*="Switch to Private"], a[aria-label*="Private Chat"], a[href*="#private"]'
     });
@@ -934,7 +934,7 @@
       if (name === "Imagine" && actionType === "url" && url === "https://grok.com/imagine") return true;
       if (name === "New Chat" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.newChat) return true;
       if (name === "New Chat" && actionType === "custom" && String(shortcut?.customAction || "").trim() === "newChat") return true;
-      if (name === "New Chat" && actionType === "selector" && (selector === SELECTORS.newChat || selector === '[aria-label="Home page"]' || selector.includes('href="/"') || selector.includes("New Chat") || selector.includes("New Generation") || selector.includes("新建聊天"))) return true;
+      if (name === "New Chat" && actionType === "selector" && (selector === SELECTORS.newChat || selector === '[aria-label="Home page"]' || selector.includes('href="/"') || selector.includes("New Chat") || selector.includes("新建聊天"))) return true;
       if (name === "New Chat" && actionType === "url" && (url === "https://grok.com" || url === "https://grok.com/" || url === "https://www.grok.com" || url.startsWith("https://grok.com/c"))) return true;
       if (name === "Search" && actionType === "simulate" && normalizeGrokHotkey(shortcut?.simulateKeys) === GROK_NATIVE_HOTKEYS.search) return true;
       if (name === "Search" && actionType === "selector" && (selector === SELECTORS.search || selector.includes("menu-button") || selector.includes('aria-label="Search"') || selector.includes("aria-label*="))) return true;
@@ -991,7 +991,6 @@
       if (String(shortcut?.customAction || "").trim() === "newChat") return true;
       if (selector === SELECTORS.newChat) return true;
       if (selector === '[aria-label="Home page"]') return true;
-      if (selector.includes("New Generation") || selector.includes("新生成")) return true;
       if (selector.includes('href="/"') && (selector.includes("aria-label") || selector.includes("New Chat") || selector.includes("新建"))) return true;
       if (actionType === "url" && (url === "https://grok.com" || url === "https://grok.com/" || url === "https://www.grok.com" || url.startsWith("https://grok.com/c"))) return true;
       return false;
@@ -2005,44 +2004,20 @@
     }
     const GROK_NEW_CHAT_LABEL_ALIASES = Object.freeze([
       "newchat",
-      "newgeneration",
-      "newimage",
-      "newimagine",
       "新建聊天",
       "新聊天",
       "新对话",
-      "新建对话",
-      "新生成",
-      "新建生成"
+      "新建对话"
     ]);
     function normalizeGrokChromeLabel(value) {
       return String(value ?? "").toLowerCase().replace(/\s+/g, "").replace(/[^\w\u4e00-\u9fff]+/g, "");
     }
-    function isGrokImaginePage() {
-      try {
-        const path = String(location.pathname || "").toLowerCase();
-        return path === "/imagine" || path.startsWith("/imagine/");
-      } catch {
-        return false;
-      }
-    }
-    function getGrokSidebarButtonHotkeyHint(button) {
-      if (!button) return "";
-      const item = button.closest?.('li[data-sidebar="menu-item"]');
-      const sibling = button.nextElementSibling;
-      const hintNode = item?.querySelector?.("span.text-xs") || sibling?.querySelector?.("span.text-xs") || (sibling?.classList?.contains("absolute") ? sibling : null);
-      return String(hintNode?.textContent || "").trim();
-    }
-    function isGrokHintMainKey(hint, key) {
-      const token = String(hint || "").replace(/\s+/g, "").toUpperCase();
-      if (!token) return false;
-      const wanted = String(key || "").toUpperCase();
-      if (!wanted) return false;
-      return new RegExp(`(?:⌘|⌃|CTRL|CMD|CONTROL|COMMAND)\\+?${wanted}$`).test(token);
-    }
     function isGrokNewChatLabel(value) {
       const token = normalizeGrokChromeLabel(value);
       if (!token) return false;
+      if (token.includes("newgeneration") || token.includes("新生成") || token.includes("newimage") || token.includes("newimagine")) {
+        return false;
+      }
       for (const alias of GROK_NEW_CHAT_LABEL_ALIASES) {
         const aliasToken = normalizeGrokChromeLabel(alias);
         if (!aliasToken) continue;
@@ -2050,65 +2025,77 @@
       }
       return false;
     }
-    function isGrokSearchMenuButton(button) {
-      if (!button) return false;
-      const label = getGrokElementSearchText(button);
-      const token = normalizeGrokChromeLabel(label);
-      if (token.includes("search") || token.includes("搜索")) return true;
-      return isGrokHintMainKey(getGrokSidebarButtonHotkeyHint(button), "K");
-    }
-    function findGrokNewChatElementFromSelectors() {
+    function findGrokNewChatHomeLink() {
       const selectors = String(SELECTORS.newChat || "").split(",").map((item) => item.trim()).filter(Boolean);
       for (const selector of selectors) {
         const match = getFirstVisibleBySelector(selector);
-        if (match) return match;
+        if (match && String(match.tagName || "").toUpperCase() === "A") return match;
+      }
+      let anchors = [];
+      try {
+        anchors = Array.from(document.querySelectorAll('a[href="/"], a[href="https://grok.com"], a[href="https://grok.com/"], a[aria-label*="New Chat"], a[aria-label*="新建聊天"], a[aria-label*="新聊天"]'));
+      } catch {
+        anchors = [];
+      }
+      for (const anchor of anchors) {
+        if (!isElementVisible(anchor)) continue;
+        const href = String(anchor.getAttribute("href") || "").trim();
+        if (href === "/" || href === "https://grok.com" || href === "https://grok.com/") return anchor;
+        if (isGrokNewChatLabel(getGrokElementSearchText(anchor))) return anchor;
       }
       return null;
     }
-    function findGrokNewChatElement() {
-      const fromSelector = findGrokNewChatElementFromSelectors();
-      if (fromSelector) return fromSelector;
-      let buttons = [];
-      try {
-        buttons = Array.from(document.querySelectorAll('button[data-sidebar="menu-button"], a[data-sidebar="menu-button"]'));
-      } catch {
-        buttons = [];
-      }
-      const labelMatches = [];
-      const hintMatches = [];
-      const imagineFallbacks = [];
-      for (const button of buttons) {
-        if (!button || isGrokSearchMenuButton(button)) continue;
-        const label = getGrokElementSearchText(button);
-        if (isGrokNewChatLabel(label)) {
-          labelMatches.push(button);
-          continue;
-        }
-        if (isGrokHintMainKey(getGrokSidebarButtonHotkeyHint(button), "J")) {
-          hintMatches.push(button);
-          continue;
-        }
-        imagineFallbacks.push(button);
-      }
-      const pickVisible = (list) => {
-        for (const item of list) {
-          if (isElementVisible(item)) return item;
-        }
-        return null;
-      };
-      return pickVisible(labelMatches) || pickVisible(hintMatches) || (isGrokImaginePage() ? pickVisible(imagineFallbacks) : null) || labelMatches[0] || hintMatches[0] || (isGrokImaginePage() ? imagineFallbacks[0] : null) || null;
+    function isGrokNextJsHistoryState(state) {
+      if (!state || typeof state !== "object" || Array.isArray(state)) return false;
+      if (state.__NA === true) return true;
+      if (Object.prototype.hasOwnProperty.call(state, "__PRIVATE_NEXTJS_INTERNALS_TREE")) return true;
+      if (Object.prototype.hasOwnProperty.call(state, "__N")) return true;
+      return false;
     }
-    async function newChatAction() {
-      const tryClick = (element) => {
-        if (!element) return false;
-        return simulateGrokClick(element);
-      };
-      if (tryClick(findGrokNewChatElement())) return true;
+    function navigateGrokSpa(url) {
+      try {
+        const urlObj = new URL(url, location.origin);
+        const nextUrl = urlObj.pathname + urlObj.search + urlObj.hash;
+        if (urlObj.origin !== location.origin) {
+          window.location.href = urlObj.href;
+          return true;
+        }
+        const prevState = window.history.state;
+        const nextJs = isGrokNextJsHistoryState(prevState);
+        const state = nextJs && prevState && typeof prevState === "object" && !Array.isArray(prevState) ? { ...prevState } : { url: urlObj.href };
+        window.history.pushState(state, document.title, nextUrl);
+        window.dispatchEvent(new PopStateEvent("popstate", { state }));
+        return true;
+      } catch (error) {
+        console.warn(`${LOG_TAG} newChat SPA navigation failed:`, error);
+        return false;
+      }
+    }
+    async function newChatAction({ engine: engine2 } = {}) {
+      const homeLink = findGrokNewChatHomeLink();
+      if (homeLink && simulateGrokClick(homeLink)) return true;
       if (ensureSidebarVisible()) {
         await sleep(180);
-        if (tryClick(findGrokNewChatElement())) return true;
+        const retryLink = findGrokNewChatHomeLink();
+        if (retryLink && simulateGrokClick(retryLink)) return true;
       }
-      console.warn(`${LOG_TAG} newChat: New Chat / New Generation control not found.`);
+      try {
+        const urlHandler = engine2?.core?.actions?.get?.("url");
+        if (typeof urlHandler === "function") {
+          urlHandler({
+            shortcut: {
+              url: "https://grok.com/",
+              urlMethod: "spa",
+              urlAdvanced: "pushState"
+            }
+          });
+          return true;
+        }
+      } catch (error) {
+        console.warn(`${LOG_TAG} newChat template SPA failed:`, error);
+      }
+      if (navigateGrokSpa("https://grok.com/")) return true;
+      console.warn(`${LOG_TAG} newChat: Home link not found and SPA navigation failed.`);
       return false;
     }
     async function modelPickerAction({ shortcut, engine: engine2 }) {
