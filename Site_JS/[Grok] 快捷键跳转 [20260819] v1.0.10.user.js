@@ -1,13 +1,13 @@
 // ==UserScript==
-// @name           [Grok] 快捷键跳转 [20260819] v1.0.9
-// @name:en        [Grok] Shortcut Jump [20260819] v1.0.9
+// @name           [Grok] 快捷键跳转 [20260819] v1.0.10
+// @name:en        [Grok] Shortcut Jump [20260819] v1.0.10
 // @namespace      0_V userscripts/[Grok] 快捷键跳转
 // @description    为Grok网站添加快捷键功能，支持自定义按键和图标，以及自动选择，完美适配暗黑模式。新增: 动作类型系统(URL跳转/元素点击/按键模拟)、预设图标库(可折叠/自定义添加/长按删除)、图标缓存机制。使用Template模块重构。
 // @description:en Adds custom shortcuts for Grok with configurable keys and icons, dark mode support, action types, a preset icon library, and icon caching.
 
-// @version        [20260819] v1.0.9
-// @update-log     1.0.9: Imagine 页 CTRL+N 改为 SPA 跳到首页（克隆 Next.js history，不再点击 New Generation，避免整页刷新）。
-// @update-log:en  1.0.9: On Imagine, CTRL+N SPA-navigates home using cloned Next.js history instead of clicking New Generation, which hard-reloaded.
+// @version        [20260819] v1.0.10
+// @update-log     1.0.10: 打开 Settings 等弹层时跳过侧栏自动展开，避免 URL 变化触发 toggle 把设置弹窗关掉。
+// @update-log:en  1.0.10: Skip sidebar auto-expand while Settings/modals are open so URL-triggered recovery does not click the toggle and dismiss the dialog.
 
 // @match          https://gk.dairoot.cn/*
 // @match          https://grok.com/*
@@ -386,6 +386,17 @@
     const SIDEBAR_VISIBILITY_STORAGE_KEY = "grok_keep_sidebar_visible_v1";
     const DEFAULT_KEEP_SIDEBAR_VISIBLE = true;
     const SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH = 1024;
+    const SIDEBAR_WARMUP_URL_DELAY_MS = 450;
+    const SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS = 900;
+    const GROK_BLOCKING_OVERLAY_SELECTORS = Object.freeze([
+      "[role='dialog']",
+      "[role='alertdialog']",
+      "dialog[open]",
+      "[aria-modal='true']",
+      "[data-radix-dialog-content]",
+      "[data-state='open'][data-radix-dialog-overlay]",
+      "[data-state='open'][data-radix-dialog-content]"
+    ]);
     const SIDEBAR_OPEN_SELECTORS = [
       `${SELECTORS.sidebarProvider}[data-state="expanded"]`,
       `${SELECTORS.sidebarProvider}[data-state="open"]`,
@@ -403,6 +414,8 @@
     let keepSidebarVisible = getKeepSidebarVisibleSetting();
     let sidebarVisibilityMenuCommandId = null;
     let sidebarWarmupTimer = null;
+    let sidebarWarmupRequestTimer = null;
+    let sidebarLastWarmupRequestAt = 0;
     function createGrokModelShortcutTemplate(targetId) {
       const target = GROK_MODEL_TARGETS[targetId] || null;
       if (!target) return null;
@@ -3028,11 +3041,35 @@
       const width = getViewportWidth();
       return width > 0 && width <= SIDEBAR_AUTO_EXPAND_MAX_VIEWPORT_WIDTH;
     }
+    function isGrokBlockingOverlayOpen() {
+      for (const selector of GROK_BLOCKING_OVERLAY_SELECTORS) {
+        let nodes = [];
+        try {
+          nodes = Array.from(document.querySelectorAll(selector));
+        } catch {
+          continue;
+        }
+        for (const el of nodes) {
+          if (!el || !isElementVisible(el)) continue;
+          const role = String(el.getAttribute?.("role") || "").trim().toLowerCase();
+          if (role === "menu" || role === "listbox" || role === "list") continue;
+          try {
+            const rect = el.getBoundingClientRect?.();
+            if (!rect || rect.width < 180 || rect.height < 100) continue;
+          } catch {
+            continue;
+          }
+          return true;
+        }
+      }
+      return false;
+    }
     function shouldWarmupSidebarInBackground() {
       return keepSidebarVisible && !isSidebarAutoExpandSuppressedByViewport();
     }
     function ensureSidebarVisible() {
       if (!keepSidebarVisible) return false;
+      if (isGrokBlockingOverlayOpen()) return false;
       const open = isSidebarOpen();
       if (open === true) return true;
       if (open === false) return clickSidebarToggleButton();
@@ -3046,7 +3083,29 @@
       }
       sidebarWarmupTimer = null;
     }
+    function cancelSidebarWarmupRequest() {
+      if (sidebarWarmupRequestTimer === null) return;
+      try {
+        clearTimeout(sidebarWarmupRequestTimer);
+      } catch {
+      }
+      sidebarWarmupRequestTimer = null;
+    }
+    function requestSidebarWarmup({ attempts = 12, intervalMs = 400, delayMs = 0 } = {}) {
+      if (!shouldWarmupSidebarInBackground()) return;
+      const now = Date.now();
+      const delay = Math.max(0, Number(delayMs) || 0);
+      const cooldown = Math.max(0, SIDEBAR_WARMUP_REQUEST_COOLDOWN_MS - (now - sidebarLastWarmupRequestAt));
+      const waitMs = Math.max(delay, cooldown);
+      cancelSidebarWarmupRequest();
+      sidebarWarmupRequestTimer = window.setTimeout(() => {
+        sidebarWarmupRequestTimer = null;
+        sidebarLastWarmupRequestAt = Date.now();
+        startSidebarWarmup({ attempts, intervalMs });
+      }, waitMs);
+    }
     function startSidebarWarmup({ attempts = 20, intervalMs = 500 } = {}) {
+      cancelSidebarWarmupRequest();
       stopSidebarWarmup();
       if (!shouldWarmupSidebarInBackground()) return;
       let remaining = Math.max(1, Number(attempts) || 1);
@@ -3056,6 +3115,7 @@
           stopSidebarWarmup();
           return;
         }
+        if (isGrokBlockingOverlayOpen()) return;
         const open = isSidebarOpen();
         if (open === true) {
           stopSidebarWarmup();
@@ -3075,9 +3135,11 @@
         if (shouldWarmupSidebarInBackground()) {
           startSidebarWarmup();
         } else {
+          cancelSidebarWarmupRequest();
           stopSidebarWarmup();
         }
       } else {
+        cancelSidebarWarmupRequest();
         stopSidebarWarmup();
       }
       console.info(`${LOG_TAG} keep sidebar visible is now ${keepSidebarVisible ? "enabled" : "disabled"}.`);
@@ -3093,26 +3155,40 @@
         setTimeout(() => startSidebarWarmup(), 800);
       }
       let lastUrl = location.href;
-      const observer = new MutationObserver(() => {
+      const handlePossibleRouteChange = () => {
         const currentUrl = location.href;
-        if (currentUrl !== lastUrl) {
-          lastUrl = currentUrl;
-          startSidebarWarmup();
-        }
-      });
+        if (currentUrl === lastUrl) return;
+        lastUrl = currentUrl;
+        requestSidebarWarmup({
+          attempts: 16,
+          intervalMs: 350,
+          delayMs: SIDEBAR_WARMUP_URL_DELAY_MS
+        });
+      };
+      const observer = new MutationObserver(handlePossibleRouteChange);
       observer.observe(document.documentElement || document, { subtree: true, childList: true });
+      try {
+        window.addEventListener("popstate", handlePossibleRouteChange);
+        window.addEventListener("hashchange", handlePossibleRouteChange);
+      } catch {
+      }
       document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") startSidebarWarmup();
+        if (document.visibilityState === "visible") {
+          requestSidebarWarmup({ attempts: 10, intervalMs: 350, delayMs: 250 });
+        }
       });
       window.addEventListener("resize", () => {
         const suppressed = isSidebarAutoExpandSuppressedByViewport();
         if (suppressed === wasSidebarAutoExpandSuppressed) return;
         wasSidebarAutoExpandSuppressed = suppressed;
         if (suppressed) {
+          cancelSidebarWarmupRequest();
           stopSidebarWarmup();
           return;
         }
-        if (keepSidebarVisible) startSidebarWarmup();
+        if (keepSidebarVisible) {
+          requestSidebarWarmup({ attempts: 10, intervalMs: 350, delayMs: 250 });
+        }
       });
     }
     migrateGrokShortcuts();
