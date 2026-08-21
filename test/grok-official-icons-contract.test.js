@@ -14,7 +14,8 @@ test("Grok official model icons keep explicit paint so adaptive fill cannot blob
     assert.match(source, /M5 14\.25L14 4L13 9\.75H19L10 20L11 14\.25H5Z/);
     assert.match(source, /M12 16V12/);
     assert.match(source, /m15 12-8\.373 8\.373/);
-    assert.match(source, /M3 5\.5C3 4\.83696/);
+    assert.match(source, /M11 18H10C7\.79086 18 6 16\.2091 6 14V13/);
+    assert.doesNotMatch(source, /M3 5\.5C3 4\.83696/);
 });
 
 test("Grok chrome shortcuts use official grok.com icons and copy", () => {
@@ -33,6 +34,7 @@ test("Grok official icon markup paints every path before adaptive processing", (
     assert.match(source, /M2\.99561 7H20\.9956" stroke="currentColor" stroke-width="2" fill="none"/);
     assert.match(source, /M3\.33965 17L11\.9999 22L20\.6602 17V7L11\.9999 2L3\.33965 7V17Z" stroke="currentColor"/);
     assert.match(source, /m15 12-8\.373 8\.373a1 1 0 1 1-3-3L12 9" stroke="currentColor"/);
+    assert.match(source, /M11 18H10C7\.79086 18 6 16\.2091 6 14V13" stroke="currentColor" stroke-width="2" fill="none"/);
 });
 
 test("Grok migrates saved default shortcuts onto the official icon set and inserts Right Sidebar", () => {
